@@ -1,0 +1,53 @@
+name: radicle
+version: '0.0.0'
+author: Monadic <team@monadic.xyz>
+maintainer: Monadic <team@monadic.xyz>
+license: BSD3
+git: oscoin/radicle
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+dependencies:
+- base >=4 && <5
+- containers
+- megaparsec
+- mmorph
+- mtl
+- prettyprinter
+- text
+
+library:
+  source-dirs: src
+  ghc-options: -Wall
+
+tests:
+  spec:
+    main: Main.hs
+    source-dirs:
+    - test
+    ghc-options: -Wall
+    dependencies:
+    - base
+    - radicle
+    - QuickCheck
+    - quickcheck-instances
+    - string-qq
+    - tasty
+    - tasty-discover
+    - tasty-hunit
+    - tasty-quickcheck
+
+default-extensions:
+- AutoDeriveTypeable
+- DeriveDataTypeable
+- DeriveFunctor
+- DeriveGeneric
+- GeneralizedNewtypeDeriving
+- FlexibleContexts
+- OverloadedStrings
+- TupleSections
+- TypeFamilies
+- TypeOperators
+- RankNTypes
+- RecordWildCards
