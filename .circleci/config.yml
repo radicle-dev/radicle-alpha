@@ -1,0 +1,24 @@
+version: 2
+jobs:
+    build:
+        docker:
+            - image: fpco/stack-build:lts-11.9
+        steps:
+            - checkout
+            - restore_cache:
+                keys:
+                  - stack-work-v1-{{ checksum "stack.yaml" }}-{{ checksum "radicle.cabal" }}
+                  # If an exact match is unavailable, use the most recent one
+                  - stack-work-v1-
+                paths:
+                    - ~/.stack
+            - run:
+                name: Build
+                command: stack build --pedantic --no-terminal --fast
+            - run:
+                name: Test
+                command: stack test --pedantic --no-terminal --fast
+            - save_cache:
+                key: stack-work-v1-{{ checksum "stack.yaml" }}-{{ checksum "radicle.cabal" }}
+                paths:
+                    - ~/.stack
