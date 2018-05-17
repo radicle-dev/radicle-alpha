@@ -31,13 +31,31 @@ instance Pretty Value where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
 
 -- | A fast and compact layout. Primarily intended for testing.
+--
+-- Examples:
+--
+-- >>> renderCompactPretty (List [String "hi", String "there"])
+-- "'(\"hi\"\n\"there\")"
 renderCompactPretty :: Value -> Text
 renderCompactPretty = renderStrict . layoutCompact . pretty
 
 -- | Render prettily into text, with specified width.
+--
+-- Examples:
+--
+-- >>> renderPretty Unbounded (List [String "hi", String "there"])
+-- "'(\"hi\" \"there\")"
+--
+-- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"])
+-- "'(\"hi\"\n\"there\")"
 renderPretty :: PageWidth -> Value -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 
 -- | 'renderPretty', but with default layout options (80 chars, 1.0 ribbon)
+--
+-- Examples:
+--
+-- >>> renderPrettyDef (List [String "hi", String "there"])
+-- "'(\"hi\" \"there\")"
 renderPrettyDef :: Value -> Text
 renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . pretty

@@ -105,6 +105,11 @@ valueP = do
 -- * Utilities
 
 -- | Parse and evaluate a Text.
+--
+-- Examples:
+--
+-- >>> interpret "test" "((lambda (x) x) #t)"
+-- Right (Boolean True)
 interpret :: String -> Text -> Either LangError Value
 interpret sourceName expr = do
     parsed <- first ParseError $ parse valueP sourceName expr

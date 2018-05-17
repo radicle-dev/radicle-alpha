@@ -25,10 +25,9 @@ tests:
   spec:
     main: Main.hs
     source-dirs:
-    - test
-    ghc-options: -Wall
+    - test/spec
+    ghc-options: -Wall -threaded
     dependencies:
-    - base
     - radicle
     - QuickCheck
     - quickcheck-instances
@@ -37,6 +36,18 @@ tests:
     - tasty-discover
     - tasty-hunit
     - tasty-quickcheck
+  doctest:
+    main: Main.hs
+    source-dirs:
+    - test/docs
+    ghc-options: -Wall -threaded
+    other-modules:
+    - Paths_radicle
+    dependencies:
+    - radicle
+    - doctest
+    - Glob
+    - hpack
 
 default-extensions:
 - AutoDeriveTypeable
