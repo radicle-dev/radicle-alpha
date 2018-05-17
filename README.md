@@ -1,21 +1,21 @@
 # radicle
 
-TODO: Write description here
+> because 'tis the Origin of the Root... The Radicle is likewise called  the
+seminal Root.
+> - Vallemont, *Curiosities of nature and art in husbandry and gardening* (1707)
+
+A LISP in the spirit of [Black](http://pllab.is.ocha.ac.jp/~asai/Black/) and
+other colors.
 
 ## Installation
 
-TODO: Write installation instructions here
-
-## Usage
-
-TODO: Write usage instructions here
+Install stack. Then:
+```
+stack build
+```
 
 ## How to run tests
 
 ```
-cabal configure --enable-tests && cabal build && cabal test
+stack test
 ```
-
-## Contributing
-
-TODO: Write contribution instructions here
