@@ -38,7 +38,7 @@ parensP :: Parser m a -> Parser m a
 parensP = between (symbol "(" >> spaceConsumer) (spaceConsumer >> symbol ")")
 
 primopP :: Parser m Value
-primopP = Primop . Ident <$> (choice $ symbol . fromIdent <$> Map.keys primops)
+primopP = Primop . Ident <$> choice (symbol . fromIdent <$> Map.keys primops)
 
 stringLiteralP :: Parser m Value
 stringLiteralP = String . T.pack <$> (char '"' >> manyTill L.charLiteral (char '"'))
@@ -69,15 +69,14 @@ sortedMapP = do
     void $ symbol "sorted-map"
     SortedMap . Map.fromList <$> pairP `sepBy` spaceConsumer
   where
-    pairP = do
-      (,) <$> identP <*> valueP
+    pairP = (,) <$> identP <*> valueP
 
 lambdaP :: Monad m => Parser m Value
 lambdaP = do
     void $ symbol "lambda"
     vars <- parensP $ fmap atomToIdent <$> atomP `sepBy` spaceConsumer
     body <- valueP
-    return $ Lambda vars body Nothing
+    pure $ Lambda vars body Nothing
   where
     atomToIdent (Atom i) = i
     atomToIdent _        = error "impossible"
@@ -94,7 +93,7 @@ valueP = do
       , parensP appLike <?> "application"
       ]
   spaceConsumer
-  return v
+  pure v
   where
     appLike = choice
         [ lambdaP <?> "lambda"

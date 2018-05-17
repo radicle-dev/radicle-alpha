@@ -1,0 +1,33 @@
+# HLint configuration file
+
+- arguments: [-XTypeApplications]
+
+- modules:
+  - {name: [Data.Set, Data.HashSet],     as: Set}
+  - {name: [Data.Map],                   as: Map}
+  - {name: [Data.HashMap],               as: HashMap}
+  - {name: [Data.List.NonEmpty],         as: NonEmpty}
+  - {name: [Data.Sequence],              as: Seq}
+  - {name: [Data.Text],                  as: T}
+  - {name: [Data.Text.Lazy],             as: LT}
+  - {name: [Data.ByteString],            as: BS}
+  - {name: [Data.ByteString.Lazy],       as: LBS}
+  - {name: [Data.ByteString.Char8],      as: C8}
+  - {name: [Data.ByteString.Lazy.Char8], as: L8}
+
+- functions:
+  - {name: unsafePerformIO, within: []}
+
+- warn: {lhs: foldl, rhs: foldl'}
+- warn: {lhs: return, rhs: pure}
+- warn: {lhs: ap, rhs: (<*>)}
+
+- ignore: {name: Use map, within: [Crypto.Data.Auth.Tree.Proof]}
+
+- ignore: {name: Use ++}
+- ignore: {name: Use &&}
+- ignore: {name: Eta reduce}
+- ignore: {name: Use lambda-case}
+- ignore: {name: Use let}
+- ignore: {name: Use newtype instead of data}
+- ignore: {name: Redundant $}

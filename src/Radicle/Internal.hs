@@ -23,7 +23,7 @@ makeIdent = M.parseMaybe identP
 parse :: MonadError String m => String -> Text -> m Value
 parse file src = case M.parse valueP file src of
     Left err -> throwError $ M.parseErrorPretty' src err
-    Right v  -> return v
+    Right v  -> pure v
 
 -- | Like 'parse', but uses "(test)" as the source name
 parseTest :: MonadError String m => Text -> m Value

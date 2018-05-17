@@ -3,7 +3,7 @@ module Radicle.Internal.Core where
 
 import           Control.Monad.Except (ExceptT, MonadError, runExceptT,
                                        throwError)
-import           Control.Monad.Reader (MonadReader, Reader, ask, local,
+import           Control.Monad.Reader (MonadReader, Reader, ask, asks, local,
                                        runReader)
 import           Data.Bifunctor (first)
 import           Data.Data (Data)
@@ -156,10 +156,10 @@ eval val = case val of
             _ -> throwError $ TypeError "Trying to apply a non-function"
     Primop i -> pure $ Primop i
     e@(Lambda _ _ (Just _)) -> pure e
-    Lambda args body Nothing -> Lambda args body . Just <$> ask
+    Lambda args body Nothing -> asks $ Lambda args body . Just
     SortedMap mp -> do
         let evalSnd (a,b) = (a ,) <$> eval b
-        SortedMap . Map.fromList <$> traverse (evalSnd) (Map.toList mp)
+        SortedMap . Map.fromList <$> traverse evalSnd (Map.toList mp)
 
 -- * Helpers
 
