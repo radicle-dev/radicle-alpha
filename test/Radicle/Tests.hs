@@ -14,13 +14,14 @@ import           Test.Tasty.QuickCheck (testProperty, counterexample)
 import           Control.Monad.Morph (generalize, hoist)
 
 import           Radicle.Internal.Arbitrary ()
+import           Radicle.Internal.Core (identFromString)
 
 import           Radicle
 
 test_eval :: [TestTree]
 test_eval =
     [ testCase "Fails for undefined atoms" $
-        [s|blah|] `failsWith` UnknownIdentifier "blah"
+        [s|blah|] `failsWith` UnknownIdentifier (i "blah")
 
     , testCase "Succeeds for defined atoms" $ do
         let prog = [s|
@@ -31,7 +32,7 @@ test_eval =
 
     , testCase "'sorted-map' creates a SortedMap with given key/vals" $ do
         let prog = [s|(sorted-map why "not")|]
-        prog `succeedsWith` SortedMap (fromList [("why", String "not")])
+        prog `succeedsWith` SortedMap (fromList [(i "why", String "not")])
 
     , testCase "'eval' evaluates the list" $ do
         let prog = [s|(eval (quote #t))|]
@@ -103,16 +104,16 @@ test_parser =
         "#f" ==> Boolean False
 
     , testCase "parses primops" $ do
-        "boolean?" ==> Primop "boolean?"
-        "eval" ==> Primop "eval"
+        "boolean?" ==> Primop (i "boolean?")
+        "eval" ==> Primop (i "eval")
 
     , testCase "parses identifiers" $ do
-        "++" ==> Atom "++"
-        "what?crazy!" ==> Atom "what?crazy!"
+        "++" ==> Atom (i "++")
+        "what?crazy!" ==> Atom (i "what?crazy!")
 
     , testCase "parses function application" $ do
-        "(++)" ==> (Atom "++" $$ [])
-        "(++ \"merge\" \"d\")" ==> (Atom "++" $$ [String "merge", String "d"])
+        "(++)" ==> (Atom (i "++") $$ [])
+        "(++ \"merge\" \"d\")" ==> (Atom (i "++") $$ [String "merge", String "d"])
     ]
   where
     x ==> y = parseTest x @?= Right y
@@ -144,7 +145,7 @@ test_subscriber =
 test_pretty :: [TestTree]
 test_pretty =
     [ testProperty "pretty . parse == identity" $ \val ->
-        let rendered = compactPretty val
+        let rendered = renderCompactPretty val
             actual = parseTest rendered
             original = everywhere removeEnv val
             info = case actual of
@@ -170,3 +171,6 @@ test_env =
     [ testProperty "fromList . toList == identity" $ \(env :: Env) ->
         fromList (toList env) == env
     ]
+
+i :: String -> Ident
+i = identFromString

@@ -10,7 +10,7 @@ import           Radicle.Internal.Core as X
 import           Radicle.Internal.Parse as X
 import           Radicle.Internal.Pretty as X
 
-import Control.Monad.Except
+import           Control.Monad.Except
 import           Data.Text (Text)
 import qualified Text.Megaparsec as M
 

@@ -30,5 +30,14 @@ instance Pretty Value where
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
 
-compactPretty :: Value -> Text
-compactPretty = renderStrict . layoutCompact . pretty
+-- | A fast and compact layout. Primarily intended for testing.
+renderCompactPretty :: Value -> Text
+renderCompactPretty = renderStrict . layoutCompact . pretty
+
+-- | Render prettily into text, with specified width.
+renderPretty :: PageWidth -> Value -> Text
+renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
+
+-- | 'renderPretty', but with default layout options (80 chars, 1.0 ribbon)
+renderPrettyDef :: Value -> Text
+renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . pretty

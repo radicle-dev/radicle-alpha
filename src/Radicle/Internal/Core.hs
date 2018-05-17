@@ -5,6 +5,7 @@ import           Control.Monad.Except (ExceptT, MonadError, runExceptT,
                                        throwError)
 import           Control.Monad.Reader (MonadReader, Reader, ask, local,
                                        runReader)
+import           Data.Bifunctor (first)
 import           Data.Data (Data)
 import           Data.Map (Map)
 import qualified Data.Map as Map
@@ -12,7 +13,7 @@ import           Data.Semigroup (Semigroup, (<>))
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Void (Void)
-import           GHC.Exts (IsList(..), IsString)
+import           GHC.Exts (IsList(..), fromString)
 import           GHC.Generics (Generic)
 import qualified Text.Megaparsec.Error as Par
 
@@ -23,21 +24,23 @@ data LangError =
       UnknownIdentifier Ident
     | Impossible Text
     | TypeError Text
-    | WrongNumberOfArgs
-          Text   -- ^ function name
-          Int    -- ^ expected
-          Int    -- ^ actual
+    -- | Takes the function name, expected number of args, and actual number of
+    -- args
+    | WrongNumberOfArgs Text Int Int
     | OtherError Text
     | ParseError (Par.ParseError Char Void)
     deriving (Eq, Show, Read, Generic)
 
 -- | An identifier in the language.
 --
--- Not all Texts are valid identifiers, so you should not be using the Ident
--- constructor directly. Instead, use makeIdent from Oscoin.Language
+-- Not all `Text`s are valid identifiers, so we do not export the constructor.
+-- Instead, use `makeIdent`.
 newtype Ident = Ident { fromIdent :: Text }
-    deriving (Eq, Show, Read, Ord, Generic, IsString, Data)
+    deriving (Eq, Show, Read, Ord, Generic, Data)
 
+-- Unsafe!
+identFromString :: String -> Ident
+identFromString = Ident . fromString
 
 -- | An expression or value in the language.
 data Value =
@@ -50,10 +53,9 @@ data Value =
     | SortedMap (Map.Map Ident Value)
     -- | Since there are no side-effects, there is no point having a list of
     -- values for the body of a lambda.
-    | Lambda
-        [Ident]     -- ^ parameters
-        Value       -- ^ body.
-        (Maybe Env) -- ^ closure
+    --
+    -- Takes the arguments/parameters, a body, and possibly a closure.
+    | Lambda [Ident] Value (Maybe Env)
     deriving (Eq, Ord, Show, Read, Generic, Data)
 
 -- | The environment, which keeps all known bindings.
@@ -92,9 +94,9 @@ lookupPrimop i = case Map.lookup i primops of
     Just v  -> pure v
 
 -- | The universal primops. These are available in chain evaluation, and are
--- not shadowable.
+-- not shadowable via 'define'.
 primops :: Map Ident ([Value] -> LangM Value)
-primops = Map.fromList
+primops = Map.fromList $ first identFromString <$>
     [ ("eval", \args -> case args of
           [List (v:vs)] -> eval (Apply v vs)
           [Apply fn v ] -> eval =<< Apply <$> eval fn <*> traverse eval v
@@ -107,7 +109,7 @@ primops = Map.fromList
     , ("define", \args -> case args of
           [Atom name, val] -> do
               val' <- eval val
-              pure $ List [Atom "set!", Atom name, val']
+              pure $ List [Atom $ identFromString "set!", Atom name, val']
           [_, _] -> throwError $ OtherError "define expects atom for first arg"
           xs          -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
     , ("string?", \args -> case args of

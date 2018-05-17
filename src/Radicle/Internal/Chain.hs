@@ -34,9 +34,11 @@ instance (Semigroup (m a), Monoid (m a)) => Monoid (Subscriber m a) where
     mempty = Subscriber . ReaderT $ const mempty
     mappend = (<>)
 
+-- | A helper for running subscribers.
 runSubscriber :: Subscriber m a -> Value -> m a
 runSubscriber = runReaderT . fromSubscriber
 
+-- | A helper for making subscribers.
 makeSubscriber :: (Value -> m a) -> Subscriber m a
 makeSubscriber = Subscriber . ReaderT
 
@@ -83,8 +85,8 @@ genesisChain = Chain
 
 updateEnv :: Value -> Env -> Env
 updateEnv v = case v of
-  List [Atom "set!", Atom a, val] -> setEnv a val
-  _                               -> id
+  List [Atom (Ident "set!"), Atom a, val] -> setEnv a val
+  _ -> id
 
 
 -- | Fold a chain. All effects are accumulated with a monoid instance.

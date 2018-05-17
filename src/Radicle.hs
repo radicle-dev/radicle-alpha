@@ -1,6 +1,11 @@
+-- | radicle - A LISP for blocktrees.
+--
+-- This is the only module you should need to import.
 module Radicle
     (
     -- * Language
+    --
+    -- | The definition of the core language.
       Value(..)
     , interpret
     , LangError(..)
@@ -28,8 +33,13 @@ module Radicle
     , parseTest
 
     -- * Pretty-printing
-    , compactPretty
+    , renderPretty
+    , renderPrettyDef
+    , renderCompactPretty
+    -- ** Re-exports
+    , PageWidth(..)
 
     ) where
 
-import Radicle.Internal
+import           Data.Text.Prettyprint.Doc
+import           Radicle.Internal
