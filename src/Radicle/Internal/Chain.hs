@@ -1,7 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Radicle.Internal.Chain where
 
 import           Control.Applicative (Alternative)
+import           Control.Lens (makeLenses, (&), (.~), (%~), (^.), mapped, (<>~))
 import           Control.Monad (foldM)
 import           Control.Monad.Except (ExceptT(..), throwError)
 import           Control.Monad.Fail (MonadFail)
@@ -44,70 +46,73 @@ makeSubscriber = Subscriber . ReaderT
 
 -- | A blockchain definition.
 data Chain m a = Chain
-    { chainName       :: [Text]
+    { _name        :: [Text]
     -- | The fold function.
-    , chainStep       :: Env -> Value -> Either LangError Value
-    , chainEnv        :: Env
+    , _step        :: Env -> Value -> Either LangError Value
+    , _env         :: Env
     -- | How to update the env, given a new value.
-    , chainUpdateEnv  :: Value -> Env -> Env
-    -- | 'chainSubscriber' is called with each new Env and with evaluated
+    , _updateEnv   :: Value -> Env -> Env
+    -- | 'chainSubscribers' is called with each new Env and with evaluated
     -- Value.
-    , chainSubscriber :: Subscriber m a
+    , _subscribers :: [Subscriber m a]
     } deriving (Functor, Generic)
+
+makeLenses ''Chain
 
 
 instance MFunctor Chain where
-    hoist nat chain =
-        chain { chainSubscriber = hoist nat $ chainSubscriber chain }
+    hoist nat chain = chain & subscribers . mapped %~ hoist nat
 
 -- | A simple chain is one where we can ignore all subscribers.
 type SimpleChain a = Chain Proxy a
 
 -- | Add a subscriber to a chain. The values are combined with mappend for 'm
 -- a'.
-addSubscriber :: Semigroup (m a) => Chain m a -> Subscriber m a -> Chain m a
-addSubscriber chain newCB
-    = chain { chainSubscriber = chainSubscriber chain <> newCB }
+addSubscriber :: Chain m a -> Subscriber m a -> Chain m a
+addSubscriber chain newCB = chain & subscribers <>~ [newCB]
 
 -- | Removes all subscribers.
-removeSubscribers :: (Semigroup (n b), Monoid (n b)) => Chain m a -> Chain n b
-removeSubscribers chain = chain { chainSubscriber = mempty }
+removeSubscribers :: Chain m a -> Chain n b
+removeSubscribers chain = chain & subscribers .~ mempty
 
 -- | The default genesis chain.
 genesisChain :: Chain Identity Value
 genesisChain = Chain
-    { chainName = []
-    , chainEnv = mempty
-    , chainStep = \env val -> runLangM env (eval val)
-    , chainUpdateEnv = updateEnv
-    , chainSubscriber = Subscriber ask
+    { _name = []
+    , _env = mempty
+    , _step = \env' val -> runLangM env' (eval val)
+    , _updateEnv = upd
+    , _subscribers = [Subscriber ask]
     }
+  where
+    upd :: Value -> Env -> Env
+    upd v = case v of
+      List [Atom (Ident "set!"), Atom a, val] -> setEnv a val
+      _                                       -> id
 
-updateEnv :: Value -> Env -> Env
-updateEnv v = case v of
-  List [Atom (Ident "set!"), Atom a, val] -> setEnv a val
-  _ -> id
 
 
 -- | Fold a chain. All effects are accumulated with a monoid instance.
-foldChain :: forall m a t. (Monoid (m a), Foldable t)
-    => Chain m a -> t Value -> Either LangError (Chain m a, m a)
+foldChain :: forall m a t. (Foldable t)
+    => Chain m a -> t Value -> Either LangError (Chain m a, [m a])
 foldChain chain vals = runWriterT $ foldM runChainStep chain vals
   where
-    runChainStep :: Chain m a -> Value -> WriterT (m a) (Either LangError) (Chain m a)
-    runChainStep chain'@Chain{..} val = do
-        let mEvaled = chainStep chainEnv val
+    runChainStep :: Chain m a -> Value -> WriterT [m a] (Either LangError) (Chain m a)
+    runChainStep chain' val = do
+        let mEvaled = (chain' ^. step) (chain' ^. env) val
         case mEvaled of
             Left err     -> throwError err
             Right evaled ->
-                let newChain = chain' { chainEnv = chainUpdateEnv evaled chainEnv }
-                in writer (newChain, runSubscriber chainSubscriber evaled)
+                let newChain = chain' & env %~ ((chain' ^. updateEnv) evaled)
+                    effs = chain' ^. subscribers
+                         & mapped %~ (`runSubscriber` evaled)
+                in writer (newChain, effs)
 
 
 -- | Fold a chain from a source file. The String argument is the name of the
 -- source file/block, used for error reporting.
 foldChainFromSrc :: Monoid (m a)
-    => String -> Text -> Chain m a -> Either LangError (Chain m a, m a)
+    => String -> Text -> Chain m a -> Either LangError (Chain m a, [m a])
 foldChainFromSrc sourceName srcCode chain =
     let exprs = first ParseError <$> parseValues sourceName srcCode
     in foldChain chain $ ExceptT exprs

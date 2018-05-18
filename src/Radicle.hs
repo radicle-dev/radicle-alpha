@@ -21,6 +21,12 @@ module Radicle
     , genesisChain
     , foldChain
     , foldChainFromSrc
+    -- ** Chain lenses
+    , name
+    , step
+    , env
+    , updateEnv
+    , subscribers
 
     -- * Subscribers
     , Subscriber(..)
@@ -39,6 +45,8 @@ module Radicle
     -- ** Re-exports
     , PageWidth(..)
 
+    -- * REPL
+    , repl
     ) where
 
 import           Data.Text.Prettyprint.Doc
