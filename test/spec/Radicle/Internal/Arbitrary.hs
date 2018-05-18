@@ -1,14 +1,16 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Arbitrary where
 
-import           Data.Bifunctor (first)
-import qualified Data.Map as Map
-import qualified Data.Text as T
+import           Control.Monad.Identity    (Identity)
+import           Data.Bifunctor            (first)
+import qualified Data.Map                  as Map
+import qualified Data.Text                 as T
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 import           Radicle
-import           Radicle.Internal.Parse (isValidIdentFirst, isValidIdentRest)
+import           Radicle.Internal.Core     (purePrimops)
+import           Radicle.Internal.Parse    (isValidIdentFirst, isValidIdentRest)
 
 instance Arbitrary Env where
     arbitrary = Env <$> arbitrary
@@ -20,7 +22,7 @@ instance Arbitrary Value where
                 , (3, String <$> arbitrary)
                 , (3, Boolean <$> arbitrary)
                 , (1, List <$> sizedList)
-                , (3, Primop <$> elements (Map.keys primops))
+                , (3, Primop <$> elements (Map.keys prims))
                 , (1, Apply <$> scale (`div` 2) arbitrary <*> sizedList)
                 , (3, SortedMap . Map.fromList <$> sizedList)
                 , (1, Lambda <$> sizedList
@@ -33,7 +35,8 @@ instance Arbitrary Value where
         sizedList = sized $ \n -> do
             k <- choose (0, n)
             scale (`div` (k + 1)) $ vectorOf k arbitrary
-
+        prims :: Map.Map Ident ([Value] -> Lang Identity Value)
+        prims = purePrimops
 
 instance Arbitrary Ident where
     arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (makeIdent . T.pack)
