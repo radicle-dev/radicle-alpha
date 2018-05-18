@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 650d134dbbffbd2db37d84261d172a107bc0865d8252df4b363e7bdca4bedeb5
+-- hash: f2d25e5297d64cdd5ede7b86bd9a27dda9ed145d9aabeeabcfe7d4e7d84175c9
 
 name:           radicle
 version:        0.0.0
@@ -29,10 +29,14 @@ library
   build-depends:
       base >=4 && <5
     , containers
+    , free
+    , haskeline
+    , lens
     , megaparsec
     , mmorph
     , mtl
     , prettyprinter
+    , safe
     , text
   exposed-modules:
       Radicle
@@ -41,6 +45,29 @@ library
       Radicle.Internal.Core
       Radicle.Internal.Parse
       Radicle.Internal.Pretty
+      Radicle.Internal.Repl
+  other-modules:
+      Paths_radicle
+  default-language: Haskell2010
+
+executable repl
+  main-is: Repl.hs
+  hs-source-dirs:
+      exe
+  default-extensions: AutoDeriveTypeable DeriveDataTypeable DeriveFunctor DeriveGeneric GeneralizedNewtypeDeriving FlexibleContexts OverloadedStrings TupleSections TypeFamilies TypeOperators RankNTypes RecordWildCards
+  build-depends:
+      base >=4 && <5
+    , containers
+    , free
+    , haskeline
+    , lens
+    , megaparsec
+    , mmorph
+    , mtl
+    , prettyprinter
+    , radicle
+    , safe
+    , text
   other-modules:
       Paths_radicle
   default-language: Haskell2010
@@ -57,12 +84,16 @@ test-suite doctest
     , base >=4 && <5
     , containers
     , doctest
+    , free
+    , haskeline
     , hpack
+    , lens
     , megaparsec
     , mmorph
     , mtl
     , prettyprinter
     , radicle
+    , safe
     , text
   other-modules:
       Paths_radicle
@@ -79,12 +110,16 @@ test-suite spec
       QuickCheck
     , base >=4 && <5
     , containers
+    , free
+    , haskeline
+    , lens
     , megaparsec
     , mmorph
     , mtl
     , prettyprinter
     , quickcheck-instances
     , radicle
+    , safe
     , string-qq
     , tasty
     , tasty-discover

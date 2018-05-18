@@ -31,8 +31,6 @@ module Radicle
     -- * Subscribers
     , Subscriber(..)
     , makeSubscriber
-    , addSubscriber
-    , removeSubscribers
 
     -- * Parsing
     , parse

@@ -3,15 +3,16 @@
 module Radicle.Internal.Chain where
 
 import           Control.Applicative (Alternative)
-import           Control.Lens (makeLenses, (&), (.~), (%~), (^.), mapped, (<>~))
+import           Control.Lens (makeLenses, mapped, (%~), (&), (^.))
 import           Control.Monad (foldM)
 import           Control.Monad.Except (ExceptT(..), throwError)
 import           Control.Monad.Fail (MonadFail)
-import           Control.Monad.Identity (Identity, MonadFix, MonadPlus)
+import           Control.Monad.Identity (Identity(Identity), MonadFix, MonadPlus)
 import           Control.Monad.Morph (MFunctor(hoist), MMonad)
-import           Control.Monad.Reader (MonadReader, ReaderT(..), ask)
+import           Control.Monad.Reader (MonadReader, Reader, runReader, reader, ask)
 import           Control.Monad.Trans
 import           Control.Monad.Writer (WriterT(..), writer)
+import           Control.Monad.Trans.Free
 import           Data.Bifunctor (first)
 import           Data.Proxy (Proxy)
 import           Data.Semigroup (Semigroup, (<>))
@@ -23,29 +24,27 @@ import           Radicle.Internal.Parse
 
 -- | Subscribers receive (evaluated) values from a chain, and can perform
 -- side-effects.
-newtype Subscriber m a = Subscriber { fromSubscriber :: ReaderT Value m a }
-    deriving ( Generic, Functor, Monad, Applicative, MonadIO, MonadReader Value
-             , Alternative, MonadPlus, MonadFix, MonadTrans, MonadFail, MFunctor
-             , MMonad)
+newtype Subscriber a = Subscriber { fromSubscriber :: Reader Value a }
+    deriving ( Generic, Functor, Monad, Applicative, MonadReader Value)
 
-instance Semigroup (m a) => Semigroup (Subscriber m a) where
-    Subscriber a <> Subscriber b = Subscriber . ReaderT $ \v ->
-        runReaderT a v <> runReaderT b v
+instance Semigroup a => Semigroup (Subscriber a) where
+    Subscriber a <> Subscriber b = reader $ \v ->
+        runReader a v <> runReader b v
 
-instance (Semigroup (m a), Monoid (m a)) => Monoid (Subscriber m a) where
-    mempty = Subscriber . ReaderT $ const mempty
+instance (Semigroup a, Monoid a) => Monoid (Subscriber a) where
+    mempty = reader $ const mempty
     mappend = (<>)
 
 -- | A helper for running subscribers.
-runSubscriber :: Subscriber m a -> Value -> m a
-runSubscriber = runReaderT . fromSubscriber
+runSubscriber :: Subscriber a -> Value -> a
+runSubscriber = runReader . fromSubscriber
 
 -- | A helper for making subscribers.
-makeSubscriber :: (Value -> m a) -> Subscriber m a
-makeSubscriber = Subscriber . ReaderT
+makeSubscriber :: (Value -> a) -> Subscriber a
+makeSubscriber = reader
 
 -- | A blockchain definition.
-data Chain m a = Chain
+data Chain a = Chain
     { _name        :: [Text]
     -- | The fold function.
     , _step        :: Env -> Value -> Either LangError Value
@@ -54,29 +53,21 @@ data Chain m a = Chain
     , _updateEnv   :: Value -> Env -> Env
     -- | 'chainSubscribers' is called with each new Env and with evaluated
     -- Value.
-    , _subscribers :: [Subscriber m a]
+    , _subscribers :: [Subscriber a]
     } deriving (Functor, Generic)
 
 makeLenses ''Chain
 
+{-instance MFunctor Chain where-}
+    {-hoist nat chain = chain & subscribers . mapped %~ hoist nat-}
 
-instance MFunctor Chain where
-    hoist nat chain = chain & subscribers . mapped %~ hoist nat
+type ChainF m a = FreeT Chain m a
 
 -- | A simple chain is one where we can ignore all subscribers.
-type SimpleChain a = Chain Proxy a
-
--- | Add a subscriber to a chain. The values are combined with mappend for 'm
--- a'.
-addSubscriber :: Chain m a -> Subscriber m a -> Chain m a
-addSubscriber chain newCB = chain & subscribers <>~ [newCB]
-
--- | Removes all subscribers.
-removeSubscribers :: Chain m a -> Chain n b
-removeSubscribers chain = chain & subscribers .~ mempty
+{-type SimpleChain a = Chain Proxy a-}
 
 -- | The default genesis chain.
-genesisChain :: Chain Identity Value
+genesisChain :: Chain Value
 genesisChain = Chain
     { _name = []
     , _env = mempty
@@ -91,7 +82,22 @@ genesisChain = Chain
       _                                       -> id
 
 
+-- |
+foldChainF :: Functor m => ChainF m a -> m ()
+foldChainF = foldFreeT _
+  {-where-}
+    -- Is there no class for this? Seems like MFunctor is almost there...
+    {-lame1 :: Subscriber m a -> Subscriber Identity (m a)-}
+    {-lame1 f = makeSubscriber $ \v -> Identity $ runSubscriber f v-}
 
+    {-lame2 :: Chain m a -> Chain Identity (m a)-}
+    {-lame2 c = c & subscribers . mapped %~ lame1-}
+
+    {-go :: Chain Identity a -> a-}
+    {-go c = error "notimpl"-}
+
+
+{-
 -- | Fold a chain. All effects are accumulated with a monoid instance.
 foldChain :: forall m a t. (Foldable t)
     => Chain m a -> t Value -> Either LangError (Chain m a, [m a])
@@ -116,3 +122,4 @@ foldChainFromSrc :: Monoid (m a)
 foldChainFromSrc sourceName srcCode chain =
     let exprs = first ParseError <$> parseValues sourceName srcCode
     in foldChain chain $ ExceptT exprs
+    -}

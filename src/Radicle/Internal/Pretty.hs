@@ -2,10 +2,11 @@
 module Radicle.Internal.Pretty where
 
 import qualified Data.Map as Map
+import           Data.Text (Text)
 import qualified Data.Text as T
-import Data.Text (Text)
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
+import Text.Megaparsec.Error
 
 import           Radicle.Internal.Core
 
@@ -30,13 +31,29 @@ instance Pretty Value where
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
 
+instance Pretty LangError where
+    pretty v = case v of
+        UnknownIdentifier i -> "unknown identifier " <+> pretty i
+        Impossible i -> "the impossible happened! " <+> pretty i
+        TypeError t -> "type error:" <+> pretty t
+        WrongNumberOfArgs t expected actual ->
+            "wrong number of args :" <+> pretty t <> nest 2 (
+                    "expected" <+> pretty expected <>
+                    line <>
+                    "but got" <+> pretty actual)
+        OtherError i -> "error: " <+> pretty i
+        ParseError i ->
+            "parse error:" <>
+            line <>
+            pretty (parseErrorPretty i)
+
 -- | A fast and compact layout. Primarily intended for testing.
 --
 -- Examples:
 --
 -- >>> renderCompactPretty (List [String "hi", String "there"])
 -- "'(\"hi\"\n\"there\")"
-renderCompactPretty :: Value -> Text
+renderCompactPretty :: Pretty v => v -> Text
 renderCompactPretty = renderStrict . layoutCompact . pretty
 
 -- | Render prettily into text, with specified width.
@@ -48,7 +65,7 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 --
 -- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"])
 -- "'(\"hi\"\n\"there\")"
-renderPretty :: PageWidth -> Value -> Text
+renderPretty :: Pretty v => PageWidth -> v -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 
 -- | 'renderPretty', but with default layout options (80 chars, 1.0 ribbon)
@@ -57,5 +74,5 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 --
 -- >>> renderPrettyDef (List [String "hi", String "there"])
 -- "'(\"hi\" \"there\")"
-renderPrettyDef :: Value -> Text
+renderPrettyDef :: Pretty v => v -> Text
 renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . pretty

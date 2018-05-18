@@ -9,6 +9,7 @@ import           Radicle.Internal.Chain as X
 import           Radicle.Internal.Core as X
 import           Radicle.Internal.Parse as X
 import           Radicle.Internal.Pretty as X
+import           Radicle.Internal.Repl as X
 
 import           Control.Monad.Except
 import           Data.Text (Text)

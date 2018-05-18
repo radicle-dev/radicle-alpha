@@ -11,15 +11,27 @@ extra-source-files:
 dependencies:
 - base >=4 && <5
 - containers
+- free
+- haskeline
+- lens
 - megaparsec
 - mmorph
 - mtl
 - prettyprinter
+- safe
 - text
 
 library:
   source-dirs: src
   ghc-options: -Wall
+
+executables:
+  repl:
+    main: Repl.hs
+    source-dirs:
+    - exe
+    dependencies:
+    - radicle
 
 tests:
   spec:
