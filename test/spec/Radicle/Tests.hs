@@ -88,7 +88,8 @@ test_eval =
         prog `failsWith` OtherError "define expects atom for first arg"
     ]
   where
-    run src              = runLangM pureEmptyEnv $ interpretMany "(test)" src
+    run src              = runIdentity $ runLang pureEmptyEnv
+                                       $ interpretMany "(test)" src
     failsWith src err    = run src @?= Left err
     succeedsWith src val = run src @?= Right val
 
@@ -156,7 +157,7 @@ test_repl_primops =
     ]
     where
       run inp prog = fst $ runTestWith replBindings inp
-                   $ interpretMany "(test)" prog
+                         $ interpretMany "(test)" prog
 
 
 -- * Utils

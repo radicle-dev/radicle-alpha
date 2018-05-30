@@ -3,20 +3,18 @@
 -- Radicle.Internal.Subscriber.Capabilities that may be used for testing.
 module Radicle.Internal.TestCapabilities where
 
-import Control.Lens
-import Control.Monad.State
-import Data.Text (Text)
+import           Control.Monad.State
+import           Data.Text (Text)
 
-import Radicle
-import Radicle.Internal.Subscriber.Capabilities
+import           Radicle
+import           Radicle.Internal.Subscriber.Capabilities
 
 data WorldState = WorldState
-    { _worldStateStdin :: [Text]
-    , _worldStateStdout :: [Text]
-    , _worldStateEnv :: Env
+    { worldStateStdin  :: [Text]
+    , worldStateStdout :: [Text]
+    , worldStateEnv    :: Env
     }
 
-makeFields ''WorldState
 
 type TestLang = Lang (State WorldState)
 
@@ -28,12 +26,12 @@ runTestWith
     -> (Either LangError a, [Text])
 runTestWith bindings inputs action =
     let ws = WorldState
-            { _worldStateStdin = inputs
-            , _worldStateStdout = []
-            , _worldStateEnv = bindings ^. env
+            { worldStateStdin = inputs
+            , worldStateStdout = []
+            , worldStateEnv = bindingsEnv bindings
             }
-    in case runState (runLangT bindings action) ws of
-        (val, st) -> (val, reverse $ st ^. stdout)
+    in case runState (runLang bindings action) ws of
+        (val, st) -> (val, reverse $ worldStateStdout st)
 
 -- | Like `runTestWith`, but uses the pureEmptyEnv
 runTestWith' :: [Text] -> TestLang a -> (Either LangError a, [Text])
@@ -41,7 +39,10 @@ runTestWith' = runTestWith pureEmptyEnv
 
 
 instance Stdin (State WorldState) where
-    getLineS = head <$> (stdin <<%= tail)
+    getLineS = do
+        ws <- get
+        put $ ws { worldStateStdin = tail $ worldStateStdin ws }
+        pure $ head $ worldStateStdin ws
 
 instance Stdout (State WorldState) where
-    putStrS t = stdout %= (t:)
+    putStrS t = modify (\ws -> ws { worldStateStdout = t:worldStateStdout ws })

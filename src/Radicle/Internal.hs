@@ -1,6 +1,6 @@
 module Radicle.Internal
     ( module X
-    , makeIdent
+    , mkIdent
     ) where
 
 import           Radicle.Internal.Core as X
@@ -13,7 +13,7 @@ import           Data.Text (Text)
 import qualified Text.Megaparsec as M
 
 -- | Smart constructor for Ident.
-makeIdent :: Text -> Maybe Ident
-makeIdent t = case runReader (M.runParserT identP "" t) [] of
+mkIdent :: Text -> Maybe Ident
+mkIdent t = case runReader (M.runParserT identP "" t) [] of
     Left _ -> Nothing
     Right v -> pure v

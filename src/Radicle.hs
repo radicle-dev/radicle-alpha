@@ -19,17 +19,15 @@ module Radicle
     , ($$)
     , Ident
     , fromIdent
-    , makeIdent
+    , mkIdent
     , Env(..)
     , pureEmptyEnv
     , Lang
-    , runLangM
-    , runLangT
-    , Bindings
+    , runLang
+    , Bindings(..)
     , replBindings
-    -- ** Core lenses
-    , HasEnv(..)
-    , HasPrimops(..)
+    -- ** Re-exports
+    , runIdentity
 
     -- * Parsing
     , parse
@@ -46,5 +44,7 @@ module Radicle
     , repl
     ) where
 
+import           Control.Monad.Identity (runIdentity)
 import           Data.Text.Prettyprint.Doc
 import           Radicle.Internal
+

@@ -1,12 +1,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Radicle.Internal.Subscriber where
 
-import           Control.Lens (at, (&), (<>~), (?~), (^.))
 import           Control.Monad.Except
 import           Control.Monad.State (gets)
 import           Data.Bifunctor (first)
 import           Data.Either
 import qualified Data.Map as Map
+import           Data.Monoid ((<>))
 import           Data.Text (Text)
 import           System.Console.Haskeline
 
@@ -20,14 +20,17 @@ type ReplM m = (Stdout m, Stdin m, GetEnv (Lang m), SetEnv (Lang m))
 repl :: Text -> IO ()
 repl preCode = do
     r <- runInputT defaultSettings
-        $ runLangT replBindings
+        $ runLang replBindings
         $ interpretMany "[pre]" preCode
     print r
 
-replBindings :: ReplM m => Bindings m
-replBindings = pureEmptyEnv & primops <>~ replPrimops
+replBindings :: forall m. ReplM m => Bindings m
+replBindings = e { bindingsPrimops = bindingsPrimops e <> replPrimops }
+    where
+      e :: Bindings m
+      e = pureEmptyEnv
 
-replPrimops :: forall m. ReplM m => Prims m
+replPrimops :: forall m. ReplM m => Primops m
 replPrimops = Map.fromList $ first identFromString <$>
     [ ("print!", \args -> case args of
         [x] -> do
@@ -39,7 +42,7 @@ replPrimops = Map.fromList $ first identFromString <$>
     , ("set-env!", \args -> case args of
         [Atom x, v] -> do
             v' <- eval v
-            modifyEnvS (\e -> e & at x ?~ v')
+            defineAtom x v'
             pure nil
         [_, _] -> throwError $ TypeError "Expected atom as first arg"
         xs  -> throwError $ WrongNumberOfArgs "set-env!" 2 (length xs))
@@ -47,7 +50,7 @@ replPrimops = Map.fromList $ first identFromString <$>
     , ("get-line!", \args -> case args of
         [] -> do
             ln <- getLineS
-            allPrims <- gets (^. primops)
+            allPrims <- gets bindingsPrimops
             let p = parseValues "[stdin]" ln (Map.keys allPrims)
             case partitionEithers p of
                 ([], results) -> pure $ List results
@@ -59,7 +62,7 @@ replPrimops = Map.fromList $ first identFromString <$>
             x' <- eval x
             v' <- eval v
             case (x', v') of
-                (SortedMap m, fn) -> case m ^. at (identFromString "getter") of
+                (SortedMap m, fn) -> case Map.lookup (identFromString "getter") m of
                     Nothing -> throwError
                         $ OtherError "subscribe-to!: Expected 'getter' key"
                     Just g -> go

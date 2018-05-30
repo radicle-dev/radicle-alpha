@@ -12,7 +12,6 @@ dependencies:
 - base >=4 && <5
 - containers
 - haskeline
-- lens
 - megaparsec
 - mmorph
 - mtl
@@ -53,9 +52,8 @@ tests:
 
 executables:
   repl:
-    main: Repl.hs
-    source-dirs:
-    - exe
+    main: Main.hs
+    source-dirs: repl
     dependencies:
     - radicle
     ghc-options: -Wall -threaded

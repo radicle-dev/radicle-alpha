@@ -7,7 +7,7 @@ jobs:
             - checkout
             - restore_cache:
                 keys:
-                  - stack-work-v1-{{ checksum "stack.yaml" }}-{{ checksum "radicle.cabal" }}
+                  - stack-work-v1-{{ checksum "stack.yaml" }}-{{ checksum "package.yaml" }}
                   # If an exact match is unavailable, use the most recent one
                   - stack-work-v1-
                 paths:
@@ -19,6 +19,6 @@ jobs:
                 name: Test
                 command: stack test --pedantic --no-terminal --fast
             - save_cache:
-                key: stack-work-v1-{{ checksum "stack.yaml" }}-{{ checksum "radicle.cabal" }}
+                key: stack-work-v1-{{ checksum "stack.yaml" }}-{{ checksum "package.yaml" }}
                 paths:
                     - ~/.stack

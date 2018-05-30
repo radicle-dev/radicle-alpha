@@ -2,7 +2,6 @@
 module Radicle.Internal.Parse where
 
 import           Control.Applicative (many, (<|>))
-import           Control.Lens ((^.))
 import           Control.Monad (void)
 import           Control.Monad.Except
 import           Control.Monad.Identity (Identity)
@@ -122,22 +121,22 @@ valueP = do
 -- >>> interpret "test" "(#t #f)" pureEmptyEnv
 -- Left (TypeError "Trying to apply a non-function")
 interpret :: Monad m => String -> Text -> Bindings m -> m (Either LangError Value)
-interpret sourceName expr re = do
-    let primopNames = Map.keys (re ^. primops)
+interpret sourceName expr bnds = do
+    let primopNames = Map.keys (bindingsPrimops bnds)
         parsed = runReader (runParserT valueP sourceName expr) primopNames
     case parsed of
         Left e  -> pure . Left $ ParseError e
-        Right v -> runLangT re $ eval v
+        Right v -> runLang bnds $ eval v
 
 -- | Parse and evaluate a Text as multiple expressions.
 --
 -- Examples:
 --
--- >>> runLangM pureEmptyEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
+-- >>> runLang pureEmptyEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
 -- Right (Boolean True)
 interpretMany :: Monad m => String -> Text -> Lang m Value
 interpretMany sourceName src = do
-    primopNames <- gets $ \re -> Map.keys (re ^. primops)
+    primopNames <- gets $ Map.keys . bindingsPrimops
     let parsed = parseValues sourceName src primopNames
     case partitionEithers parsed of
         ([], vs) -> last <$> mapM eval vs
@@ -182,7 +181,7 @@ parse file src ids = do
 -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- primops.
 parseTest :: MonadError String m => Text -> m Value
-parseTest t = parse "(test)" t (Map.keys $ e ^. primops)
+parseTest t = parse "(test)" t (Map.keys $ bindingsPrimops e)
   where
     e :: Bindings (Lang Identity)
     e = pureEmptyEnv

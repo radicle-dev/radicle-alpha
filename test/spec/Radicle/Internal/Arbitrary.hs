@@ -39,7 +39,7 @@ instance Arbitrary Value where
         prims = purePrimops
 
 instance Arbitrary Ident where
-    arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (makeIdent . T.pack)
+    arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (mkIdent . T.pack)
       where
         allChars = take 100 ['!' .. maxBound]
         firstL = elements $ filter isValidIdentFirst allChars
