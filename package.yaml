@@ -19,6 +19,9 @@ dependencies:
 - syb
 - text
 
+data-files:
+- repl/config.rad
+
 library:
   source-dirs: src
   ghc-options: -Wall

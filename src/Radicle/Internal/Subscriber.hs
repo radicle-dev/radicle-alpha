@@ -15,7 +15,8 @@ import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.Subscriber.Capabilities
 
-type ReplM m = (Stdout m, Stdin m, GetEnv (Lang m), SetEnv (Lang m))
+type ReplM m = ( Monad m, Stdout (Lang m), Stdin (Lang m), GetEnv (Lang m)
+               , SetEnv (Lang m))
 
 repl :: Text -> IO ()
 repl preCode = do
@@ -28,7 +29,7 @@ replBindings :: forall m. ReplM m => Bindings m
 replBindings = e { bindingsPrimops = bindingsPrimops e <> replPrimops }
     where
       e :: Bindings m
-      e = pureEmptyEnv
+      e = pureEnv
 
 replPrimops :: forall m. ReplM m => Primops m
 replPrimops = Map.fromList $ first identFromString <$>
@@ -59,8 +60,8 @@ replPrimops = Map.fromList $ first identFromString <$>
 
     , ("subscribe-to!", \args -> case args of
         [x, v] -> do
-            x' <- eval x
-            v' <- eval v
+            x' <- coreEval x
+            v' <- coreEval v
             case (x', v') of
                 (SortedMap m, fn) -> case Map.lookup (identFromString "getter") m of
                     Nothing -> throwError
@@ -68,8 +69,8 @@ replPrimops = Map.fromList $ first identFromString <$>
                     Just g -> go
                       where
                         go = do
-                            newBlock <- eval g
-                            _ <- eval (fn $$ [newBlock])
+                            newBlock <- eval =<< coreEval g
+                            _ <- coreEval (fn $$ [newBlock])
                             go
                 _  -> throwError $ TypeError "subscribe-to!: Expected sorted-map"
         xs  -> throwError $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))

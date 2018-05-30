@@ -21,7 +21,7 @@ module Radicle
     , fromIdent
     , mkIdent
     , Env(..)
-    , pureEmptyEnv
+    , pureEnv
     , Lang
     , runLang
     , Bindings(..)

@@ -16,8 +16,8 @@ import           Test.Tasty.QuickCheck (counterexample, testProperty)
 import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (identFromString)
 import           Radicle.Internal.TestCapabilities
-
 import           Radicle
+import           Paths_radicle
 
 test_eval :: [TestTree]
 test_eval =
@@ -87,9 +87,16 @@ test_eval =
     , testCase "'define' fails when first arg is not an atom" $ do
         let prog = [s|(define "hi" "there")|]
         prog `failsWith` OtherError "define expects atom for first arg"
+
+    , testCase "evaluation can be redefined" $ do
+        let prog = [s|
+            (define eval (lambda (x) #f))
+            #t
+            |]
+        prog `succeedsWith` Boolean False
     ]
   where
-    run src              = runIdentity $ runLang pureEmptyEnv
+    run src              = runIdentity $ runLang pureEnv
                                        $ interpretMany "(test)" src
     failsWith src err    = run src @?= Left err
     succeedsWith src val = run src @?= Right val
@@ -105,7 +112,7 @@ test_parser =
 
     , testCase "parses primops" $ do
         "boolean?" ==> Primop (i "boolean?")
-        "eval" ==> Primop (i "eval")
+        "core-eval" ==> Primop (i "core-eval")
 
     , testCase "parses identifiers" $ do
         "++" ==> Atom (i "++")
@@ -127,7 +134,7 @@ test_binding =
         [s|(((lambda (x) (lambda (x) x)) "inner") "outer")|] ==> String "outer"
     ]
   where
-    x ==> y = runIdentity (interpret "test" x pureEmptyEnv) @?= Right y
+    x ==> y = runIdentity (interpret "test" x pureEnv) @?= Right y
 
 
 test_pretty :: [TestTree]
@@ -172,13 +179,57 @@ test_repl_primops =
     , testProperty "deref-all . ref == id" $ \(i', v) -> do
         let derefed = Primop (i "deref-all") $$ [Ref i']
             atom = Atom i'
-            run' p = runTestWith (addBinding i' v pureEmptyEnv) [] (eval p)
+            run' p = runTestWith (addBinding i' v pureEnv) [] (eval p)
         run' derefed == run' atom
     ]
     where
       run inp prog = fst $ runTestWith replBindings inp
                          $ interpretMany "(test)" prog
 
+test_repl :: [TestTree]
+test_repl =
+    [ testCase "evaluates correctly" $ do
+        let input = [ "((lambda (x) x) #t)" ]
+            output = [ "'(#t)" ]
+        (_, result) <- runInRepl input
+        result @?= output
+
+    , testCase "handles env modifications" $ do
+        let input = [ "(define id (lambda (x) x))"
+                    , "(id #t)"
+                    ]
+            output = [ "'('())"
+                     , "'(#t)"
+                     ]
+        (_, result) <- runInRepl input
+        result @?= output
+
+    , testCase "handles 'eval' redefinition" $ do
+        let input = [ "(define eval (lambda (x) #t))"
+                    , "#f"
+                    ]
+            output = [ "'('())"
+                     , "#t"
+                     ]
+        (_, result) <- runInRepl input
+        result @?= output
+
+    , testCase "(define eval (quote core-eval)) doesn't change things" $ do
+        let input = [ "(define eval (quote core-eval))"
+                    , "(define id (lambda (x) x))"
+                    , "(id #t)"
+                    ]
+            output = [ "'('())"
+                     , "'('())"
+                     , "'(#t)"
+                     ]
+        (_, result) <- runInRepl input
+        result @?= output
+    ]
+    where
+      getCfg = getDataFileName "repl/config.rad" >>= fmap T.pack . readFile
+      runInRepl inp = runTestWith replBindings inp
+                    . interpretMany "(test)" <$> getCfg
 
 -- * Utils
 

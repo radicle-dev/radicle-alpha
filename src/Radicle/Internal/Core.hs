@@ -13,11 +13,11 @@ import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Semigroup (Semigroup, (<>))
 import           Data.Text (Text)
-import qualified Data.Text as T
 import           Data.Void (Void)
 import           GHC.Exts (IsList(..), fromString)
 import           GHC.Generics (Generic)
 import qualified Text.Megaparsec.Error as Par
+
 
 -- * Value
 
@@ -108,9 +108,11 @@ withEnv modifier action = do
 
 -- * Functions
 
--- | A Bindings with an empty Env and only pure primops.
-pureEmptyEnv :: Monad m => Bindings m
-pureEmptyEnv = Bindings mempty purePrimops
+-- | A Bindings with an Env containing only 'eval' and only pure primops.
+pureEnv :: Monad m => Bindings m
+pureEnv = Bindings e purePrimops
+    where
+      e = fromList [(identFromString "eval", Primop $ identFromString "core-eval")]
 
 addBinding :: Monad m => Ident -> Value -> Bindings m -> Bindings m
 addBinding i v b = b
@@ -135,12 +137,9 @@ defineAtom i v = modify $ addBinding i v
 -- not shadowable via 'define'.
 purePrimops :: Monad m => Primops m
 purePrimops = Map.fromList $ first identFromString <$>
-    [ ("eval", \args -> case args of
-          [List (v:vs)] -> eval (Apply v vs)
-          [Apply fn v ] -> eval =<< Apply <$> eval fn <*> traverse eval v
-          [x]           -> eval x
-          x             -> throwError $
-            OtherError . T.pack $ "'eval' requires list as argument: " <> show x)
+    [ ("core-eval", \args -> case args of
+          [x] -> coreEval x
+          xs  -> throwError $ WrongNumberOfArgs "core-eval" 1 (length xs))
     , ("quote", \args -> case args of
           [v] -> pure v
           xs  -> throwError $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -148,7 +147,7 @@ purePrimops = Map.fromList $ first identFromString <$>
           [Atom name, val] -> do
               val' <- eval val
               defineAtom name val'
-              pure $ List [Atom $ identFromString "set!", Atom name, val']
+              pure nil
           [_, _] -> throwError $ OtherError "define expects atom for first arg"
           xs          -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
     , ("string?", \args -> case args of
@@ -166,6 +165,10 @@ purePrimops = Map.fromList $ first identFromString <$>
             -- in Lisps a lot of things that one might object to are True...
             if b == Boolean False then eval f else eval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
+    , ("ref", \args -> case args of
+          [Atom var] -> pure $ Ref var
+          [_]        -> throwError $ TypeError "get: expecting atom"
+          xs         -> throwError $ WrongNumberOfArgs "get" 1 (length xs))
     , ("deref-all", \args -> do
           let derefOne :: forall m b. (Monad m, Data b) => (b -> Lang m b)
               derefOne x = case (cast x, eqT :: Maybe (b :~: Value)) of
@@ -178,16 +181,34 @@ purePrimops = Map.fromList $ first identFromString <$>
 
 -- * Eval
 
--- | Evaluate a Value.
+-- Let val be finale of eval
 eval :: Monad m => Value -> Lang m Value
-eval val = case val of
+eval val = do
+    e <- lookupAtom (identFromString "eval")
+    case e of
+        Primop i -> do
+            fn <- lookupPrimop i
+            -- Primops get to decide whether and how their args are
+            -- evaluated.
+            fn [val]
+        Lambda _ _ Nothing -> throwError $ Impossible
+            "lambda should already have an env"
+        Lambda [bnd] body (Just closure) -> do
+              let mappings = fromList [(bnd, val)]
+                  modEnv = mappings <> closure
+              withEnv (\e' -> e' { bindingsEnv = modEnv}) (eval body)
+        _ -> throwError $ TypeError "Trying to apply a non-function"
+
+-- | The built-in, original, eval.
+coreEval :: Monad m => Value -> Lang m Value
+coreEval val = case val of
     Atom i -> lookupAtom i
     Ref i -> pure $ Ref i
-    List vals -> List <$> traverse eval vals
+    List vals -> List <$> traverse coreEval vals
     String s -> pure $ String s
     Boolean b -> pure $ Boolean b
     Apply mfn vs -> do
-        mfn' <- eval mfn
+        mfn' <- coreEval mfn
         case mfn' of
             Primop i -> do
                 fn <- lookupPrimop i
@@ -197,16 +218,16 @@ eval val = case val of
             Lambda _ _ Nothing -> throwError $ Impossible
                 "lambda should already have an env"
             Lambda bnds body (Just closure) -> do
-                  vs' <- traverse eval vs
+                  vs' <- traverse coreEval vs
                   let mappings = fromList (zip bnds vs')
                       modEnv = mappings <> closure
-                  withEnv (\e -> e { bindingsEnv = modEnv }) (eval body)
+                  withEnv (\e -> e { bindingsEnv = modEnv }) (coreEval body)
             _ -> throwError $ TypeError "Trying to apply a non-function"
     Primop i -> pure $ Primop i
     e@(Lambda _ _ (Just _)) -> pure e
     Lambda args body Nothing -> gets $ Lambda args body . Just . bindingsEnv
     SortedMap mp -> do
-        let evalSnd (a,b) = (a ,) <$> eval b
+        let evalSnd (a,b) = (a ,) <$> coreEval b
         SortedMap . Map.fromList <$> traverse evalSnd (Map.toList mp)
 
 

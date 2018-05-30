@@ -15,7 +15,7 @@ import           Radicle.Internal.Core
 
 class (Monad m) => Stdin m where
     getLineS :: m Text
-instance Stdin m => Stdin (Lang m) where
+instance {-# OVERLAPPABLE #-} Stdin m => Stdin (Lang m) where
     getLineS = lift getLineS
 instance (MonadException m, Monad m) => Stdin (InputT m) where
     getLineS = getInputLine "rad> " >>= \x -> case x of
@@ -24,7 +24,7 @@ instance (MonadException m, Monad m) => Stdin (InputT m) where
 
 class (Monad m) => Stdout m where
     putStrS :: Text -> m ()
-instance Stdout m => Stdout (Lang m) where
+instance {-# OVERLAPPABLE #-} Stdout m => Stdout (Lang m) where
     putStrS = lift . putStrS
 instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . T.unpack
