@@ -1,10 +1,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Radicle.Internal.Core where
 
-import           Control.Monad.Except (ExceptT, MonadError, runExceptT,
+import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
                                        throwError)
-import           Control.Monad.Reader (MonadReader, Reader, ask, asks, local,
-                                       runReader)
+import           Control.Monad.State
 import           Data.Bifunctor (first)
 import           Data.Data (Data)
 import           Data.Map (Map)
@@ -31,16 +32,6 @@ data LangError =
     | ParseError (Par.ParseError Char Void)
     deriving (Eq, Show, Read, Generic)
 
--- | An identifier in the language.
---
--- Not all `Text`s are valid identifiers, so we do not export the constructor.
--- Instead, use `makeIdent`.
-newtype Ident = Ident { fromIdent :: Text }
-    deriving (Eq, Show, Read, Ord, Generic, Data)
-
--- Unsafe!
-identFromString :: String -> Ident
-identFromString = Ident . fromString
 
 -- | An expression or value in the language.
 data Value =
@@ -58,6 +49,18 @@ data Value =
     | Lambda [Ident] Value (Maybe Env)
     deriving (Eq, Ord, Show, Read, Generic, Data)
 
+-- | An identifier in the language.
+--
+-- Not all `Text`s are valid identifiers, so we do not export the constructor.
+-- Instead, use `makeIdent`.
+newtype Ident = Ident { fromIdent :: Text }
+    deriving (Eq, Show, Read, Ord, Generic, Data)
+
+-- Unsafe! Only use this if you know the string at compile-time and know it's a
+-- valid identifier
+identFromString :: String -> Ident
+identFromString = Ident . fromString
+
 -- | The environment, which keeps all known bindings.
 newtype Env = Env { fromEnv :: Map Ident Value }
     deriving (Eq, Show, Ord, Read, Semigroup, Monoid, Generic, Data)
@@ -67,36 +70,64 @@ instance IsList Env where
     fromList = Env . fromList
     toList = GHC.Exts.toList . fromEnv
 
--- | Set the value of an identifier in the Env.
-setEnv :: Ident -> Value -> Env -> Env
-setEnv i v (Env e) = Env $ Map.insert i v e
+-- | Primop mappings. The parameter specifies the monad the primops run in.
+type Primops m = Map Ident ([Value] -> LangT (Bindings m) m Value)
 
--- | The environment in which expressions are evaluated. We use Reader rather
--- than State since modifications to the environment (modulo lambdas, which use
--- 'local') are factored out.
-newtype LangM a = LangM
-    { fromLangM :: ExceptT LangError (Reader Env) a }
-    deriving (Functor, Applicative, Monad, MonadError LangError, MonadReader Env)
+-- | Bindings, either from the env or from the primops.
+data Bindings m = Bindings
+    { bindingsEnv     :: Env
+    , bindingsPrimops :: Primops m
+    } deriving (Generic)
 
-runLangM :: Env -> LangM a -> Either LangError a
-runLangM e l = runReader (runExceptT $ fromLangM l) e
+-- | The environment in which expressions are evaluated.
+newtype LangT r m a = LangT
+    { fromLangT :: ExceptT LangError (StateT r m) a }
+    deriving (Functor, Applicative, Monad, MonadError LangError, MonadState r)
+
+instance MonadTrans (LangT r) where lift = LangT . lift . lift
+
+-- | A monad for language operations specialized to have as state the Bindings
+-- with appropriate underlying monad.
+type Lang m = LangT (Bindings m) m
+
+runLang :: Monad m => Bindings m -> Lang m a -> m (Either LangError a)
+runLang e l = evalStateT (runExceptT $ fromLangT l) e
+
+-- | Like 'local' or 'withState'
+withEnv :: Monad m => (Bindings m -> Bindings m) -> Lang m a -> Lang m a
+withEnv modifier action = do
+    oldEnv <- get
+    modify modifier
+    res <- action
+    put oldEnv
+    pure res
+
+-- * Functions
+
+-- | A Bindings with an empty Env and only pure primops.
+pureEmptyEnv :: Monad m => Bindings m
+pureEmptyEnv = Bindings mempty purePrimops
 
 -- | Lookup an atom in the environment
-lookupAtom :: Ident -> LangM Value
-lookupAtom i = ask >>= \(Env env) -> case Map.lookup i env of
+lookupAtom :: Monad m => Ident -> Lang m Value
+lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
     Nothing -> throwError $ UnknownIdentifier i
     Just v  -> pure v
 
 -- | Lookup a primop.
-lookupPrimop :: Ident -> LangM ([Value] -> LangM Value)
-lookupPrimop i = case Map.lookup i primops of
+lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
+lookupPrimop i = get >>= \e -> case Map.lookup i $ bindingsPrimops e of
     Nothing -> throwError $ Impossible "Unknown primop"
     Just v  -> pure v
 
+defineAtom :: Monad m => Ident -> Value -> Lang m ()
+defineAtom i v = modify (\e -> e
+    { bindingsEnv = Env . Map.insert i v . fromEnv $ bindingsEnv e })
+
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
-primops :: Map Ident ([Value] -> LangM Value)
-primops = Map.fromList $ first identFromString <$>
+purePrimops :: Monad m => Primops m
+purePrimops = Map.fromList $ first identFromString <$>
     [ ("eval", \args -> case args of
           [List (v:vs)] -> eval (Apply v vs)
           [Apply fn v ] -> eval =<< Apply <$> eval fn <*> traverse eval v
@@ -109,6 +140,7 @@ primops = Map.fromList $ first identFromString <$>
     , ("define", \args -> case args of
           [Atom name, val] -> do
               val' <- eval val
+              defineAtom name val'
               pure $ List [Atom $ identFromString "set!", Atom name, val']
           [_, _] -> throwError $ OtherError "define expects atom for first arg"
           xs          -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
@@ -132,7 +164,7 @@ primops = Map.fromList $ first identFromString <$>
 -- * Eval
 
 -- | Evaluate a Value.
-eval :: Value -> LangM Value
+eval :: Monad m => Value -> Lang m Value
 eval val = case val of
     Atom i -> lookupAtom i
     List vals -> List <$> traverse eval vals
@@ -150,13 +182,13 @@ eval val = case val of
                 "lambda should already have an env"
             Lambda bnds body (Just closure) -> do
                   vs' <- traverse eval vs
-                  let mappings = GHC.Exts.fromList (zip bnds vs')
-                      modEnv = const $ mappings <> closure
-                  local modEnv (eval body)
+                  let mappings = fromList (zip bnds vs')
+                      modEnv = mappings <> closure
+                  withEnv (\e -> e { bindingsEnv = modEnv }) (eval body)
             _ -> throwError $ TypeError "Trying to apply a non-function"
     Primop i -> pure $ Primop i
     e@(Lambda _ _ (Just _)) -> pure e
-    Lambda args body Nothing -> asks $ Lambda args body . Just
+    Lambda args body Nothing -> gets $ Lambda args body . Just . bindingsEnv
     SortedMap mp -> do
         let evalSnd (a,b) = (a ,) <$> eval b
         SortedMap . Map.fromList <$> traverse evalSnd (Map.toList mp)
@@ -167,3 +199,6 @@ eval val = case val of
 infixr 1 $$
 ($$) :: Value -> [Value] -> Value
 ($$) = Apply
+
+nil :: Value
+nil = List []

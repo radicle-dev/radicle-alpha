@@ -11,6 +11,7 @@ extra-source-files:
 dependencies:
 - base >=4 && <5
 - containers
+- haskeline
 - megaparsec
 - mmorph
 - mtl
@@ -49,16 +50,28 @@ tests:
     - Glob
     - hpack
 
+executables:
+  repl:
+    main: Main.hs
+    source-dirs: repl
+    dependencies:
+    - radicle
+    ghc-options: -Wall -threaded
+
 default-extensions:
 - AutoDeriveTypeable
+- ConstraintKinds
 - DeriveDataTypeable
 - DeriveFunctor
 - DeriveGeneric
-- GeneralizedNewtypeDeriving
 - FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- GeneralizedNewtypeDeriving
+- MultiParamTypeClasses
 - OverloadedStrings
+- RankNTypes
+- RecordWildCards
 - TupleSections
 - TypeFamilies
 - TypeOperators
-- RankNTypes
-- RecordWildCards
