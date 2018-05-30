@@ -7,7 +7,8 @@ import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
                                        throwError)
 import           Control.Monad.State
 import           Data.Bifunctor (first)
-import           Data.Data (Data)
+import           Data.Data ((:~:)(Refl), Data, cast, eqT)
+import           Data.Generics (everywhereM)
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Semigroup (Semigroup, (<>))
@@ -35,6 +36,7 @@ data LangError =
 
 -- | An expression or value in the language.
 data Value =
+    -- | A regular (hyperstatic) variable.
       Atom Ident
     | String Text
     | Boolean Bool
@@ -42,6 +44,8 @@ data Value =
     | Primop Ident
     | Apply Value [Value]
     | SortedMap (Map.Map Ident Value)
+    -- | A variable that must be looked up at the *call-site*.
+    | Ref Ident
     -- | Since there are no side-effects, there is no point having a list of
     -- values for the body of a lambda.
     --
@@ -108,6 +112,10 @@ withEnv modifier action = do
 pureEmptyEnv :: Monad m => Bindings m
 pureEmptyEnv = Bindings mempty purePrimops
 
+addBinding :: Monad m => Ident -> Value -> Bindings m -> Bindings m
+addBinding i v b = b
+    { bindingsEnv = Env . Map.insert i v . fromEnv $ bindingsEnv b }
+
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
 lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
@@ -121,8 +129,7 @@ lookupPrimop i = get >>= \e -> case Map.lookup i $ bindingsPrimops e of
     Just v  -> pure v
 
 defineAtom :: Monad m => Ident -> Value -> Lang m ()
-defineAtom i v = modify (\e -> e
-    { bindingsEnv = Env . Map.insert i v . fromEnv $ bindingsEnv e })
+defineAtom i v = modify $ addBinding i v
 
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
@@ -159,6 +166,14 @@ purePrimops = Map.fromList $ first identFromString <$>
             -- in Lisps a lot of things that one might object to are True...
             if b == Boolean False then eval f else eval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
+    , ("deref-all", \args -> do
+          let derefOne :: forall m b. (Monad m, Data b) => (b -> Lang m b)
+              derefOne x = case (cast x, eqT :: Maybe (b :~: Value)) of
+                  (Just (Ref i), Just Refl) -> lookupAtom i
+                  _                         -> pure x
+          case args of
+              [x] -> eval x >>= everywhereM derefOne
+              xs  -> throwError $ WrongNumberOfArgs "deref-all" 1 (length xs))
     ]
 
 -- * Eval
@@ -167,6 +182,7 @@ purePrimops = Map.fromList $ first identFromString <$>
 eval :: Monad m => Value -> Lang m Value
 eval val = case val of
     Atom i -> lookupAtom i
+    Ref i -> pure $ Ref i
     List vals -> List <$> traverse eval vals
     String s -> pure $ String s
     Boolean b -> pure $ Boolean b
@@ -192,6 +208,8 @@ eval val = case val of
     SortedMap mp -> do
         let evalSnd (a,b) = (a ,) <$> eval b
         SortedMap . Map.fromList <$> traverse evalSnd (Map.toList mp)
+
+
 
 -- * Helpers
 

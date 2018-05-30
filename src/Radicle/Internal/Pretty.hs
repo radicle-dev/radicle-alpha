@@ -15,6 +15,7 @@ instance Pretty Ident where
 instance Pretty Value where
     pretty v = case v of
         Atom i -> pretty i
+        Ref i -> parens $ "ref" <+> pretty i
         String t -> "\"" <> pretty (escapeStr t) <> "\""
         Boolean True -> "#t"
         Boolean False -> "#f"

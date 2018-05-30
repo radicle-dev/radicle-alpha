@@ -25,7 +25,9 @@ module Radicle
     , Lang
     , runLang
     , Bindings(..)
+    , addBinding
     , replBindings
+    , eval
     -- ** Re-exports
     , runIdentity
 

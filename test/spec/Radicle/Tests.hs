@@ -2,8 +2,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Radicle.Tests where
 
-import           Data.Data ((:~:)(Refl), Data, cast, eqT, gmapT)
+import           Data.Data ((:~:)(Refl), Data, cast, eqT)
 import           Data.Functor.Identity (runIdentity)
+import           Data.Generics (everywhere)
 import           Data.Semigroup ((<>))
 import           Data.String.QQ (s)
 import qualified Data.Text as T
@@ -154,6 +155,22 @@ test_repl_primops =
             expected = Right $ List [removeEnv v]
             info = "Expected: " <> show expected <> "\nGot: " <> show res
         in counterexample info $ res == expected
+
+    , testCase "'deref-all' gives the value of a binding at call site" $ do
+        let prog = [s|
+                (define x #f)
+                (define y (ref x))
+                (define x #t)
+                (deref-all y)
+                |]
+            res = run [] prog
+        res @?= Right (Boolean True)
+
+    , testProperty "deref-all . ref == id" $ \(i', v) -> do
+        let derefed = Primop (i "deref-all") $$ [Ref i']
+            atom = Atom i'
+            run' p = runTestWith (addBinding i' v pureEmptyEnv) [] (eval p)
+        run' derefed == run' atom
     ]
     where
       run inp prog = fst $ runTestWith replBindings inp
@@ -174,5 +191,3 @@ removeEnv = everywhere go
     go x = case (cast x, eqT :: Maybe (b :~: Value)) of
         (Just (Lambda arg body _), Just Refl) -> Lambda arg body Nothing
         _                                     -> x
-    everywhere :: Data a => (forall b. Data b => b -> b) -> a -> a
-    everywhere f x = f (gmapT (everywhere f) x)

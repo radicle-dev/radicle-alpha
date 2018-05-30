@@ -89,6 +89,11 @@ lambdaP = do
     atomToIdent (Atom i) = i
     atomToIdent _        = error "impossible"
 
+refP :: Parser Value
+refP = do
+    void $ symbol "ref"
+    Ref <$> identP
+
 valueP :: Parser Value
 valueP = do
   spaceConsumer
@@ -106,6 +111,7 @@ valueP = do
     appLike = choice
         [ lambdaP <?> "lambda"
         , sortedMapP <?> "sorted-map"
+        , refP <?> "ref"
         , applyP <?> "application"
         ]
 
