@@ -16,9 +16,9 @@ import qualified Data.Text as T
 import           Data.Void (Void)
 import           GHC.Exts (IsString(..))
 import           Text.Megaparsec (ParsecT, State(..), between, choice,
-                                  defaultTabWidth, initialPos, manyTill,
-                                  runParserT, runParserT', sepBy, sepBy1,
-                                  (<?>), eof)
+                                  defaultTabWidth, eof, initialPos, manyTill,
+                                  runParserT, runParserT', sepBy, sepBy1, try,
+                                  (<?>))
 import qualified Text.Megaparsec as M
 import           Text.Megaparsec.Char (char, satisfy, space1)
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -53,6 +53,13 @@ stringLiteralP = lexeme $
 boolLiteralP :: Parser Value
 boolLiteralP = lexeme $ Boolean <$> (char '#' >>
         (char 't' >> pure True) <|> (char 'f' >> pure False))
+
+numLiteralP :: Parser Value
+numLiteralP = Number <$> signed L.scientific
+  where
+    -- We don't allow spaces between the sign and digits so that we can remain
+    -- consistent with the general Scheme of things.
+    signed p = M.option id ((id <$ char '+') <|> (negate <$ char '-')) <*> p
 
 identP :: Parser Ident
 identP = lexeme $ do
@@ -98,6 +105,7 @@ valueP = do
   v <- choice
       [ stringLiteralP <?> "string"
       , boolLiteralP <?> "boolean"
+      , try numLiteralP <?> "number"
       , atomOrPrimP <?> "identifier"
       , listP <?> "list"
       , parensP appLike <?> "application"
@@ -192,7 +200,8 @@ parseTest t = parse "(test)" t (Map.keys $ bindingsPrimops e)
 
 -- ** Valid identifiers
 -- These are made top-level so construction of arbitrary instances that matches
--- parsing is easier
+-- parsing is easier. Note that additionally an identifier must not be a valid
+-- number (in parsing numbers are parsed first).
 
 -- | A predicate which returns true if the character is valid as the first
 -- character of an identifier.

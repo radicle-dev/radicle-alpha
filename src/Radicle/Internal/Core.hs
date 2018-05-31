@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Radicle.Internal.Core where
 
@@ -11,6 +10,7 @@ import           Data.Data ((:~:)(Refl), Data, cast, eqT)
 import           Data.Generics (everywhereM)
 import           Data.Map (Map)
 import qualified Data.Map as Map
+import           Data.Scientific (Scientific)
 import           Data.Semigroup (Semigroup, (<>))
 import           Data.Text (Text)
 import           Data.Void (Void)
@@ -39,6 +39,7 @@ data Value =
     -- | A regular (hyperstatic) variable.
       Atom Ident
     | String Text
+    | Number Scientific
     | Boolean Bool
     | List [Value]
     | Primop Ident
@@ -135,8 +136,8 @@ defineAtom i v = modify $ addBinding i v
 
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
-purePrimops :: Monad m => Primops m
-purePrimops = Map.fromList $ first toIdent <$>
+purePrimops :: forall m. Monad m => Primops m
+purePrimops = Map.fromList $ first Ident <$>
     [ ("base-eval", \args -> case args of
           [x] -> baseEval x
           xs  -> throwError $ WrongNumberOfArgs "base-eval" 1 (length xs))
@@ -150,14 +151,82 @@ purePrimops = Map.fromList $ first toIdent <$>
               pure nil
           [_, _] -> throwError $ OtherError "define expects atom for first arg"
           xs          -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
-    , ("string?", \args -> case args of
+    , ("eq?", evalArgs $ \args -> case args of
+          [a, b] -> fmap Boolean $ (==) <$> eval a <*> eval b
+          xs     -> throwError $ WrongNumberOfArgs "eq?" 2 (length xs))
+    , ("cons", evalArgs $ \args -> case args of
+          [x, List xs] -> pure $ List (x:xs)
+          [_, _]       -> throwError $ TypeError "cons: second argument must be list"
+          xs           -> throwError $ WrongNumberOfArgs "cons" 2 (length xs))
+    , ("car", evalArgs $ \args -> case args of
+          [List (x:_)] -> eval x
+          [List []]    -> throwError $ OtherError "car: empty list"
+          [_]          -> throwError $ TypeError "car: expects list argument"
+          xs           -> throwError $ WrongNumberOfArgs "car" 1 (length xs))
+    , ("cdr", evalArgs $ \args -> case args of
+          [List (_:xs)] -> eval $ List xs
+          [List []] -> throwError $ OtherError "cdr: empty list"
+          [_] -> throwError $ TypeError "cdr: expects list argument"
+          xs          -> throwError $ WrongNumberOfArgs "cdr" 1 (length xs))
+    , ("lookup", \args -> case args of
+          [Atom a, SortedMap m] -> case Map.lookup a m of
+              Just v  -> eval v
+              -- Probably an exception is better, but that seems cruel when you
+              -- have no exception handling facilities.
+              Nothing -> pure nil
+          [Atom _, _] -> throwError
+                       $ TypeError "lookup: second argument must be map"
+          [_, SortedMap _] -> throwError
+                            $ TypeError "lookup: first argument must be atom"
+          xs -> throwError $ WrongNumberOfArgs "lookup" 2 (length xs))
+    -- The semantics of + and - in Scheme is a little messed up. (+ 3)
+    -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.
+    -- But while (+ 3 2 1) evaluates to 6, (- 3 2 1) evaluates to 0. So with -
+    -- it is *not* correct to say that it's a foldl (-) 0. Instead, it
+    -- special-cases on one-argument application. (Similarly with * and /.)
+    --
+    -- In order to avoid this sort of thing, we don't allow +,*,- and / to be
+    -- applied to a single argument.
+    , numBinop (+) "+"
+    , numBinop (*) "*"
+    , numBinop (-) "-"
+    , ("<", evalArgs $ \args -> case args of
+          [Number x, Number y] -> return $ Boolean (x < y)
+          [_, _] -> throwError $ TypeError "<: expecting number"
+          xs -> throwError $ WrongNumberOfArgs "<" 2 (length xs))
+    , (">", evalArgs $ \args -> case args of
+          [Number x, Number y] -> return $ Boolean (x > y)
+          [_, _] -> throwError $ TypeError ">: expecting number"
+          xs -> throwError $ WrongNumberOfArgs ">" 2 (length xs))
+    , ("foldl", evalArgs $ \args -> case args of
+          [fn, init', List ls] -> eval $ foldl (\b a -> (fn $$) [b,a]) init' ls
+          [_, _, _] -> throwError $ TypeError "foldl: third argument should be a list"
+          xs -> throwError $ WrongNumberOfArgs "foldl" 3 (length xs))
+    , ("foldr", evalArgs $ \args -> case args of
+          [fn, init', List ls] -> eval $ foldr (\b a -> (fn $$) [b,a]) init' ls
+          [_, _, _] -> throwError $ TypeError "foldr: third argument should be a list"
+          xs -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
+    , ("map", \args -> case args of
+          [fn, List ls] -> List <$> traverse eval [fn $$ [l] | l <- ls ]
+          [_, _, _] -> throwError $ TypeError "foldr: third argument should be a list"
+          xs -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
+    , ("string?", evalArgs $ \args -> case args of
           [String _] -> pure $ Boolean True
           [_]        -> pure $ Boolean False
           xs         -> throwError $ WrongNumberOfArgs "string?" 1 (length xs))
-    , ("boolean?", \args -> case args of
+    , ("boolean?", evalArgs $ \args -> case args of
           [Boolean _] -> pure $ Boolean True
           [_]         -> pure $ Boolean False
           xs          -> throwError $ WrongNumberOfArgs "boolean?" 1 (length xs))
+    , ("number?", evalArgs $ \args -> case args of
+          [Number _] -> pure $ Boolean True
+          [_]        -> pure $ Boolean False
+          xs         -> throwError $ WrongNumberOfArgs "number?" 1 (length xs))
+    , ("member?", evalArgs $ \args -> case args of
+          [x, List xs] -> fmap Boolean $ elem <$> eval x <*> traverse eval xs
+          [_, _]       -> throwError
+                        $ TypeError "member?: second argument must be list"
+          xs           -> throwError $ WrongNumberOfArgs "eq?" 2 (length xs))
     , ("if", \args -> case args of
           [cond, t, f] -> do
             b <- eval cond
@@ -166,7 +235,7 @@ purePrimops = Map.fromList $ first toIdent <$>
             if b == Boolean False then eval f else eval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
     , ("deref-all", \args -> do
-          let derefOne :: forall m b. (Monad m, Data b) => (b -> Lang m b)
+          let derefOne :: forall b. (Data b) => (b -> Lang m b)
               derefOne x = case (cast x, eqT :: Maybe (b :~: Value)) of
                   (Just (Ref i), Just Refl) -> lookupAtom i
                   _                         -> pure x
@@ -174,6 +243,23 @@ purePrimops = Map.fromList $ first toIdent <$>
               [x] -> eval x >>= everywhereM derefOne
               xs  -> throwError $ WrongNumberOfArgs "deref-all" 1 (length xs))
     ]
+  where
+    -- Many primops evaluate their arguments just as normal functions do.
+    evalArgs :: ([Value] -> Lang m Value) -> ([Value] -> Lang m Value)
+    evalArgs f args = traverse eval args >>= f
+
+    numBinop :: (Scientific -> Scientific -> Scientific)
+             -> Text
+             -> (Text, ([Value] -> Lang m Value))
+    numBinop fn name = (name, evalArgs $ \args -> case args of
+        Number x:x':xs -> foldM go (Number x) (x':xs)
+          where
+            go (Number a) (Number b) = return . Number $ fn a b
+            go _ _ = throwError . TypeError
+                   $ name <> ": expecting number"
+        [Number _] -> throwError
+                    $ OtherError $ name <> ": expects at least 2 arguments"
+        _ -> throwError $ TypeError $ name <> ": expecting number")
 
 -- * Eval
 
@@ -202,6 +288,7 @@ baseEval val = case val of
     Ref i -> pure $ Ref i
     List vals -> List <$> traverse baseEval vals
     String s -> pure $ String s
+    Number n -> pure $ Number n
     Boolean b -> pure $ Boolean b
     Apply mfn vs -> do
         mfn' <- baseEval mfn

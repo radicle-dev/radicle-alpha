@@ -3,16 +3,18 @@
 module Radicle.Tests where
 
 import           Data.Data ((:~:)(Refl), Data, cast, eqT)
+import           Data.Either (isLeft)
 import           Data.Functor.Identity (runIdentity)
 import           Data.Generics (everywhere)
 import           Data.Semigroup ((<>))
+import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           GHC.Exts (fromList, toList)
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck (counterexample, testProperty)
+import           Test.Tasty.QuickCheck (counterexample, testProperty, (==>))
 
 import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (toIdent)
@@ -36,6 +38,60 @@ test_eval =
     , testCase "'sorted-map' creates a SortedMap with given key/vals" $ do
         let prog = [s|(sorted-map why "not")|]
         prog `succeedsWith` SortedMap (fromList [(toIdent "why", String "not")])
+
+    , testCase "'cons' conses an element" $ do
+        let prog = [s|(cons #t '(#f))|]
+        prog `succeedsWith` List [Boolean True, Boolean False]
+
+    , testCase "'car' returns the first element of a list" $ do
+        let prog = [s|(car '(#t #f))|]
+        prog `succeedsWith` Boolean True
+
+    , testCase "'cdr' returns the tail of a list" $ do
+        let prog = [s|(cdr '(#t #f #t))|]
+        prog `succeedsWith` List [Boolean False, Boolean True]
+
+    , testProperty "'eq?' considers equal values equal" $ \val -> do
+        let prog = [i|(eq? #{renderPrettyDef val} #{renderPrettyDef val})|]
+            res  = runIdentity $ runLang pureEnv
+                               $ interpretMany "(test)" $ T.pack prog
+        -- Either evaluation failed or their equal.
+        counterexample prog $ isLeft res || res == Right (Boolean True)
+
+    , testProperty "'eq?' considers different values different"
+                $ \(v1, v2) ->
+                  v1 /= v2 ==> do
+        -- We quote the values to prevent errors from being thrown
+        let prog = [i|(eq? (quote #{renderPrettyDef v1})
+                           (quote #{renderPrettyDef v2}))|]
+            res  = runIdentity $ runLang pureEnv
+                               $ interpretMany "(test)" $ T.pack prog
+        -- Either evaluation failed or their equal.
+        counterexample prog $ isLeft res || res == Right (Boolean False)
+
+    , testCase "'member?' returns true if list contains element" $ do
+        let prog = [s|(member? #t '(#f #t))|]
+        prog `succeedsWith` Boolean True
+
+    , testCase "'member?' returns false if list does not contain element" $ do
+        let prog = [s|(member? "hi" '(#f #t))|]
+        prog `succeedsWith` Boolean False
+
+    , testCase "'lookup' returns value of key in map" $ do
+        let prog = [s|(lookup key1 (sorted-map key1 "a" key2 "b"))|]
+        prog `succeedsWith` String "a"
+
+    , testCase "'foldl' foldls the list" $ do
+        let prog = [s|(foldl - 0 '(1 2 3))|]
+        prog `succeedsWith` Number (-6)
+
+    , testCase "'foldr' foldrs the list" $ do
+        let prog = [s|(foldr - 0 '(1 2 3))|]
+        prog `succeedsWith` Number 2
+
+    , testCase "'map' maps over the list" $ do
+        let prog = [s|(map (lambda (x) (+ x 1)) '(1 2))|]
+        prog `succeedsWith` List [Number 2, Number 3]
 
     , testCase "'eval' evaluates the list" $ do
         let prog = [s|(eval (quote #t))|]
@@ -82,9 +138,41 @@ test_eval =
         let prog = [s|(boolean? #t)|]
         prog `succeedsWith` Boolean True
 
-    , testCase "'boolean?' is true for non-booleans" $ do
+    , testCase "'boolean?' is false for non-booleans" $ do
         let prog = [s|(boolean? "hi")|]
         prog `succeedsWith` Boolean False
+
+    , testCase "'number?' is true for numbers" $ do
+        let prog = [s|(number? 200)|]
+        prog `succeedsWith` Boolean True
+
+    , testCase "'number?' is false for non-numbers" $ do
+        let prog = [s|(number? #t)|]
+        prog `succeedsWith` Boolean False
+
+    , testCase "'+' sums the list of numbers" $ do
+        let prog = [s|(+ 2 (+ 2 3))|]
+        prog `succeedsWith` Number 7
+
+    , testCase "'-' subtracts the list of numbers" $ do
+        let prog2 = [s|(- (+ 2 3) 1)|]
+        prog2 `succeedsWith` Number 4
+
+    , testCase "'*' multiplies the list of numbers" $ do
+        let prog = [s|(* 2 3)|]
+        prog `succeedsWith` Number 6
+
+    , testProperty "'>' works" $ \(x, y) -> do
+        let prog = [i|(> #{renderPrettyDef $ Number x} #{renderPrettyDef $ Number y})|]
+            res  = runIdentity $ runLang pureEnv
+                               $ interpretMany "(test)" $ T.pack prog
+        counterexample prog $ res == Right (Boolean (x > y))
+
+    , testProperty "'<' works" $ \(x, y) -> do
+        let prog = [i|(< #{renderPrettyDef $ Number x} #{renderPrettyDef $ Number y})|]
+            res  = runIdentity $ runLang pureEnv
+                               $ interpretMany "(test)" $ T.pack prog
+        counterexample prog $ res == Right (Boolean (x < y))
 
     , testCase "'define' fails when first arg is not an atom" $ do
         let prog = [s|(define "hi" "there")|]
@@ -106,37 +194,52 @@ test_eval =
 test_parser :: [TestTree]
 test_parser =
     [ testCase "parses strings" $ do
-        "\"hi\"" ==> String "hi"
+        "\"hi\"" ~~> String "hi"
 
     , testCase "parses booleans" $ do
-        "#t" ==> Boolean True
-        "#f" ==> Boolean False
+        "#t" ~~> Boolean True
+        "#f" ~~> Boolean False
 
     , testCase "parses primops" $ do
-        "boolean?" ==> Primop (toIdent "boolean?")
-        "base-eval" ==> Primop (toIdent "base-eval")
+        "boolean?" ~~> Primop (toIdent "boolean?")
+        "base-eval" ~~> Primop (toIdent "base-eval")
 
     , testCase "parses identifiers" $ do
-        "++" ==> Atom (toIdent "++")
-        "what?crazy!" ==> Atom (toIdent "what?crazy!")
+        "++" ~~> Atom (toIdent "++")
+        "what?crazy!" ~~> Atom (toIdent "what?crazy!")
 
     , testCase "parses identifiers that have a primop as prefix" $ do
-        "evaluate" ==> Atom (toIdent "evaluate")
+        "evaluate" ~~> Atom (toIdent "evaluate")
 
     , testCase "parses function application" $ do
-        "(++)" ==> (Atom (toIdent "++") $$ [])
-        "(++ \"merge\" \"d\")" ==> (Atom (toIdent "++") $$ [String "merge", String "d"])
+        "(++)" ~~> (Atom (toIdent "++") $$ [])
+        "(++ \"merge\" \"d\")" ~~> (Atom (toIdent "++") $$ [String "merge", String "d"])
+
+    , testCase "parses number" $ do
+        "0.15" ~~> Number 0.15
+        "2000" ~~> Number 2000
+
+    , testCase "parses identifiers" $ do
+        "++" ~~> Atom (toIdent "++")
+        "what?crazy!" ~~> Atom (toIdent "what?crazy!")
+
+    , testCase "parses identifiers that have a primop as prefix" $ do
+        "evaluate" ~~> Atom (toIdent "evaluate")
+
+    , testCase "parses function application" $ do
+        "(++)" ~~> (Atom (toIdent "++") $$ [])
+        "(++ \"merge\" \"d\")" ~~> (Atom (toIdent "++") $$ [String "merge", String "d"])
     ]
   where
-    x ==> y = parseTest x @?= Right y
+    x ~~> y = parseTest x @?= Right y
 
 test_binding :: [TestTree]
 test_binding =
     [ testCase "handles shadowing correctly" $ do
-        [s|(((lambda (x) (lambda (x) x)) "inner") "outer")|] ==> String "outer"
+        [s|(((lambda (x) (lambda (x) x)) "inner") "outer")|] ~~> String "outer"
     ]
   where
-    x ==> y = runIdentity (interpret "test" x pureEnv) @?= Right y
+    x ~~> y = runIdentity (interpret "test" x pureEnv) @?= Right y
 
 
 test_pretty :: [TestTree]
