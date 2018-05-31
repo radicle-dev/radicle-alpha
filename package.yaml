@@ -16,6 +16,7 @@ dependencies:
 - mmorph
 - mtl
 - prettyprinter
+- syb
 - text
 
 library:

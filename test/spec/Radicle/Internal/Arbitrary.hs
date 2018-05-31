@@ -19,6 +19,7 @@ instance Arbitrary Value where
     arbitrary = sized go
       where
         freqs = [ (3, Atom <$> arbitrary)
+                , (3, Ref <$> arbitrary)
                 , (3, String <$> arbitrary)
                 , (3, Boolean <$> arbitrary)
                 , (1, List <$> sizedList)
