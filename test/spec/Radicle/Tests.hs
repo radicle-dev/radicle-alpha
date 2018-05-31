@@ -111,6 +111,9 @@ test_parser =
         "++" ==> Atom (i "++")
         "what?crazy!" ==> Atom (i "what?crazy!")
 
+    , testCase "parses identifiers that have a primop as prefix" $ do
+        "evaluate" ==> Atom (i "evaluate")
+
     , testCase "parses function application" $ do
         "(++)" ==> (Atom (i "++") $$ [])
         "(++ \"merge\" \"d\")" ==> (Atom (i "++") $$ [String "merge", String "d"])
