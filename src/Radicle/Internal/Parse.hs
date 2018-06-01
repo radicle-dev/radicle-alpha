@@ -169,7 +169,7 @@ parseValues sourceName srcCode prims = go $ initial
 -- >>> parse "test" "#t" [] :: Either String Value
 -- Right (Boolean True)
 --
--- >>> parse "test" "hi" [identFromString "hi"] :: Either String Value
+-- >>> parse "test" "hi" [toIdent "hi"] :: Either String Value
 -- Right (Primop (Ident {fromIdent = "hi"}))
 --
 -- >>> parse "test" "hi" [] :: Either String Value

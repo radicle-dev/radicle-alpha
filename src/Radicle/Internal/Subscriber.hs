@@ -32,7 +32,7 @@ replBindings = e { bindingsPrimops = bindingsPrimops e <> replPrimops }
       e = pureEnv
 
 replPrimops :: forall m. ReplM m => Primops m
-replPrimops = Map.fromList $ first identFromString <$>
+replPrimops = Map.fromList $ first toIdent <$>
     [ ("print!", \args -> case args of
         [x] -> do
             v <- eval x
@@ -60,17 +60,17 @@ replPrimops = Map.fromList $ first identFromString <$>
 
     , ("subscribe-to!", \args -> case args of
         [x, v] -> do
-            x' <- coreEval x
-            v' <- coreEval v
+            x' <- baseEval x
+            v' <- baseEval v
             case (x', v') of
-                (SortedMap m, fn) -> case Map.lookup (identFromString "getter") m of
+                (SortedMap m, fn) -> case Map.lookup (toIdent "getter") m of
                     Nothing -> throwError
                         $ OtherError "subscribe-to!: Expected 'getter' key"
                     Just g -> go
                       where
                         go = do
-                            newBlock <- eval =<< coreEval g
-                            _ <- coreEval (fn $$ [newBlock])
+                            newBlock <- eval =<< baseEval g
+                            _ <- baseEval (fn $$ [newBlock])
                             go
                 _  -> throwError $ TypeError "subscribe-to!: Expected sorted-map"
         xs  -> throwError $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))

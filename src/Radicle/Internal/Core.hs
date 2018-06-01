@@ -62,8 +62,8 @@ newtype Ident = Ident { fromIdent :: Text }
 
 -- Unsafe! Only use this if you know the string at compile-time and know it's a
 -- valid identifier
-identFromString :: String -> Ident
-identFromString = Ident . fromString
+toIdent :: String -> Ident
+toIdent = Ident . fromString
 
 -- | The environment, which keeps all known bindings.
 newtype Env = Env { fromEnv :: Map Ident Value }
@@ -111,8 +111,8 @@ withEnv modifier action = do
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: Monad m => Bindings m
 pureEnv = Bindings e purePrimops
-    where
-      e = fromList [(identFromString "eval", Primop $ identFromString "core-eval")]
+  where
+    e = fromList [(toIdent "eval", Primop $ toIdent "base-eval")]
 
 addBinding :: Monad m => Ident -> Value -> Bindings m -> Bindings m
 addBinding i v b = b
@@ -136,10 +136,10 @@ defineAtom i v = modify $ addBinding i v
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
 purePrimops :: Monad m => Primops m
-purePrimops = Map.fromList $ first identFromString <$>
-    [ ("core-eval", \args -> case args of
-          [x] -> coreEval x
-          xs  -> throwError $ WrongNumberOfArgs "core-eval" 1 (length xs))
+purePrimops = Map.fromList $ first toIdent <$>
+    [ ("base-eval", \args -> case args of
+          [x] -> baseEval x
+          xs  -> throwError $ WrongNumberOfArgs "base-eval" 1 (length xs))
     , ("quote", \args -> case args of
           [v] -> pure v
           xs  -> throwError $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -165,10 +165,6 @@ purePrimops = Map.fromList $ first identFromString <$>
             -- in Lisps a lot of things that one might object to are True...
             if b == Boolean False then eval f else eval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
-    , ("ref", \args -> case args of
-          [Atom var] -> pure $ Ref var
-          [_]        -> throwError $ TypeError "get: expecting atom"
-          xs         -> throwError $ WrongNumberOfArgs "get" 1 (length xs))
     , ("deref-all", \args -> do
           let derefOne :: forall m b. (Monad m, Data b) => (b -> Lang m b)
               derefOne x = case (cast x, eqT :: Maybe (b :~: Value)) of
@@ -181,10 +177,10 @@ purePrimops = Map.fromList $ first identFromString <$>
 
 -- * Eval
 
--- Let val be finale of eval
+-- | The buck-passing eval. Uses whatever 'eval' is in scope.
 eval :: Monad m => Value -> Lang m Value
 eval val = do
-    e <- lookupAtom (identFromString "eval")
+    e <- lookupAtom (toIdent "eval")
     case e of
         Primop i -> do
             fn <- lookupPrimop i
@@ -200,15 +196,15 @@ eval val = do
         _ -> throwError $ TypeError "Trying to apply a non-function"
 
 -- | The built-in, original, eval.
-coreEval :: Monad m => Value -> Lang m Value
-coreEval val = case val of
+baseEval :: Monad m => Value -> Lang m Value
+baseEval val = case val of
     Atom i -> lookupAtom i
     Ref i -> pure $ Ref i
-    List vals -> List <$> traverse coreEval vals
+    List vals -> List <$> traverse baseEval vals
     String s -> pure $ String s
     Boolean b -> pure $ Boolean b
     Apply mfn vs -> do
-        mfn' <- coreEval mfn
+        mfn' <- baseEval mfn
         case mfn' of
             Primop i -> do
                 fn <- lookupPrimop i
@@ -218,16 +214,16 @@ coreEval val = case val of
             Lambda _ _ Nothing -> throwError $ Impossible
                 "lambda should already have an env"
             Lambda bnds body (Just closure) -> do
-                  vs' <- traverse coreEval vs
+                  vs' <- traverse baseEval vs
                   let mappings = fromList (zip bnds vs')
                       modEnv = mappings <> closure
-                  withEnv (\e -> e { bindingsEnv = modEnv }) (coreEval body)
+                  withEnv (\e -> e { bindingsEnv = modEnv }) (baseEval body)
             _ -> throwError $ TypeError "Trying to apply a non-function"
     Primop i -> pure $ Primop i
     e@(Lambda _ _ (Just _)) -> pure e
     Lambda args body Nothing -> gets $ Lambda args body . Just . bindingsEnv
     SortedMap mp -> do
-        let evalSnd (a,b) = (a ,) <$> coreEval b
+        let evalSnd (a,b) = (a ,) <$> baseEval b
         SortedMap . Map.fromList <$> traverse evalSnd (Map.toList mp)
 
 
