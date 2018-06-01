@@ -1,9 +1,9 @@
-{-# LANGUAGE TemplateHaskell #-}
 -- | This module defines instances for the classes in
 -- Radicle.Internal.Subscriber.Capabilities that may be used for testing.
 module Radicle.Internal.TestCapabilities where
 
 import           Control.Monad.State
+import           Control.Monad.Except
 import           Data.Text (Text)
 
 import           Radicle
@@ -33,16 +33,18 @@ runTestWith bindings inputs action =
     in case runState (runLang bindings action) ws of
         (val, st) -> (val, reverse $ worldStateStdout st)
 
--- | Like `runTestWith`, but uses the pureEmptyEnv
+-- | Like `runTestWith`, but uses the pureEnv
 runTestWith' :: [Text] -> TestLang a -> (Either LangError a, [Text])
-runTestWith' = runTestWith pureEmptyEnv
+runTestWith' = runTestWith pureEnv
 
 
-instance Stdin (State WorldState) where
+instance {-# OVERLAPPING #-} Stdin TestLang where
     getLineS = do
-        ws <- get
-        put $ ws { worldStateStdin = tail $ worldStateStdin ws }
-        pure $ head $ worldStateStdin ws
+        ws <- lift get
+        case worldStateStdin ws of
+            [] -> throwError $ OtherError "test: out of stdin"
+            h:hs -> lift (put $ ws { worldStateStdin = hs }) >> pure h
 
-instance Stdout (State WorldState) where
-    putStrS t = modify (\ws -> ws { worldStateStdout = t:worldStateStdout ws })
+instance {-# OVERLAPPING #-} Stdout TestLang where
+    putStrS t = lift $
+        modify (\ws -> ws { worldStateStdout = t:worldStateStdout ws })

@@ -118,10 +118,10 @@ valueP = do
 --
 -- Examples:
 --
--- >>> interpret "test" "((lambda (x) x) #t)" pureEmptyEnv
+-- >>> interpret "test" "((lambda (x) x) #t)" pureEnv
 -- Right (Boolean True)
 --
--- >>> interpret "test" "(#t #f)" pureEmptyEnv
+-- >>> interpret "test" "(#t #f)" pureEnv
 -- Left (TypeError "Trying to apply a non-function")
 interpret :: Monad m => String -> Text -> Bindings m -> m (Either LangError Value)
 interpret sourceName expr bnds = do
@@ -135,7 +135,7 @@ interpret sourceName expr bnds = do
 --
 -- Examples:
 --
--- >>> runLang pureEmptyEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
+-- >>> runLang pureEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
 -- Right (Boolean True)
 interpretMany :: Monad m => String -> Text -> Lang m Value
 interpretMany sourceName src = do
@@ -169,7 +169,7 @@ parseValues sourceName srcCode prims = go $ initial
 -- >>> parse "test" "#t" [] :: Either String Value
 -- Right (Boolean True)
 --
--- >>> parse "test" "hi" [identFromString "hi"] :: Either String Value
+-- >>> parse "test" "hi" [toIdent "hi"] :: Either String Value
 -- Right (Primop (Ident {fromIdent = "hi"}))
 --
 -- >>> parse "test" "hi" [] :: Either String Value
@@ -187,7 +187,7 @@ parseTest :: MonadError String m => Text -> m Value
 parseTest t = parse "(test)" t (Map.keys $ bindingsPrimops e)
   where
     e :: Bindings (Lang Identity)
-    e = pureEmptyEnv
+    e = pureEnv
 
 
 -- ** Valid identifiers
