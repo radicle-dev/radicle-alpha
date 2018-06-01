@@ -17,8 +17,8 @@ import           Data.Void (Void)
 import           GHC.Exts (IsString(..))
 import           Text.Megaparsec (ParsecT, State(..), between, choice,
                                   defaultTabWidth, initialPos, manyTill,
-                                  runParserT, runParserT', sepBy, sepBy1, try,
-                                  (<?>))
+                                  runParserT, runParserT', sepBy, sepBy1,
+                                  (<?>), eof)
 import qualified Text.Megaparsec as M
 import           Text.Megaparsec.Char (char, satisfy, space1)
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -40,29 +40,31 @@ spaceConsumer = L.space space1 lineComment blockComment
 symbol :: Text -> Parser Text
 symbol = L.symbol spaceConsumer
 
+lexeme :: Parser a -> Parser a
+lexeme = L.lexeme spaceConsumer
+
 parensP :: Parser a -> Parser a
 parensP = between (symbol "(" >> spaceConsumer) (spaceConsumer >> symbol ")")
 
-primopP :: Parser Value
-primopP = do
-    prims <- ask
-    Primop . Ident <$> choice (symbol . fromIdent <$> prims)
-
 stringLiteralP :: Parser Value
-stringLiteralP = String . T.pack <$> (char '"' >> manyTill L.charLiteral (char '"'))
+stringLiteralP = lexeme $
+    String . T.pack <$> (char '"' >> manyTill L.charLiteral (char '"'))
 
 boolLiteralP :: Parser Value
-boolLiteralP = Boolean <$> (char '#' >>
+boolLiteralP = lexeme $ Boolean <$> (char '#' >>
         (char 't' >> pure True) <|> (char 'f' >> pure False))
 
 identP :: Parser Ident
-identP = do
+identP = lexeme $ do
     l <- satisfy isValidIdentFirst
     r <- many (satisfy isValidIdentRest)
     pure . Ident $ fromString (l:r)
 
-atomP :: Parser Value
-atomP = Atom <$> identP
+atomOrPrimP :: Parser Value
+atomOrPrimP = do
+    i <- identP
+    prims <- ask
+    pure $ if i `elem` prims then Primop i else Atom i
 
 applyP :: Parser Value
 applyP = do
@@ -82,12 +84,9 @@ sortedMapP = do
 lambdaP :: Parser Value
 lambdaP = do
     void $ symbol "lambda"
-    vars <- parensP $ fmap atomToIdent <$> atomP `sepBy` spaceConsumer
+    vars <- parensP $ identP `sepBy` spaceConsumer
     body <- valueP
     pure $ Lambda vars body Nothing
-  where
-    atomToIdent (Atom i) = i
-    atomToIdent _        = error "impossible"
 
 refP :: Parser Value
 refP = do
@@ -96,12 +95,10 @@ refP = do
 
 valueP :: Parser Value
 valueP = do
-  spaceConsumer
   v <- choice
       [ stringLiteralP <?> "string"
       , boolLiteralP <?> "boolean"
-      , try primopP <?> "primop"
-      , atomP <?> "atom"
+      , atomOrPrimP <?> "identifier"
       , listP <?> "list"
       , parensP appLike <?> "application"
       ]
@@ -129,7 +126,7 @@ valueP = do
 interpret :: Monad m => String -> Text -> Bindings m -> m (Either LangError Value)
 interpret sourceName expr bnds = do
     let primopNames = Map.keys (bindingsPrimops bnds)
-        parsed = runReader (runParserT valueP sourceName expr) primopNames
+        parsed = runReader (runParserT (valueP <* eof) sourceName expr) primopNames
     case parsed of
         Left e  -> pure . Left $ ParseError e
         Right v -> runLang bnds $ eval v
@@ -179,7 +176,7 @@ parseValues sourceName srcCode prims = go $ initial
 -- Right (Atom (Ident {fromIdent = "hi"}))
 parse :: MonadError String m => String -> Text -> [Ident] -> m Value
 parse file src ids = do
-  let res = runReader (M.runParserT valueP file src) ids
+  let res = runReader (M.runParserT (valueP <* eof) file src) ids
   case res of
     Left err -> throwError $ M.parseErrorPretty' src err
     Right v  -> pure v
