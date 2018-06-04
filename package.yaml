@@ -16,6 +16,7 @@ dependencies:
 - mmorph
 - mtl
 - prettyprinter
+- scientific
 - syb
 - text
 
@@ -36,6 +37,8 @@ tests:
     - radicle
     - QuickCheck
     - quickcheck-instances
+    - interpolate
+    - safe
     - string-qq
     - tasty
     - tasty-discover

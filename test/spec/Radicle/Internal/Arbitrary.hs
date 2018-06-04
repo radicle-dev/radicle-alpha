@@ -1,16 +1,19 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Arbitrary where
 
-import           Control.Monad.Identity    (Identity)
-import           Data.Bifunctor            (first)
-import qualified Data.Map                  as Map
-import qualified Data.Text                 as T
+import           Control.Monad.Identity (Identity)
+import           Data.Bifunctor (first)
+import qualified Data.Map as Map
+import           Data.Maybe (isJust)
+import           Data.Scientific (Scientific)
+import qualified Data.Text as T
+import           Safe (readMay)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 import           Radicle
-import           Radicle.Internal.Core     (purePrimops)
-import           Radicle.Internal.Parse    (isValidIdentFirst, isValidIdentRest)
+import           Radicle.Internal.Core (purePrimops)
+import           Radicle.Internal.Parse (isValidIdentFirst, isValidIdentRest)
 
 instance Arbitrary Env where
     arbitrary = Env <$> arbitrary
@@ -18,10 +21,11 @@ instance Arbitrary Env where
 instance Arbitrary Value where
     arbitrary = sized go
       where
-        freqs = [ (3, Atom <$> arbitrary)
+        freqs = [ (3, Atom <$> (arbitrary `suchThat` (\x -> not (isPrimop x || isNum x))))
                 , (3, Ref <$> arbitrary)
                 , (3, String <$> arbitrary)
                 , (3, Boolean <$> arbitrary)
+                , (3, Number <$> arbitrary)
                 , (1, List <$> sizedList)
                 , (3, Primop <$> elements (Map.keys prims))
                 , (1, Apply <$> scale (`div` 2) arbitrary <*> sizedList)
@@ -38,6 +42,10 @@ instance Arbitrary Value where
             scale (`div` (k + 1)) $ vectorOf k arbitrary
         prims :: Map.Map Ident ([Value] -> Lang Identity Value)
         prims = purePrimops
+        isPrimop x = x `elem` Map.keys prims
+        isNum x = isJust (readMay (T.unpack $ fromIdent x) :: Maybe Scientific)
+
+    shrink x = genericShrink x
 
 instance Arbitrary Ident where
     arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (mkIdent . T.pack)

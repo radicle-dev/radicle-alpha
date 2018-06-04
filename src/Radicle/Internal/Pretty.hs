@@ -17,6 +17,7 @@ instance Pretty Value where
         Atom i -> pretty i
         Ref i -> parens $ "ref" <+> pretty i
         String t -> "\"" <> pretty (escapeStr t) <> "\""
+        Number n -> pretty $ show n
         Boolean True -> "#t"
         Boolean False -> "#f"
         List vs -> "'" <> (parens . sep $ pretty <$> vs)
