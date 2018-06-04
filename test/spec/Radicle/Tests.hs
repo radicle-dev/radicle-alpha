@@ -151,11 +151,15 @@ test_eval =
         prog `succeedsWith` Boolean False
 
     , testCase "'+' sums the list of numbers" $ do
-        let prog = [s|(+ 2 (+ 2 3))|]
-        prog `succeedsWith` Number 7
+        let prog1 = [s|(+ 2 (+ 2 3))|]
+        prog1 `succeedsWith` Number 7
+        let prog2 = [s|(+ -1 -2 -3)|]
+        prog2 `succeedsWith` Number (- 6)
 
     , testCase "'-' subtracts the list of numbers" $ do
-        let prog2 = [s|(- (+ 2 3) 1)|]
+        let prog1= [s|(- (+ 2 3) 1)|]
+        prog1 `succeedsWith` Number 4
+        let prog2 = [s|(- -1 -2 -3)|]
         prog2 `succeedsWith` Number 4
 
     , testCase "'*' multiplies the list of numbers" $ do

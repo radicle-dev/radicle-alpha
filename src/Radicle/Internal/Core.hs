@@ -165,9 +165,9 @@ purePrimops = Map.fromList $ first Ident <$>
           xs           -> throwError $ WrongNumberOfArgs "car" 1 (length xs))
     , ("cdr", evalArgs $ \args -> case args of
           [List (_:xs)] -> eval $ List xs
-          [List []] -> throwError $ OtherError "cdr: empty list"
-          [_] -> throwError $ TypeError "cdr: expects list argument"
-          xs          -> throwError $ WrongNumberOfArgs "cdr" 1 (length xs))
+          [List []]     -> throwError $ OtherError "cdr: empty list"
+          [_]           -> throwError $ TypeError "cdr: expects list argument"
+          xs            -> throwError $ WrongNumberOfArgs "cdr" 1 (length xs))
     , ("lookup", \args -> case args of
           [Atom a, SortedMap m] -> case Map.lookup a m of
               Just v  -> eval v
@@ -191,11 +191,11 @@ purePrimops = Map.fromList $ first Ident <$>
     , numBinop (*) "*"
     , numBinop (-) "-"
     , ("<", evalArgs $ \args -> case args of
-          [Number x, Number y] -> return $ Boolean (x < y)
+          [Number x, Number y] -> pure $ Boolean (x < y)
           [_, _] -> throwError $ TypeError "<: expecting number"
           xs -> throwError $ WrongNumberOfArgs "<" 2 (length xs))
     , (">", evalArgs $ \args -> case args of
-          [Number x, Number y] -> return $ Boolean (x > y)
+          [Number x, Number y] -> pure $ Boolean (x > y)
           [_, _] -> throwError $ TypeError ">: expecting number"
           xs -> throwError $ WrongNumberOfArgs ">" 2 (length xs))
     , ("foldl", evalArgs $ \args -> case args of
@@ -207,7 +207,7 @@ purePrimops = Map.fromList $ first Ident <$>
           [_, _, _] -> throwError $ TypeError "foldr: third argument should be a list"
           xs -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", \args -> case args of
-          [fn, List ls] -> List <$> traverse eval [fn $$ [l] | l <- ls ]
+          [fn, List ls] -> List <$> traverse eval [fn $$ [l] | l <- ls]
           [_, _, _] -> throwError $ TypeError "foldr: third argument should be a list"
           xs -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("string?", evalArgs $ \args -> case args of
@@ -254,7 +254,7 @@ purePrimops = Map.fromList $ first Ident <$>
     numBinop fn name = (name, evalArgs $ \args -> case args of
         Number x:x':xs -> foldM go (Number x) (x':xs)
           where
-            go (Number a) (Number b) = return . Number $ fn a b
+            go (Number a) (Number b) = pure . Number $ fn a b
             go _ _ = throwError . TypeError
                    $ name <> ": expecting number"
         [Number _] -> throwError
