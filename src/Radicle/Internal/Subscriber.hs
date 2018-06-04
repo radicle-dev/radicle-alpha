@@ -5,10 +5,14 @@ import           Control.Monad.Except
 import           Control.Monad.State (gets)
 import           Data.Bifunctor (first)
 import           Data.Either
+import           Data.List (isPrefixOf)
 import qualified Data.Map as Map
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
-import           System.Console.Haskeline
+import qualified Data.Text as T
+import           System.Console.Haskeline (CompletionFunc, InputT, completeWord,
+                                           defaultSettings, runInputT,
+                                           setComplete, simpleCompletion)
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Parse
@@ -20,10 +24,23 @@ type ReplM m = ( Monad m, Stdout (Lang m), Stdin (Lang m), GetEnv (Lang m)
 
 repl :: Text -> IO ()
 repl preCode = do
-    r <- runInputT defaultSettings
+    let settings = setComplete completion defaultSettings
+    r <- runInputT settings
         $ runLang replBindings
         $ interpretMany "[pre]" preCode
     print r
+
+completion :: Monad m => CompletionFunc m
+completion = completeWord Nothing ['(', ')', ' ', '\n'] go
+  where
+    bnds :: Bindings (InputT IO)
+    bnds = replBindings
+
+    go s = pure $ fmap simpleCompletion
+         $ filter (s `isPrefixOf`)
+         $ fmap (T.unpack . fromIdent)
+         $ (Map.keys . fromEnv $ bindingsEnv bnds)
+        <> (Map.keys $ bindingsPrimops bnds)
 
 replBindings :: forall m. ReplM m => Bindings m
 replBindings = e { bindingsPrimops = bindingsPrimops e <> replPrimops }
