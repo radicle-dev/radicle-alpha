@@ -4,6 +4,7 @@
 -- constraints) what effects they do.
 module Radicle.Internal.Subscriber.Capabilities where
 
+import           Control.Monad.Except (throwError)
 import           Control.Monad.State (gets, modify)
 import           Control.Monad.Trans
 import           Data.Text (Text)
@@ -30,9 +31,9 @@ instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . T.unpack
 
 class (Monad m) => Exit m where
-    exitS :: m ()
-instance Exit m => Exit (Lang m) where
-    exitS = lift exitS
+    exitS :: m a
+instance Monad m => Exit (Lang m) where
+    exitS = throwError Exit
 
 class (Monad m) => GetEnv m where
     getEnvS :: m Env

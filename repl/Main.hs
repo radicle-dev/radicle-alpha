@@ -1,14 +1,61 @@
 module Main (main) where
 
-import System.Environment
+import           Control.Concurrent
+import           Data.Semigroup ((<>))
 import qualified Data.Text.IO as T
-import Control.Concurrent
+import           Options.Applicative
+import           System.Environment
 
-import Radicle
+import           Radicle
 
 main :: IO ()
 main = do
-    [file] <- getArgs
-    src <- T.readFile file
-    _ <- forkIO $ repl src
+    opts' <- execParser allOpts
+    cfgSrc <- T.readFile =<< case configFile opts' of
+        Nothing  -> getConfig
+        Just cfg -> pure cfg
+    hist <- case histFile opts' of
+        Nothing  -> getHistory
+        Just h -> pure h
+    _ <- forkIO $ repl hist cfgSrc
     threadDelay maxBound
+  where
+    allOpts = info (opts <**> helper)
+        ( fullDesc
+       <> progDesc "Run the radicle REPL"
+       <> header "rad - The radicle REPL"
+        )
+
+-- | Uses XDG_CONFIG_HOME if available.
+getConfig :: IO FilePath
+getConfig = do
+    mCfgHome <- lookupEnv "XDG_CONFIG_HOME"
+    pure $ case mCfgHome of
+        Nothing      -> "~/.config/rad/config.rad"
+        Just cfgHome -> cfgHome <> "/rad/config.rad"
+
+-- | Uses XDG_CACHE_HOME if available.
+getHistory :: IO FilePath
+getHistory = do
+    mCfgHome <- lookupEnv "XDG_CACHE_HOME"
+    pure $ case mCfgHome of
+        Nothing      -> "/home/jkarni/.cache/rad/history"
+        Just cfgHome -> cfgHome <> "/rad/history"
+
+data Opts = Opts
+    { configFile :: Maybe FilePath
+    , histFile   :: Maybe FilePath
+    }
+
+opts :: Parser Opts
+opts = Opts
+    <$> optional (strOption
+        ( long "config"
+       <> metavar "FILE"
+       <> help "rad configuration file"
+        ))
+    <*> optional (strOption
+        ( long "histfile"
+       <> metavar "FILE"
+       <> help "repl history file"
+        ))

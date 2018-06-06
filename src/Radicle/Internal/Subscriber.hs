@@ -17,12 +17,14 @@ import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.Subscriber.Capabilities
 
+
 type ReplM m = ( Monad m, Stdout (Lang m), Stdin (Lang m), GetEnv (Lang m)
                , SetEnv (Lang m))
 
-repl :: Text -> IO ()
-repl preCode = do
-    let settings = setComplete completion defaultSettings
+repl :: FilePath -> Text -> IO ()
+repl histFile preCode = do
+    let settings = setComplete completion
+                 $ defaultSettings { historyFile = Just histFile }
     r <- runInputT settings
         $ runLang replBindings
         $ interpretMany "[pre]" preCode
@@ -89,4 +91,6 @@ replPrimops = Map.fromList $ first toIdent <$>
                             go
                 _  -> throwError $ TypeError "subscribe-to!: Expected sorted-map"
         xs  -> throwError $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
+
+    , ("quit", \_ -> exitS)
     ]
