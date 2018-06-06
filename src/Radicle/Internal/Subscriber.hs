@@ -10,6 +10,8 @@ import qualified Data.Map as Map
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
 import qualified Data.Text as T
+import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc)
+import           Data.Text.Prettyprint.Doc (pretty)
 import           System.Console.Haskeline
 
 import           Radicle.Internal.Core
@@ -28,7 +30,10 @@ repl histFile preCode = do
     r <- runInputT settings
         $ runLang replBindings
         $ interpretMany "[pre]" preCode
-    print r
+    case r of
+        Left Exit -> return ()
+        Left e    -> putDoc $ pretty e
+        Right v   -> putDoc $ pretty v
 
 completion :: Monad m => CompletionFunc m
 completion = completeWord Nothing ['(', ')', ' ', '\n'] go

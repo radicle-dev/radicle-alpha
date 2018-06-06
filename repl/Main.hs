@@ -1,6 +1,5 @@
 module Main (main) where
 
-import           Control.Concurrent
 import           Data.Semigroup ((<>))
 import qualified Data.Text.IO as T
 import           Options.Applicative
@@ -17,8 +16,7 @@ main = do
     hist <- case histFile opts' of
         Nothing  -> getHistory
         Just h -> pure h
-    _ <- forkIO $ repl hist cfgSrc
-    threadDelay maxBound
+    repl hist cfgSrc
   where
     allOpts = info (opts <**> helper)
         ( fullDesc

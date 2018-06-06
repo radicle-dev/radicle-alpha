@@ -16,6 +16,7 @@ dependencies:
 - mmorph
 - mtl
 - prettyprinter
+- prettyprinter-ansi-terminal
 - syb
 - text
 
