@@ -8,6 +8,7 @@ import           Control.Monad.State
 import           Data.Bifunctor (first)
 import           Data.Data ((:~:)(Refl), Data, cast, eqT)
 import           Data.Generics (everywhereM)
+import           Data.List (foldl')
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific)
@@ -199,7 +200,7 @@ purePrimops = Map.fromList $ first Ident <$>
           [_, _] -> throwError $ TypeError ">: expecting number"
           xs -> throwError $ WrongNumberOfArgs ">" 2 (length xs))
     , ("foldl", evalArgs $ \args -> case args of
-          [fn, init', List ls] -> eval $ foldl (\b a -> (fn $$) [b,a]) init' ls
+          [fn, init', List ls] -> eval $ foldl' (\b a -> (fn $$) [b,a]) init' ls
           [_, _, _] -> throwError $ TypeError "foldl: third argument should be a list"
           xs -> throwError $ WrongNumberOfArgs "foldl" 3 (length xs))
     , ("foldr", evalArgs $ \args -> case args of
@@ -250,7 +251,7 @@ purePrimops = Map.fromList $ first Ident <$>
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text
-             -> (Text, ([Value] -> Lang m Value))
+             -> (Text, [Value] -> Lang m Value)
     numBinop fn name = (name, evalArgs $ \args -> case args of
         Number x:x':xs -> foldM go (Number x) (x':xs)
           where

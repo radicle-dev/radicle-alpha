@@ -22,12 +22,11 @@
 - warn: {lhs: return, rhs: pure}
 - warn: {lhs: ap, rhs: (<*>)}
 
-- ignore: {name: Use map, within: [Crypto.Data.Auth.Tree.Proof]}
+- ignore: {name: Use String, within: [Radicle.Internal.Parse]}
 
 - ignore: {name: Use ++}
 - ignore: {name: Use &&}
 - ignore: {name: Eta reduce}
 - ignore: {name: Use lambda-case}
-- ignore: {name: Use let}
-- ignore: {name: Use newtype instead of data}
 - ignore: {name: Redundant $}
+- ignore: {name: Redundant do}
