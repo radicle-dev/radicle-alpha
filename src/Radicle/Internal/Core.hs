@@ -32,6 +32,7 @@ data LangError =
     | WrongNumberOfArgs Text Int Int
     | OtherError Text
     | ParseError (Par.ParseError Char Void)
+    | Exit
     deriving (Eq, Show, Read, Generic)
 
 

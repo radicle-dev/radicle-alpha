@@ -16,6 +16,7 @@ dependencies:
 - mmorph
 - mtl
 - prettyprinter
+- prettyprinter-ansi-terminal
 - scientific
 - syb
 - text
@@ -63,6 +64,7 @@ executables:
     source-dirs: repl
     dependencies:
     - radicle
+    - optparse-applicative
     ghc-options: -Wall -threaded
 
 default-extensions:
