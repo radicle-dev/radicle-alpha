@@ -41,6 +41,7 @@ module Radicle
     , renderCompactPretty
     -- ** Re-exports
     , PageWidth(..)
+    , Pretty
 
     -- * Repl
     , repl

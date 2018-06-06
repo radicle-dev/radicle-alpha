@@ -1,0 +1,64 @@
+(define should-be
+  (lambda (name x y)
+    (if (eq? x y)
+        (print! (cons "test" (cons name (list "succeeded"))))
+        (print! (cons "test" (cons name (list "failed")))))))
+
+;; empty?
+(define empty? (lambda (ls) (eq? ls (list))))
+(should-be "empty" (empty? (list 2)) #f)
+
+;; y-combinator
+(define Y
+  (lambda (h)
+    ((lambda (x) (x x))
+     (lambda (g)
+       (h (lambda (arg) ((g g) arg)))))))
+(define Y2
+  (lambda (h)
+    ((lambda (x) (x x))
+     (lambda (g)
+       (h (lambda (arg1 arg2) ((g g) arg1 arg2)))))))
+
+((lambda ()
+  (define fac (Y (lambda (f) (lambda (x) (if (< x 2) 1 (* x (f (- x 1))))))))
+  (should-be "fac" (fac 10) 3628800)))
+
+;; reverse
+(define reverse (lambda (ls)
+  (define go (Y2 (lambda (go)
+    (lambda (acc new)
+      (if (empty? new)
+          acc
+          (go (cons (car new) acc) (cdr new)))))))
+  (go (list) ls)))
+
+(should-be "reverse" (reverse (list 1 2 3)) (list 3 2 1))
+
+;; range
+(define range (Y2 (lambda (range) (lambda (from to)
+  (if (eq? from to)
+      (list to)
+      (cons from (range (+ 1 from) to)))))))
+
+(should-be "range" (range 1 5) (list 1 2 3 4 5))
+
+;; filter
+(define filter (Y2 (lambda (filter) (lambda (cond ls)
+  (if (empty? ls)
+      ls
+  (if (cond (car ls))
+      (cons (car ls) (filter cond (cdr ls)))
+      (filter cond (cdr ls))))))))
+
+(should-be "filter"
+  (filter (lambda (x) (< x 10)) (list 3 10 11))
+  (list 3))
+
+;; The Repl
+
+(define repl
+    (sorted-map name "repl" getter (quote (get-line!))))
+
+(subscribe-to! repl
+    (lambda (x) (print! x)))

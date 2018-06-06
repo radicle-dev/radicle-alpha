@@ -11,6 +11,7 @@ import           Data.Generics (everywhereM)
 import           Data.List (foldl')
 import           Data.Map (Map)
 import qualified Data.Map as Map
+import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Scientific (Scientific)
 import           Data.Semigroup (Semigroup, (<>))
 import           Data.Text (Text)
@@ -49,11 +50,12 @@ data Value =
     | SortedMap (Map.Map Ident Value)
     -- | A variable that must be looked up at the *call-site*.
     | Ref Ident
-    -- | Since there are no side-effects, there is no point having a list of
-    -- values for the body of a lambda.
+    -- | Takes the arguments/parameters, a body, and possibly a closure.
     --
-    -- Takes the arguments/parameters, a body, and possibly a closure.
-    | Lambda [Ident] Value (Maybe Env)
+    -- The value of an application of a lambda is always the last value in the
+    -- body. The only reason to have multiple values is thus only for (local)
+    -- "define"s.
+    | Lambda [Ident] (NonEmpty.NonEmpty Value) (Maybe Env)
     deriving (Eq, Ord, Show, Read, Generic, Data)
 
 -- | An identifier in the language.
@@ -146,6 +148,22 @@ purePrimops = Map.fromList $ first Ident <$>
     , ("quote", \args -> case args of
           [v] -> pure v
           xs  -> throwError $ WrongNumberOfArgs "quote" 1 (length xs))
+    , ("quasiquote", \args -> case args of
+          [x] -> do
+            let unquote :: forall b. (Data b) => (b -> Lang m b)
+                unquote e = case (cast e, eqT :: Maybe (b :~: Value)) of
+                  (Just (Apply (Primop p) [y]), Just Refl) ->
+                      if p == toIdent "unquote"
+                          then eval y
+                          else pure e
+                  _ -> pure e
+            app <- everywhereM unquote x
+            pure $ case app of
+                Apply f vs -> List (f:vs)
+                _ -> app
+          {-[x] -> throwError $ OtherError $ T.pack $ show x-}
+          xs  -> throwError $ WrongNumberOfArgs "quasiquote" 1 (length xs))
+    , ("unquote", \_ -> throwError $ OtherError "unquote: must be in quasiquote")
     , ("define", \args -> case args of
           [Atom name, val] -> do
               val' <- eval val
@@ -161,26 +179,33 @@ purePrimops = Map.fromList $ first Ident <$>
           [_, _]       -> throwError $ TypeError "cons: second argument must be list"
           xs           -> throwError $ WrongNumberOfArgs "cons" 2 (length xs))
     , ("car", evalArgs $ \args -> case args of
-          [List (x:_)] -> eval x
+          [List (x:_)] -> pure x
           [List []]    -> throwError $ OtherError "car: empty list"
           [_]          -> throwError $ TypeError "car: expects list argument"
           xs           -> throwError $ WrongNumberOfArgs "car" 1 (length xs))
     , ("cdr", evalArgs $ \args -> case args of
-          [List (_:xs)] -> eval $ List xs
+          [List (_:xs)] -> pure $ List xs
           [List []]     -> throwError $ OtherError "cdr: empty list"
           [_]           -> throwError $ TypeError "cdr: expects list argument"
           xs            -> throwError $ WrongNumberOfArgs "cdr" 1 (length xs))
-    , ("lookup", \args -> case args of
+    , ("lookup", evalArgs $ \args -> case args of
           [Atom a, SortedMap m] -> case Map.lookup a m of
-              Just v  -> eval v
-              -- Probably an exception is better, but that seems cruel when you
-              -- have no exception handling facilities.
-              Nothing -> pure nil
+                Just v  -> eval v
+                -- Probably an exception is better, but that seems cruel
+                -- when you have no exception handling facilities.
+                Nothing -> pure nil
           [Atom _, _] -> throwError
-                       $ TypeError "lookup: second argument must be map"
+                      $ TypeError "lookup: second argument must be map"
           [_, SortedMap _] -> throwError
                             $ TypeError "lookup: first argument must be atom"
           xs -> throwError $ WrongNumberOfArgs "lookup" 2 (length xs))
+    , ("insert", evalArgs $ \args -> case args of
+          [Atom k, v, SortedMap m] -> pure . SortedMap $ Map.insert k v m
+          [Atom _, _, _] -> throwError
+                          $ TypeError "insert: third argument must be map"
+          [_, _, _] -> throwError
+                     $ TypeError "insert: first argument must be an atom"
+          xs -> throwError $ WrongNumberOfArgs "insert" 3 (length xs))
     -- The semantics of + and - in Scheme is a little messed up. (+ 3)
     -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.
     -- But while (+ 3 2 1) evaluates to 6, (- 3 2 1) evaluates to 0. So with -
@@ -210,8 +235,8 @@ purePrimops = Map.fromList $ first Ident <$>
           xs -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", \args -> case args of
           [fn, List ls] -> List <$> traverse eval [fn $$ [l] | l <- ls]
-          [_, _, _] -> throwError $ TypeError "foldr: third argument should be a list"
-          xs -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
+          [_, _, _] -> throwError $ TypeError "map: third argument should be a list"
+          xs -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
     , ("string?", evalArgs $ \args -> case args of
           [String _] -> pure $ Boolean True
           [_]        -> pure $ Boolean False
@@ -280,7 +305,8 @@ eval val = do
         Lambda [bnd] body (Just closure) -> do
               let mappings = fromList [(bnd, val)]
                   modEnv = mappings <> closure
-              withEnv (\e' -> e' { bindingsEnv = modEnv}) (eval body)
+              NonEmpty.last <$> withEnv (\e' -> e' { bindingsEnv = modEnv})
+                                        (traverse eval body)
         _ -> throwError $ TypeError "Trying to apply a non-function"
 
 -- | The built-in, original, eval.
@@ -300,13 +326,20 @@ baseEval val = case val of
                 -- Primops get to decide whether and how their args are
                 -- evaluated.
                 fn vs
-            Lambda _ _ Nothing -> throwError $ Impossible
-                "lambda should already have an env"
+            -- This happens if a quoted lambda is explicitly evaled. We then
+            -- give it the current environment
+            Lambda bnds body Nothing -> do
+                  vs' <- traverse baseEval vs
+                  let mappings = fromList (zip bnds vs')
+                  NonEmpty.last <$> withEnv
+                      (\e -> e { bindingsEnv = mappings <> bindingsEnv e })
+                      (traverse baseEval body)
             Lambda bnds body (Just closure) -> do
                   vs' <- traverse baseEval vs
                   let mappings = fromList (zip bnds vs')
                       modEnv = mappings <> closure
-                  withEnv (\e -> e { bindingsEnv = modEnv }) (baseEval body)
+                  NonEmpty.last <$> withEnv (\e -> e { bindingsEnv = modEnv })
+                                            (traverse baseEval body)
             _ -> throwError $ TypeError "Trying to apply a non-function"
     Primop i -> pure $ Primop i
     e@(Lambda _ _ (Just _)) -> pure e
