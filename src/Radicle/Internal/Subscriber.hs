@@ -10,9 +10,12 @@ import qualified Data.Map as Map
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
 import qualified Data.Text as T
+import           Data.Text.Prettyprint.Doc (pretty)
+import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc)
 import           System.Console.Haskeline (CompletionFunc, InputT, completeWord,
-                                           defaultSettings, runInputT,
-                                           setComplete, simpleCompletion)
+                                           defaultSettings, historyFile,
+                                           runInputT, setComplete,
+                                           simpleCompletion)
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Parse
@@ -22,13 +25,17 @@ import           Radicle.Internal.Subscriber.Capabilities
 type ReplM m = ( Monad m, Stdout (Lang m), Stdin (Lang m), GetEnv (Lang m)
                , SetEnv (Lang m))
 
-repl :: Text -> IO ()
-repl preCode = do
-    let settings = setComplete completion defaultSettings
+repl :: FilePath -> Text -> IO ()
+repl histFile preCode = do
+    let settings = setComplete completion
+                 $ defaultSettings { historyFile = Just histFile }
     r <- runInputT settings
         $ runLang replBindings
         $ interpretMany "[pre]" preCode
-    print r
+    case r of
+        Left Exit -> return ()
+        Left e    -> putDoc $ pretty e
+        Right v   -> putDoc $ pretty v
 
 completion :: Monad m => CompletionFunc m
 completion = completeWord Nothing ['(', ')', ' ', '\n'] go
