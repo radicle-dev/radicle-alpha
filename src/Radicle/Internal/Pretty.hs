@@ -6,6 +6,7 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
+import           Text.Megaparsec.Error (parseErrorPretty)
 
 import           Radicle.Internal.Core
 
@@ -31,6 +32,19 @@ instance Pretty Value where
                      <+> pretty val
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
+
+instance Pretty LangError where
+    pretty v = case v of
+        UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
+        Impossible t -> "This cannot be!" <+> pretty t
+        TypeError t -> "Type error:" <+> pretty t
+        WrongNumberOfArgs t x y -> "Wrong number of args in" <+> pretty t
+                                 <+> "Expected:" <+> pretty x
+                                 <+> "Got:" <+> pretty y
+        OtherError t -> "Error:" <+> pretty t
+        ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)
+        Exit -> "Exit"
+
 
 -- | A fast and compact layout. Primarily intended for testing.
 --
