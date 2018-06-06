@@ -47,7 +47,7 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
          $ filter (s `isPrefixOf`)
          $ fmap (T.unpack . fromIdent)
          $ (Map.keys . fromEnv $ bindingsEnv bnds)
-        <> (Map.keys $ bindingsPrimops bnds)
+        <> Map.keys (bindingsPrimops bnds)
 
 replBindings :: forall m. ReplM m => Bindings m
 replBindings = e { bindingsPrimops = bindingsPrimops e <> replPrimops }

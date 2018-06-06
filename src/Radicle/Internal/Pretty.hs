@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Pretty where
 
+import           Data.List.NonEmpty (toList)
 import qualified Data.Map as Map
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -21,15 +22,15 @@ instance Pretty Value where
         Number n -> pretty $ show n
         Boolean True -> "#t"
         Boolean False -> "#f"
-        List vs -> "'" <> (parens . sep $ pretty <$> vs)
+        List vs ->  parens $ sep ("list" : (pretty <$> vs))
         Primop i -> pretty i
         Apply fn vs -> parens $ pretty fn <+> sep (pretty <$> vs)
         SortedMap mp -> parens $
             "sorted-map" <+> sep [ pretty k <+> pretty val
                                  | (k, val) <- Map.toList mp ]
-        Lambda ids val _ -> parens $
+        Lambda ids vals _ -> parens $
             "lambda" <+> parens (sep $ pretty <$> ids)
-                     <+> pretty val
+                     <+> sep (pretty <$> toList vals)
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
 
@@ -51,8 +52,8 @@ instance Pretty LangError where
 -- Examples:
 --
 -- >>> renderCompactPretty (List [String "hi", String "there"])
--- "'(\"hi\"\n\"there\")"
-renderCompactPretty :: Value -> Text
+-- "(list\n\"hi\"\n\"there\")"
+renderCompactPretty :: Pretty v => v -> Text
 renderCompactPretty = renderStrict . layoutCompact . pretty
 
 -- | Render prettily into text, with specified width.
@@ -60,11 +61,11 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 -- Examples:
 --
 -- >>> renderPretty Unbounded (List [String "hi", String "there"])
--- "'(\"hi\" \"there\")"
+-- "(list \"hi\" \"there\")"
 --
 -- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"])
--- "'(\"hi\"\n\"there\")"
-renderPretty :: PageWidth -> Value -> Text
+-- "(list\n\"hi\"\n\"there\")"
+renderPretty :: Pretty v => PageWidth -> v -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 
 -- | 'renderPretty', but with default layout options (80 chars, 1.0 ribbon)
@@ -72,6 +73,6 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 -- Examples:
 --
 -- >>> renderPrettyDef (List [String "hi", String "there"])
--- "'(\"hi\" \"there\")"
-renderPrettyDef :: Value -> Text
+-- "(list \"hi\" \"there\")"
+renderPrettyDef :: Pretty v => v -> Text
 renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . pretty
