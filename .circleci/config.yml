@@ -11,13 +11,19 @@ jobs:
                   # If an exact match is unavailable, use the most recent one
                   - stack-work-v1-
                 paths:
-                    - ~/.stack
+                  - ~/.stack
             - run:
                 name: Build
                 command: stack build --pedantic --no-terminal --fast
             - run:
                 name: Test
                 command: stack test --pedantic --no-terminal --fast
+            - run:
+                name: Install hlint
+                command: stack install hlint
+            - run:
+                name: Run hlint
+                command: hlint .
             - save_cache:
                 key: stack-work-v1-{{ checksum "stack.yaml" }}-{{ checksum "package.yaml" }}
                 paths:
