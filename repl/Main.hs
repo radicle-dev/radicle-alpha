@@ -29,7 +29,7 @@ getConfig :: IO FilePath
 getConfig = do
     mCfgHome <- lookupEnv "XDG_CONFIG_HOME"
     pure $ case mCfgHome of
-        Nothing      -> "~/.config/rad/config.rad"
+        Nothing      -> "$HOME/.config/rad/config.rad"
         Just cfgHome -> cfgHome <> "/rad/config.rad"
 
 -- | Uses XDG_CACHE_HOME if available.
@@ -37,7 +37,7 @@ getHistory :: IO FilePath
 getHistory = do
     mCfgHome <- lookupEnv "XDG_CACHE_HOME"
     pure $ case mCfgHome of
-        Nothing      -> "/home/jkarni/.cache/rad/history"
+        Nothing      -> "$HOME/.cache/rad/history"
         Just cfgHome -> cfgHome <> "/rad/history"
 
 data Opts = Opts
