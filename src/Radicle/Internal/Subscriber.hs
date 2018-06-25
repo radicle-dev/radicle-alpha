@@ -33,7 +33,7 @@ repl histFile preCode = do
         $ runLang replBindings
         $ interpretMany "[pre]" preCode
     case r of
-        Left Exit -> return ()
+        Left Exit -> pure ()
         Left e    -> putDoc $ pretty e
         Right v   -> putDoc $ pretty v
 
