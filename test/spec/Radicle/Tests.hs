@@ -2,16 +2,18 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Radicle.Tests where
 
-import           Data.Data ((:~:)(Refl), Data, cast, eqT)
 import           Data.Either (isLeft)
+import           Data.Functor.Foldable (Fix(..), unfix)
 import           Data.Functor.Identity (runIdentity)
-import           Data.Generics (everywhere)
+import           Data.List (isSuffixOf)
 import           Data.Semigroup ((<>))
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import           Data.Void (Void)
 import           GHC.Exts (fromList, toList)
+import           System.Directory (getDirectoryContents)
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck (counterexample, testProperty, (==>))
@@ -51,21 +53,18 @@ test_eval =
         let prog = [s|(cdr (list #t #f #t))|]
         prog `succeedsWith` List [Boolean False, Boolean True]
 
-    , testProperty "'eq?' considers equal values equal" $ \(val :: Value) -> do
+    , testProperty "'eq?' considers equal values equal" $ \(val :: Value Void) -> do
         let prog = [i|(eq? #{renderPrettyDef val} #{renderPrettyDef val})|]
-            res  = runIdentity $ runLang pureEnv
-                               $ interpretMany "(test)" $ T.pack prog
-        -- Either evaluation failed or their equal.
-        counterexample prog $ isLeft res || res == Right (Boolean True)
+            res  = runTest' $ T.pack prog
+        counterexample prog $  isLeft res || res == Right (Boolean True)
 
     , testProperty "'eq?' considers different values different"
-                $ \(v1 :: Value, v2 :: Value) ->
+                $ \(v1 :: Value Int, v2 :: Value Int) ->
                   v1 /= v2 ==> do
         -- We quote the values to prevent errors from being thrown
         let prog = [i|(eq? (quote #{renderPrettyDef v1})
                            (quote #{renderPrettyDef v2}))|]
-            res  = runIdentity $ runLang pureEnv
-                               $ interpretMany "(test)" $ T.pack prog
+            res  = runTest' $ T.pack prog
         -- Either evaluation failed or their equal.
         counterexample prog $ isLeft res || res == Right (Boolean False)
 
@@ -88,6 +87,15 @@ test_eval =
     , testCase "'insert' insert the value of key in map" $ do
         let prog = [s|(lookup 'key1 (insert 'key1 "b" (sorted-map)))|]
         prog `succeedsWith` String "b"
+
+    , testProperty "'string-append' concatenates string" $ \ss -> do
+        let args = T.unwords $ renderPrettyFix . String <$> ss
+            prog = "(string-append " <> args <> ")"
+            res  = runTest' prog
+            expected = Right . String $ mconcat ss
+            info = "Expected:\n" <> prettyEither expected <>
+                   "Got:\n" <> prettyEither res
+        counterexample (T.unpack info) $ res == expected
 
     , testCase "'foldl' foldls the list" $ do
         let prog = [s|(foldl - 0 (list 1 2 3))|]
@@ -183,31 +191,14 @@ test_eval =
         prog `succeedsWith` Number 6
 
     , testProperty "'>' works" $ \(x, y) -> do
-        let prog = [i|(> #{renderPrettyDef $ Number x} #{renderPrettyDef $ Number y})|]
-            res  = runIdentity $ runLang pureEnv
-                               $ interpretMany "(test)" $ T.pack prog
+        let prog = [i|(> #{renderPrettyFix $ Number x} #{renderPrettyFix $ Number y})|]
+            res  = runTest' $ T.pack prog
         counterexample prog $ res == Right (Boolean (x > y))
 
     , testProperty "'<' works" $ \(x, y) -> do
-        let prog = [i|(< #{renderPrettyDef $ Number x} #{renderPrettyDef $ Number y})|]
-            res  = runIdentity $ runLang pureEnv
-                               $ interpretMany "(test)" $ T.pack prog
+        let prog = [i|(< #{renderPrettyFix $ Number x} #{renderPrettyFix $ Number y})|]
+            res  = runTest' $ T.pack prog
         counterexample prog $ res == Right (Boolean (x < y))
-
-    , testProperty "quasiquote . unquote == id" $ \(v :: Value) -> do
-        -- Parse errors will differ, so we ignore them.
-        let equalModuloParseErr x y = case (x, y) of
-              (Left (ParseError _) , Left (ParseError _)) -> True
-              _ -> x == y
-            prog1 = [i|(quasiquote (unquote #{renderPrettyDef v}))|]
-            prog2 = [i|#{renderPrettyDef v}|]
-            run'  = runIdentity . runLang pureEnv
-                  . interpretMany "(test)" . T.pack
-            l = run' prog1
-            r = run' prog2
-            info = "Left:\n" <> prettyEither l <>
-                   "\nRight:\n" <> prettyEither r
-        counterexample (T.unpack info) $ l `equalModuloParseErr` r
 
     , testCase "'define' fails when first arg is not an atom" $ do
         let prog = [s|(define "hi" "there")|]
@@ -219,12 +210,26 @@ test_eval =
             #t
             |]
         prog `succeedsWith` Boolean False
+
+    , testCase "'deref' returns the most recent value" $ do
+        let prog = [s|
+                (define x (ref 5))
+                (write-ref x 6)
+                (deref x)
+                |]
+            res = runTest' prog
+        res @?= Right (Number 6)
+
+    , testProperty "deref . ref == id" $ \v -> do
+        let derefed = runTest' $ T.pack [i|(deref (ref #{renderPrettyFix v}))|]
+            orig    = runTest' $ T.pack [i|#{renderPrettyFix v}|]
+            info    = "Expected:\n" <> T.unpack (prettyEither orig)
+                   <> "\nGot:\n" <> T.unpack (prettyEither derefed)
+        counterexample info $ derefed == orig
     ]
   where
-    run src              = runIdentity $ runLang pureEnv
-                                       $ interpretMany "(test)" src
-    failsWith src err    = run src @?= Left err
-    succeedsWith src val = run src @?= Right val
+    failsWith src err    = runTest' src @?= Left err
+    succeedsWith src val = runTest' src @?= Right val
 
 test_parser :: [TestTree]
 test_parser =
@@ -279,10 +284,10 @@ test_binding =
 
 test_pretty :: [TestTree]
 test_pretty =
-    [ testProperty "pretty . parse == identity" $ \val ->
+    [ testProperty "pretty . parse == identity" $ \(val :: Value (Fix Value))  ->
         let rendered = renderCompactPretty val
             actual = parseTest rendered
-            original = removeEnv val
+            original = removeEnv' val
             info = case actual of
               Left e -> "parse error in: " <> T.unpack rendered <> "\n"
                       <> e
@@ -294,37 +299,21 @@ test_pretty =
 
 test_env :: [TestTree]
 test_env =
-    [ testProperty "fromList . toList == identity" $ \(env' :: Env) ->
+    [ testProperty "fromList . toList == identity" $ \(env' :: Env (Value Int)) ->
         fromList (toList env') == env'
     ]
 
 test_repl_primops :: [TestTree]
 test_repl_primops =
-    [ testProperty "get-line! returns the input line" $ \(v :: Value) ->
+    [ testProperty "get-line! returns the input line" $ \(v :: Value Void) ->
         let res = run [renderCompactPretty v] [s|(get-line!)|]
             expected = Right $ List [removeEnv v]
             info = "Expected: " <> show expected <> "\nGot: " <> show res
-        in counterexample info $ res == expected
-
-    , testCase "'deref-all' gives the value of a binding at call site" $ do
-        let prog = [s|
-                (define x #f)
-                (define y (ref x))
-                (define x #t)
-                (deref-all y)
-                |]
-            res = run [] prog
-        res @?= Right (Boolean True)
-
-    , testProperty "deref-all . ref == id" $ \(i', v) -> do
-        let derefed = Primop (toIdent "deref-all") $$ [Ref i']
-            atom = Atom i'
-            run' p = runTestWith (addBinding i' v pureEnv) [] (eval p)
-        run' derefed == run' atom
+        in counterexample info $ res == (coerceRefs <$> expected)
     ]
-    where
-      run inp prog = fst $ runTestWith replBindings inp
-                         $ interpretMany "(test)" prog
+  where
+    run stdin prog = fst $ runTestWith replBindings stdin prog
+
 
 test_repl :: [TestTree]
 test_repl =
@@ -368,22 +357,50 @@ test_repl =
     ]
     where
       getCfg = getDataFileName "repl/config.rad" >>= T.readFile
-      runInRepl inp = runTestWith replBindings inp
-                    . interpretMany "(test)" <$> getCfg
+      runInRepl inp = runTestWith replBindings inp <$> getCfg
+
+-- Tests all radicle files 'repl' dir. These should use the 'should-be'
+-- function to ensure they are in the proper format.
+test_source_files :: IO TestTree
+test_source_files = testGroup "Radicle source file tests" <$> do
+    oneOf'Em <- getDataFileName "repl/config.rad"
+    let dir = reverse $ drop (length ("config.rad" :: String)) $ reverse oneOf'Em
+    files <- getDirectoryContents dir
+    let radFiles = filter (".rad" `isSuffixOf`) files
+    print radFiles
+    sequence $ radFiles <&> \file -> do
+        contents <- T.readFile $ dir <> file
+        let (_, out) = runTestWith replBindings [] contents
+        let makeTest line = let (name, result) = T.span (/= '\'')
+                                               $ T.drop 1
+                                               $ T.dropWhile (/= '\'') line
+                            in testCase (T.unpack name) $ result @?= "' succeeded\""
+        print out
+        pure $ testGroup file
+            $ [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]
+
 
 -- * Utils
 
 -- | Environments are neither printed nor parsed, but are generated by the
 -- arbitrary instance.
-removeEnv :: Value -> Value
-removeEnv = everywhere go
-  where
-    go :: forall b. Data b => (b -> b)
-    go x = case (cast x, eqT :: Maybe (b :~: Value)) of
-        (Just (Lambda arg body _), Just Refl) -> Lambda arg body Nothing
-        _                                     -> x
+removeEnv :: Value s -> Value s
+removeEnv v = case v of
+    List xs         -> List $ removeEnv <$> xs
+    Apply fn xs     -> Apply (removeEnv fn) (removeEnv <$> xs)
+    SortedMap m     -> SortedMap $ removeEnv <$> m
+    Lambda ids bd _ -> Lambda ids (removeEnv <$> bd) Nothing
+    x               -> x
 
-prettyEither :: Either LangError Value -> T.Text
+removeEnv' :: Value (Fix Value) -> Value (Fix Value)
+removeEnv' v = Fix . removeEnv' . unfix <$> removeEnv v
+
+prettyEither :: Pretty s => Either LangError (Value s) -> T.Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e
 prettyEither (Right v) = renderPrettyDef v
 
+renderPrettyFix :: Value (Fix Value) -> T.Text
+renderPrettyFix = renderPrettyDef
+
+(<&>) :: Functor f => f a -> (a -> b) -> f b
+(<&>) = flip fmap

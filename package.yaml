@@ -11,18 +11,22 @@ extra-source-files:
 dependencies:
 - base >=4 && <5
 - containers
+- deriving-compat
 - haskeline
 - megaparsec
 - mmorph
 - mtl
 - prettyprinter
 - prettyprinter-ansi-terminal
+- recursion-schemes
 - scientific
+- STMonadTrans
 - syb
 - text
 
 data-files:
 - repl/config.rad
+- repl/prelude.rad
 
 library:
   source-dirs: src
@@ -36,6 +40,7 @@ tests:
     ghc-options: -Wall -threaded
     dependencies:
     - radicle
+    - directory
     - QuickCheck
     - quickcheck-instances
     - interpolate
@@ -72,6 +77,8 @@ default-extensions:
 - ConstraintKinds
 - DeriveDataTypeable
 - DeriveFunctor
+- DeriveFoldable
+- DeriveTraversable
 - DeriveGeneric
 - FlexibleContexts
 - FlexibleInstances

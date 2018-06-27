@@ -3,10 +3,12 @@ module Radicle.Internal.Arbitrary where
 
 import           Control.Monad.Identity (Identity)
 import           Data.Bifunctor (first)
+import           Data.Functor.Foldable (Fix(Fix))
 import qualified Data.Map as Map
 import           Data.Maybe (isJust)
 import           Data.Scientific (Scientific)
 import qualified Data.Text as T
+import           Data.Void (Void)
 import           Safe (readMay)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
@@ -15,14 +17,13 @@ import           Radicle
 import           Radicle.Internal.Core (purePrimops)
 import           Radicle.Internal.Parse (isValidIdentFirst, isValidIdentRest)
 
-instance Arbitrary Env where
+instance Arbitrary r => Arbitrary (Env r) where
     arbitrary = Env <$> arbitrary
 
-instance Arbitrary Value where
+instance {-# OVERLAPPING #-} Arbitrary (Value Void) where
     arbitrary = sized go
       where
         freqs = [ (3, Atom <$> (arbitrary `suchThat` (\x -> not (isPrimop x || isNum x))))
-                , (3, Ref <$> arbitrary)
                 , (3, String <$> arbitrary)
                 , (3, Boolean <$> arbitrary)
                 , (3, Number <$> arbitrary)
@@ -40,12 +41,18 @@ instance Arbitrary Value where
         sizedList = sized $ \n -> do
             k <- choose (0, n)
             scale (`div` (k + 1)) $ vectorOf k arbitrary
-        prims :: Map.Map Ident ([Value] -> Lang Identity Value)
+        prims :: Map.Map Ident ([Value (Reference s)] -> Lang s Identity (Value (Reference s)))
         prims = purePrimops
         isPrimop x = x `elem` Map.keys prims
         isNum x = isJust (readMay (T.unpack $ fromIdent x) :: Maybe Scientific)
 
-    shrink x = genericShrink x
+instance {-# OVERLAPPABLE #-} Arbitrary r => Arbitrary (Value r) where
+    arbitrary = frequency [ (20, coerceRefs <$> arbitrary)
+                          , (3, Ref <$> arbitrary)
+                          ]
+
+instance Arbitrary (Fix Value) where
+    arbitrary = Fix <$> arbitrary
 
 instance Arbitrary Ident where
     arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (mkIdent . T.pack)

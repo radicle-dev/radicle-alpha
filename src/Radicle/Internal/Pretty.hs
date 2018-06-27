@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Pretty where
 
+import           Data.Functor.Foldable (Fix, unfix)
 import           Data.List.NonEmpty (toList)
 import qualified Data.Map as Map
 import           Data.Text (Text)
@@ -11,10 +12,16 @@ import           Text.Megaparsec.Error (parseErrorPretty)
 
 import           Radicle.Internal.Core
 
+-- | We can't just pretty print the pointer id since that would break
+-- referential transparency, so instead we just label are refs as '<ref>'
+instance Pretty (Reference s) where
+    pretty _ = angles "ref"
+
 instance Pretty Ident where
     pretty (Ident i) = pretty i
 
-instance Pretty Value where
+
+instance Pretty r => Pretty (Value r) where
     pretty v = case v of
         Atom i -> pretty i
         Ref i -> parens $ "ref" <+> pretty i
@@ -34,6 +41,10 @@ instance Pretty Value where
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
 
+instance Pretty (Fix Value) where
+    -- pretty indeed!
+    pretty = pretty . unfix
+
 instance Pretty LangError where
     pretty v = case v of
         UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
@@ -51,7 +62,8 @@ instance Pretty LangError where
 --
 -- Examples:
 --
--- >>> renderCompactPretty (List [String "hi", String "there"])
+-- >>> import Data.Void
+-- >>> renderCompactPretty (List [String "hi", String "there"] :: Value Void)
 -- "(list\n\"hi\"\n\"there\")"
 renderCompactPretty :: Pretty v => v -> Text
 renderCompactPretty = renderStrict . layoutCompact . pretty
@@ -60,10 +72,12 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 --
 -- Examples:
 --
--- >>> renderPretty Unbounded (List [String "hi", String "there"])
+-- >>> import Data.Void
+-- >>> renderPretty Unbounded (List [String "hi", String "there"] :: Value Void)
 -- "(list \"hi\" \"there\")"
 --
--- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"])
+-- >>> import Data.Void
+-- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"] :: Value Void)
 -- "(list\n\"hi\"\n\"there\")"
 renderPretty :: Pretty v => PageWidth -> v -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
@@ -72,7 +86,8 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 --
 -- Examples:
 --
--- >>> renderPrettyDef (List [String "hi", String "there"])
+-- >>> import Data.Void
+-- >>> renderPrettyDef (List [String "hi", String "there"] :: Value Void)
 -- "(list \"hi\" \"there\")"
 renderPrettyDef :: Pretty v => v -> Text
 renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . pretty

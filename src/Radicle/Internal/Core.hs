@@ -1,18 +1,22 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Radicle.Internal.Core where
 
 import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
                                        throwError)
+import           Control.Monad.ST.Trans (STRef, STT, newSTRef, readSTRef,
+                                         runSTT, writeSTRef)
 import           Control.Monad.State
 import           Data.Bifunctor (first)
-import           Data.Data ((:~:)(Refl), Data, cast, eqT)
-import           Data.Generics (everywhereM)
+import           Data.Data (Data)
+import           Data.Deriving (deriveEq1, deriveShow1)
+import           Data.Functor.Foldable (Fix(..), cata)
 import           Data.List (foldl')
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Map (Map)
 import qualified Data.Map as Map
+import           Data.Maybe (catMaybes, isJust)
 import           Data.Scientific (Scientific)
 import           Data.Semigroup (Semigroup, (<>))
 import           Data.Text (Text)
@@ -20,7 +24,7 @@ import           Data.Void (Void)
 import           GHC.Exts (IsList(..), fromString)
 import           GHC.Generics (Generic)
 import qualified Text.Megaparsec.Error as Par
-
+import           Unsafe.Coerce (unsafeCoerce)
 
 -- * Value
 
@@ -37,27 +41,76 @@ data LangError =
     | Exit
     deriving (Eq, Show, Read, Generic)
 
+newtype Reference s = Reference { getReference :: STRef s (Value (Reference s)) }
+    deriving (Eq)
+
+-- | Create a new ref with the supplied initial value.
+newRef :: Monad m => Value (Reference s) -> Lang s m (Value (Reference s))
+newRef v = LangT $ lift $ lift $ Ref . Reference <$> newSTRef v
+
+-- | Read the value of a reference.
+deref :: Monad m => Reference s -> Lang s m (Value (Reference s))
+deref (Reference r) = LangT . lift . lift $ readSTRef r
 
 -- | An expression or value in the language.
-data Value =
+--
+-- The parameter is for refs. Usually it is 'Reference s' (with 's' being the
+-- thread param of the ST monad). However, we first parse into 'Fix Value'
+-- before converting it into 'Reference' (see 'makeRefs').
+--
+-- A Value that no longer contains any references can have type 'Value Void',
+-- indicating it is safe to share between threads or chains.
+data Value r =
     -- | A regular (hyperstatic) variable.
       Atom Ident
     | String Text
     | Number Scientific
     | Boolean Bool
-    | List [Value]
+    | List [Value r]
     | Primop Ident
-    | Apply Value [Value]
-    | SortedMap (Map.Map Ident Value)
-    -- | A variable that must be looked up at the *call-site*.
-    | Ref Ident
+    | Apply (Value r) [Value r]
+    | SortedMap (Map.Map Ident (Value r))
+    | Ref r
     -- | Takes the arguments/parameters, a body, and possibly a closure.
     --
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is thus only for (local)
     -- "define"s.
-    | Lambda [Ident] (NonEmpty Value) (Maybe Env)
-    deriving (Eq, Ord, Show, Read, Generic, Data)
+    | Lambda [Ident] (NonEmpty (Value r)) (Maybe (Env (Value r)))
+    deriving (Eq, Show, Read, Generic, Functor, Foldable, Traversable)
+
+
+-- | Replace all Refs containing 'Fix Value' into ones containing references to
+-- those values.
+makeRefs :: Monad m => Value (Fix Value) -> Lang s m (Value (Reference s))
+makeRefs v = cata go (Fix v)
+  where
+    go x = case x of
+        Atom i -> pure $ Atom i
+        String i -> pure $ String i
+        Boolean i -> pure $ Boolean i
+        Number i -> pure $ Number i
+        Primop i -> pure $ Primop i
+        Apply f vs -> Apply <$> go f <*> sequence (go <$> vs)
+        SortedMap m -> SortedMap <$> sequence (go <$> m)
+        List vs -> List <$> sequence (go <$> vs)
+        Ref i -> i >>= newRef
+        Lambda is bd e -> Lambda is <$> sequence (go <$> bd)
+                                    <*> traverse sequence (fmap go <$> e)
+
+-- | Replace all refs containing a 'Reference' into ones containing a number
+-- representing that 'Reference'.
+labelRefs :: Value (Reference s) -> Value Int
+labelRefs v = evalState (traverse go v) (0, [])
+  where
+    go :: Reference s -> State (Int, [(Reference s, Int)]) Int
+    go s = get >>= \(cur, mapping) -> case lookup s mapping of
+        Nothing -> put (cur + 1, (s, cur):mapping) >> pure cur
+        Just ix -> pure ix
+
+-- | Safely coerce a 'Value' containing no refs into one of a different type.
+coerceRefs :: Value Void -> Value a
+coerceRefs = unsafeCoerce
 
 -- | An identifier in the language.
 --
@@ -72,39 +125,43 @@ toIdent :: String -> Ident
 toIdent = Ident . fromString
 
 -- | The environment, which keeps all known bindings.
-newtype Env = Env { fromEnv :: Map Ident Value }
-    deriving (Eq, Show, Ord, Read, Semigroup, Monoid, Generic, Data)
+newtype Env s = Env { fromEnv :: Map Ident s }
+    deriving (Eq, Semigroup, Monoid, Show, Read, Generic, Functor, Foldable, Traversable)
 
-instance IsList Env where
-    type Item Env = (Ident, Value)
+instance IsList (Env s) where
+    type Item (Env s) = (Ident, s)
     fromList = Env . fromList
     toList = GHC.Exts.toList . fromEnv
 
 -- | Primop mappings. The parameter specifies the monad the primops run in.
-type Primops m = Map Ident ([Value] -> LangT (Bindings m) m Value)
+type Primops s m = Map Ident ([Value (Reference s)] -> Lang s m (Value (Reference s)))
 
 -- | Bindings, either from the env or from the primops.
-data Bindings m = Bindings
-    { bindingsEnv     :: Env
-    , bindingsPrimops :: Primops m
+data Bindings s m = Bindings
+    { bindingsEnv     :: Env (Value (Reference s))
+    , bindingsPrimops :: Primops s m
     } deriving (Generic)
 
 -- | The environment in which expressions are evaluated.
-newtype LangT r m a = LangT
-    { fromLangT :: ExceptT LangError (StateT r m) a }
+newtype LangT s r m a = LangT
+    { fromLangT :: ExceptT LangError (StateT r (STT s m)) a }
     deriving (Functor, Applicative, Monad, MonadError LangError, MonadState r)
 
-instance MonadTrans (LangT r) where lift = LangT . lift . lift
+instance MonadTrans (LangT s r) where lift = LangT . lift . lift . lift
 
 -- | A monad for language operations specialized to have as state the Bindings
 -- with appropriate underlying monad.
-type Lang m = LangT (Bindings m) m
+type Lang s m = LangT s (Bindings s m) m
 
-runLang :: Monad m => Bindings m -> Lang m a -> m (Either LangError a)
-runLang e l = evalStateT (runExceptT $ fromLangT l) e
+runLang
+    :: Monad m
+    => (forall s. Bindings s m)
+    -> (forall s. Lang s m a)
+    -> m (Either LangError a)
+runLang e l = runSTT $ evalStateT (runExceptT $ fromLangT l) e
 
 -- | Like 'local' or 'withState'
-withEnv :: Monad m => (Bindings m -> Bindings m) -> Lang m a -> Lang m a
+withEnv :: Monad m => (Bindings s m -> Bindings s m) -> Lang s m a -> Lang s m a
 withEnv modifier action = do
     oldEnv <- get
     modify modifier
@@ -115,33 +172,33 @@ withEnv modifier action = do
 -- * Functions
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
-pureEnv :: Monad m => Bindings m
+pureEnv :: (Monad m) => Bindings r m
 pureEnv = Bindings e purePrimops
   where
     e = fromList [(toIdent "eval", Primop $ toIdent "base-eval")]
 
-addBinding :: Monad m => Ident -> Value -> Bindings m -> Bindings m
+addBinding :: Monad m => Ident -> Value (Reference r) -> Bindings r m -> Bindings r m
 addBinding i v b = b
     { bindingsEnv = Env . Map.insert i v . fromEnv $ bindingsEnv b }
 
 -- | Lookup an atom in the environment
-lookupAtom :: Monad m => Ident -> Lang m Value
+lookupAtom :: Monad m => Ident -> Lang r m (Value (Reference r))
 lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
     Nothing -> throwError $ UnknownIdentifier i
     Just v  -> pure v
 
 -- | Lookup a primop.
-lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
+lookupPrimop :: Monad m => Ident -> Lang r m ([Value (Reference r)] -> Lang r m (Value (Reference r)))
 lookupPrimop i = get >>= \e -> case Map.lookup i $ bindingsPrimops e of
     Nothing -> throwError $ Impossible "Unknown primop"
     Just v  -> pure v
 
-defineAtom :: Monad m => Ident -> Value -> Lang m ()
+defineAtom :: Monad m => Ident -> Value (Reference r) -> Lang r m ()
 defineAtom i v = modify $ addBinding i v
 
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
-purePrimops :: forall m. Monad m => Primops m
+purePrimops :: forall r m. (Monad m) => Primops r m
 purePrimops = Map.fromList $ first Ident <$>
     [ ("base-eval", \args -> case args of
           [x] -> baseEval x
@@ -149,19 +206,6 @@ purePrimops = Map.fromList $ first Ident <$>
     , ("quote", \args -> case args of
           [v] -> pure v
           xs  -> throwError $ WrongNumberOfArgs "quote" 1 (length xs))
-    , ("quasiquote", \args -> case args of
-          [x] -> do
-            let unquote :: forall b. (Data b) => (b -> Lang m b)
-                unquote e = case (cast e, eqT :: Maybe (b :~: Value)) of
-                  (Just (Apply (Primop p) [y]), Just Refl)
-                    | p == toIdent "unquote"  -> eval y
-                  _ -> pure e
-            app <- everywhereM unquote x
-            pure $ case app of
-                Apply f vs -> List (f:vs)
-                _          -> app
-          xs  -> throwError $ WrongNumberOfArgs "quasiquote" 1 (length xs))
-    , ("unquote", \_ -> throwError $ OtherError "unquote: must be in quasiquote")
     , ("define", \args -> case args of
           [Atom name, val] -> do
               val' <- eval val
@@ -197,6 +241,13 @@ purePrimops = Map.fromList $ first Ident <$>
           [_, SortedMap _] -> throwError
                             $ TypeError "lookup: first argument must be atom"
           xs -> throwError $ WrongNumberOfArgs "lookup" 2 (length xs))
+    , ("string-append", evalArgs $ \args ->
+          let fromStr (String s) = Just s
+              fromStr _          = Nothing
+              ss = fromStr <$> args
+          in if all isJust ss
+              then pure . String . mconcat $ catMaybes ss
+              else throwError $ TypeError "string-append: non-string argument")
     , ("insert", evalArgs $ \args -> case args of
           [Atom k, v, SortedMap m] -> pure . SortedMap $ Map.insert k v m
           [Atom _, _, _] -> throwError
@@ -259,23 +310,24 @@ purePrimops = Map.fromList $ first Ident <$>
             -- in Lisps a lot of things that one might object to are True...
             if b == Boolean False then eval f else eval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
-    , ("deref-all", \args -> do
-          let derefOne :: forall b. (Data b) => (b -> Lang m b)
-              derefOne x = case (cast x, eqT :: Maybe (b :~: Value)) of
-                  (Just (Ref i), Just Refl) -> lookupAtom i
-                  _                         -> pure x
+    , ("deref", evalArgs $ \args -> do
           case args of
-              [x] -> eval x >>= everywhereM derefOne
-              xs  -> throwError $ WrongNumberOfArgs "deref-all" 1 (length xs))
+              [Ref x] -> eval =<< deref x
+              [_] -> throwError $ TypeError "deref: argument must be a ref"
+              xs  -> throwError $ WrongNumberOfArgs "deref" 1 (length xs))
+    , ("write-ref", evalArgs $ \args -> do
+          case args of
+              [Ref (Reference x), v] -> LangT (lift $ lift $ writeSTRef x v) >> pure nil
+              [_, _] -> throwError $ TypeError "write-ref: first argument must be a ref"
+              xs  -> throwError $ WrongNumberOfArgs "write-ref" 2 (length xs))
     ]
   where
     -- Many primops evaluate their arguments just as normal functions do.
-    evalArgs :: ([Value] -> Lang m Value) -> ([Value] -> Lang m Value)
     evalArgs f args = traverse eval args >>= f
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text
-             -> (Text, [Value] -> Lang m Value)
+             -> (Text, [Value (Reference r)] -> Lang r m (Value (Reference r)))
     numBinop fn name = (name, evalArgs $ \args -> case args of
         Number x:x':xs -> foldM go (Number x) (x':xs)
           where
@@ -289,7 +341,7 @@ purePrimops = Map.fromList $ first Ident <$>
 -- * Eval
 
 -- | The buck-passing eval. Uses whatever 'eval' is in scope.
-eval :: Monad m => Value -> Lang m Value
+eval :: Monad m => Value (Reference r) -> Lang r m (Value (Reference r))
 eval val = do
     e <- lookupAtom (toIdent "eval")
     case e of
@@ -308,7 +360,7 @@ eval val = do
         _ -> throwError $ TypeError "Trying to apply a non-function"
 
 -- | The built-in, original, eval.
-baseEval :: Monad m => Value -> Lang m Value
+baseEval :: Monad m => Value (Reference r) -> Lang r m (Value (Reference r))
 baseEval val = case val of
     Atom i -> lookupAtom i
     Ref i -> pure $ Ref i
@@ -352,8 +404,14 @@ baseEval val = case val of
 
 -- | Infix function application
 infixr 1 $$
-($$) :: Value -> [Value] -> Value
+($$) :: Value r -> [Value r] -> Value r
 ($$) = Apply
 
-nil :: Value
+nil :: Value r
 nil = List []
+
+-- TH
+deriveEq1 ''Env
+deriveEq1 ''Value
+deriveShow1 ''Env
+deriveShow1 ''Value

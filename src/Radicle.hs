@@ -18,6 +18,10 @@ module Radicle
     , LangError(..)
     , ($$)
     , Ident
+    , Reference(..)
+    , makeRefs
+    , labelRefs
+    , coerceRefs
     , fromIdent
     , mkIdent
     , Env(..)
