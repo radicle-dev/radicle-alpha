@@ -9,9 +9,10 @@ import           Data.Bifunctor (first)
 import           Data.Data ((:~:)(Refl), Data, cast, eqT)
 import           Data.Generics (everywhereM)
 import           Data.List (foldl')
+import           Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Map (Map)
 import qualified Data.Map as Map
-import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Scientific (Scientific)
 import           Data.Semigroup (Semigroup, (<>))
 import           Data.Text (Text)
@@ -55,7 +56,7 @@ data Value =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is thus only for (local)
     -- "define"s.
-    | Lambda [Ident] (NonEmpty.NonEmpty Value) (Maybe Env)
+    | Lambda [Ident] (NonEmpty Value) (Maybe Env)
     deriving (Eq, Ord, Show, Read, Generic, Data)
 
 -- | An identifier in the language.
@@ -152,16 +153,13 @@ purePrimops = Map.fromList $ first Ident <$>
           [x] -> do
             let unquote :: forall b. (Data b) => (b -> Lang m b)
                 unquote e = case (cast e, eqT :: Maybe (b :~: Value)) of
-                  (Just (Apply (Primop p) [y]), Just Refl) ->
-                      if p == toIdent "unquote"
-                          then eval y
-                          else pure e
+                  (Just (Apply (Primop p) [y]), Just Refl)
+                    | p == toIdent "unquote"  -> eval y
                   _ -> pure e
             app <- everywhereM unquote x
             pure $ case app of
                 Apply f vs -> List (f:vs)
-                _ -> app
-          {-[x] -> throwError $ OtherError $ T.pack $ show x-}
+                _          -> app
           xs  -> throwError $ WrongNumberOfArgs "quasiquote" 1 (length xs))
     , ("unquote", \_ -> throwError $ OtherError "unquote: must be in quasiquote")
     , ("define", \args -> case args of
@@ -190,12 +188,12 @@ purePrimops = Map.fromList $ first Ident <$>
           xs            -> throwError $ WrongNumberOfArgs "cdr" 1 (length xs))
     , ("lookup", evalArgs $ \args -> case args of
           [Atom a, SortedMap m] -> case Map.lookup a m of
-                Just v  -> eval v
-                -- Probably an exception is better, but that seems cruel
-                -- when you have no exception handling facilities.
-                Nothing -> pure nil
+              Just v  -> eval v
+              -- Probably an exception is better, but that seems cruel
+              -- when you have no exception handling facilities.
+              Nothing -> pure nil
           [Atom _, _] -> throwError
-                      $ TypeError "lookup: second argument must be map"
+                       $ TypeError "lookup: second argument must be map"
           [_, SortedMap _] -> throwError
                             $ TypeError "lookup: first argument must be atom"
           xs -> throwError $ WrongNumberOfArgs "lookup" 2 (length xs))
@@ -235,7 +233,7 @@ purePrimops = Map.fromList $ first Ident <$>
           xs -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", \args -> case args of
           [fn, List ls] -> List <$> traverse eval [fn $$ [l] | l <- ls]
-          [_, _, _] -> throwError $ TypeError "map: third argument should be a list"
+          [_, _] -> throwError $ TypeError "map: second argument should be a list"
           xs -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
     , ("string?", evalArgs $ \args -> case args of
           [String _] -> pure $ Boolean True
@@ -327,7 +325,7 @@ baseEval val = case val of
                 -- evaluated.
                 fn vs
             -- This happens if a quoted lambda is explicitly evaled. We then
-            -- give it the current environment
+            -- give it the current environment.
             Lambda bnds body Nothing -> do
                   vs' <- traverse baseEval vs
                   let mappings = fromList (zip bnds vs')

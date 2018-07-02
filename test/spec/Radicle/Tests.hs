@@ -21,7 +21,7 @@ import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (toIdent)
 import           Radicle.Internal.TestCapabilities
 
-import           Paths_radicle
+import           Paths_radicle -- generate by cabal via 'data-files'
 
 test_eval :: [TestTree]
 test_eval =
