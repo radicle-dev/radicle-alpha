@@ -100,8 +100,29 @@
         (print! "error: currency- unknown message"))))))
   dispatch))
 
-(define repl
-    (sorted-map name "repl" getter (quote (get-line!))))
+(define currency (create-currency))
 
-(subscribe-to! repl
-    (lambda (x) (print! x)))
+
+(define new-eval (lambda (expr)
+  (if (eq? (car expr) 'new-account)
+      ((currency 'new-account) (car (cdr expr)))
+  (if (eq? (car expr) 'account-balance)
+      ((currency 'account-balance) (car (cdr expr)))
+  (if (eq? (car expr) 'transfer)
+      ((currency 'transfer) (car (cdr expr)) (car (cdr (cdr expr))) (car (cdr
+                      (cdr (cdr expr)))))
+  (print! "transaction must be new-account, transfer, or account-balance"))))))
+
+
+;; The Repl
+
+(define repl
+  (sorted-map
+     name "repl"
+     ;; Parse errors are thrown here
+     getter (lambda () (catch 'parse-error (get-line!) print!))))
+
+;; Evaluation errors are thrown here
+(catch 'any
+    (subscribe-to! repl print!)
+    (lambda (x) (print! x) (subscribe-to! repl print!)))

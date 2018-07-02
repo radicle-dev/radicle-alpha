@@ -29,7 +29,6 @@ instance {-# OVERLAPPING #-} Arbitrary (Value Void) where
                 , (3, Number <$> arbitrary)
                 , (1, List <$> sizedList)
                 , (3, Primop <$> elements (Map.keys prims))
-                , (1, Apply <$> scale (`div` 2) arbitrary <*> sizedList)
                 , (3, SortedMap . Map.fromList <$> sizedList)
                 , (1, Lambda <$> sizedList
                              <*> scale (`div` 3) arbitrary
