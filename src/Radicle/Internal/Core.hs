@@ -411,6 +411,7 @@ nil :: Value r
 nil = List []
 
 -- TH
+-- Needed for the Eq and Show instances for Fix.
 deriveEq1 ''Env
 deriveEq1 ''Value
 deriveShow1 ''Env
