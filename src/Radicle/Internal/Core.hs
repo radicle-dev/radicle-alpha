@@ -46,17 +46,17 @@ data LangError r =
 
 -- | Convert an error to a radicle value, and the label for it. Used for
 -- catching exceptions.
-errorToValue :: LangError (Value r) -> (Ident, Value r)
+errorToValue
+    :: Monad m
+    => LangError (Value (Reference r))
+    -> Lang r m (Ident, Value (Reference r))
 errorToValue e = case e of
     UnknownIdentifier i -> makeVal
         ( "unknown-identifier"
         , [("identifier", makeA i)]
         )
-    -- Should this even be catchable?
-    Impossible i -> makeVal
-        ( "impossible"
-        , [("info", String i)]
-        )
+    -- "Now more than ever seems it rich to die"
+    Impossible _ -> throwError e
     TypeError i -> makeVal
         ( "type-error"
         , [("info", String i)]
@@ -72,11 +72,11 @@ errorToValue e = case e of
         , [("info", String i)]
         )
     ParseError _ -> makeVal ("parse-error", [])
-    ThrownError label val -> (label , val)
+    ThrownError label val -> pure (label, val)
     Exit -> makeVal ("exit", [])
   where
     makeA = quote . Atom
-    makeVal (t,v) = (Ident t, SortedMap $ Map.mapKeys Ident . fromList $ v)
+    makeVal (t,v) = pure (Ident t, SortedMap $ Map.mapKeys Ident . fromList $ v)
 
 newtype Reference s = Reference { getReference :: STRef s (Value (Reference s)) }
     deriving (Eq)
@@ -232,7 +232,7 @@ defineAtom :: Monad m => Ident -> Value (Reference r) -> Lang r m ()
 defineAtom i v = modify $ addBinding i v
 
 quote :: Value r -> Value r
-quote v = List $ Primop (Ident "quote"):[v]
+quote v = List [Primop (Ident "quote"), v]
 
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
@@ -250,23 +250,23 @@ purePrimops = Map.fromList $ first Ident <$>
               val' <- baseEval val
               defineAtom name val'
               pure nil
-          [_, _] -> throwError $ OtherError "define expects atom for first arg"
-          xs          -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
+          [_, _]           -> throwError $ OtherError "define expects atom for first arg"
+          xs               -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
     , ("catch", \args -> case args of
           [l, form, handler] -> do
               mlabel <- baseEval l
               case mlabel of
-                  Atom label -> baseEval form `catchError` \e ->
-                     let (thrownLabel, thrownValue) = errorToValue e
-                     in if thrownLabel == label || label == Ident "any"
-                           then handler $$ [thrownValue]
-                           else baseEval form
+                  Atom label -> baseEval form `catchError` \e -> do
+                     (thrownLabel, thrownValue) <- errorToValue e
+                     if thrownLabel == label || label == Ident "any"
+                         then handler $$ [thrownValue]
+                         else baseEval form
                   _ -> throwError $ TypeError "catch: first argument must be atom"
-          xs -> throwError $ WrongNumberOfArgs "catch" 1 (length xs))
+          xs -> throwError $ WrongNumberOfArgs "catch" 3 (length xs))
     , ("throw", evalArgs $ \args -> case args of
           [Atom label, exc] -> throwError $ ThrownError label exc
-          [_, _] -> throwError $ TypeError "throw: first argument must be atom"
-          xs     -> throwError $ WrongNumberOfArgs "throw" 2 (length xs))
+          [_, _]            -> throwError $ TypeError "throw: first argument must be atom"
+          xs                -> throwError $ WrongNumberOfArgs "throw" 2 (length xs))
     , ("eq?", evalArgs $ \args -> case args of
           [a, b] -> pure $ Boolean (a == b)
           xs     -> throwError $ WrongNumberOfArgs "eq?" 2 (length xs))
@@ -290,10 +290,10 @@ purePrimops = Map.fromList $ first Ident <$>
               -- Probably an exception is better, but that seems cruel
               -- when you have no exception handling facilities.
               Nothing -> nil
-          [Atom _, _] -> throwError
-                       $ TypeError "lookup: second argument must be map"
-          [_, SortedMap _] -> throwError
-                            $ TypeError "lookup: first argument must be atom"
+          [Atom _, _]           -> throwError
+                                 $ TypeError "lookup: second argument must be map"
+          [_, SortedMap _]      -> throwError
+                                 $ TypeError "lookup: first argument must be atom"
           xs -> throwError $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ("string-append", evalArgs $ \args ->
           let fromStr (String s) = Just s
@@ -304,10 +304,10 @@ purePrimops = Map.fromList $ first Ident <$>
               else throwError $ TypeError "string-append: non-string argument")
     , ("insert", evalArgs $ \args -> case args of
           [Atom k, v, SortedMap m] -> pure . SortedMap $ Map.insert k v m
-          [Atom _, _, _] -> throwError
-                          $ TypeError "insert: third argument must be map"
-          [_, _, _] -> throwError
-                     $ TypeError "insert: first argument must be an atom"
+          [Atom _, _, _]           -> throwError
+                                    $ TypeError "insert: third argument must be map"
+          [_, _, _]                -> throwError
+                                    $ TypeError "insert: first argument must be an atom"
           xs -> throwError $ WrongNumberOfArgs "insert" 3 (length xs))
     -- The semantics of + and - in Scheme is a little messed up. (+ 3)
     -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.
@@ -322,24 +322,26 @@ purePrimops = Map.fromList $ first Ident <$>
     , numBinop (-) "-"
     , ("<", evalArgs $ \args -> case args of
           [Number x, Number y] -> pure $ Boolean (x < y)
-          [_, _] -> throwError $ TypeError "<: expecting number"
-          xs -> throwError $ WrongNumberOfArgs "<" 2 (length xs))
+          [_, _]               -> throwError $ TypeError "<: expecting number"
+          xs                   -> throwError $ WrongNumberOfArgs "<" 2 (length xs))
     , (">", evalArgs $ \args -> case args of
           [Number x, Number y] -> pure $ Boolean (x > y)
-          [_, _] -> throwError $ TypeError ">: expecting number"
-          xs -> throwError $ WrongNumberOfArgs ">" 2 (length xs))
+          [_, _]               -> throwError $ TypeError ">: expecting number"
+          xs                   -> throwError $ WrongNumberOfArgs ">" 2 (length xs))
     , ("foldl", evalArgs $ \args -> case args of
           [fn, init', List ls] -> foldlM (\b a -> (fn $$) [b,a]) init' ls
-          [_, _, _] -> throwError $ TypeError "foldl: third argument should be a list"
-          xs -> throwError $ WrongNumberOfArgs "foldl" 3 (length xs))
+          [_, _, _]            -> throwError
+                                $ TypeError "foldl: third argument should be a list"
+          xs                   -> throwError $ WrongNumberOfArgs "foldl" 3 (length xs))
     , ("foldr", evalArgs $ \args -> case args of
           [fn, init', List ls] -> foldrM (\b a -> (fn $$) [b,a]) init' ls
-          [_, _, _] -> throwError $ TypeError "foldr: third argument should be a list"
-          xs -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
+          [_, _, _]            -> throwError
+                                $ TypeError "foldr: third argument should be a list"
+          xs                   -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", evalArgs $ \args -> case args of
           [fn, List ls] -> List <$> traverse (fn $$) (pure <$> ls)
-          [_, _] -> throwError $ TypeError "map: second argument should be a list"
-          xs -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
+          [_, _]        -> throwError $ TypeError "map: second argument should be a list"
+          xs            -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
     , ("string?", evalArgs $ \args -> case args of
           [String _] -> pure $ Boolean True
           [_]        -> pure $ Boolean False
@@ -364,16 +366,16 @@ purePrimops = Map.fromList $ first Ident <$>
             -- in Lisps a lot of things that one might object to are True...
             if b == Boolean False then baseEval f else baseEval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
-    , ("deref", evalArgs $ \args -> do
-          case args of
-              [Ref x] -> eval =<< deref x
-              [_] -> throwError $ TypeError "deref: argument must be a ref"
-              xs  -> throwError $ WrongNumberOfArgs "deref" 1 (length xs))
-    , ("write-ref", evalArgs $ \args -> do
-          case args of
-              [Ref (Reference x), v] -> LangT (lift $ lift $ writeSTRef x v) >> pure nil
-              [_, _] -> throwError $ TypeError "write-ref: first argument must be a ref"
-              xs  -> throwError $ WrongNumberOfArgs "write-ref" 2 (length xs))
+    , ("deref", evalArgs $ \args -> case args of
+          [Ref x] -> eval =<< deref x
+          [_]     -> throwError $ TypeError "deref: argument must be a ref"
+          xs      -> throwError $ WrongNumberOfArgs "deref" 1 (length xs))
+    , ("write-ref", evalArgs $ \args -> case args of
+          [Ref (Reference x), v] -> LangT (lift $ lift $ writeSTRef x v) >> pure nil
+          [_, _]                 -> throwError
+                                  $ TypeError "write-ref: first argument must be a ref"
+          xs                     -> throwError
+                                  $ WrongNumberOfArgs "write-ref" 2 (length xs))
     ]
   where
     -- Many primops evaluate their arguments just as normal functions do.

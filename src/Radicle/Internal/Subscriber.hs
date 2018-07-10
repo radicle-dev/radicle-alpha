@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Radicle.Internal.Subscriber where
 
-import           Control.Monad (void)
+import           Control.Monad (void, forever)
 import           Control.Monad.Except (throwError)
 import           Control.Monad.State (gets, get)
 import           Data.Bifunctor (first)
@@ -96,7 +96,7 @@ replPrimops = Map.fromList $ first toIdent <$>
                 (SortedMap m, fn) -> case Map.lookup (toIdent "getter") m of
                     Nothing -> throwError
                         $ OtherError "subscribe-to!: Expected 'getter' key"
-                    Just g -> go
+                    Just g -> forever go
                       where
                         go = do
                             -- We need to evaluate the getter in the original
@@ -107,8 +107,7 @@ replPrimops = Map.fromList $ first toIdent <$>
                             -- Similarly, the application of the subscriber
                             -- function is evaluated in the original
                             -- environment.
-                            _ <- withEnv (const s) (fn $$ [quote line])
-                            go
+                            void $ withEnv (const s) (fn $$ [quote line])
                 _  -> throwError $ TypeError "subscribe-to!: Expected sorted-map"
         xs  -> throwError $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
     ]
