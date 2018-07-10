@@ -15,7 +15,7 @@ import           Radicle.Internal.Core
 
 class (Monad m) => Stdin m where
     getLineS :: m Text
-instance {-# OVERLAPPABLE #-} Stdin m => Stdin (Lang m) where
+instance {-# OVERLAPPABLE #-} Stdin m => Stdin (Lang r m) where
     getLineS = lift getLineS
 instance (MonadException m, Monad m) => Stdin (InputT m) where
     getLineS = getInputLine "rad> " >>= \x -> case x of
@@ -24,26 +24,24 @@ instance (MonadException m, Monad m) => Stdin (InputT m) where
 
 class (Monad m) => Stdout m where
     putStrS :: Text -> m ()
-instance {-# OVERLAPPABLE #-} Stdout m => Stdout (Lang m) where
+instance {-# OVERLAPPABLE #-} Stdout m => Stdout (Lang r m) where
     putStrS = lift . putStrS
 instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . T.unpack
 
 class (Monad m) => Exit m where
     exitS :: m ()
-instance Exit m => Exit (Lang m) where
+instance Exit m => Exit (Lang r m) where
     exitS = lift exitS
 
-class (Monad m) => GetEnv m where
-    getEnvS :: m Env
-instance Monad m => GetEnv (Lang m) where
+class (Monad m) => GetEnv m r | m -> r where
+    getEnvS :: m (Env r)
+instance Monad m => GetEnv (Lang r m) (Value (Reference r)) where
     getEnvS = gets bindingsEnv
-instance GetEnv m => GetEnv (InputT m) where
-    getEnvS = lift getEnvS
 
-class (Monad m) => SetEnv m where
-    setEnvS :: Env -> m ()
-instance Monad m => SetEnv (Lang m) where
+class (Monad m) => SetEnv m r | m -> r where
+    setEnvS :: Env r -> m ()
+instance Monad m => SetEnv (Lang r m) (Value (Reference r)) where
     setEnvS e = modify (\bnds -> bnds {bindingsEnv = e})
 
 class (Monad m) => GetSourceName m where
@@ -51,12 +49,12 @@ class (Monad m) => GetSourceName m where
 class (Monad m) => HasPageWidth m where
     getPageWidthS :: m PageWidth
 class (Monad m) => GetSubs m where
-    getSubsS :: m [(Text, Value -> m ())]
+    getSubsS :: m [(Text, Value r -> m ())]
 class (Monad m) => SetSubs m where
-    setSubS :: Text -> (Value -> m ()) -> m ()
+    setSubS :: Text -> (Value r -> m ()) -> m ()
 
 putStrLnS :: (Stdout m) => Text -> m ()
 putStrLnS t = putStrS t >> putStrS "\n"
 
-modifyEnvS :: (GetEnv m, SetEnv m) => (Env -> Env) -> m ()
+modifyEnvS :: (GetEnv m r, SetEnv m r) => (Env r -> Env r) -> m ()
 modifyEnvS f = getEnvS >>= setEnvS . f

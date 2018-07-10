@@ -1,8 +1,8 @@
 (define should-be
   (lambda (name x y)
     (if (eq? x y)
-        (print! (cons "test" (cons name (list "succeeded"))))
-        (print! (cons "test" (cons name (list "failed")))))))
+        (print! (string-append "Test '" name "' succeeded"))
+        (print! (string-append "Test '" name "' failed")))))
 
 ;; empty?
 (define empty? (lambda (ls) (eq? ls (list))))
@@ -55,7 +55,50 @@
   (filter (lambda (x) (< x 10)) (list 3 10 11))
   (list 3))
 
-;; The Repl
+;; modify-ref
+(define modify-ref (lambda (ref fn)
+  (write-ref ref (fn (deref ref)))))
+
+;; modify-map
+(define modify-map (lambda (key fn mp)
+  (insert key (fn (lookup key mp)) mp)))
+
+(should-be "modify-map"
+  (modify-map 'a (lambda (x) (+ x 1)) (sorted-map a 5))
+  (sorted-map a 6))
+
+;; Account stuff. Should be moved elsewhere when we have an import mechanism
+
+(define create-currency (lambda ()
+
+  ;; The map of all accounts
+  (define accounts (ref (sorted-map)))
+
+  ;; Create an account with 10 coins.
+  (define new-account (lambda (name)
+    (modify-ref accounts (lambda (acc)
+      (insert name 10 acc)))))
+
+  ;; Get an account's balance
+  (define account-balance (lambda (name)
+    (lookup name (deref accounts))))
+
+  ;; Transfer money
+  (define transfer (lambda (from to amount)
+    (define acc (deref accounts))
+    (write-ref accounts (if (> amount (lookup from acc))
+            (print! "not enough balance")
+            (modify-map
+              to
+              (lambda (x) (+ x amount))
+              (modify-map from (lambda (x) (- x amount)) acc))))))
+
+  (define dispatch (lambda (m)
+    (if (eq? m 'new-account) new-account
+    (if (eq? m 'account-balance) account-balance
+    (if (eq? m 'transfer) transfer
+        (print! "error: currency- unknown message"))))))
+  dispatch))
 
 (define repl
     (sorted-map name "repl" getter (quote (get-line!))))

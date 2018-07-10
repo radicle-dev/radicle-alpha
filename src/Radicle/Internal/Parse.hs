@@ -2,13 +2,14 @@
 module Radicle.Internal.Parse where
 
 import           Control.Applicative (many, (<|>))
-import           Control.Monad (void)
-import           Control.Monad.Except
+import           Control.Monad (void, (>=>))
+import           Control.Monad.Except (MonadError, throwError)
 import           Control.Monad.Identity (Identity)
 import           Control.Monad.Reader (Reader, ask, runReader)
 import           Control.Monad.State (gets)
 import           Data.Char (isAlphaNum, isLetter)
 import           Data.Either (partitionEithers)
+import           Data.Functor.Foldable (Fix(..))
 import           Data.List.NonEmpty (NonEmpty((:|)), fromList)
 import qualified Data.Map as Map
 import           Data.Text (Text)
@@ -29,6 +30,7 @@ import           Radicle.Internal.Core
 -- * The parser
 
 type Parser a = ParsecT Void Text (Reader [Ident]) a
+type VParser = Parser (Value (Fix Value))
 
 spaceConsumer :: Parser ()
 spaceConsumer = L.space space1 lineComment blockComment
@@ -46,15 +48,15 @@ lexeme = L.lexeme spaceConsumer
 parensP :: Parser a -> Parser a
 parensP = between (symbol "(" >> spaceConsumer) (spaceConsumer >> symbol ")")
 
-stringLiteralP :: Parser Value
+stringLiteralP :: VParser
 stringLiteralP = lexeme $
     String . T.pack <$> (char '"' >> manyTill L.charLiteral (char '"'))
 
-boolLiteralP :: Parser Value
+boolLiteralP :: VParser
 boolLiteralP = lexeme $ Boolean <$> (char '#' >>
         (char 't' >> pure True) <|> (char 'f' >> pure False))
 
-numLiteralP :: Parser Value
+numLiteralP :: VParser
 numLiteralP = Number <$> signed L.scientific
   where
     -- We don't allow spaces between the sign and digits so that we can remain
@@ -67,43 +69,43 @@ identP = lexeme $ do
     r <- many (satisfy isValidIdentRest)
     pure . Ident $ fromString (l:r)
 
-atomOrPrimP :: Parser Value
+atomOrPrimP :: VParser
 atomOrPrimP = do
     i <- identP
     prims <- ask
     pure $ if i `elem` prims then Primop i else Atom i
 
-applyP :: Parser Value
+applyP :: VParser
 applyP = do
     fn:args <- valueP `sepBy1` spaceConsumer
     pure $ fn $$ args
 
-quoteP :: Parser Value
+quoteP :: VParser
 quoteP = Apply (Primop $ toIdent "quote") . pure <$> (char '\'' >> valueP)
 
-listP :: Parser Value
+listP :: VParser
 listP = List <$> (symbol "list" >> (valueP `sepBy` spaceConsumer))
 
-sortedMapP :: Parser Value
+sortedMapP :: VParser
 sortedMapP = do
     void $ symbol "sorted-map"
     SortedMap . Map.fromList <$> pairP `sepBy` spaceConsumer
   where
     pairP = (,) <$> identP <*> valueP
 
-lambdaP :: Parser Value
+lambdaP :: VParser
 lambdaP = do
     void $ symbol "lambda"
     vars <- parensP $ identP `sepBy` spaceConsumer
     body <- fromList <$> some valueP
     pure $ Lambda vars body Nothing
 
-refP :: Parser Value
+refP :: VParser
 refP = do
     void $ symbol "ref"
-    Ref <$> identP
+    Ref . Fix <$> valueP
 
-valueP :: Parser Value
+valueP :: VParser
 valueP = do
   v <- choice
       [ stringLiteralP <?> "string"
@@ -126,42 +128,52 @@ valueP = do
 
 -- * Utilities
 
--- | Parse and evaluate a Text.
+-- | Parse and evaluate a Text. Replaces refs with a number representing them.
 --
 -- Examples:
 --
--- >>> interpret "test" "((lambda (x) x) #t)" pureEnv
+-- >>> import Control.Monad.Identity
+-- >>> runIdentity $ interpret "test" "((lambda (x) x) #t)" pureEnv
 -- Right (Boolean True)
 --
--- >>> interpret "test" "(#t #f)" pureEnv
+-- >>> import Control.Monad.Identity
+-- >>> runIdentity $ interpret "test" "(#t #f)" pureEnv
 -- Left (TypeError "Trying to apply a non-function")
-interpret :: Monad m => String -> Text -> Bindings m -> m (Either LangError Value)
+interpret
+    :: Monad m
+    => String
+    -> Text
+    -> (forall s . Bindings s m)
+    -> m (Either LangError (Value Int))
 interpret sourceName expr bnds = do
     let primopNames = Map.keys (bindingsPrimops bnds)
         parsed = runReader (runParserT (valueP <* eof) sourceName expr) primopNames
     case parsed of
         Left e  -> pure . Left $ ParseError e
-        Right v -> runLang bnds $ eval v
+        Right v -> runLang bnds (fmap labelRefs $ makeRefs v >>= eval)
 
 -- | Parse and evaluate a Text as multiple expressions.
 --
+-- Before running the result, you must convert references so they don't escape
+-- (or use IO).
+--
 -- Examples:
 --
--- >>> runLang pureEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
+-- >>> runLang pureEnv $ fmap labelRefs $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
 -- Right (Boolean True)
-interpretMany :: Monad m => String -> Text -> Lang m Value
+interpretMany :: Monad m => String -> Text -> Lang r m (Value (Reference r))
 interpretMany sourceName src = do
     primopNames <- gets $ Map.keys . bindingsPrimops
     let parsed = parseValues sourceName src primopNames
     case partitionEithers parsed of
-        ([], vs) -> last <$> mapM eval vs
+        ([], vs) -> last <$> mapM (makeRefs >=> eval) vs
         (e:_, _) -> throwError $ ParseError e
 
 -- | Parse a Text as a series of values.
 -- 'sourceName' is used for error reporting. 'prims' are the primop names.
 --
 -- Note that parsing continues even if one value fails to parse.
-parseValues :: String -> Text -> [Ident] -> [Either (Par.ParseError Char Void) Value]
+parseValues :: String -> Text -> [Ident] -> [Either (Par.ParseError Char Void) (Value (Fix Value))]
 parseValues sourceName srcCode prims = go $ initial
   where
     initial = State
@@ -178,15 +190,15 @@ parseValues sourceName srcCode prims = go $ initial
 --
 -- Examples:
 --
--- >>> parse "test" "#t" [] :: Either String Value
+-- >>> parse "test" "#t" [] :: Either String (Value (Fix Value))
 -- Right (Boolean True)
 --
--- >>> parse "test" "hi" [toIdent "hi"] :: Either String Value
+-- >>> parse "test" "hi" [toIdent "hi"] :: Either String (Value (Fix Value))
 -- Right (Primop (Ident {fromIdent = "hi"}))
 --
--- >>> parse "test" "hi" [] :: Either String Value
+-- >>> parse "test" "hi" [] :: Either String (Value (Fix Value))
 -- Right (Atom (Ident {fromIdent = "hi"}))
-parse :: MonadError String m => String -> Text -> [Ident] -> m Value
+parse :: MonadError String m => String -> Text -> [Ident] -> m (Value (Fix Value))
 parse file src ids = do
   let res = runReader (M.runParserT (valueP <* eof) file src) ids
   case res of
@@ -195,10 +207,10 @@ parse file src ids = do
 
 -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- primops.
-parseTest :: MonadError String m => Text -> m Value
+parseTest :: MonadError String m => Text -> m (Value (Fix Value))
 parseTest t = parse "(test)" t (Map.keys $ bindingsPrimops e)
   where
-    e :: Bindings (Lang Identity)
+    e :: Bindings (Fix Value) (Lang (Fix Value) Identity)
     e = pureEnv
 
 

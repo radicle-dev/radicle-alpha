@@ -178,6 +178,8 @@ newline: native
 
 language_extensions:
   - FlexibleContexts
+  - FunctionalDependencies
+  - MultiParamTypeClasses
   - MultiWayIf
   - RecordWildCards
   - ScopedTypeVariables

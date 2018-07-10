@@ -1,10 +1,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Radicle.Internal.Subscriber where
 
-import           Control.Monad.Except
+import           Control.Monad (void)
+import           Control.Monad.Except (throwError)
 import           Control.Monad.State (gets)
 import           Data.Bifunctor (first)
-import           Data.Either
+import           Data.Either (partitionEithers)
 import           Data.List (isPrefixOf)
 import qualified Data.Map as Map
 import           Data.Monoid ((<>))
@@ -22,8 +23,10 @@ import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.Subscriber.Capabilities
 
-type ReplM m = ( Monad m, Stdout (Lang m), Stdin (Lang m), GetEnv (Lang m)
-               , SetEnv (Lang m))
+type ReplM s m =
+    ( Monad m, Stdout (Lang s m), Stdin (Lang s m)
+    , GetEnv (Lang s m) (Value (Reference s))
+    , SetEnv (Lang s m) (Value (Reference s)) )
 
 repl :: FilePath -> Text -> IO ()
 repl histFile preCode = do
@@ -31,16 +34,17 @@ repl histFile preCode = do
                  $ defaultSettings { historyFile = Just histFile }
     r <- runInputT settings
         $ runLang replBindings
-        $ interpretMany "[pre]" preCode
+        $ void $ interpretMany "[pre]" preCode
     case r of
         Left Exit -> pure ()
         Left e    -> putDoc $ pretty e
-        Right v   -> putDoc $ pretty v
+        Right ()  -> pure ()
 
 completion :: Monad m => CompletionFunc m
 completion = completeWord Nothing ['(', ')', ' ', '\n'] go
   where
-    bnds :: Bindings (InputT IO)
+    -- Any type for first param will do
+    bnds :: Bindings Int (InputT IO)
     bnds = replBindings
 
     go s = pure $ fmap simpleCompletion
@@ -49,13 +53,13 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
          $ (Map.keys . fromEnv $ bindingsEnv bnds)
         <> Map.keys (bindingsPrimops bnds)
 
-replBindings :: forall m. ReplM m => Bindings m
+replBindings :: forall s m. ReplM s m => Bindings s m
 replBindings = e { bindingsPrimops = bindingsPrimops e <> replPrimops }
     where
-      e :: Bindings m
+      e :: Bindings s m
       e = pureEnv
 
-replPrimops :: forall m. ReplM m => Primops m
+replPrimops :: forall s m. ReplM s m => Primops s m
 replPrimops = Map.fromList $ first toIdent <$>
     [ ("print!", \args -> case args of
         [x] -> do
@@ -78,7 +82,7 @@ replPrimops = Map.fromList $ first toIdent <$>
             allPrims <- gets bindingsPrimops
             let p = parseValues "[stdin]" ln (Map.keys allPrims)
             case partitionEithers p of
-                ([], results) -> pure $ List results
+                ([], results) -> makeRefs $ List results
                 (e:_, _)      -> throwError $ ParseError e
         xs  -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
