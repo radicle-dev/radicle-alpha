@@ -18,8 +18,8 @@ import           Data.Void (Void)
 import           GHC.Exts (IsString(..))
 import           Text.Megaparsec (ParsecT, State(..), between, choice,
                                   defaultTabWidth, eof, initialPos, manyTill,
-                                  runParserT, runParserT', sepBy, sepBy1, some,
-                                  try, (<?>))
+                                  runParserT, runParserT', sepBy, some, try,
+                                  (<?>))
 import qualified Text.Megaparsec as M
 import           Text.Megaparsec.Char (char, satisfy, space1)
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -76,15 +76,10 @@ atomOrPrimP = do
     pure $ if i `elem` prims then Primop i else Atom i
 
 applyP :: VParser
-applyP = do
-    fn:args <- valueP `sepBy1` spaceConsumer
-    pure $ fn $$ args
+applyP = List <$> valueP `sepBy` spaceConsumer
 
 quoteP :: VParser
-quoteP = Apply (Primop $ toIdent "quote") . pure <$> (char '\'' >> valueP)
-
-listP :: VParser
-listP = List <$> (symbol "list" >> (valueP `sepBy` spaceConsumer))
+quoteP = List . ((Primop $ toIdent "quote") :) . pure <$> (char '\'' >> valueP)
 
 sortedMapP :: VParser
 sortedMapP = do
@@ -122,7 +117,6 @@ valueP = do
         [ lambdaP <?> "lambda"
         , sortedMapP <?> "sorted-map"
         , refP <?> "ref"
-        , listP <?> "list"
         , applyP <?> "application"
         ]
 
@@ -144,7 +138,7 @@ interpret
     => String
     -> Text
     -> (forall s . Bindings s m)
-    -> m (Either LangError (Value Int))
+    -> m (Either (LangError (Value Int)) (Value Int))
 interpret sourceName expr bnds = do
     let primopNames = Map.keys (bindingsPrimops bnds)
         parsed = runReader (runParserT (valueP <* eof) sourceName expr) primopNames

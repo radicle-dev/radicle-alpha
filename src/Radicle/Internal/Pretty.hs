@@ -29,9 +29,8 @@ instance Pretty r => Pretty (Value r) where
         Number n -> pretty $ show n
         Boolean True -> "#t"
         Boolean False -> "#f"
-        List vs ->  parens $ sep ("list" : (pretty <$> vs))
+        List vs ->  parens $ sep (pretty <$> vs)
         Primop i -> pretty i
-        Apply fn vs -> parens $ pretty fn <+> sep (pretty <$> vs)
         SortedMap mp -> parens $
             "sorted-map" <+> sep [ pretty k <+> pretty val
                                  | (k, val) <- Map.toList mp ]
@@ -45,7 +44,7 @@ instance Pretty (Fix Value) where
     -- pretty indeed!
     pretty = pretty . unfix
 
-instance Pretty LangError where
+instance Pretty r => Pretty (LangError r) where
     pretty v = case v of
         UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
         Impossible t -> "This cannot be!" <+> pretty t
@@ -56,6 +55,7 @@ instance Pretty LangError where
         OtherError t -> "Error:" <+> pretty t
         ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)
         Exit -> "Exit"
+        ThrownError i val -> "Exception" <+> pretty i <+> pretty val
 
 
 -- | A fast and compact layout. Primarily intended for testing.
@@ -64,7 +64,7 @@ instance Pretty LangError where
 --
 -- >>> import Data.Void
 -- >>> renderCompactPretty (List [String "hi", String "there"] :: Value Void)
--- "(list\n\"hi\"\n\"there\")"
+-- "(\"hi\"\n\"there\")"
 renderCompactPretty :: Pretty v => v -> Text
 renderCompactPretty = renderStrict . layoutCompact . pretty
 
@@ -74,11 +74,11 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 --
 -- >>> import Data.Void
 -- >>> renderPretty Unbounded (List [String "hi", String "there"] :: Value Void)
--- "(list \"hi\" \"there\")"
+-- "(\"hi\" \"there\")"
 --
 -- >>> import Data.Void
 -- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"] :: Value Void)
--- "(list\n\"hi\"\n\"there\")"
+-- "(\"hi\"\n\"there\")"
 renderPretty :: Pretty v => PageWidth -> v -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 
@@ -88,6 +88,6 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 --
 -- >>> import Data.Void
 -- >>> renderPrettyDef (List [String "hi", String "there"] :: Value Void)
--- "(list \"hi\" \"there\")"
+-- "(\"hi\" \"there\")"
 renderPrettyDef :: Pretty v => v -> Text
 renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . pretty

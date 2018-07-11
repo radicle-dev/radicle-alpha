@@ -24,6 +24,7 @@ module Radicle
     , coerceRefs
     , fromIdent
     , mkIdent
+    , quote
     , Env(..)
     , pureEnv
     , Lang

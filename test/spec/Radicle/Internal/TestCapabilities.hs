@@ -23,7 +23,7 @@ runTestWith
     :: (forall s. Bindings s (State WorldState))
     -> [Text]  -- The stdin (errors if it runs out)
     -> Text -- The program
-    -> (Either LangError (Value Int), [Text])
+    -> (Either (LangError (Value Int)) (Value Int), [Text])
 runTestWith bindings inputs action =
     let ws = WorldState
             { worldStateStdin = inputs
@@ -37,18 +37,18 @@ runTestWith bindings inputs action =
 runTestWith'
     :: [Text]
     -> Text
-    -> (Either LangError (Value Int), [Text])
+    -> (Either (LangError (Value Int)) (Value Int), [Text])
 runTestWith' = runTestWith pureEnv
 
 -- | Run a test without stdin/stdout
 runTest
     :: (forall s. Bindings s (State WorldState))
     -> Text
-    -> Either LangError (Value Int)
+    -> Either (LangError (Value Int)) (Value Int)
 runTest bnds prog = fst $ runTestWith bnds [] prog
 
 -- | Like 'runTest', but uses the pureEnv
-runTest' :: Text -> Either LangError (Value Int)
+runTest' :: Text -> Either (LangError (Value Int)) (Value Int)
 runTest' = runTest pureEnv
 
 

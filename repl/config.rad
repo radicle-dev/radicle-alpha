@@ -1,5 +1,10 @@
 (define repl
-    (sorted-map name "repl" getter (quote (get-line!))))
+  (sorted-map
+     name "repl"
+     ;; Parse errors are thrown here
+     getter (lambda () (catch 'parse-error (get-line!) print!))))
 
-(subscribe-to! repl
-    (lambda (x) (print! x)))
+;; Evaluation errors are thrown here
+(catch 'any
+    (subscribe-to! repl print!)
+    (lambda (x) (print! x) (subscribe-to! repl print!)))

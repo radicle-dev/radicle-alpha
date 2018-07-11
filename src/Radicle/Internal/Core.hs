@@ -2,16 +2,16 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Radicle.Internal.Core where
 
-import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
-                                       throwError)
+import           Control.Monad.Except (ExceptT(..), MonadError, catchError,
+                                       runExceptT, throwError)
 import           Control.Monad.ST.Trans (STRef, STT, newSTRef, readSTRef,
                                          runSTT, writeSTRef)
 import           Control.Monad.State
 import           Data.Bifunctor (first)
 import           Data.Data (Data)
 import           Data.Deriving (deriveEq1, deriveShow1)
+import           Data.Foldable (foldlM, foldrM)
 import           Data.Functor.Foldable (Fix(..), cata)
-import           Data.List (foldl')
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Map (Map)
@@ -25,11 +25,13 @@ import           GHC.Exts (IsList(..), fromString)
 import           GHC.Generics (Generic)
 import qualified Text.Megaparsec.Error as Par
 import           Unsafe.Coerce (unsafeCoerce)
+import qualified Data.Text as T
+
 
 -- * Value
 
 -- | An error throw during parsing or evaluating expressions in the language.
-data LangError =
+data LangError r =
       UnknownIdentifier Ident
     | Impossible Text
     | TypeError Text
@@ -38,8 +40,43 @@ data LangError =
     | WrongNumberOfArgs Text Int Int
     | OtherError Text
     | ParseError (Par.ParseError Char Void)
+    | ThrownError Ident r
     | Exit
-    deriving (Eq, Show, Read, Generic)
+    deriving (Eq, Show, Read, Generic, Functor)
+
+-- | Convert an error to a radicle value, and the label for it. Used for
+-- catching exceptions.
+errorToValue
+    :: Monad m
+    => LangError (Value (Reference r))
+    -> Lang r m (Ident, Value (Reference r))
+errorToValue e = case e of
+    UnknownIdentifier i -> makeVal
+        ( "unknown-identifier"
+        , [("identifier", makeA i)]
+        )
+    -- "Now more than ever seems it rich to die"
+    Impossible _ -> throwError e
+    TypeError i -> makeVal
+        ( "type-error"
+        , [("info", String i)]
+        )
+    WrongNumberOfArgs i expected actual -> makeVal
+        ( "wrong-number-of-args"
+        , [ ("function", makeA $ Ident i)
+          , ("expected", Number $ fromIntegral expected)
+          , ("actual", Number $ fromIntegral actual)]
+        )
+    OtherError i -> makeVal
+        ( "other-error"
+        , [("info", String i)]
+        )
+    ParseError _ -> makeVal ("parse-error", [])
+    ThrownError label val -> pure (label, val)
+    Exit -> makeVal ("exit", [])
+  where
+    makeA = quote . Atom
+    makeVal (t,v) = pure (Ident t, SortedMap $ Map.mapKeys Ident . fromList $ v)
 
 newtype Reference s = Reference { getReference :: STRef s (Value (Reference s)) }
     deriving (Eq)
@@ -68,7 +105,6 @@ data Value r =
     | Boolean Bool
     | List [Value r]
     | Primop Ident
-    | Apply (Value r) [Value r]
     | SortedMap (Map.Map Ident (Value r))
     | Ref r
     -- | Takes the arguments/parameters, a body, and possibly a closure.
@@ -91,7 +127,6 @@ makeRefs v = cata go (Fix v)
         Boolean i -> pure $ Boolean i
         Number i -> pure $ Number i
         Primop i -> pure $ Primop i
-        Apply f vs -> Apply <$> go f <*> sequence (go <$> vs)
         SortedMap m -> SortedMap <$> sequence (go <$> m)
         List vs -> List <$> sequence (go <$> vs)
         Ref i -> i >>= newRef
@@ -144,8 +179,8 @@ data Bindings s m = Bindings
 
 -- | The environment in which expressions are evaluated.
 newtype LangT s r m a = LangT
-    { fromLangT :: ExceptT LangError (StateT r (STT s m)) a }
-    deriving (Functor, Applicative, Monad, MonadError LangError, MonadState r)
+    { fromLangT :: ExceptT (LangError (Value (Reference s))) (StateT r (STT s m)) a }
+    deriving (Functor, Applicative, Monad, MonadError (LangError (Value (Reference s))), MonadState r)
 
 instance MonadTrans (LangT s r) where lift = LangT . lift . lift . lift
 
@@ -157,8 +192,8 @@ runLang
     :: Monad m
     => (forall s. Bindings s m)
     -> (forall s. Lang s m a)
-    -> m (Either LangError a)
-runLang e l = runSTT $ evalStateT (runExceptT $ fromLangT l) e
+    -> m (Either (LangError (Value Int)) a)
+runLang e l = runSTT $ first (fmap labelRefs) <$> evalStateT (runExceptT $ fromLangT l) e
 
 -- | Like 'local' or 'withState'
 withEnv :: Monad m => (Bindings s m -> Bindings s m) -> Lang s m a -> Lang s m a
@@ -196,25 +231,44 @@ lookupPrimop i = get >>= \e -> case Map.lookup i $ bindingsPrimops e of
 defineAtom :: Monad m => Ident -> Value (Reference r) -> Lang r m ()
 defineAtom i v = modify $ addBinding i v
 
+quote :: Value r -> Value r
+quote v = List [Primop (Ident "quote"), v]
+
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
 purePrimops :: forall r m. (Monad m) => Primops r m
 purePrimops = Map.fromList $ first Ident <$>
-    [ ("base-eval", \args -> case args of
+    [ ("base-eval", evalArgs $ \args -> case args of
           [x] -> baseEval x
           xs  -> throwError $ WrongNumberOfArgs "base-eval" 1 (length xs))
+    , ("list", evalArgs $ \args -> pure $ List args)
     , ("quote", \args -> case args of
           [v] -> pure v
           xs  -> throwError $ WrongNumberOfArgs "quote" 1 (length xs))
     , ("define", \args -> case args of
           [Atom name, val] -> do
-              val' <- eval val
+              val' <- baseEval val
               defineAtom name val'
               pure nil
-          [_, _] -> throwError $ OtherError "define expects atom for first arg"
-          xs          -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
+          [_, _]           -> throwError $ OtherError "define expects atom for first arg"
+          xs               -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
+    , ("catch", \args -> case args of
+          [l, form, handler] -> do
+              mlabel <- baseEval l
+              case mlabel of
+                  Atom label -> baseEval form `catchError` \e -> do
+                     (thrownLabel, thrownValue) <- errorToValue e
+                     if thrownLabel == label || label == Ident "any"
+                         then handler $$ [thrownValue]
+                         else baseEval form
+                  _ -> throwError $ TypeError "catch: first argument must be atom"
+          xs -> throwError $ WrongNumberOfArgs "catch" 3 (length xs))
+    , ("throw", evalArgs $ \args -> case args of
+          [Atom label, exc] -> throwError $ ThrownError label exc
+          [_, _]            -> throwError $ TypeError "throw: first argument must be atom"
+          xs                -> throwError $ WrongNumberOfArgs "throw" 2 (length xs))
     , ("eq?", evalArgs $ \args -> case args of
-          [a, b] -> fmap Boolean $ (==) <$> eval a <*> eval b
+          [a, b] -> pure $ Boolean (a == b)
           xs     -> throwError $ WrongNumberOfArgs "eq?" 2 (length xs))
     , ("cons", evalArgs $ \args -> case args of
           [x, List xs] -> pure $ List (x:xs)
@@ -231,15 +285,15 @@ purePrimops = Map.fromList $ first Ident <$>
           [_]           -> throwError $ TypeError "cdr: expects list argument"
           xs            -> throwError $ WrongNumberOfArgs "cdr" 1 (length xs))
     , ("lookup", evalArgs $ \args -> case args of
-          [Atom a, SortedMap m] -> case Map.lookup a m of
-              Just v  -> eval v
+          [Atom a, SortedMap m] -> pure $ case Map.lookup a m of
+              Just v  -> v
               -- Probably an exception is better, but that seems cruel
               -- when you have no exception handling facilities.
-              Nothing -> pure nil
-          [Atom _, _] -> throwError
-                       $ TypeError "lookup: second argument must be map"
-          [_, SortedMap _] -> throwError
-                            $ TypeError "lookup: first argument must be atom"
+              Nothing -> nil
+          [Atom _, _]           -> throwError
+                                 $ TypeError "lookup: second argument must be map"
+          [_, SortedMap _]      -> throwError
+                                 $ TypeError "lookup: first argument must be atom"
           xs -> throwError $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ("string-append", evalArgs $ \args ->
           let fromStr (String s) = Just s
@@ -250,10 +304,10 @@ purePrimops = Map.fromList $ first Ident <$>
               else throwError $ TypeError "string-append: non-string argument")
     , ("insert", evalArgs $ \args -> case args of
           [Atom k, v, SortedMap m] -> pure . SortedMap $ Map.insert k v m
-          [Atom _, _, _] -> throwError
-                          $ TypeError "insert: third argument must be map"
-          [_, _, _] -> throwError
-                     $ TypeError "insert: first argument must be an atom"
+          [Atom _, _, _]           -> throwError
+                                    $ TypeError "insert: third argument must be map"
+          [_, _, _]                -> throwError
+                                    $ TypeError "insert: first argument must be an atom"
           xs -> throwError $ WrongNumberOfArgs "insert" 3 (length xs))
     -- The semantics of + and - in Scheme is a little messed up. (+ 3)
     -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.
@@ -268,24 +322,26 @@ purePrimops = Map.fromList $ first Ident <$>
     , numBinop (-) "-"
     , ("<", evalArgs $ \args -> case args of
           [Number x, Number y] -> pure $ Boolean (x < y)
-          [_, _] -> throwError $ TypeError "<: expecting number"
-          xs -> throwError $ WrongNumberOfArgs "<" 2 (length xs))
+          [_, _]               -> throwError $ TypeError "<: expecting number"
+          xs                   -> throwError $ WrongNumberOfArgs "<" 2 (length xs))
     , (">", evalArgs $ \args -> case args of
           [Number x, Number y] -> pure $ Boolean (x > y)
-          [_, _] -> throwError $ TypeError ">: expecting number"
-          xs -> throwError $ WrongNumberOfArgs ">" 2 (length xs))
+          [_, _]               -> throwError $ TypeError ">: expecting number"
+          xs                   -> throwError $ WrongNumberOfArgs ">" 2 (length xs))
     , ("foldl", evalArgs $ \args -> case args of
-          [fn, init', List ls] -> eval $ foldl' (\b a -> (fn $$) [b,a]) init' ls
-          [_, _, _] -> throwError $ TypeError "foldl: third argument should be a list"
-          xs -> throwError $ WrongNumberOfArgs "foldl" 3 (length xs))
+          [fn, init', List ls] -> foldlM (\b a -> (fn $$) [b,a]) init' ls
+          [_, _, _]            -> throwError
+                                $ TypeError "foldl: third argument should be a list"
+          xs                   -> throwError $ WrongNumberOfArgs "foldl" 3 (length xs))
     , ("foldr", evalArgs $ \args -> case args of
-          [fn, init', List ls] -> eval $ foldr (\b a -> (fn $$) [b,a]) init' ls
-          [_, _, _] -> throwError $ TypeError "foldr: third argument should be a list"
-          xs -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
-    , ("map", \args -> case args of
-          [fn, List ls] -> List <$> traverse eval [fn $$ [l] | l <- ls]
-          [_, _] -> throwError $ TypeError "map: second argument should be a list"
-          xs -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
+          [fn, init', List ls] -> foldrM (\b a -> (fn $$) [b,a]) init' ls
+          [_, _, _]            -> throwError
+                                $ TypeError "foldr: third argument should be a list"
+          xs                   -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
+    , ("map", evalArgs $ \args -> case args of
+          [fn, List ls] -> List <$> traverse (fn $$) (pure <$> ls)
+          [_, _]        -> throwError $ TypeError "map: second argument should be a list"
+          xs            -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
     , ("string?", evalArgs $ \args -> case args of
           [String _] -> pure $ Boolean True
           [_]        -> pure $ Boolean False
@@ -299,31 +355,31 @@ purePrimops = Map.fromList $ first Ident <$>
           [_]        -> pure $ Boolean False
           xs         -> throwError $ WrongNumberOfArgs "number?" 1 (length xs))
     , ("member?", evalArgs $ \args -> case args of
-          [x, List xs] -> fmap Boolean $ elem <$> eval x <*> traverse eval xs
+          [x, List xs] -> pure . Boolean $ elem x xs
           [_, _]       -> throwError
                         $ TypeError "member?: second argument must be list"
           xs           -> throwError $ WrongNumberOfArgs "eq?" 2 (length xs))
     , ("if", \args -> case args of
           [cond, t, f] -> do
-            b <- eval cond
+            b <- baseEval cond
             -- I hate this as much as everyone that might ever read Haskell, but
             -- in Lisps a lot of things that one might object to are True...
-            if b == Boolean False then eval f else eval t
+            if b == Boolean False then baseEval f else baseEval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
-    , ("deref", evalArgs $ \args -> do
-          case args of
-              [Ref x] -> eval =<< deref x
-              [_] -> throwError $ TypeError "deref: argument must be a ref"
-              xs  -> throwError $ WrongNumberOfArgs "deref" 1 (length xs))
-    , ("write-ref", evalArgs $ \args -> do
-          case args of
-              [Ref (Reference x), v] -> LangT (lift $ lift $ writeSTRef x v) >> pure nil
-              [_, _] -> throwError $ TypeError "write-ref: first argument must be a ref"
-              xs  -> throwError $ WrongNumberOfArgs "write-ref" 2 (length xs))
+    , ("deref", evalArgs $ \args -> case args of
+          [Ref x] -> eval =<< deref x
+          [_]     -> throwError $ TypeError "deref: argument must be a ref"
+          xs      -> throwError $ WrongNumberOfArgs "deref" 1 (length xs))
+    , ("write-ref", evalArgs $ \args -> case args of
+          [Ref (Reference x), v] -> LangT (lift $ lift $ writeSTRef x v) >> pure nil
+          [_, _]                 -> throwError
+                                  $ TypeError "write-ref: first argument must be a ref"
+          xs                     -> throwError
+                                  $ WrongNumberOfArgs "write-ref" 2 (length xs))
     ]
   where
     -- Many primops evaluate their arguments just as normal functions do.
-    evalArgs f args = traverse eval args >>= f
+    evalArgs f args = traverse baseEval args >>= f
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text
@@ -349,7 +405,7 @@ eval val = do
             fn <- lookupPrimop i
             -- Primops get to decide whether and how their args are
             -- evaluated.
-            fn [val]
+            fn [quote val]
         Lambda _ _ Nothing -> throwError $ Impossible
             "lambda should already have an env"
         Lambda [bnd] body (Just closure) -> do
@@ -364,33 +420,14 @@ baseEval :: Monad m => Value (Reference r) -> Lang r m (Value (Reference r))
 baseEval val = case val of
     Atom i -> lookupAtom i
     Ref i -> pure $ Ref i
-    List vals -> List <$> traverse baseEval vals
+    List (f:vs) -> f $$ vs
+    List xs -> throwError
+        $ WrongNumberOfArgs ("application: " <> T.pack (show $ labelRefs <$> xs))
+                            2
+                            (length xs)
     String s -> pure $ String s
     Number n -> pure $ Number n
     Boolean b -> pure $ Boolean b
-    Apply mfn vs -> do
-        mfn' <- baseEval mfn
-        case mfn' of
-            Primop i -> do
-                fn <- lookupPrimop i
-                -- Primops get to decide whether and how their args are
-                -- evaluated.
-                fn vs
-            -- This happens if a quoted lambda is explicitly evaled. We then
-            -- give it the current environment.
-            Lambda bnds body Nothing -> do
-                  vs' <- traverse baseEval vs
-                  let mappings = fromList (zip bnds vs')
-                  NonEmpty.last <$> withEnv
-                      (\e -> e { bindingsEnv = mappings <> bindingsEnv e })
-                      (traverse baseEval body)
-            Lambda bnds body (Just closure) -> do
-                  vs' <- traverse baseEval vs
-                  let mappings = fromList (zip bnds vs')
-                      modEnv = mappings <> closure
-                  NonEmpty.last <$> withEnv (\e -> e { bindingsEnv = modEnv })
-                                            (traverse baseEval body)
-            _ -> throwError $ TypeError "Trying to apply a non-function"
     Primop i -> pure $ Primop i
     e@(Lambda _ _ (Just _)) -> pure e
     Lambda args body Nothing -> gets $ Lambda args body . Just . bindingsEnv
@@ -404,8 +441,38 @@ baseEval val = case val of
 
 -- | Infix function application
 infixr 1 $$
-($$) :: Value r -> [Value r] -> Value r
-($$) = Apply
+($$) :: Monad m => Value (Reference r) -> [Value (Reference r)] -> Lang r m (Value (Reference r))
+mfn $$ vs = do
+    mfn' <- baseEval mfn
+    case mfn' of
+        Primop i -> do
+            fn <- lookupPrimop i
+            -- Primops get to decide whether and how their args are
+            -- evaluated.
+            fn vs
+        -- This happens if a quoted lambda is explicitly evaled. We then
+        -- give it the current environment.
+        Lambda bnds body Nothing ->
+            if length bnds /= length vs
+                then throwError $ WrongNumberOfArgs "lambda" (length bnds)
+                                                             (length vs)
+                else do
+                    vs' <- traverse baseEval vs
+                    let mappings = fromList (zip bnds vs')
+                    NonEmpty.last <$> withEnv
+                        (\e -> e { bindingsEnv = mappings <> bindingsEnv e })
+                        (traverse baseEval body)
+        Lambda bnds body (Just closure) ->
+            if length bnds /= length vs
+                then throwError $ WrongNumberOfArgs "lambda" (length bnds)
+                                                             (length vs)
+                else do
+                    vs' <- traverse baseEval vs
+                    let mappings = fromList (zip bnds vs')
+                        modEnv = mappings <> closure
+                    NonEmpty.last <$> withEnv (\e -> e { bindingsEnv = modEnv })
+                                              (traverse baseEval body)
+        _ -> throwError $ TypeError "Trying to apply a non-function"
 
 nil :: Value r
 nil = List []

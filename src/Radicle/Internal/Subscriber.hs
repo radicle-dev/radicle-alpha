@@ -1,11 +1,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Radicle.Internal.Subscriber where
 
-import           Control.Monad (void)
+import           Control.Monad (void, forever)
 import           Control.Monad.Except (throwError)
-import           Control.Monad.State (gets)
+import           Control.Monad.State (gets, get)
 import           Data.Bifunctor (first)
-import           Data.Either (partitionEithers)
 import           Data.List (isPrefixOf)
 import qualified Data.Map as Map
 import           Data.Monoid ((<>))
@@ -22,6 +21,7 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.Subscriber.Capabilities
+
 
 type ReplM s m =
     ( Monad m, Stdout (Lang s m), Stdin (Lang s m)
@@ -65,7 +65,7 @@ replPrimops = Map.fromList $ first toIdent <$>
         [x] -> do
             v <- eval x
             putStrS (renderPrettyDef v)
-            pure v
+            pure nil
         xs  -> throwError $ WrongNumberOfArgs "print!" 1 (length xs))
 
     , ("set-env!", \args -> case args of
@@ -80,26 +80,34 @@ replPrimops = Map.fromList $ first toIdent <$>
         [] -> do
             ln <- getLineS
             allPrims <- gets bindingsPrimops
-            let p = parseValues "[stdin]" ln (Map.keys allPrims)
-            case partitionEithers p of
-                ([], results) -> makeRefs $ List results
-                (e:_, _)      -> throwError $ ParseError e
+            let p = parse "[stdin]" ln (Map.keys allPrims)
+            case p of
+                Right v -> makeRefs v
+                Left e -> throwError $ ThrownError (Ident "parse-error")
+                                                   (String $ T.pack e)
         xs  -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
     , ("subscribe-to!", \args -> case args of
         [x, v] -> do
-            x' <- baseEval x
-            v' <- baseEval v
+            x' <- eval x
+            v' <- eval v
+            s <- get
             case (x', v') of
                 (SortedMap m, fn) -> case Map.lookup (toIdent "getter") m of
                     Nothing -> throwError
                         $ OtherError "subscribe-to!: Expected 'getter' key"
-                    Just g -> go
+                    Just g -> forever go
                       where
                         go = do
-                            newBlock <- eval =<< baseEval g
-                            _ <- baseEval (fn $$ [newBlock])
-                            go
+                            -- We need to evaluate the getter in the original
+                            -- environment in which it was defined, but the
+                            -- /result/ of the getter is then evaluated in the
+                            -- current environment.
+                            line <- eval =<< (g $$ [])
+                            -- Similarly, the application of the subscriber
+                            -- function is evaluated in the original
+                            -- environment.
+                            void $ withEnv (const s) (fn $$ [quote line])
                 _  -> throwError $ TypeError "subscribe-to!: Expected sorted-map"
         xs  -> throwError $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
     ]
