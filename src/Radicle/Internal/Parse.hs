@@ -81,10 +81,10 @@ applyP = List <$> valueP `sepBy` spaceConsumer
 quoteP :: VParser
 quoteP = List . ((Primop $ toIdent "quote") :) . pure <$> (char '\'' >> valueP)
 
-sortedMapP :: VParser
-sortedMapP = do
-    void $ symbol "sorted-map"
-    SortedMap . Map.fromList <$> pairP `sepBy` spaceConsumer
+dictP :: VParser
+dictP = do
+    void $ symbol "dict"
+    Dict . Map.fromList <$> pairP `sepBy` spaceConsumer
   where
     pairP = (,) <$> identP <*> valueP
 
@@ -115,7 +115,7 @@ valueP = do
   where
     appLike = choice
         [ lambdaP <?> "lambda"
-        , sortedMapP <?> "sorted-map"
+        , dictP <?> "dict"
         , refP <?> "ref"
         , applyP <?> "application"
         ]

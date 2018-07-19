@@ -76,7 +76,7 @@ errorToValue e = case e of
     Exit -> makeVal ("exit", [])
   where
     makeA = quote . Atom
-    makeVal (t,v) = pure (Ident t, SortedMap $ Map.mapKeys Ident . fromList $ v)
+    makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys Ident . fromList $ v)
 
 newtype Reference s = Reference { getReference :: STRef s (Value (Reference s)) }
     deriving (Eq)
@@ -86,8 +86,8 @@ newRef :: Monad m => Value (Reference s) -> Lang s m (Value (Reference s))
 newRef v = LangT $ lift $ lift $ Ref . Reference <$> newSTRef v
 
 -- | Read the value of a reference.
-deref :: Monad m => Reference s -> Lang s m (Value (Reference s))
-deref (Reference r) = LangT . lift . lift $ readSTRef r
+readRef :: Monad m => Reference s -> Lang s m (Value (Reference s))
+readRef (Reference r) = LangT . lift . lift $ readSTRef r
 
 -- | An expression or value in the language.
 --
@@ -105,7 +105,7 @@ data Value r =
     | Boolean Bool
     | List [Value r]
     | Primop Ident
-    | SortedMap (Map.Map Ident (Value r))
+    | Dict (Map.Map Ident (Value r))
     | Ref r
     -- | Takes the arguments/parameters, a body, and possibly a closure.
     --
@@ -127,7 +127,7 @@ makeRefs v = cata go (Fix v)
         Boolean i -> pure $ Boolean i
         Number i -> pure $ Number i
         Primop i -> pure $ Primop i
-        SortedMap m -> SortedMap <$> sequence (go <$> m)
+        Dict m -> Dict <$> sequence (go <$> m)
         List vs -> List <$> sequence (go <$> vs)
         Ref i -> i >>= newRef
         Lambda is bd e -> Lambda is <$> sequence (go <$> bd)
@@ -274,25 +274,25 @@ purePrimops = Map.fromList $ first Ident <$>
           [x, List xs] -> pure $ List (x:xs)
           [_, _]       -> throwError $ TypeError "cons: second argument must be list"
           xs           -> throwError $ WrongNumberOfArgs "cons" 2 (length xs))
-    , ("car", evalArgs $ \args -> case args of
+    , ("head", evalArgs $ \args -> case args of
           [List (x:_)] -> pure x
-          [List []]    -> throwError $ OtherError "car: empty list"
-          [_]          -> throwError $ TypeError "car: expects list argument"
-          xs           -> throwError $ WrongNumberOfArgs "car" 1 (length xs))
-    , ("cdr", evalArgs $ \args -> case args of
+          [List []]    -> throwError $ OtherError "head: empty list"
+          [_]          -> throwError $ TypeError "head: expects list argument"
+          xs           -> throwError $ WrongNumberOfArgs "head" 1 (length xs))
+    , ("tail", evalArgs $ \args -> case args of
           [List (_:xs)] -> pure $ List xs
-          [List []]     -> throwError $ OtherError "cdr: empty list"
-          [_]           -> throwError $ TypeError "cdr: expects list argument"
-          xs            -> throwError $ WrongNumberOfArgs "cdr" 1 (length xs))
+          [List []]     -> throwError $ OtherError "tail: empty list"
+          [_]           -> throwError $ TypeError "tail: expects list argument"
+          xs            -> throwError $ WrongNumberOfArgs "tail" 1 (length xs))
     , ("lookup", evalArgs $ \args -> case args of
-          [Atom a, SortedMap m] -> pure $ case Map.lookup a m of
+          [Atom a, Dict m] -> pure $ case Map.lookup a m of
               Just v  -> v
               -- Probably an exception is better, but that seems cruel
               -- when you have no exception handling facilities.
               Nothing -> nil
           [Atom _, _]           -> throwError
                                  $ TypeError "lookup: second argument must be map"
-          [_, SortedMap _]      -> throwError
+          [_, Dict _]      -> throwError
                                  $ TypeError "lookup: first argument must be atom"
           xs -> throwError $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ("string-append", evalArgs $ \args ->
@@ -303,7 +303,7 @@ purePrimops = Map.fromList $ first Ident <$>
               then pure . String . mconcat $ catMaybes ss
               else throwError $ TypeError "string-append: non-string argument")
     , ("insert", evalArgs $ \args -> case args of
-          [Atom k, v, SortedMap m] -> pure . SortedMap $ Map.insert k v m
+          [Atom k, v, Dict m] -> pure . Dict $ Map.insert k v m
           [Atom _, _, _]           -> throwError
                                     $ TypeError "insert: third argument must be map"
           [_, _, _]                -> throwError
@@ -366,10 +366,10 @@ purePrimops = Map.fromList $ first Ident <$>
             -- in Lisps a lot of things that one might object to are True...
             if b == Boolean False then baseEval f else baseEval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
-    , ("deref", evalArgs $ \args -> case args of
-          [Ref x] -> eval =<< deref x
-          [_]     -> throwError $ TypeError "deref: argument must be a ref"
-          xs      -> throwError $ WrongNumberOfArgs "deref" 1 (length xs))
+    , ("read-ref", evalArgs $ \args -> case args of
+          [Ref x] -> eval =<< readRef x
+          [_]     -> throwError $ TypeError "read-ref: argument must be a ref"
+          xs      -> throwError $ WrongNumberOfArgs "read-ref" 1 (length xs))
     , ("write-ref", evalArgs $ \args -> case args of
           [Ref (Reference x), v] -> LangT (lift $ lift $ writeSTRef x v) >> pure nil
           [_, _]                 -> throwError
@@ -431,9 +431,9 @@ baseEval val = case val of
     Primop i -> pure $ Primop i
     e@(Lambda _ _ (Just _)) -> pure e
     Lambda args body Nothing -> gets $ Lambda args body . Just . bindingsEnv
-    SortedMap mp -> do
+    Dict mp -> do
         let evalSnd (a,b) = (a ,) <$> baseEval b
-        SortedMap . Map.fromList <$> traverse evalSnd (Map.toList mp)
+        Dict . Map.fromList <$> traverse evalSnd (Map.toList mp)
 
 
 

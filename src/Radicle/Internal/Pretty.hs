@@ -31,9 +31,9 @@ instance Pretty r => Pretty (Value r) where
         Boolean False -> "#f"
         List vs ->  parens $ sep (pretty <$> vs)
         Primop i -> pretty i
-        SortedMap mp -> parens $
-            "sorted-map" <+> sep [ pretty k <+> pretty val
-                                 | (k, val) <- Map.toList mp ]
+        Dict mp -> parens $
+            "dict" <+> sep [ pretty k <+> pretty val
+                           | (k, val) <- Map.toList mp ]
         Lambda ids vals _ -> parens $
             "lambda" <+> parens (sep $ pretty <$> ids)
                      <+> sep (pretty <$> toList vals)

@@ -30,7 +30,7 @@
     (lambda (acc new)
       (if (empty? new)
           acc
-          (go (cons (car new) acc) (cdr new)))))))
+          (go (cons (head new) acc) (tail new)))))))
   (go (list) ls)))
 
 (should-be "reverse" (reverse (list 1 2 3)) (list 3 2 1))
@@ -47,9 +47,9 @@
 (define filter (Y2 (lambda (filter) (lambda (cond ls)
   (if (empty? ls)
       ls
-  (if (cond (car ls))
-      (cons (car ls) (filter cond (cdr ls)))
-      (filter cond (cdr ls))))))))
+  (if (cond (head ls))
+      (cons (head ls) (filter cond (tail ls)))
+      (filter cond (tail ls))))))))
 
 (should-be "filter"
   (filter (lambda (x) (< x 10)) (list 3 10 11))
@@ -57,22 +57,22 @@
 
 ;; modify-ref
 (define modify-ref (lambda (ref fn)
-  (write-ref ref (fn (deref ref)))))
+  (write-ref ref (fn (read-ref ref)))))
 
 ;; modify-map
 (define modify-map (lambda (key fn mp)
   (insert key (fn (lookup key mp)) mp)))
 
 (should-be "modify-map"
-  (modify-map 'a (lambda (x) (+ x 1)) (sorted-map a 5))
-  (sorted-map a 6))
+  (modify-map 'a (lambda (x) (+ x 1)) (dict a 5))
+  (dict a 6))
 
 ;; Account stuff. Should be moved elsewhere when we have an import mechanism
 
 (define create-currency (lambda ()
 
   ;; The map of all accounts
-  (define accounts (ref (sorted-map)))
+  (define accounts (ref (dict)))
 
   ;; Create an account with 10 coins.
   (define new-account (lambda (name)
@@ -81,11 +81,11 @@
 
   ;; Get an account's balance
   (define account-balance (lambda (name)
-    (lookup name (deref accounts))))
+    (lookup name (read-ref accounts))))
 
   ;; Transfer money
   (define transfer (lambda (from to amount)
-    (define acc (deref accounts))
+    (define acc (read-ref accounts))
     (write-ref accounts (if (> amount (lookup from acc))
             (print! "not enough balance")
             (modify-map
@@ -104,25 +104,25 @@
 
 
 (define new-eval (lambda (expr)
-  (if (eq? (car expr) 'new-account)
-      ((currency 'new-account) (car (cdr expr)))
-  (if (eq? (car expr) 'account-balance)
-      ((currency 'account-balance) (car (cdr expr)))
-  (if (eq? (car expr) 'transfer)
-      ((currency 'transfer) (car (cdr expr)) (car (cdr (cdr expr))) (car (cdr
-                      (cdr (cdr expr)))))
+  (if (eq? (head expr) 'new-account)
+      ((currency 'new-account) (head (tail expr)))
+  (if (eq? (head expr) 'account-balance)
+      ((currency 'account-balance) (head (tail expr)))
+  (if (eq? (head expr) 'transfer)
+      ((currency 'transfer) (head (tail expr)) (head (tail (tail expr))) (head
+          (tail
+                      (tail (tail expr)))))
   (print! "transaction must be new-account, transfer, or account-balance"))))))
 
 
 ;; The Repl
 
 (define repl
-  (sorted-map
+  (dict
      name "repl"
      ;; Parse errors are thrown here
      getter (lambda () (catch 'parse-error (get-line!) print!))))
 
-;; Evaluation errors are thrown here
 (catch 'any
     (subscribe-to! repl print!)
     (lambda (x) (print! x) (subscribe-to! repl print!)))

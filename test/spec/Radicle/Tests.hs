@@ -37,20 +37,20 @@ test_eval =
               |]
         prog `succeedsWith` String "Steve Wozniak"
 
-    , testCase "'sorted-map' creates a SortedMap with given key/vals" $ do
-        let prog = [s|(sorted-map why "not")|]
-        prog `succeedsWith` SortedMap (fromList [(toIdent "why", String "not")])
+    , testCase "'dict' creates a Dict with given key/vals" $ do
+        let prog = [s|(dict why "not")|]
+        prog `succeedsWith` Dict (fromList [(toIdent "why", String "not")])
 
     , testCase "'cons' conses an element" $ do
         let prog = [s|(cons #t (list #f))|]
         prog `succeedsWith` List [Boolean True, Boolean False]
 
-    , testCase "'car' returns the first element of a list" $ do
-        let prog = [s|(car (list #t #f))|]
+    , testCase "'head' returns the first element of a list" $ do
+        let prog = [s|(head (list #t #f))|]
         prog `succeedsWith` Boolean True
 
-    , testCase "'cdr' returns the tail of a list" $ do
-        let prog = [s|(cdr (list #t #f #t))|]
+    , testCase "'tail' returns the tail of a list" $ do
+        let prog = [s|(tail (list #t #f #t))|]
         prog `succeedsWith` List [Boolean False, Boolean True]
 
     , testProperty "'eq?' considers equal values equal" $ \(val :: Value Void) -> do
@@ -81,15 +81,15 @@ test_eval =
         prog `succeedsWith` Boolean False
 
     , testCase "'lookup' returns value of key in map" $ do
-        let prog = [s|(lookup 'key1 (sorted-map key1 "a" key2 "b"))|]
+        let prog = [s|(lookup 'key1 (dict key1 "a" key2 "b"))|]
         prog `succeedsWith` String "a"
 
     , testCase "'insert' updates the value of key in map" $ do
-        let prog = [s|(lookup 'key1 (insert 'key1 "b" (sorted-map key1 "a" key2 "b")))|]
+        let prog = [s|(lookup 'key1 (insert 'key1 "b" (dict key1 "a" key2 "b")))|]
         prog `succeedsWith` String "b"
 
     , testCase "'insert' insert the value of key in map" $ do
-        let prog = [s|(lookup 'key1 (insert 'key1 "b" (sorted-map)))|]
+        let prog = [s|(lookup 'key1 (insert 'key1 "b" (dict)))|]
         prog `succeedsWith` String "b"
 
     , testProperty "'string-append' concatenates string" $ \ss -> do
@@ -262,17 +262,17 @@ test_eval =
             |]
         prog `succeedsWith` Boolean False
 
-    , testCase "'deref' returns the most recent value" $ do
+    , testCase "'read-ref' returns the most recent value" $ do
         let prog = [s|
                 (define x (ref 5))
                 (write-ref x 6)
-                (deref x)
+                (read-ref x)
                 |]
             res = runTest' prog
         res @?= Right (Number 6)
 
-    , testProperty "deref . ref == id" $ \v -> do
-        let derefed = runTest' $ T.pack [i|(deref (ref #{renderPrettyFix v}))|]
+    , testProperty "read-ref . ref == id" $ \v -> do
+        let derefed = runTest' $ T.pack [i|(read-ref (ref #{renderPrettyFix v}))|]
             orig    = runTest' $ T.pack [i|#{renderPrettyFix v}|]
             info    = "Expected:\n" <> T.unpack (prettyEither orig)
                    <> "\nGot:\n" <> T.unpack (prettyEither derefed)
@@ -359,7 +359,7 @@ test_repl_primops =
 
     , testCase "catch catches get-line errors" $ do
         let prog = [s|
-                 (define repl (sorted-map name "repl" getter get-line!))
+                 (define repl (dict name "repl" getter get-line!))
                  (catch 'any
                         (subscribe-to! repl (lambda (x) (print! x)))
                         (lambda (x) "caught"))
@@ -444,7 +444,7 @@ test_source_files = testGroup "Radicle source file tests" <$> do
 removeEnv :: Value s -> Value s
 removeEnv v = case v of
     List xs         -> List $ removeEnv <$> xs
-    SortedMap m     -> SortedMap $ removeEnv <$> m
+    Dict m          -> Dict $ removeEnv <$> m
     Lambda ids bd _ -> Lambda ids (removeEnv <$> bd) Nothing
     x               -> x
 
