@@ -1,0 +1,202 @@
+
+(define should-be
+  ;; should-be
+  ;; Used for testing. (should-be name expected actual) checks that 'expected' is
+  ;; equal to 'actual', printing both if they're not, and reporting the test
+  ;; result.
+  (lambda (name x y)
+    (if (eq? x y)
+        (print! (string-append "Test '" name "' succeeded"))
+        ((lambda ()
+           (print! (string-append "Test '" name "' failed"))
+           (print! "Expected:")
+           (print! y)
+           (print! "Got:")
+           (print! x))))))
+
+;; nil
+(define nil (list))
+
+;; empty?
+;; True if the list is empty
+(define empty? (lambda (ls) (eq? ls nil)))
+(should-be "empty" (empty? (list 2)) #f)
+
+;; not?
+(define not? (lambda (x) (if x #f #t)))
+(should-be "not" (not? #t) #f)
+
+
+;; y-combinator
+(define Y
+  (lambda (h)
+    ((lambda (x) (x x))
+     (lambda (g)
+       (h (lambda (arg) ((g g) arg)))))))
+(define Y2
+  (lambda (h)
+    ((lambda (x) (x x))
+     (lambda (g)
+       (h (lambda (arg1 arg2) ((g g) arg1 arg2)))))))
+(define Y3
+  (lambda (h)
+    ((lambda (x) (x x))
+     (lambda (g)
+       (h (lambda (arg1 arg2 arg3) ((g g) arg1 arg2 arg3)))))))
+
+((lambda ()
+  (define fac (Y (lambda (f) (lambda (x) (if (< x 2) 1 (* x (f (- x 1))))))))
+  (should-be "fac" (fac 10) 3628800)))
+
+;; reverse
+(define reverse (lambda (ls)
+  (define go (Y2 (lambda (go)
+    (lambda (acc new)
+      (if (empty? new)
+          acc
+          (go (cons (head new) acc) (tail new)))))))
+  (go (list) ls)))
+
+(should-be "reverse" (reverse (list 1 2 3)) (list 3 2 1))
+
+;; range
+(define range (Y2 (lambda (range) (lambda (from to)
+  (if (eq? from to)
+      (list to)
+      (cons from (range (+ 1 from) to)))))))
+
+(should-be "range" (range 1 5) (list 1 2 3 4 5))
+
+;; filter
+(define filter (Y2 (lambda (filter) (lambda (cond ls)
+  (if (empty? ls)
+      ls
+  (if (cond (head ls))
+      (cons (head ls) (filter cond (tail ls)))
+      (filter cond (tail ls))))))))
+
+(should-be "filter"
+  (filter (lambda (x) (< x 10)) (list 3 10 11))
+  (list 3))
+
+;; modify-ref
+(define modify-ref (lambda (ref fn)
+  (write-ref ref (fn (read-ref ref)))))
+
+;; modify-map
+(define modify-map (lambda (key fn mp)
+  (insert key (fn (lookup key mp)) mp)))
+
+(should-be "modify-map"
+  (modify-map 'a (lambda (x) (+ x 1)) (dict a 5))
+  (dict a 6))
+
+;; at-index
+(define at-index (Y2 (lambda (at-index) (lambda (ls ix)
+  (if (not? (number? ix))
+      (throw 'type-error "at-index: second argument must be a number")
+  (if (< ix 0)
+      (throw 'expectation "at-index: index must be non-negative")
+  (if (eq? ix 0)
+      (head ls)
+      (at-index (tail ls) (- ix 1)))))))))
+
+(should-be "at-index" (at-index (list 0 1) 1) 1)
+
+
+;; until
+(define until (Y3 (lambda (until) (lambda (cond fn orig)
+  (if (cond orig)
+      orig
+      (until cond fn (fn orig)))))))
+
+(should-be
+  "until"
+  (until
+    (lambda (x) (> x 5))
+    (lambda (x) (+ x 1))
+    0)
+  6)
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Nomic
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define state
+  (dict
+    proposal      nil
+    turn-of       nil
+    ;; We keep the players yet to play and the players who just played
+    ;; separately so we don't have to keep appending players.
+    players-next  nil
+    players-gone  nil
+    current-state nil
+    state-machine nil))
+
+(define make-state-machine (lambda (input-fn initial-states initial-state)
+  (define states (ref initial-states))
+  (define current-state (ref initial-state))
+
+  (define add-state (lambda (state-name state-fn)
+    (modify-ref
+      states
+      (lambda (st) (insert state-name state-fn st)))))
+
+  (define step (lambda ()
+    (write-ref
+      current-state
+      ((lookup (read-ref current-state) (read-ref states))
+         input-fn))))
+
+  ;;
+  (define run (Y (lambda (run) (step) (run))))))
+
+;; progress-turn
+;; Change the player who is playing to the next one.
+(define progress-turn (lambda (state)
+  (define new-gone (cons (lookup 'turn-of state) (lookup 'players-gone state)))
+  (define state1
+     (if (empty? (lookup 'players-next state))
+         (insert 'players-next
+                 (reverse new-gone)
+                 (insert 'players-gone nil state))
+         (insert 'players-gone new-gone state)))
+  (define state2
+     (insert 'turn-of
+             (head (lookup 'players-next state1))
+             (modify-map 'players-next tail state1)))
+  state2))
+
+(define progress-turn-test-state
+   (dict
+      turn-of 'a
+      players-gone nil
+      players-next '(b c)))
+
+(should-be
+   "progress-turn 1"
+   (progress-turn progress-turn-test-state)
+   (dict
+      turn-of 'b
+      players-gone '(a)
+      players-next '(c)))
+
+(should-be
+   "progress-turn 2"
+   (progress-turn (progress-turn (progress-turn progress-turn-test-state)))
+   progress-turn-test-state)
+
+
+;; Propose a rule change. Moves the game into the voting state.
+;; (define propose (lambda (expr state)
+;;   (print! (string-append "Player " (lookup 'turn-of state) " must propose a rule change")
+;;
+;;   (modify-ref state
+;;               (lambda (st)
+;;                 (insert
+;;                   'turn-of
+;;                   (modify-map 'proposal expr)
+;;
+;; (eval (get-line!))
