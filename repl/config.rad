@@ -1,5 +1,5 @@
 (define repl
-  (sorted-map
+  (dict
      name "repl"
      ;; Parse errors are thrown here
      getter (lambda () (catch 'parse-error (get-line!) print!))))

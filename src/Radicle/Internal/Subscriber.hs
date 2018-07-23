@@ -93,7 +93,7 @@ replPrimops = Map.fromList $ first toIdent <$>
             v' <- eval v
             s <- get
             case (x', v') of
-                (SortedMap m, fn) -> case Map.lookup (toIdent "getter") m of
+                (Dict m, fn) -> case Map.lookup (toIdent "getter") m of
                     Nothing -> throwError
                         $ OtherError "subscribe-to!: Expected 'getter' key"
                     Just g -> forever go
@@ -108,6 +108,6 @@ replPrimops = Map.fromList $ first toIdent <$>
                             -- function is evaluated in the original
                             -- environment.
                             void $ withEnv (const s) (fn $$ [quote line])
-                _  -> throwError $ TypeError "subscribe-to!: Expected sorted-map"
+                _  -> throwError $ TypeError "subscribe-to!: Expected dict"
         xs  -> throwError $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
     ]
