@@ -23,10 +23,10 @@ import           Radicle.Internal.Pretty
 import           Radicle.Internal.Subscriber.Capabilities
 
 
-type ReplM s m =
-    ( Monad m, Stdout (Lang s m), Stdin (Lang s m)
-    , GetEnv (Lang s m) (Value (Reference s))
-    , SetEnv (Lang s m) (Value (Reference s)) )
+type ReplM m =
+    ( Monad m, Stdout (Lang m), Stdin (Lang m)
+    , GetEnv (Lang m) (Value Reference)
+    , SetEnv (Lang m) (Value Reference) )
 
 repl :: FilePath -> Text -> IO ()
 repl histFile preCode = do
@@ -44,7 +44,7 @@ completion :: Monad m => CompletionFunc m
 completion = completeWord Nothing ['(', ')', ' ', '\n'] go
   where
     -- Any type for first param will do
-    bnds :: Bindings Int (InputT IO)
+    bnds :: Bindings (InputT IO)
     bnds = replBindings
 
     go s = pure $ fmap simpleCompletion
@@ -53,13 +53,13 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
          $ (Map.keys . fromEnv $ bindingsEnv bnds)
         <> Map.keys (bindingsPrimops bnds)
 
-replBindings :: forall s m. ReplM s m => Bindings s m
+replBindings :: forall m. ReplM m => Bindings m
 replBindings = e { bindingsPrimops = bindingsPrimops e <> replPrimops }
     where
-      e :: Bindings s m
+      e :: Bindings m
       e = pureEnv
 
-replPrimops :: forall s m. ReplM s m => Primops s m
+replPrimops :: forall m. ReplM m => Primops m
 replPrimops = Map.fromList $ first toIdent <$>
     [ ("print!", \args -> case args of
         [x] -> do

@@ -137,25 +137,22 @@ interpret
     :: Monad m
     => String
     -> Text
-    -> (forall s . Bindings s m)
-    -> m (Either (LangError (Value Int)) (Value Int))
+    -> Bindings m
+    -> m (Either (LangError (Value Reference)) (Value Reference))
 interpret sourceName expr bnds = do
     let primopNames = Map.keys (bindingsPrimops bnds)
         parsed = runReader (runParserT (valueP <* eof) sourceName expr) primopNames
     case parsed of
         Left e  -> pure . Left $ ParseError e
-        Right v -> runLang bnds (fmap labelRefs $ makeRefs v >>= eval)
+        Right v -> runLang bnds (makeRefs v >>= eval)
 
 -- | Parse and evaluate a Text as multiple expressions.
 --
--- Before running the result, you must convert references so they don't escape
--- (or use IO).
---
 -- Examples:
 --
--- >>> runLang pureEnv $ fmap labelRefs $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
+-- >>> runLang pureEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
 -- Right (Boolean True)
-interpretMany :: Monad m => String -> Text -> Lang r m (Value (Reference r))
+interpretMany :: Monad m => String -> Text -> Lang m (Value Reference)
 interpretMany sourceName src = do
     primopNames <- gets $ Map.keys . bindingsPrimops
     let parsed = parseValues sourceName src primopNames
@@ -204,7 +201,7 @@ parse file src ids = do
 parseTest :: MonadError String m => Text -> m (Value (Fix Value))
 parseTest t = parse "(test)" t (Map.keys $ bindingsPrimops e)
   where
-    e :: Bindings (Fix Value) (Lang (Fix Value) Identity)
+    e :: Bindings (Lang Identity)
     e = pureEnv
 
 

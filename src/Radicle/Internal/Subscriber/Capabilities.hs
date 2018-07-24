@@ -15,7 +15,7 @@ import           Radicle.Internal.Core
 
 class (Monad m) => Stdin m where
     getLineS :: m Text
-instance {-# OVERLAPPABLE #-} Stdin m => Stdin (Lang r m) where
+instance {-# OVERLAPPABLE #-} Stdin m => Stdin (Lang m) where
     getLineS = lift getLineS
 instance (MonadException m, Monad m) => Stdin (InputT m) where
     getLineS = getInputLine "rad> " >>= \x -> case x of
@@ -24,24 +24,24 @@ instance (MonadException m, Monad m) => Stdin (InputT m) where
 
 class (Monad m) => Stdout m where
     putStrS :: Text -> m ()
-instance {-# OVERLAPPABLE #-} Stdout m => Stdout (Lang r m) where
+instance {-# OVERLAPPABLE #-} Stdout m => Stdout (Lang m) where
     putStrS = lift . putStrS
 instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . T.unpack
 
 class (Monad m) => Exit m where
     exitS :: m ()
-instance Exit m => Exit (Lang r m) where
+instance Exit m => Exit (Lang m) where
     exitS = lift exitS
 
 class (Monad m) => GetEnv m r | m -> r where
     getEnvS :: m (Env r)
-instance Monad m => GetEnv (Lang r m) (Value (Reference r)) where
+instance Monad m => GetEnv (Lang m) (Value Reference) where
     getEnvS = gets bindingsEnv
 
 class (Monad m) => SetEnv m r | m -> r where
     setEnvS :: Env r -> m ()
-instance Monad m => SetEnv (Lang r m) (Value (Reference r)) where
+instance Monad m => SetEnv (Lang m) (Value Reference) where
     setEnvS e = modify (\bnds -> bnds {bindingsEnv = e})
 
 class (Monad m) => GetSourceName m where
