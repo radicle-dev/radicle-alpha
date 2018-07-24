@@ -14,7 +14,7 @@ import           Radicle.Internal.Core
 
 -- | We can't just pretty print the pointer id since that would break
 -- referential transparency, so instead we just label refs as '<ref>'
-instance Pretty (Reference s) where
+instance Pretty Reference where
     pretty _ = angles "ref"
 
 instance Pretty Ident where

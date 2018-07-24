@@ -20,7 +20,6 @@ module Radicle
     , Ident
     , Reference(..)
     , makeRefs
-    , labelRefs
     , coerceRefs
     , fromIdent
     , mkIdent

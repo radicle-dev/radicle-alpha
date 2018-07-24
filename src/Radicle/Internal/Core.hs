@@ -4,8 +4,6 @@ module Radicle.Internal.Core where
 
 import           Control.Monad.Except (ExceptT(..), MonadError, catchError,
                                        runExceptT, throwError)
-import           Control.Monad.ST.Trans (STRef, STT, newSTRef, readSTRef,
-                                         runSTT, writeSTRef)
 import           Control.Monad.State
 import           Data.Bifunctor (first)
 import           Data.Data (Data)
@@ -15,7 +13,9 @@ import           Data.Functor.Foldable (Fix(..), cata)
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Map (Map)
+import           Data.IntMap (IntMap)
 import qualified Data.Map as Map
+import qualified Data.IntMap as IntMap
 import           Data.Maybe (catMaybes, isJust)
 import           Data.Scientific (Scientific)
 import           Data.Semigroup (Semigroup, (<>))
@@ -48,8 +48,8 @@ data LangError r =
 -- catching exceptions.
 errorToValue
     :: Monad m
-    => LangError (Value (Reference r))
-    -> Lang r m (Ident, Value (Reference r))
+    => LangError (Value Reference)
+    -> Lang m (Ident, Value Reference)
 errorToValue e = case e of
     UnknownIdentifier i -> makeVal
         ( "unknown-identifier"
@@ -78,22 +78,32 @@ errorToValue e = case e of
     makeA = quote . Atom
     makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys Ident . fromList $ v)
 
-newtype Reference s = Reference { getReference :: STRef s (Value (Reference s)) }
-    deriving (Eq)
+newtype Reference = Reference { getReference :: Int }
+  deriving (Show, Read, Ord, Eq, Generic)
 
 -- | Create a new ref with the supplied initial value.
-newRef :: Monad m => Value (Reference s) -> Lang s m (Value (Reference s))
-newRef v = LangT $ lift $ lift $ Ref . Reference <$> newSTRef v
+newRef :: Monad m => Value Reference -> Lang m (Value Reference)
+newRef v = do
+  b <- get
+  let ix = bindingsNextRef b
+  put $ b { bindingsNextRef = succ ix
+          , bindingsRefs = IntMap.insert ix v $ bindingsRefs b
+          }
+  pure . Ref $ Reference ix
 
 -- | Read the value of a reference.
-readRef :: Monad m => Reference s -> Lang s m (Value (Reference s))
-readRef (Reference r) = LangT . lift . lift $ readSTRef r
+readRef :: MonadError (LangError (Value Reference)) m => Reference -> Lang m (Value Reference)
+readRef (Reference r) = do
+    refs <- gets bindingsRefs
+    case IntMap.lookup r refs of
+        Nothing -> throwError $ Impossible "undefined reference"
+        Just v  -> pure v
 
 -- | An expression or value in the language.
 --
--- The parameter is for refs. Usually it is 'Reference s' (with 's' being the
--- thread param of the ST monad). However, we first parse into 'Fix Value'
--- before converting it into 'Reference' (see 'makeRefs').
+-- The parameter is for refs. Usually it is 'Reference'. However, we first
+-- parse into 'Fix Value' before converting it into 'Reference' (see
+-- 'makeRefs').
 --
 -- A Value that no longer contains any references can have type 'Value Void',
 -- indicating it is safe to share between threads or chains.
@@ -118,7 +128,7 @@ data Value r =
 
 -- | Replace all Refs containing 'Fix Value' into ones containing references to
 -- those values.
-makeRefs :: Monad m => Value (Fix Value) -> Lang s m (Value (Reference s))
+makeRefs :: Monad m => Value (Fix Value) -> Lang m (Value Reference)
 makeRefs v = cata go (Fix v)
   where
     go x = case x of
@@ -129,19 +139,9 @@ makeRefs v = cata go (Fix v)
         Primop i -> pure $ Primop i
         Dict m -> Dict <$> sequence (go <$> m)
         List vs -> List <$> sequence (go <$> vs)
-        Ref i -> i >>= newRef
+        Ref i -> i >>= eval >>= newRef
         Lambda is bd e -> Lambda is <$> sequence (go <$> bd)
                                     <*> traverse sequence (fmap go <$> e)
-
--- | Replace all refs containing a 'Reference' into ones containing a number
--- representing that 'Reference'.
-labelRefs :: Value (Reference s) -> Value Int
-labelRefs v = evalState (traverse go v) (0, [])
-  where
-    go :: Reference s -> State (Int, [(Reference s, Int)]) Int
-    go s = get >>= \(cur, mapping) -> case lookup s mapping of
-        Nothing -> put (cur + 1, (s, cur):mapping) >> pure cur
-        Just ix -> pure ix
 
 -- | Safely coerce a 'Value' containing no refs into one of a different type.
 coerceRefs :: Value Void -> Value a
@@ -169,34 +169,36 @@ instance IsList (Env s) where
     toList = GHC.Exts.toList . fromEnv
 
 -- | Primop mappings. The parameter specifies the monad the primops run in.
-type Primops s m = Map Ident ([Value (Reference s)] -> Lang s m (Value (Reference s)))
+type Primops m = Map Ident ([Value Reference] -> Lang m (Value Reference))
 
 -- | Bindings, either from the env or from the primops.
-data Bindings s m = Bindings
-    { bindingsEnv     :: Env (Value (Reference s))
-    , bindingsPrimops :: Primops s m
+data Bindings m = Bindings
+    { bindingsEnv     :: Env (Value Reference)
+    , bindingsPrimops :: Primops m
+    , bindingsRefs    :: IntMap (Value Reference)
+    , bindingsNextRef :: Int
     } deriving (Generic)
 
 -- | The environment in which expressions are evaluated.
-newtype LangT s r m a = LangT
-    { fromLangT :: ExceptT (LangError (Value (Reference s))) (StateT r (STT s m)) a }
-    deriving (Functor, Applicative, Monad, MonadError (LangError (Value (Reference s))), MonadState r)
+newtype LangT r m a = LangT
+    { fromLangT :: ExceptT (LangError (Value Reference)) (StateT r m) a }
+    deriving (Functor, Applicative, Monad, MonadError (LangError (Value Reference)), MonadState r)
 
-instance MonadTrans (LangT s r) where lift = LangT . lift . lift . lift
+instance MonadTrans (LangT r) where lift = LangT . lift . lift
 
 -- | A monad for language operations specialized to have as state the Bindings
 -- with appropriate underlying monad.
-type Lang s m = LangT s (Bindings s m) m
+type Lang m = LangT (Bindings m) m
 
 runLang
     :: Monad m
-    => (forall s. Bindings s m)
-    -> (forall s. Lang s m a)
-    -> m (Either (LangError (Value Int)) a)
-runLang e l = runSTT $ first (fmap labelRefs) <$> evalStateT (runExceptT $ fromLangT l) e
+    => Bindings m
+    -> Lang m a
+    -> m (Either (LangError (Value Reference)) a)
+runLang e l = evalStateT (runExceptT $ fromLangT l) e
 
 -- | Like 'local' or 'withState'
-withEnv :: Monad m => (Bindings s m -> Bindings s m) -> Lang s m a -> Lang s m a
+withEnv :: Monad m => (Bindings m -> Bindings m) -> Lang m a -> Lang m a
 withEnv modifier action = do
     oldEnv <- get
     modify modifier
@@ -207,28 +209,28 @@ withEnv modifier action = do
 -- * Functions
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
-pureEnv :: (Monad m) => Bindings r m
-pureEnv = Bindings e purePrimops
+pureEnv :: (Monad m) => Bindings m
+pureEnv = Bindings e purePrimops mempty 0
   where
     e = fromList [(toIdent "eval", Primop $ toIdent "base-eval")]
 
-addBinding :: Monad m => Ident -> Value (Reference r) -> Bindings r m -> Bindings r m
+addBinding :: Monad m => Ident -> Value Reference -> Bindings m -> Bindings m
 addBinding i v b = b
     { bindingsEnv = Env . Map.insert i v . fromEnv $ bindingsEnv b }
 
 -- | Lookup an atom in the environment
-lookupAtom :: Monad m => Ident -> Lang r m (Value (Reference r))
+lookupAtom :: Monad m => Ident -> Lang m (Value Reference)
 lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
     Nothing -> throwError $ UnknownIdentifier i
     Just v  -> pure v
 
 -- | Lookup a primop.
-lookupPrimop :: Monad m => Ident -> Lang r m ([Value (Reference r)] -> Lang r m (Value (Reference r)))
+lookupPrimop :: Monad m => Ident -> Lang m ([Value Reference] -> Lang m (Value Reference))
 lookupPrimop i = get >>= \e -> case Map.lookup i $ bindingsPrimops e of
     Nothing -> throwError $ Impossible "Unknown primop"
     Just v  -> pure v
 
-defineAtom :: Monad m => Ident -> Value (Reference r) -> Lang r m ()
+defineAtom :: Monad m => Ident -> Value Reference -> Lang m ()
 defineAtom i v = modify $ addBinding i v
 
 quote :: Value r -> Value r
@@ -236,7 +238,7 @@ quote v = List [Primop (Ident "quote"), v]
 
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
-purePrimops :: forall r m. (Monad m) => Primops r m
+purePrimops :: forall m. (Monad m) => Primops m
 purePrimops = Map.fromList $ first Ident <$>
     [ ("base-eval", evalArgs $ \args -> case args of
           [x] -> baseEval x
@@ -367,11 +369,16 @@ purePrimops = Map.fromList $ first Ident <$>
             if b == Boolean False then baseEval f else baseEval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
     , ("read-ref", evalArgs $ \args -> case args of
-          [Ref x] -> eval =<< readRef x
-          [_]     -> throwError $ TypeError "read-ref: argument must be a ref"
-          xs      -> throwError $ WrongNumberOfArgs "read-ref" 1 (length xs))
+          [Ref (Reference x)] -> gets bindingsRefs >>= \m -> case IntMap.lookup x m of
+              Nothing -> throwError $ Impossible "undefined reference"
+              Just v  -> pure v
+          [_]                 -> throwError $ TypeError "read-ref: argument must be a ref"
+          xs                  -> throwError $ WrongNumberOfArgs "read-ref" 1 (length xs))
     , ("write-ref", evalArgs $ \args -> case args of
-          [Ref (Reference x), v] -> LangT (lift $ lift $ writeSTRef x v) >> pure nil
+          [Ref (Reference x), v] -> do
+            st <- get
+            put $ st { bindingsRefs = IntMap.insert x v $ bindingsRefs st }
+            pure nil
           [_, _]                 -> throwError
                                   $ TypeError "write-ref: first argument must be a ref"
           xs                     -> throwError
@@ -383,7 +390,7 @@ purePrimops = Map.fromList $ first Ident <$>
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text
-             -> (Text, [Value (Reference r)] -> Lang r m (Value (Reference r)))
+             -> (Text, [Value Reference] -> Lang m (Value Reference))
     numBinop fn name = (name, evalArgs $ \args -> case args of
         Number x:x':xs -> foldM go (Number x) (x':xs)
           where
@@ -397,7 +404,7 @@ purePrimops = Map.fromList $ first Ident <$>
 -- * Eval
 
 -- | The buck-passing eval. Uses whatever 'eval' is in scope.
-eval :: Monad m => Value (Reference r) -> Lang r m (Value (Reference r))
+eval :: Monad m => Value Reference -> Lang m (Value Reference)
 eval val = do
     e <- lookupAtom (toIdent "eval")
     case e of
@@ -416,13 +423,13 @@ eval val = do
         _ -> throwError $ TypeError "Trying to apply a non-function"
 
 -- | The built-in, original, eval.
-baseEval :: Monad m => Value (Reference r) -> Lang r m (Value (Reference r))
+baseEval :: Monad m => Value Reference -> Lang m (Value Reference)
 baseEval val = case val of
     Atom i -> lookupAtom i
     Ref i -> pure $ Ref i
     List (f:vs) -> f $$ vs
     List xs -> throwError
-        $ WrongNumberOfArgs ("application: " <> T.pack (show $ labelRefs <$> xs))
+        $ WrongNumberOfArgs ("application: " <> T.pack (show xs))
                             2
                             (length xs)
     String s -> pure $ String s
@@ -441,7 +448,7 @@ baseEval val = case val of
 
 -- | Infix function application
 infixr 1 $$
-($$) :: Monad m => Value (Reference r) -> [Value (Reference r)] -> Lang r m (Value (Reference r))
+($$) :: Monad m => Value Reference -> [Value Reference] -> Lang m (Value Reference)
 mfn $$ vs = do
     mfn' <- baseEval mfn
     case mfn' of

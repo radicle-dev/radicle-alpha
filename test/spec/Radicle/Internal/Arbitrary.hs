@@ -40,7 +40,7 @@ instance {-# OVERLAPPING #-} Arbitrary (Value Void) where
         sizedList = sized $ \n -> do
             k <- choose (0, n)
             scale (`div` (k + 1)) $ vectorOf k arbitrary
-        prims :: Map.Map Ident ([Value (Reference s)] -> Lang s Identity (Value (Reference s)))
+        prims :: Map.Map Ident ([Value Reference] -> Lang Identity (Value Reference))
         prims = purePrimops
         isPrimop x = x `elem` Map.keys prims
         isNum x = isJust (readMay (T.unpack $ fromIdent x) :: Maybe Scientific)
