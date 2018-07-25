@@ -179,6 +179,24 @@ data Bindings m = Bindings
     , bindingsNextRef :: Int
     } deriving (Generic)
 
+instance Semigroup (Bindings m) where
+    (<>) = mappend
+
+instance Monoid (Bindings m) where
+    mempty = Bindings
+        { bindingsEnv = mempty
+        , bindingsPrimops = mempty
+        , bindingsRefs = mempty
+        , bindingsNextRef = 0
+        }
+    a `mappend` b = Bindings
+        { bindingsEnv = bindingsEnv a <> bindingsEnv b
+        , bindingsPrimops = bindingsPrimops a <> bindingsPrimops b
+        , bindingsRefs = bindingsRefs a
+                      <> IntMap.mapKeys (+ bindingsNextRef a) (bindingsRefs b)
+        , bindingsNextRef = bindingsNextRef a + bindingsNextRef b
+        }
+
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
     { fromLangT :: ExceptT (LangError (Value Reference)) (StateT r m) a }
@@ -194,8 +212,9 @@ runLang
     :: Monad m
     => Bindings m
     -> Lang m a
-    -> m (Either (LangError (Value Reference)) a)
-runLang e l = evalStateT (runExceptT $ fromLangT l) e
+    -> m (Either (LangError (Value Reference)) a, Bindings m)
+runLang e l = runStateT (runExceptT $ fromLangT l) e
+
 
 -- | Like 'local' or 'withState'
 withEnv :: Monad m => (Bindings m -> Bindings m) -> Lang m a -> Lang m a

@@ -30,7 +30,7 @@ runTestWith bindings inputs action =
             , worldStateStdout = []
             , worldStateEnv = bindingsEnv bindings
             }
-    in case runState (runLang bindings $ interpretMany "[test]" action) ws of
+    in case runState (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws of
         (val, st) -> (val, reverse $ worldStateStdout st)
 
 -- | Like `runTestWith`, but uses the pureEnv
