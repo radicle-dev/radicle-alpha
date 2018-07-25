@@ -215,7 +215,6 @@ runLang
     -> m (Either (LangError (Value Reference)) a, Bindings m)
 runLang e l = runStateT (runExceptT $ fromLangT l) e
 
-
 -- | Like 'local' or 'withState'
 withEnv :: Monad m => (Bindings m -> Bindings m) -> Lang m a -> Lang m a
 withEnv modifier action = do
