@@ -79,17 +79,17 @@ errorToValue e = case e of
     makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys Ident . fromList $ v)
 
 newtype Reference = Reference { getReference :: Int }
-  deriving (Show, Read, Ord, Eq, Generic)
+    deriving (Show, Read, Ord, Eq, Generic)
 
 -- | Create a new ref with the supplied initial value.
 newRef :: Monad m => Value Reference -> Lang m (Value Reference)
 newRef v = do
-  b <- get
-  let ix = bindingsNextRef b
-  put $ b { bindingsNextRef = succ ix
-          , bindingsRefs = IntMap.insert ix v $ bindingsRefs b
-          }
-  pure . Ref $ Reference ix
+    b <- get
+    let ix = bindingsNextRef b
+    put $ b { bindingsNextRef = succ ix
+            , bindingsRefs = IntMap.insert ix v $ bindingsRefs b
+            }
+    pure . Ref $ Reference ix
 
 -- | Read the value of a reference.
 readRef :: MonadError (LangError (Value Reference)) m => Reference -> Lang m (Value Reference)
@@ -376,9 +376,9 @@ purePrimops = Map.fromList $ first Ident <$>
           xs                  -> throwError $ WrongNumberOfArgs "read-ref" 1 (length xs))
     , ("write-ref", evalArgs $ \args -> case args of
           [Ref (Reference x), v] -> do
-            st <- get
-            put $ st { bindingsRefs = IntMap.insert x v $ bindingsRefs st }
-            pure nil
+              st <- get
+              put $ st { bindingsRefs = IntMap.insert x v $ bindingsRefs st }
+              pure nil
           [_, _]                 -> throwError
                                   $ TypeError "write-ref: first argument must be a ref"
           xs                     -> throwError
