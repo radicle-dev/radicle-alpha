@@ -33,7 +33,7 @@ repl histFile preCode = do
     let settings = setComplete completion
                  $ defaultSettings { historyFile = Just histFile }
     r <- runInputT settings
-        $ runLang replBindings
+        $ fmap fst $ runLang replBindings
         $ void $ interpretMany "[pre]" preCode
     case r of
         Left Exit -> pure ()

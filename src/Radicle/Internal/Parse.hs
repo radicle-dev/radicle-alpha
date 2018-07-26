@@ -144,13 +144,13 @@ interpret sourceName expr bnds = do
         parsed = runReader (runParserT (valueP <* eof) sourceName expr) primopNames
     case parsed of
         Left e  -> pure . Left $ ParseError e
-        Right v -> runLang bnds (makeRefs v >>= eval)
+        Right v -> fst <$> runLang bnds (makeRefs v >>= eval)
 
 -- | Parse and evaluate a Text as multiple expressions.
 --
 -- Examples:
 --
--- >>> runLang pureEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
+-- >>> fmap fst <$> runLang pureEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
 -- Right (Boolean True)
 interpretMany :: Monad m => String -> Text -> Lang m (Value Reference)
 interpretMany sourceName src = do
