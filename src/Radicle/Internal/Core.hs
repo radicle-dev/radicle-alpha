@@ -176,7 +176,13 @@ data Bindings m = Bindings
     } deriving (Generic)
 
 instance Semigroup (Bindings m) where
-    (<>) = mappend
+    a <> b = Bindings
+      { bindingsEnv = bindingsEnv a <> bindingsEnv b
+      , bindingsPrimops = bindingsPrimops a <> bindingsPrimops b
+      , bindingsRefs = bindingsRefs a
+                       <> IntMap.mapKeys (+ bindingsNextRef a) (bindingsRefs b)
+      , bindingsNextRef = bindingsNextRef a + bindingsNextRef b
+      }
 
 instance Monoid (Bindings m) where
     mempty = Bindings
@@ -185,13 +191,7 @@ instance Monoid (Bindings m) where
         , bindingsRefs = mempty
         , bindingsNextRef = 0
         }
-    a `mappend` b = Bindings
-        { bindingsEnv = bindingsEnv a <> bindingsEnv b
-        , bindingsPrimops = bindingsPrimops a <> bindingsPrimops b
-        , bindingsRefs = bindingsRefs a
-                      <> IntMap.mapKeys (+ bindingsNextRef a) (bindingsRefs b)
-        , bindingsNextRef = bindingsNextRef a + bindingsNextRef b
-        }
+    mappend = (<>)
 
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
@@ -205,8 +205,7 @@ instance MonadTrans (LangT r) where lift = LangT . lift . lift
 type Lang m = LangT (Bindings m) m
 
 runLang
-    :: Monad m
-    => Bindings m
+    :: Bindings m
     -> Lang m a
     -> m (Either (LangError (Value Reference)) a, Bindings m)
 runLang e l = runStateT (runExceptT $ fromLangT l) e
@@ -222,7 +221,7 @@ withEnv modifier action = do
 
 -- * Functions
 
-addBinding :: Monad m => Ident -> Value Reference -> Bindings m -> Bindings m
+addBinding :: Ident -> Value Reference -> Bindings m -> Bindings m
 addBinding i v b = b
     { bindingsEnv = Env . Map.insert i v . fromEnv $ bindingsEnv b }
 
