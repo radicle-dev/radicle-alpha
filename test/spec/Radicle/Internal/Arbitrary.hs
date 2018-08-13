@@ -2,7 +2,7 @@
 module Radicle.Internal.Arbitrary where
 
 import           Control.Monad.Identity (Identity)
-import           Data.Bifunctor (first)
+import           Data.Bifunctor (first, second)
 import           Data.Functor.Foldable (Fix(Fix))
 import qualified Data.Map as Map
 import           Data.Maybe (isJust)
@@ -20,31 +20,32 @@ import           Radicle.Internal.Primops (purePrimops)
 instance Arbitrary r => Arbitrary (Env r) where
     arbitrary = Env <$> arbitrary
 
--- | An instance which only generates data.
-instance {-# OVERLAPPING #-} Arbitrary (Value ()) where
-  arbitrary = sized (sizedFreqs fs)
+newtype DataVal = DataVal { dataVal :: Value Void }
+  deriving (Show)
+
+instance Arbitrary DataVal where
+  arbitrary = DataVal <$> sized (sizedFreqs fs)
     where
       fs = [ (3, String <$> arbitrary)
            , (3, Boolean <$> arbitrary)
            , (3, Number <$> arbitrary)
-           -- , (1, List <$> sizedList)
-           , (3, Dict . Map.fromList <$> sizedList)
+           , (1, List . (dataVal <$>) <$> sizedList)
+           , (3, Dict . Map.fromList . (second dataVal <$>) <$> sizedList)
            ]
 
+-- | Safely coerce a 'Value' that is just data into one of a different type.
+coerceData :: DataVal -> Value a
+coerceData = coerceRefs . dataVal
+
 instance {-# OVERLAPPING #-} Arbitrary (Value Void) where
-  arbitrary = sized (sizedFreqs fs)
+  arbitrary = frequency [ (14, coerceData <$> arbitrary)
+                        , (3, Primop <$> elements (Map.keys prims))
+                        , (3, Atom <$> (arbitrary `suchThat` (\x -> not (isPrimop x || isNum x))))
+                        , (1, Lambda <$> sizedList
+                                     <*> scale (`div` 3) arbitrary
+                                     <*> scale (`div` 3) arbitrary)
+                        ]
     where
-      fs = [ (3, String <$> arbitrary)
-           , (3, Boolean <$> arbitrary)
-           , (3, Number <$> arbitrary)
-           , (1, List <$> sizedList)
-           , (3, Dict . Map.fromList <$> sizedList)
-           , (3, Primop <$> elements (Map.keys prims))
-           , (3, Atom <$> (arbitrary `suchThat` (\x -> not (isPrimop x || isNum x))))
-           , (1, Lambda <$> sizedList
-                        <*> scale (`div` 3) arbitrary
-                        <*> scale (`div` 3) arbitrary)
-           ]
       prims :: Map.Map Ident ([Value Reference] -> Lang Identity (Value Reference))
       prims = purePrimops
       isPrimop x = x `elem` Map.keys prims

@@ -18,7 +18,7 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck (counterexample, testProperty, (==>))
 
 import           Radicle
-import           Radicle.Internal.Arbitrary ()
+import           Radicle.Internal.Arbitrary (DataVal(..))
 import           Radicle.Internal.Core (toIdent)
 import           Radicle.Internal.TestCapabilities
 
@@ -277,12 +277,12 @@ test_eval =
                    <> "\nGot:\n" <> T.unpack (prettyEither derefed)
         counterexample info $ derefed == orig
 
-    , testProperty "'show' works" $ \(x :: Value ()) -> do
-        let prog = [i|(show #{renderPrettyDef x})|]
+    , testProperty "'show' works" $ \(x :: DataVal) -> do
+        let prog = [i|(show #{printValDef (dataVal x)})|]
             res  = runTest' $ T.pack prog
-            info = "Expected:\n" <> T.unpack (renderPrettyDef x)
-                 <> "\nGot:\n" <> T.unpack (prettyEither res)
-        counterexample info $ res == Right (String (renderPrettyDef x))
+            info = "Expected:\n" <> T.unpack (printValDef (dataVal x))
+                <> "\nGot:\n" <> T.unpack (prettyEither res)
+        counterexample info $ res == Right (String (printValDef (dataVal x)))
     ]
   where
     failsWith src err    = runTest' src @?= Left err
