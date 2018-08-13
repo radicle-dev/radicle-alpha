@@ -8,6 +8,10 @@
 (define empty? (lambda (ls) (eq? ls (list))))
 (should-be "empty" (empty? (list 2)) #f)
 
+;; not
+(define not (lambda (x) (if x #f #t)))
+(should-be "not" (not #t) #f)
+
 ;; y-combinator
 (define Y
   (lambda (h)
@@ -19,10 +23,23 @@
     ((lambda (x) (x x))
      (lambda (g)
        (h (lambda (arg1 arg2) ((g g) arg1 arg2)))))))
+(define Y3
+  (lambda (h)
+    ((lambda (x) (x x))
+     (lambda (g)
+       (h (lambda (arg1 arg2 arg3) ((g g) arg1 arg2 arg3)))))))
 
 ((lambda ()
   (define fac (Y (lambda (f) (lambda (x) (if (< x 2) 1 (* x (f (- x 1))))))))
   (should-be "fac" (fac 10) 3628800)))
+
+;; length
+(define length (lambda (ls)
+  (if (list? ls)
+      (foldr (lambda (x y) (+ y 1)) 0 ls)
+      (throw 'type-error "length: expecting list"))))
+(should-be "length" (length (list 0 1 2)) 3)
+
 
 ;; reverse
 (define reverse (lambda (ls)
@@ -66,6 +83,51 @@
 (should-be "modify-map"
   (modify-map 'a (lambda (x) (+ x 1)) (dict a 5))
   (dict a 6))
+
+;; recursively
+(define recursively (Y3 (lambda (recursively) (lambda (rec-cond fn e)
+  (if (rec-cond e)
+      (map (lambda (x) (recursively rec-cond fn x)) e)
+      (fn e))))))
+
+(should-be "recursively"
+  (recursively list? (lambda (x) (+ x 1)) '(0 1 '(2 3)))
+  '(1 2 (3 4)))
+
+;; macro
+
+(define macro (lambda (name def) (lambda (exp)
+  (recursively
+    (lambda (expr)
+      (and (list? expr) (> (length expr) 0) (not (eq? (head expr)) name)))
+    (lambda (expr) expr)
+    ;; (lambda (expr)
+    ;;   (if (eq? (head expr) name)
+    ;;       (apply def (tail expr))
+    ;;       (eval expr)))
+    exp))))
+
+;; ;; cond
+;; (define eval (macro 'cond ((lambda ()
+;;   (define go (Y (lambda (go) (lambda (ls)
+;;     (if (empty? ls)
+;;         (list)
+;;         (if (eval (head (head ls)))
+;;             (nth 1 (head ls))
+;;             (go (tail ls))))))))
+;;
+;;   go))))
+
+;; (should-be "cond (empty)"
+;;   (cond (list))
+;;   (list))
+;;
+;; (should-be "cond"
+;;   (cond
+;;     '((#f 0)
+;;      (#f 1)
+;;      (#t 2)))
+;;   2)
 
 ;; Account stuff. Should be moved elsewhere when we have an import mechanism
 

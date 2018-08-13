@@ -261,6 +261,9 @@ purePrimops = Map.fromList $ first Ident <$>
     [ ("base-eval", evalArgs $ \args -> case args of
           [x] -> baseEval x
           xs  -> throwError $ WrongNumberOfArgs "base-eval" 1 (length xs))
+    , ("apply", \args -> case args of
+          [fn, List args'] -> eval . List $ fn:args'
+          xs  -> throwError $ WrongNumberOfArgs "apply" 2 (length xs))
     , ("list", evalArgs $ \args -> pure $ List args)
     , ("quote", \args -> case args of
           [v] -> pure v
@@ -378,7 +381,11 @@ purePrimops = Map.fromList $ first Ident <$>
           [x, List xs] -> pure . Boolean $ elem x xs
           [_, _]       -> throwError
                         $ TypeError "member?: second argument must be list"
-          xs           -> throwError $ WrongNumberOfArgs "eq?" 2 (length xs))
+          xs           -> throwError $ WrongNumberOfArgs "member?" 2 (length xs))
+    , ("list?", evalArgs $ \args -> case args of
+          [List _] -> pure $ Boolean True
+          [_]      -> pure $ Boolean False
+          xs       -> throwError $ WrongNumberOfArgs "list?" 1 (length xs))
     , ("if", \args -> case args of
           [cond, t, f] -> do
             b <- baseEval cond
@@ -386,6 +393,10 @@ purePrimops = Map.fromList $ first Ident <$>
             -- in Lisps a lot of things that one might object to are True...
             if b == Boolean False then baseEval f else baseEval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
+    , ("and", \args ->
+          let go (Boolean True) x = eval x
+              go y              _ = pure y
+          in foldlM go (Boolean True) args)
     , ("read-ref", evalArgs $ \args -> case args of
           [Ref (Reference x)] -> gets bindingsRefs >>= \m -> case IntMap.lookup x m of
               Nothing -> throwError $ Impossible "undefined reference"

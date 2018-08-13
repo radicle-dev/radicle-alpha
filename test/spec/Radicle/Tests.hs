@@ -205,6 +205,26 @@ test_eval =
         let prog = [s|(number? #t)|]
         prog `succeedsWith` Boolean False
 
+    , testCase "'list?' is true lists" $ do
+        let prog = [s|(list? (list))|]
+        prog `succeedsWith` Boolean True
+
+    , testCase "'list?' is true quoted lists" $ do
+        let prog = [s|(list? '(1 2))|]
+        prog `succeedsWith` Boolean True
+
+    , testCase "'list?' is false for non-lists" $ do
+        let prog = [s|(list? 1)|]
+        prog `succeedsWith` Boolean False
+
+    , testCase "'list?' is false for non-lists" $ do
+        let prog = [s|(list? "hi")|]
+        prog `succeedsWith` Boolean False
+
+    , testCase "'and' is lazy" $ do
+        let prog = [s|(and #f (#t #f))|]
+        prog `succeedsWith` Boolean False
+
     , testCase "'+' sums the list of numbers" $ do
         let prog1 = [s|(+ 2 (+ 2 3))|]
         prog1 `succeedsWith` Number 7
