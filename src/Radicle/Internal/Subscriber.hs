@@ -1,9 +1,8 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 module Radicle.Internal.Subscriber where
 
-import           Control.Monad (void, forever)
+import           Control.Monad (forever, void)
 import           Control.Monad.Except (throwError)
-import           Control.Monad.State (gets, get)
+import           Control.Monad.State (get, gets)
 import           Data.Bifunctor (first)
 import           Data.List (isPrefixOf)
 import qualified Data.Map as Map
@@ -20,6 +19,7 @@ import           System.Console.Haskeline (CompletionFunc, InputT, completeWord,
 import           Radicle.Internal.Core
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
+import           Radicle.Internal.Primops
 import           Radicle.Internal.Subscriber.Capabilities
 
 

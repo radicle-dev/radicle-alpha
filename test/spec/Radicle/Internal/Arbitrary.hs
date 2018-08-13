@@ -14,11 +14,27 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 import           Radicle
-import           Radicle.Internal.Core (purePrimops)
 import           Radicle.Internal.Parse (isValidIdentFirst, isValidIdentRest)
+import           Radicle.Internal.Primops (purePrimops)
 
 instance Arbitrary r => Arbitrary (Env r) where
     arbitrary = Env <$> arbitrary
+
+instance {-# OVERLAPPING #-} Arbitrary (Value ()) where
+  arbitrary = sized go
+    where
+      freqs = [ (3, String <$> arbitrary)
+              , (3, Boolean <$> arbitrary)
+              , (3, Number <$> arbitrary)
+              -- , (1, List <$> sizedList)
+              , (3, Dict . Map.fromList <$> sizedList)
+              ]
+      go n | n == 0 = frequency $ first pred <$> freqs
+           | otherwise = frequency freqs
+      sizedList :: Arbitrary a => Gen [a]
+      sizedList = sized $ \n -> do
+          k <- choose (0, n)
+          scale (`div` (k + 1)) $ vectorOf k arbitrary
 
 instance {-# OVERLAPPING #-} Arbitrary (Value Void) where
     arbitrary = sized go
