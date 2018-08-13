@@ -64,8 +64,8 @@
   (insert key (fn (lookup key mp)) mp)))
 
 (should-be "modify-map"
-  (modify-map 'a (lambda (x) (+ x 1)) (dict a 5))
-  (dict a 6))
+  (modify-map 'a (lambda (x) (+ x 1)) (dict 'a 5))
+  (dict 'a 6))
 
 ;; Account stuff. Should be moved elsewhere when we have an import mechanism
 
@@ -119,9 +119,9 @@
 
 (define repl
   (dict
-     name "repl"
+     'name "repl"
      ;; Parse errors are thrown here
-     getter (lambda () (catch 'parse-error (get-line!) print!))))
+     'getter (lambda () (catch 'parse-error (get-line!) print!))))
 
 (catch 'any
     (subscribe-to! repl print!)

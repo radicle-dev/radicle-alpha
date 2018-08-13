@@ -19,8 +19,6 @@ module Radicle
     , ($$)
     , Ident
     , Reference(..)
-    , makeRefs
-    , coerceRefs
     , fromIdent
     , mkIdent
     , quote

@@ -12,7 +12,7 @@ import           Radicle.Internal.Subscriber.Capabilities
 data WorldState = WorldState
     { worldStateStdin  :: [Text]
     , worldStateStdout :: [Text]
-    , worldStateEnv    :: Env (Value Reference)
+    , worldStateEnv    :: Env Value
     }
 
 
@@ -23,7 +23,7 @@ runTestWith
     :: Bindings (State WorldState)
     -> [Text]  -- The stdin (errors if it runs out)
     -> Text -- The program
-    -> (Either (LangError (Value Reference)) (Value Reference), [Text])
+    -> (Either (LangError Value) Value, [Text])
 runTestWith bindings inputs action =
     let ws = WorldState
             { worldStateStdin = inputs
@@ -37,18 +37,18 @@ runTestWith bindings inputs action =
 runTestWith'
     :: [Text]
     -> Text
-    -> (Either (LangError (Value Reference)) (Value Reference), [Text])
+    -> (Either (LangError Value) Value, [Text])
 runTestWith' = runTestWith pureEnv
 
 -- | Run a test without stdin/stdout
 runTest
     :: Bindings (State WorldState)
     -> Text
-    -> Either (LangError (Value Reference)) (Value Reference)
+    -> Either (LangError Value) Value
 runTest bnds prog = fst $ runTestWith bnds [] prog
 
 -- | Like 'runTest', but uses the pureEnv
-runTest' :: Text -> Either (LangError (Value Reference)) (Value Reference)
+runTest' :: Text -> Either (LangError Value) Value
 runTest' = runTest pureEnv
 
 
