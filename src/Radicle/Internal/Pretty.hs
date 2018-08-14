@@ -1,8 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Pretty where
 
+import           Protolude hiding ((<>), TypeError)
+
 import           Data.Functor.Foldable (Fix, unfix)
-import           Data.List.NonEmpty (toList)
+--import           Data.List.NonEmpty (toList)
 import qualified Data.Map as Map
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -25,7 +27,7 @@ instance Pretty r => Pretty (Value r) where
         Atom i -> pretty i
         Ref i -> parens $ "ref" <+> pretty i
         String t -> "\"" <> pretty (escapeStr t) <> "\""
-        Number n -> pretty $ show n
+        Number n -> pretty (show n :: Text)
         Boolean True -> "#t"
         Boolean False -> "#f"
         List vs -> parens (sep (pretty <$> vs))

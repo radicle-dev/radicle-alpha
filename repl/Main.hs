@@ -1,5 +1,7 @@
 module Main (main) where
 
+import           Protolude hiding ((<>))
+
 import           Data.Semigroup ((<>))
 import qualified Data.Text.IO as T
 import           Options.Applicative

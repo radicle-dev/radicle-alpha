@@ -10,6 +10,7 @@ extra-source-files:
 
 dependencies:
 - base >=4 && <5
+- protolude
 - containers
 - deriving-compat
 - haskeline
@@ -73,6 +74,7 @@ executables:
     ghc-options: -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 default-extensions:
+- NoImplicitPrelude
 - AutoDeriveTypeable
 - ConstraintKinds
 - DeriveDataTypeable

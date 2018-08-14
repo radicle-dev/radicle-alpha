@@ -3,8 +3,9 @@ module Radicle.Internal.Primops
   , purePrimops
   ) where
 
+import           Protolude hiding (TypeError, (<>))
+
 import           Control.Monad.Except (catchError, throwError)
-import           Control.Monad.State
 import           Data.Bifunctor (first)
 import           Data.Foldable (foldlM, foldrM)
 import qualified Data.IntMap as IntMap

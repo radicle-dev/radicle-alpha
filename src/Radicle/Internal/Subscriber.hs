@@ -1,5 +1,7 @@
 module Radicle.Internal.Subscriber where
 
+import           Protolude hiding (TypeError)
+
 import           Control.Monad (forever, void)
 import           Control.Monad.Except (throwError)
 import           Control.Monad.State (get, gets)
@@ -84,7 +86,7 @@ replPrimops = Map.fromList $ first toIdent <$>
             case p of
                 Right v -> makeRefs v
                 Left e -> throwError $ ThrownError (Ident "parse-error")
-                                                   (String $ T.pack e)
+                                                   (String e)
         xs  -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
     , ("subscribe-to!", \args -> case args of

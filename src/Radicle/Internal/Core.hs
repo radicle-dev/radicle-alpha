@@ -2,6 +2,8 @@
 
 module Radicle.Internal.Core where
 
+import           Protolude hiding (TypeError, (<>))
+
 import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
                                        throwError)
 import           Control.Monad.State
@@ -19,7 +21,7 @@ import           Data.Semigroup (Semigroup, (<>))
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Void (Void)
-import           GHC.Exts (IsList(..), fromString)
+import           GHC.Exts (IsList(..))
 import           GHC.Generics (Generic)
 import qualified Text.Megaparsec.Error as Par
 import           Unsafe.Coerce (unsafeCoerce)
@@ -151,8 +153,8 @@ newtype Ident = Ident { fromIdent :: Text }
 
 -- Unsafe! Only use this if you know the string at compile-time and know it's a
 -- valid identifier
-toIdent :: String -> Ident
-toIdent = Ident . fromString
+toIdent :: Text -> Ident
+toIdent = Ident
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident s }

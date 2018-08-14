@@ -3,13 +3,14 @@ module Radicle.Internal
     , mkIdent
     ) where
 
+import           Protolude
+
 import           Radicle.Internal.Core as X
 import           Radicle.Internal.Parse as X
 import           Radicle.Internal.Pretty as X
 import           Radicle.Internal.Primops as X
 import           Radicle.Internal.Subscriber as X
 
-import           Control.Monad.Reader
 import           Data.Text (Text)
 import qualified Text.Megaparsec as M
 

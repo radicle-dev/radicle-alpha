@@ -1,6 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Arbitrary where
 
+import           Protolude
+
 import           Control.Monad.Identity (Identity)
 import           Data.Bifunctor (first)
 import           Data.Functor.Foldable (Fix(Fix))
