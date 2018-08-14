@@ -342,7 +342,7 @@ test_binding =
 
 test_pretty :: [TestTree]
 test_pretty =
-    [ testProperty "parse . parse == identity" $ \(val :: Value (Fix Value))  ->
+    [ testProperty "parse . pretty == identity" $ \(val :: Value (Fix Value))  ->
         let rendered = renderPrettyDef val
             actual = parseTest rendered
             original = removeEnv' val
