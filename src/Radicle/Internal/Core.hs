@@ -116,8 +116,7 @@ data Value r =
     -- | Takes the arguments/parameters, a body, and possibly a closure.
     --
     -- The value of an application of a lambda is always the last value in the
-    -- body. The only reason to have multiple values is thus only for (local)
-    -- "define"s.
+    -- body. The only reason to have multiple values is for effects.
     | Lambda [Ident] (NonEmpty (Value r)) (Maybe (Env (Value r)))
     deriving (Eq, Show, Read, Generic, Functor, Foldable, Traversable)
 

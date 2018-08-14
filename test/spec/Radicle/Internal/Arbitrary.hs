@@ -2,7 +2,7 @@
 module Radicle.Internal.Arbitrary where
 
 import           Control.Monad.Identity (Identity)
-import           Data.Bifunctor (first, second)
+import           Data.Bifunctor (first)
 import           Data.Functor.Foldable (Fix(Fix))
 import qualified Data.Map as Map
 import           Data.Maybe (isJust)
@@ -20,45 +20,30 @@ import           Radicle.Internal.Primops (purePrimops)
 instance Arbitrary r => Arbitrary (Env r) where
     arbitrary = Env <$> arbitrary
 
-newtype DataVal = DataVal { dataVal :: Value Void }
-  deriving (Show)
-
-instance Arbitrary DataVal where
-  arbitrary = DataVal <$> sized (sizedFreqs fs)
-    where
-      fs = [ (3, String <$> arbitrary)
-           , (3, Boolean <$> arbitrary)
-           , (3, Number <$> arbitrary)
-           , (1, List . (dataVal <$>) <$> sizedList)
-           , (3, Dict . Map.fromList . (second dataVal <$>) <$> sizedList)
-           ]
-
--- | Safely coerce a 'Value' that is just data into one of a different type.
-coerceData :: DataVal -> Value a
-coerceData = coerceRefs . dataVal
-
 instance {-# OVERLAPPING #-} Arbitrary (Value Void) where
-  arbitrary = frequency [ (14, coerceData <$> arbitrary)
-                        , (3, Primop <$> elements (Map.keys prims))
-                        , (3, Atom <$> (arbitrary `suchThat` (\x -> not (isPrimop x || isNum x))))
-                        , (1, Lambda <$> sizedList
-                                     <*> scale (`div` 3) arbitrary
-                                     <*> scale (`div` 3) arbitrary)
-                        ]
-    where
-      prims :: Map.Map Ident ([Value Reference] -> Lang Identity (Value Reference))
-      prims = purePrimops
-      isPrimop x = x `elem` Map.keys prims
-      isNum x = isJust (readMay (T.unpack $ fromIdent x) :: Maybe Scientific)
-
-sizedFreqs :: Eq a => [(Int, Gen a)] -> Int -> Gen a
-sizedFreqs freqs n | n == 0 = frequency $ first pred <$> freqs
-                   | otherwise = frequency freqs
-
-sizedList :: Arbitrary a => Gen [a]
-sizedList = sized $ \n -> do
-    k <- choose (0, n)
-    scale (`div` (k + 1)) $ vectorOf k arbitrary
+    arbitrary = sized go
+      where
+        freqs = [ (3, Atom <$> (arbitrary `suchThat` (\x -> not (isPrimop x || isNum x))))
+                , (3, String <$> arbitrary)
+                , (3, Boolean <$> arbitrary)
+                , (3, Number <$> arbitrary)
+                , (1, List <$> sizedList)
+                , (3, Primop <$> elements (Map.keys prims))
+                , (3, Dict . Map.fromList <$> sizedList)
+                , (1, Lambda <$> sizedList
+                             <*> scale (`div` 3) arbitrary
+                             <*> scale (`div` 3) arbitrary)
+                ]
+        go n | n == 0 = frequency $ first pred <$> freqs
+             | otherwise = frequency freqs
+        sizedList :: Arbitrary a => Gen [a]
+        sizedList = sized $ \n -> do
+            k <- choose (0, n)
+            scale (`div` (k + 1)) $ vectorOf k arbitrary
+        prims :: Map.Map Ident ([Value Reference] -> Lang Identity (Value Reference))
+        prims = purePrimops
+        isPrimop x = x `elem` Map.keys prims
+        isNum x = isJust (readMay (T.unpack $ fromIdent x) :: Maybe Scientific)
 
 instance {-# OVERLAPPABLE #-} Arbitrary r => Arbitrary (Value r) where
     arbitrary = frequency [ (20, coerceRefs <$> arbitrary)

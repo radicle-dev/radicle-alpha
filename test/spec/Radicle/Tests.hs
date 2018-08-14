@@ -18,7 +18,7 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck (counterexample, testProperty, (==>))
 
 import           Radicle
-import           Radicle.Internal.Arbitrary (DataVal(..))
+import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (toIdent)
 import           Radicle.Internal.TestCapabilities
 
@@ -277,12 +277,17 @@ test_eval =
                    <> "\nGot:\n" <> T.unpack (prettyEither derefed)
         counterexample info $ derefed == orig
 
-    , testProperty "'show' works" $ \(x :: DataVal) -> do
-        let prog = [i|(show #{printValDef (dataVal x)})|]
-            res  = runTest' $ T.pack prog
-            info = "Expected:\n" <> T.unpack (printValDef (dataVal x))
-                <> "\nGot:\n" <> T.unpack (prettyEither res)
-        counterexample info $ res == Right (String (printValDef (dataVal x)))
+    , testCase "'show' works" $ do
+        runTest' "(show 'a)" @?= Right (String "a")
+        runTest' "(show ''a)" @?= Right (String "(quote a)")
+        runTest' "(show \"hello\")" @?= Right (String "\"hello\"")
+        runTest' "(show 42)" @?= Right (String "42.0")
+        runTest' "(show #t)" @?= Right (String "#t")
+        runTest' "(show #f)" @?= Right (String "#f")
+        runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1.0 \"foo\" (b (quote x) 2.0 \"bar\"))")
+        runTest' "eval" @?= Right (Primop (toIdent "base-eval"))
+        runTest' "(show (dict 'a 1))" @?= Right (String "(dict 'a 1)")
+        runTest' "(show (lambda (x) x))" @?= Right (String "(lambda (x) x)")
     ]
   where
     failsWith src err    = runTest' src @?= Left err
@@ -337,7 +342,7 @@ test_binding =
 
 test_pretty :: [TestTree]
 test_pretty =
-    [ testProperty "pretty . parse == identity" $ \(val :: Value (Fix Value))  ->
+    [ testProperty "parse . parse == identity" $ \(val :: Value (Fix Value))  ->
         let rendered = renderPrettyDef val
             actual = parseTest rendered
             original = removeEnv' val

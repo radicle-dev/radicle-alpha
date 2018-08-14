@@ -20,25 +20,6 @@ instance Pretty Reference where
 instance Pretty Ident where
     pretty (Ident i) = pretty i
 
-tick :: Doc ann -> Doc ann
-tick = ("'" <>)
-
-printVal :: forall r ann. Pretty r => Bool -> Value r -> Doc ann
-printVal True (Atom i) = tick $ pretty i
-printVal False (Atom i) = pretty i
-printVal True (List vs) = tick $ parens (sep (printVal False <$> vs))
-printVal False (List vs) = parens (sep (printVal False <$> vs))
-printVal q (Dict mp) = parens $
-  "dict" <+> sep [ printVal q a <+> printVal q val
-                 | (k, val) <- Map.toList mp, let a :: Value r = Atom k ]
-printVal q (Lambda ids vals _) = parens $
-  "lambda" <+> parens (sep $ printVal q <$> as)
-           <+> sep (printVal q <$> toList vals)
-  where
-    as :: [Value r]
-    as = Atom <$> ids
-printVal _ x = pretty x
-
 instance Pretty r => Pretty (Value r) where
     pretty v = case v of
         Atom i -> pretty i
@@ -109,6 +90,3 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 -- "(\"hi\" \"there\")"
 renderPrettyDef :: Pretty v => v -> Text
 renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . pretty
-
-printValDef :: Pretty r => Value r -> Text
-printValDef = renderStrict . layoutSmart defaultLayoutOptions .  printVal True

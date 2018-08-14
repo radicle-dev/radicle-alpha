@@ -173,7 +173,7 @@ purePrimops = Map.fromList $ first Ident <$>
                                   $ WrongNumberOfArgs "write-ref" 2 (length xs))
     , ( "show"
       , evalArgs $ \args -> case args of
-          [x] -> pure (String (printValDef x))
+          [x] -> pure (String (renderPrettyDef x))
           xs  -> throwError $ WrongNumberOfArgs "show" 1 (length xs)
       )
     ]

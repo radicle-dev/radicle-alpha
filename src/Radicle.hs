@@ -43,7 +43,6 @@ module Radicle
     , renderPretty
     , renderPrettyDef
     , renderCompactPretty
-    , printValDef
     -- ** Re-exports
     , PageWidth(..)
     , Pretty
