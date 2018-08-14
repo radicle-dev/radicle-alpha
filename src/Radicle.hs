@@ -54,4 +54,3 @@ module Radicle
 import           Control.Monad.Identity (runIdentity)
 import           Data.Text.Prettyprint.Doc
 import           Radicle.Internal
-

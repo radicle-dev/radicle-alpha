@@ -1,5 +1,4 @@
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 module Radicle.Tests where
 
 import           Data.Either (isLeft)
@@ -277,6 +276,18 @@ test_eval =
             info    = "Expected:\n" <> T.unpack (prettyEither orig)
                    <> "\nGot:\n" <> T.unpack (prettyEither derefed)
         counterexample info $ derefed == orig
+
+    , testCase "'show' works" $ do
+        runTest' "(show 'a)" @?= Right (String "a")
+        runTest' "(show ''a)" @?= Right (String "(quote a)")
+        runTest' "(show \"hello\")" @?= Right (String "\"hello\"")
+        runTest' "(show 42)" @?= Right (String "42.0")
+        runTest' "(show #t)" @?= Right (String "#t")
+        runTest' "(show #f)" @?= Right (String "#f")
+        runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1.0 \"foo\" (b (quote x) 2.0 \"bar\"))")
+        runTest' "eval" @?= Right (Primop (toIdent "base-eval"))
+        runTest' "(show (dict 'a 1))" @?= Right (String "(dict 'a 1)")
+        runTest' "(show (lambda (x) x))" @?= Right (String "(lambda (x) x)")
     ]
   where
     failsWith src err    = runTest' src @?= Left err
@@ -331,7 +342,7 @@ test_binding =
 
 test_pretty :: [TestTree]
 test_pretty =
-    [ testProperty "pretty . parse == identity" $ \(val :: Value (Fix Value))  ->
+    [ testProperty "parse . pretty == identity" $ \(val :: Value (Fix Value))  ->
         let rendered = renderPrettyDef val
             actual = parseTest rendered
             original = removeEnv' val

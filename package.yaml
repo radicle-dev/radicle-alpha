@@ -70,7 +70,7 @@ executables:
     dependencies:
     - radicle
     - optparse-applicative
-    ghc-options: -Wall -threaded
+    ghc-options: -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 default-extensions:
 - AutoDeriveTypeable
@@ -91,3 +91,4 @@ default-extensions:
 - TupleSections
 - TypeFamilies
 - TypeOperators
+- ScopedTypeVariables

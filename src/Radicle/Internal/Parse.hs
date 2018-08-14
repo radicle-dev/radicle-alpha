@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 module Radicle.Internal.Parse where
 
 import           Control.Applicative (many, (<|>))
@@ -26,6 +25,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Core
+import Radicle.Internal.Primops
 
 -- * The parser
 

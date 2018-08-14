@@ -20,7 +20,6 @@ instance Pretty Reference where
 instance Pretty Ident where
     pretty (Ident i) = pretty i
 
-
 instance Pretty r => Pretty (Value r) where
     pretty v = case v of
         Atom i -> pretty i
@@ -29,7 +28,7 @@ instance Pretty r => Pretty (Value r) where
         Number n -> pretty $ show n
         Boolean True -> "#t"
         Boolean False -> "#f"
-        List vs ->  parens $ sep (pretty <$> vs)
+        List vs -> parens (sep (pretty <$> vs))
         Primop i -> pretty i
         Dict mp -> parens $
             "dict" <+> sep [ pretty k <+> pretty val
