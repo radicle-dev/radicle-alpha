@@ -2,6 +2,9 @@ module Radicle.Internal.Core where
 
 import           Protolude hiding (TypeError, (<>))
 
+import           Codec.Serialise (Serialise)
+import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
+                                       throwError)
 import           Control.Monad.State
 import           Data.Data (Data)
 import qualified Data.IntMap as IntMap
@@ -12,6 +15,8 @@ import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
+
+import Radicle.Internal.Orphans ()
 
 -- * Value
 
@@ -64,7 +69,7 @@ errorToValue e = case e of
     makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Atom . Ident) . GhcExts.fromList $ v)
 
 newtype Reference = Reference { getReference :: Int }
-    deriving (Show, Read, Ord, Eq, Generic)
+    deriving (Show, Read, Ord, Eq, Generic, Serialise)
 
 -- | Create a new ref with the supplied initial value.
 newRef :: Monad m => Value -> Lang m Value
@@ -104,13 +109,14 @@ data Value =
     | Lambda [Ident] (NonEmpty Value) (Maybe (Env Value))
     deriving (Eq, Show, Ord, Read, Generic)
 
+instance Serialise Value
 
 -- | An identifier in the language.
 --
--- Not all `Text`s are valid identifiers, so we do not export the constructor.
--- Instead, use `makeIdent`.
+-- Not all `Text`s are valid identifiers, so use Ident at your own risk.
+-- `makeIdent` is the safe version.
 newtype Ident = Ident { fromIdent :: Text }
-    deriving (Eq, Show, Read, Ord, Generic, Data)
+    deriving (Eq, Show, Read, Ord, Generic, Data, Serialise)
 
 -- Unsafe! Only use this if you know the string at compile-time and know it's a
 -- valid identifier
@@ -119,7 +125,7 @@ toIdent = Ident
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident s }
-    deriving (Eq, Semigroup, Monoid, Ord, Show, Read, Generic, Functor, Foldable, Traversable)
+    deriving (Eq, Semigroup, Monoid, Ord, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
 
 instance GhcExts.IsList (Env s) where
     type Item (Env s) = (Ident, s)
@@ -140,7 +146,7 @@ data Bindings m = Bindings
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
     { fromLangT :: ExceptT (LangError Value) (StateT r m) a }
-    deriving (Functor, Applicative, Monad, MonadError (LangError Value), MonadState r)
+    deriving (Functor, Applicative, Monad, MonadError (LangError Value), MonadIO, MonadState r)
 
 instance MonadTrans (LangT r) where lift = LangT . lift . lift
 

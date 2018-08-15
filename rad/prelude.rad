@@ -114,6 +114,11 @@
                       (tail (tail expr)))))
   (print! "transaction must be new-account, transfer, or account-balance"))))))
 
+;; Chains
+
+(define empty-state (dict 'env (dict 'eval base-eval) 'refs (list)))
+(define empty-chain (dict 'state empty-state 'logs (list)))
+(define chains (dict 'a empty-chain 'b empty-chain))
 
 ;; The Repl
 
