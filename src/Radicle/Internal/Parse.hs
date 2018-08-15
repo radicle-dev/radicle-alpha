@@ -162,13 +162,13 @@ parseValues sourceName srcCode prims = go $ initial
 --
 -- Examples:
 --
--- >>> parse "test" "#t" [] :: Either String Value
+-- >>> parse "test" "#t" [] :: Either Text Value
 -- Right (Boolean True)
 --
--- >>> parse "test" "hi" [toIdent "hi"] :: Either String Value
+-- >>> parse "test" "hi" [toIdent "hi"] :: Either Text Value
 -- Right (Primop (Ident {fromIdent = "hi"}))
 --
--- >>> parse "test" "hi" [] :: Either String Value
+-- >>> parse "test" "hi" [] :: Either Text Value
 -- Right (Atom (Ident {fromIdent = "hi"}))
 parse :: MonadError Text m => Text -> Text -> [Ident] -> m Value
 parse file src ids = do
