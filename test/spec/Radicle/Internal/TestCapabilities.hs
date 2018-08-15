@@ -2,9 +2,7 @@
 -- Radicle.Internal.Subscriber.Capabilities that may be used for testing.
 module Radicle.Internal.TestCapabilities where
 
-import           Control.Monad.State
-import           Control.Monad.Except
-import           Data.Text (Text)
+import           Protolude
 
 import           Radicle
 import           Radicle.Internal.Subscriber.Capabilities
@@ -56,7 +54,7 @@ instance {-# OVERLAPPING #-} Stdin TestLang where
     getLineS = do
         ws <- lift get
         case worldStateStdin ws of
-            [] -> throwError $ OtherError "test: out of stdin"
+            []   -> throwError $ OtherError "test: out of stdin"
             h:hs -> lift (put $ ws { worldStateStdin = hs }) >> pure h
 
 instance {-# OVERLAPPING #-} Stdout TestLang where

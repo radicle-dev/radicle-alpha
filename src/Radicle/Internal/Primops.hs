@@ -3,16 +3,11 @@ module Radicle.Internal.Primops
   , purePrimops
   ) where
 
-import           Control.Monad.Except (catchError, throwError)
-import           Control.Monad.State
-import           Data.Bifunctor (first)
-import           Data.Foldable (foldlM, foldrM)
+import           Protolude hiding (TypeError)
+
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
-import           Data.Maybe (catMaybes, isJust)
 import           Data.Scientific (Scientific)
-import           Data.Semigroup ((<>))
-import           Data.Text (Text)
 import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
@@ -27,7 +22,7 @@ pureEnv = Bindings e purePrimops mempty 0
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
 purePrimops :: forall m. (Monad m) => Primops m
-purePrimops = Map.fromList $ first Ident <$>
+purePrimops = fromList $ first Ident <$>
     [ ("base-eval", evalArgs $ \args -> case args of
           [x] -> baseEval x
           xs  -> throwError $ WrongNumberOfArgs "base-eval" 1 (length xs))
@@ -35,7 +30,7 @@ purePrimops = Map.fromList $ first Ident <$>
     , ("dict", evalArgs $ \args ->
           let go (k:v:rest) = Map.insert k v $ go rest
               go [] = mempty
-              go _  = error "impossible"
+              go _  = panic "impossible"
           in if length args `mod` 2 == 0
               then pure . Dict $ go args
               else throwError $ OtherError "'dict' expects even number of args")

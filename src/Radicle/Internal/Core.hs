@@ -1,22 +1,16 @@
 module Radicle.Internal.Core where
 
-import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
-                                       throwError)
+import           Protolude hiding (TypeError, (<>))
+
 import           Control.Monad.State
 import           Data.Data (Data)
-import           Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific)
-import           Data.Semigroup (Semigroup, (<>))
-import           Data.Text (Text)
-import qualified Data.Text as T
-import           Data.Void (Void)
-import           GHC.Exts (IsList(..), fromString)
-import           GHC.Generics (Generic)
+import           Data.Semigroup ((<>))
+import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
 
 -- * Value
@@ -67,7 +61,7 @@ errorToValue e = case e of
     Exit -> makeVal ("exit", [])
   where
     makeA = quote . Atom
-    makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Atom . Ident) . fromList $ v)
+    makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Atom . Ident) . GhcExts.fromList $ v)
 
 newtype Reference = Reference { getReference :: Int }
     deriving (Show, Read, Ord, Eq, Generic)
@@ -118,17 +112,17 @@ newtype Ident = Ident { fromIdent :: Text }
 
 -- Unsafe! Only use this if you know the string at compile-time and know it's a
 -- valid identifier
-toIdent :: String -> Ident
-toIdent = Ident . fromString
+toIdent :: Text -> Ident
+toIdent = Ident
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident s }
     deriving (Eq, Semigroup, Monoid, Ord, Show, Read, Generic, Functor, Foldable, Traversable)
 
-instance IsList (Env s) where
+instance GhcExts.IsList (Env s) where
     type Item (Env s) = (Ident, s)
-    fromList = Env . fromList
-    toList = GHC.Exts.toList . fromEnv
+    fromList = Env . Map.fromList
+    toList = GhcExts.toList . fromEnv
 
 -- | Primop mappings. The parameter specifies the monad the primops run in.
 type Primops m = Map Ident ([Value ] -> Lang m Value)
@@ -224,7 +218,7 @@ eval val = do
         Lambda _ _ Nothing -> throwError $ Impossible
             "lambda should already have an env"
         Lambda [bnd] body (Just closure) -> do
-              let mappings = fromList [(bnd, val)]
+              let mappings = GhcExts.fromList [(bnd, val)]
                   modEnv = mappings <> closure
               NonEmpty.last <$> withEnv (\e' -> e' { bindingsEnv = modEnv})
                                         (traverse eval body)
@@ -237,7 +231,7 @@ baseEval val = case val of
     Ref i -> pure $ Ref i
     List (f:vs) -> f $$ vs
     List xs -> throwError
-        $ WrongNumberOfArgs ("application: " <> T.pack (show xs))
+        $ WrongNumberOfArgs ("application: " <> show xs)
                             2
                             (length xs)
     String s -> pure $ String s
@@ -273,7 +267,7 @@ mfn $$ vs = do
                                                              (length vs)
                 else do
                     vs' <- traverse baseEval vs
-                    let mappings = fromList (zip bnds vs')
+                    let mappings = GhcExts.fromList (zip bnds vs')
                     NonEmpty.last <$> withEnv
                         (\e -> e { bindingsEnv = mappings <> bindingsEnv e })
                         (traverse baseEval body)
@@ -283,7 +277,7 @@ mfn $$ vs = do
                                                              (length vs)
                 else do
                     vs' <- traverse baseEval vs
-                    let mappings = fromList (zip bnds vs')
+                    let mappings = GhcExts.fromList (zip bnds vs')
                         modEnv = mappings <> closure
                     NonEmpty.last <$> withEnv (\e -> e { bindingsEnv = modEnv })
                                               (traverse baseEval body)

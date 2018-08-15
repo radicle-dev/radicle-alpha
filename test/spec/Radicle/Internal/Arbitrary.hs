@@ -1,13 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Arbitrary where
 
-import           Control.Monad.Identity (Identity)
-import           Data.Bifunctor (first)
+import           Protolude
+
 import qualified Data.Map as Map
-import           Data.Maybe (isJust)
 import           Data.Scientific (Scientific)
-import qualified Data.Text as T
-import           Safe (readMay)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
@@ -45,10 +42,10 @@ instance Arbitrary Value where
         prims :: Map.Map Ident ([Value] -> Lang Identity Value)
         prims = purePrimops
         isPrimop x = x `elem` Map.keys prims
-        isNum x = isJust (readMay (T.unpack $ fromIdent x) :: Maybe Scientific)
+        isNum x = isJust (readMaybe (toS $ fromIdent x) :: Maybe Scientific)
 
 instance Arbitrary Ident where
-    arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (mkIdent . T.pack)
+    arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (mkIdent . toS)
       where
         allChars = take 100 ['!' .. maxBound]
         firstL = elements $ filter isValidIdentFirst allChars

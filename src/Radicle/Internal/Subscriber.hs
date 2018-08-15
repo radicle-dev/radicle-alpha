@@ -1,13 +1,8 @@
 module Radicle.Internal.Subscriber where
 
-import           Control.Monad (forever, void)
-import           Control.Monad.Except (throwError)
-import           Control.Monad.State (get, gets)
-import           Data.Bifunctor (first)
-import           Data.List (isPrefixOf)
+import           Protolude hiding (TypeError)
+
 import qualified Data.Map as Map
-import           Data.Monoid ((<>))
-import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc (pretty)
 import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc)
@@ -84,7 +79,7 @@ replPrimops = Map.fromList $ first toIdent <$>
             case p of
                 Right v -> pure v
                 Left e -> throwError $ ThrownError (Ident "parse-error")
-                                                   (String $ T.pack e)
+                                                   (String e)
         xs  -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
     , ("subscribe-to!", \args -> case args of

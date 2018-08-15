@@ -10,18 +10,16 @@ extra-source-files:
 
 dependencies:
 - base >=4 && <5
+- protolude
 - containers
 - deriving-compat
 - haskeline
 - megaparsec
-- mmorph
 - mtl
 - prettyprinter
 - prettyprinter-ansi-terminal
 - recursion-schemes
 - scientific
-- STMonadTrans
-- syb
 - text
 
 data-files:
@@ -73,6 +71,7 @@ executables:
     ghc-options: -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 default-extensions:
+- NoImplicitPrelude
 - AutoDeriveTypeable
 - ConstraintKinds
 - DeriveDataTypeable

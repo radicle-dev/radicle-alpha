@@ -1,5 +1,7 @@
 module Main (main) where
 
+import           Protolude
+
 import           Hpack.Config
 import           System.FilePath.Glob (glob)
 import           Test.DocTest
