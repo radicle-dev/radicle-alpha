@@ -32,6 +32,13 @@ purePrimops = Map.fromList $ first Ident <$>
           [x] -> baseEval x
           xs  -> throwError $ WrongNumberOfArgs "base-eval" 1 (length xs))
     , ("list", evalArgs $ \args -> pure $ List args)
+    , ("dict", evalArgs $ \args ->
+          let go (k:v:rest) = Map.insert k v $ go rest
+              go [] = mempty
+              go _  = error "impossible"
+          in if length args `mod` 2 == 0
+              then pure . Dict $ go args
+              else throwError $ OtherError "'dict' expects even number of args")
     , ("quote", \args -> case args of
           [v] -> pure v
           xs  -> throwError $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -75,15 +82,12 @@ purePrimops = Map.fromList $ first Ident <$>
           [_]           -> throwError $ TypeError "tail: expects list argument"
           xs            -> throwError $ WrongNumberOfArgs "tail" 1 (length xs))
     , ("lookup", evalArgs $ \args -> case args of
-          [Atom a, Dict m] -> pure $ case Map.lookup a m of
+          [a, Dict m] -> pure $ case Map.lookup a m of
               Just v  -> v
               -- Probably an exception is better, but that seems cruel
               -- when you have no exception handling facilities.
               Nothing -> nil
-          [Atom _, _]           -> throwError
-                                 $ TypeError "lookup: second argument must be map"
-          [_, Dict _]      -> throwError
-                                 $ TypeError "lookup: first argument must be atom"
+          [_, _]      -> throwError $ TypeError "lookup: second argument must be map"
           xs -> throwError $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ("string-append", evalArgs $ \args ->
           let fromStr (String s) = Just s
@@ -93,11 +97,9 @@ purePrimops = Map.fromList $ first Ident <$>
               then pure . String . mconcat $ catMaybes ss
               else throwError $ TypeError "string-append: non-string argument")
     , ("insert", evalArgs $ \args -> case args of
-          [Atom k, v, Dict m] -> pure . Dict $ Map.insert k v m
-          [Atom _, _, _]           -> throwError
-                                    $ TypeError "insert: third argument must be map"
+          [k, v, Dict m] -> pure . Dict $ Map.insert k v m
           [_, _, _]                -> throwError
-                                    $ TypeError "insert: first argument must be an atom"
+                                    $ TypeError "insert: third argument must be a dict"
           xs -> throwError $ WrongNumberOfArgs "insert" 3 (length xs))
     -- The semantics of + and - in Scheme is a little messed up. (+ 3)
     -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.
@@ -156,6 +158,9 @@ purePrimops = Map.fromList $ first Ident <$>
             -- in Lisps a lot of things that one might object to are True...
             if b == Boolean False then baseEval f else baseEval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
+    , ("ref", evalArgs $ \args -> case args of
+          [x] -> newRef x
+          xs  -> throwError $ WrongNumberOfArgs "ref" 1 (length xs))
     , ("read-ref", evalArgs $ \args -> case args of
           [Ref (Reference x)] -> gets bindingsRefs >>= \m -> case IntMap.lookup x m of
               Nothing -> throwError $ Impossible "undefined reference"
@@ -183,7 +188,7 @@ purePrimops = Map.fromList $ first Ident <$>
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text
-             -> (Text, [Value Reference] -> Lang m (Value Reference))
+             -> (Text, [Value] -> Lang m Value)
     numBinop fn name = (name, evalArgs $ \args -> case args of
         Number x:x':xs -> foldM go (Number x) (x':xs)
           where

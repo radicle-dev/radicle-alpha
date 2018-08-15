@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Pretty where
 
-import           Data.Functor.Foldable (Fix, unfix)
 import           Data.List.NonEmpty (toList)
 import qualified Data.Map as Map
 import           Data.Text (Text)
@@ -20,7 +19,7 @@ instance Pretty Reference where
 instance Pretty Ident where
     pretty (Ident i) = pretty i
 
-instance Pretty r => Pretty (Value r) where
+instance Pretty Value where
     pretty v = case v of
         Atom i -> pretty i
         Ref i -> parens $ "ref" <+> pretty i
@@ -38,10 +37,6 @@ instance Pretty r => Pretty (Value r) where
                      <+> sep (pretty <$> toList vals)
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
-
-instance Pretty (Fix Value) where
-    -- pretty indeed!
-    pretty = pretty . unfix
 
 instance Pretty r => Pretty (LangError r) where
     pretty v = case v of
@@ -61,8 +56,7 @@ instance Pretty r => Pretty (LangError r) where
 --
 -- Examples:
 --
--- >>> import Data.Void
--- >>> renderCompactPretty (List [String "hi", String "there"] :: Value Void)
+-- >>> renderCompactPretty (List [String "hi", String "there"])
 -- "(\"hi\"\n\"there\")"
 renderCompactPretty :: Pretty v => v -> Text
 renderCompactPretty = renderStrict . layoutCompact . pretty
@@ -72,11 +66,10 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 -- Examples:
 --
 -- >>> import Data.Void
--- >>> renderPretty Unbounded (List [String "hi", String "there"] :: Value Void)
+-- >>> renderPretty Unbounded (List [String "hi", String "there"])
 -- "(\"hi\" \"there\")"
 --
--- >>> import Data.Void
--- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"] :: Value Void)
+-- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"])
 -- "(\"hi\"\n\"there\")"
 renderPretty :: Pretty v => PageWidth -> v -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
@@ -86,7 +79,7 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 -- Examples:
 --
 -- >>> import Data.Void
--- >>> renderPrettyDef (List [String "hi", String "there"] :: Value Void)
+-- >>> renderPrettyDef (List [String "hi", String "there"])
 -- "(\"hi\" \"there\")"
 renderPrettyDef :: Pretty v => v -> Text
 renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . pretty

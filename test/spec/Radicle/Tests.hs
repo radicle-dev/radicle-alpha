@@ -2,7 +2,6 @@
 module Radicle.Tests where
 
 import           Data.Either (isLeft)
-import           Data.Functor.Foldable (Fix(..), unfix)
 import           Data.Functor.Identity (runIdentity)
 import           Data.List (isSuffixOf)
 import           Data.Semigroup ((<>))
@@ -10,7 +9,6 @@ import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import           Data.Void (Void)
 import           GHC.Exts (fromList, toList)
 import           System.Directory (getDirectoryContents)
 import           Test.Tasty
@@ -37,8 +35,10 @@ test_eval =
         prog `succeedsWith` String "Steve Wozniak"
 
     , testCase "'dict' creates a Dict with given key/vals" $ do
-        let prog = [s|(dict why "not")|]
-        prog `succeedsWith` Dict (fromList [(toIdent "why", String "not")])
+        let prog1 = [s|(dict 'why "not")|]
+        prog1 `succeedsWith` Dict (fromList [(Atom $ toIdent "why", String "not")])
+        let prog2 = [s|(dict 3 1)|]
+        prog2 `succeedsWith` Dict (fromList [(Number 3, Number 1)])
 
     , testCase "'cons' conses an element" $ do
         let prog = [s|(cons #t (list #f))|]
@@ -52,7 +52,7 @@ test_eval =
         let prog = [s|(tail (list #t #f #t))|]
         prog `succeedsWith` List [Boolean False, Boolean True]
 
-    , testProperty "'eq?' considers equal values equal" $ \(val :: Value Void) -> do
+    , testProperty "'eq?' considers equal values equal" $ \(val :: Value) -> do
         let prog = [i|(eq? #{renderPrettyDef val} #{renderPrettyDef val})|]
             res  = runTest' $ T.pack prog
         counterexample prog $  isLeft res || res == Right (Boolean True)
@@ -62,7 +62,7 @@ test_eval =
         prog `succeedsWith` Boolean True
 
     , testProperty "'eq?' considers different values different"
-                $ \(v1 :: Value Int, v2 :: Value Int) ->
+                $ \(v1 :: Value , v2 :: Value ) ->
                   v1 /= v2 ==> do
         -- We quote the values to prevent errors from being thrown
         let prog = [i|(eq? (quote #{renderPrettyDef v1})
@@ -80,19 +80,31 @@ test_eval =
         prog `succeedsWith` Boolean False
 
     , testCase "'lookup' returns value of key in map" $ do
-        let prog = [s|(lookup 'key1 (dict key1 "a" key2 "b"))|]
-        prog `succeedsWith` String "a"
+        let prog1 = [s|(lookup 'key1 (dict 'key1 "a" 'key2 "b"))|]
+        prog1 `succeedsWith` String "a"
+        let prog2 = [s|(lookup 5 (dict 5 "a" 'key2 "b"))|]
+        prog2 `succeedsWith` String "a"
+        let prog3 = [s|(lookup '(2 3) (dict '(2 3) "a" 'key2 "b"))|]
+        prog3 `succeedsWith` String "a"
 
     , testCase "'insert' updates the value of key in map" $ do
-        let prog = [s|(lookup 'key1 (insert 'key1 "b" (dict key1 "a" key2 "b")))|]
-        prog `succeedsWith` String "b"
+        let prog1 = [s|(lookup 'key1 (insert 'key1 "b" (dict 'key1 "a" 'key2 "b")))|]
+        prog1 `succeedsWith` String "b"
+        let prog2 = [s|(lookup 5 (insert 5 "b" (dict 5 "a" 'key2 "b")))|]
+        prog2 `succeedsWith` String "b"
+        let prog3 = [s|(lookup '(2 3) (insert '(2 3) "b" (dict '(2 3) "a" 'key2 "b")))|]
+        prog3 `succeedsWith` String "b"
 
-    , testCase "'insert' insert the value of key in map" $ do
-        let prog = [s|(lookup 'key1 (insert 'key1 "b" (dict)))|]
-        prog `succeedsWith` String "b"
+    , testCase "'insert' inserts the value of key in map" $ do
+        let prog1 = [s|(lookup 'key1 (insert 'key1 "b" (dict)))|]
+        prog1 `succeedsWith` String "b"
+        let prog2 = [s|(lookup 5 (insert 5 "b" (dict)))|]
+        prog2 `succeedsWith` String "b"
+        let prog3 = [s|(lookup '(2 3) (insert '(2 3) "b" (dict)))|]
+        prog3 `succeedsWith` String "b"
 
     , testProperty "'string-append' concatenates string" $ \ss -> do
-        let args = T.unwords $ renderPrettyFix . String <$> ss
+        let args = T.unwords $ renderPrettyDef . String <$> ss
             prog = "(string-append " <> args <> ")"
             res  = runTest' prog
             expected = Right . String $ mconcat ss
@@ -123,7 +135,7 @@ test_eval =
             res2 = runTest' prog2
         res1 @?= res2
 
-    , testProperty "'eval' does not alter functions" $ \(_v :: Value Int) -> do
+    , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
         let prog1 = [i| (eval (lambda () #{renderPrettyDef _v})) |]
             prog2 = [i| (lambda () #{renderPrettyDef _v}) |]
             res1 = runTest' $ T.pack prog1
@@ -221,12 +233,12 @@ test_eval =
         prog `succeedsWith` Number 6
 
     , testProperty "'>' works" $ \(x, y) -> do
-        let prog = [i|(> #{renderPrettyFix $ Number x} #{renderPrettyFix $ Number y})|]
+        let prog = [i|(> #{renderPrettyDef $ Number x} #{renderPrettyDef $ Number y})|]
             res  = runTest' $ T.pack prog
         counterexample prog $ res == Right (Boolean (x > y))
 
     , testProperty "'<' works" $ \(x, y) -> do
-        let prog = [i|(< #{renderPrettyFix $ Number x} #{renderPrettyFix $ Number y})|]
+        let prog = [i|(< #{renderPrettyDef $ Number x} #{renderPrettyDef $ Number y})|]
             res  = runTest' $ T.pack prog
         counterexample prog $ res == Right (Boolean (x < y))
 
@@ -270,9 +282,9 @@ test_eval =
             res = runTest' prog
         res @?= Right (Number 6)
 
-    , testProperty "read-ref . ref == id" $ \v -> do
-        let derefed = runTest' $ T.pack [i|(read-ref (ref #{renderPrettyFix v}))|]
-            orig    = runTest' $ T.pack [i|#{renderPrettyFix v}|]
+    , testProperty "read-ref . ref == id" $ \(v :: Value) -> do
+        let derefed = runTest' $ T.pack [i|(read-ref (ref #{renderPrettyDef v}))|]
+            orig    = runTest' $ T.pack [i|#{renderPrettyDef v}|]
             info    = "Expected:\n" <> T.unpack (prettyEither orig)
                    <> "\nGot:\n" <> T.unpack (prettyEither derefed)
         counterexample info $ derefed == orig
@@ -286,7 +298,7 @@ test_eval =
         runTest' "(show #f)" @?= Right (String "#f")
         runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1.0 \"foo\" (b (quote x) 2.0 \"bar\"))")
         runTest' "eval" @?= Right (Primop (toIdent "base-eval"))
-        runTest' "(show (dict 'a 1))" @?= Right (String "(dict 'a 1)")
+        runTest' "(show (dict 'a 1))" @?= Right (String "(dict a 1.0)")
         runTest' "(show (lambda (x) x))" @?= Right (String "(lambda (x) x)")
     ]
   where
@@ -342,10 +354,10 @@ test_binding =
 
 test_pretty :: [TestTree]
 test_pretty =
-    [ testProperty "parse . pretty == identity" $ \(val :: Value (Fix Value))  ->
+    [ testProperty "parse . pretty == identity" $ \(val :: Value)  ->
         let rendered = renderPrettyDef val
             actual = parseTest rendered
-            original = removeEnv' val
+            original = removeEnv val
             info = case actual of
               Left e -> "parse error in: " <> T.unpack rendered <> "\n"
                       <> e
@@ -357,20 +369,20 @@ test_pretty =
 
 test_env :: [TestTree]
 test_env =
-    [ testProperty "fromList . toList == identity" $ \(env' :: Env (Value Int)) ->
+    [ testProperty "fromList . toList == identity" $ \(env' :: Env Value) ->
         fromList (toList env') == env'
     ]
 
 test_repl_primops :: [TestTree]
 test_repl_primops =
-    [ testProperty "get-line! returns the input line" $ \(v :: Value Void) ->
+    [ testProperty "get-line! returns the input line" $ \(v :: Value) ->
         let prog = [i|(eq? (get-line!) (quote #{renderPrettyDef v}))|]
             res = run [renderPrettyDef v] $ T.pack prog
         in counterexample prog $ res == Right (Boolean True)
 
     , testCase "catch catches get-line errors" $ do
         let prog = [s|
-                 (define repl (dict name "repl" getter get-line!))
+                 (define repl (dict 'name "repl" 'getter get-line!))
                  (catch 'any
                         (subscribe-to! repl (lambda (x) (print! x)))
                         (lambda (x) "caught"))
@@ -452,22 +464,16 @@ test_source_files = testGroup "Radicle source file tests" <$> do
 
 -- | Environments are neither printed nor parsed, but are generated by the
 -- arbitrary instance.
-removeEnv :: Value s -> Value s
+removeEnv :: Value -> Value
 removeEnv v = case v of
     List xs         -> List $ removeEnv <$> xs
     Dict m          -> Dict $ removeEnv <$> m
     Lambda ids bd _ -> Lambda ids (removeEnv <$> bd) Nothing
     x               -> x
 
-removeEnv' :: Value (Fix Value) -> Value (Fix Value)
-removeEnv' v = Fix . removeEnv' . unfix <$> removeEnv v
-
-prettyEither :: Pretty s => Either (LangError (Value s)) (Value s) -> T.Text
+prettyEither :: Either (LangError Value) Value -> T.Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e
 prettyEither (Right v) = renderPrettyDef v
-
-renderPrettyFix :: Value (Fix Value) -> T.Text
-renderPrettyFix = renderPrettyDef
 
 (<&>) :: Functor f => f a -> (a -> b) -> f b
 (<&>) = flip fmap

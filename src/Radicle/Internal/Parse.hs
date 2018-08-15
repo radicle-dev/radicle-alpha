@@ -1,14 +1,13 @@
 module Radicle.Internal.Parse where
 
 import           Control.Applicative (many, (<|>))
-import           Control.Monad (void, (>=>))
+import           Control.Monad (void)
 import           Control.Monad.Except (MonadError, throwError)
 import           Control.Monad.Identity (Identity)
 import           Control.Monad.Reader (Reader, ask, runReader)
 import           Control.Monad.State (gets)
 import           Data.Char (isAlphaNum, isLetter)
 import           Data.Either (partitionEithers)
-import           Data.Functor.Foldable (Fix(..))
 import           Data.List.NonEmpty (NonEmpty((:|)), fromList)
 import qualified Data.Map as Map
 import           Data.Text (Text)
@@ -25,12 +24,12 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Core
-import Radicle.Internal.Primops
+import           Radicle.Internal.Primops
 
 -- * The parser
 
 type Parser a = ParsecT Void Text (Reader [Ident]) a
-type VParser = Parser (Value (Fix Value))
+type VParser = Parser Value
 
 spaceConsumer :: Parser ()
 spaceConsumer = L.space space1 lineComment blockComment
@@ -81,24 +80,12 @@ applyP = List <$> valueP `sepBy` spaceConsumer
 quoteP :: VParser
 quoteP = List . ((Primop $ toIdent "quote") :) . pure <$> (char '\'' >> valueP)
 
-dictP :: VParser
-dictP = do
-    void $ symbol "dict"
-    Dict . Map.fromList <$> pairP `sepBy` spaceConsumer
-  where
-    pairP = (,) <$> identP <*> valueP
-
 lambdaP :: VParser
 lambdaP = do
     void $ symbol "lambda"
     vars <- parensP $ identP `sepBy` spaceConsumer
     body <- fromList <$> some valueP
     pure $ Lambda vars body Nothing
-
-refP :: VParser
-refP = do
-    void $ symbol "ref"
-    Ref . Fix <$> valueP
 
 valueP :: VParser
 valueP = do
@@ -115,8 +102,6 @@ valueP = do
   where
     appLike = choice
         [ lambdaP <?> "lambda"
-        , dictP <?> "dict"
-        , refP <?> "ref"
         , applyP <?> "application"
         ]
 
@@ -138,13 +123,13 @@ interpret
     => String
     -> Text
     -> Bindings m
-    -> m (Either (LangError (Value Reference)) (Value Reference))
+    -> m (Either (LangError Value) Value)
 interpret sourceName expr bnds = do
     let primopNames = Map.keys (bindingsPrimops bnds)
         parsed = runReader (runParserT (valueP <* eof) sourceName expr) primopNames
     case parsed of
         Left e  -> pure . Left $ ParseError e
-        Right v -> fst <$> runLang bnds (makeRefs v >>= eval)
+        Right v -> fst <$> runLang bnds (eval v)
 
 -- | Parse and evaluate a Text as multiple expressions.
 --
@@ -152,19 +137,19 @@ interpret sourceName expr bnds = do
 --
 -- >>> fmap fst <$> runLang pureEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
 -- Right (Boolean True)
-interpretMany :: Monad m => String -> Text -> Lang m (Value Reference)
+interpretMany :: Monad m => String -> Text -> Lang m Value
 interpretMany sourceName src = do
     primopNames <- gets $ Map.keys . bindingsPrimops
     let parsed = parseValues sourceName src primopNames
     case partitionEithers parsed of
-        ([], vs) -> last <$> mapM (makeRefs >=> eval) vs
+        ([], vs) -> last <$> mapM eval vs
         (e:_, _) -> throwError $ ParseError e
 
 -- | Parse a Text as a series of values.
 -- 'sourceName' is used for error reporting. 'prims' are the primop names.
 --
 -- Note that parsing continues even if one value fails to parse.
-parseValues :: String -> Text -> [Ident] -> [Either (Par.ParseError Char Void) (Value (Fix Value))]
+parseValues :: String -> Text -> [Ident] -> [Either (Par.ParseError Char Void) Value]
 parseValues sourceName srcCode prims = go $ initial
   where
     initial = State
@@ -181,15 +166,15 @@ parseValues sourceName srcCode prims = go $ initial
 --
 -- Examples:
 --
--- >>> parse "test" "#t" [] :: Either String (Value (Fix Value))
+-- >>> parse "test" "#t" [] :: Either String Value
 -- Right (Boolean True)
 --
--- >>> parse "test" "hi" [toIdent "hi"] :: Either String (Value (Fix Value))
+-- >>> parse "test" "hi" [toIdent "hi"] :: Either String Value
 -- Right (Primop (Ident {fromIdent = "hi"}))
 --
--- >>> parse "test" "hi" [] :: Either String (Value (Fix Value))
+-- >>> parse "test" "hi" [] :: Either String Value
 -- Right (Atom (Ident {fromIdent = "hi"}))
-parse :: MonadError String m => String -> Text -> [Ident] -> m (Value (Fix Value))
+parse :: MonadError String m => String -> Text -> [Ident] -> m Value
 parse file src ids = do
   let res = runReader (M.runParserT (valueP <* eof) file src) ids
   case res of
@@ -198,7 +183,7 @@ parse file src ids = do
 
 -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- primops.
-parseTest :: MonadError String m => Text -> m (Value (Fix Value))
+parseTest :: MonadError String m => Text -> m Value
 parseTest t = parse "(test)" t (Map.keys $ bindingsPrimops e)
   where
     e :: Bindings (Lang Identity)
