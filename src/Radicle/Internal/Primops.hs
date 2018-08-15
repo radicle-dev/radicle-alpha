@@ -99,7 +99,7 @@ purePrimops = Map.fromList $ first Ident <$>
     , ("insert", evalArgs $ \args -> case args of
           [k, v, Dict m] -> pure . Dict $ Map.insert k v m
           [_, _, _]                -> throwError
-                                    $ TypeError "insert: first argument must be an atom"
+                                    $ TypeError "insert: third argument must be a dict"
           xs -> throwError $ WrongNumberOfArgs "insert" 3 (length xs))
     -- The semantics of + and - in Scheme is a little messed up. (+ 3)
     -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.

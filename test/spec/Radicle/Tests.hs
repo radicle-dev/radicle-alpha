@@ -80,16 +80,28 @@ test_eval =
         prog `succeedsWith` Boolean False
 
     , testCase "'lookup' returns value of key in map" $ do
-        let prog = [s|(lookup 'key1 (dict 'key1 "a" 'key2 "b"))|]
-        prog `succeedsWith` String "a"
+        let prog1 = [s|(lookup 'key1 (dict 'key1 "a" 'key2 "b"))|]
+        prog1 `succeedsWith` String "a"
+        let prog2 = [s|(lookup 5 (dict 5 "a" 'key2 "b"))|]
+        prog2 `succeedsWith` String "a"
+        let prog3 = [s|(lookup '(2 3) (dict '(2 3) "a" 'key2 "b"))|]
+        prog3 `succeedsWith` String "a"
 
     , testCase "'insert' updates the value of key in map" $ do
-        let prog = [s|(lookup 'key1 (insert 'key1 "b" (dict 'key1 "a" 'key2 "b")))|]
-        prog `succeedsWith` String "b"
+        let prog1 = [s|(lookup 'key1 (insert 'key1 "b" (dict 'key1 "a" 'key2 "b")))|]
+        prog1 `succeedsWith` String "b"
+        let prog2 = [s|(lookup 5 (insert 5 "b" (dict 5 "a" 'key2 "b")))|]
+        prog2 `succeedsWith` String "b"
+        let prog3 = [s|(lookup '(2 3) (insert '(2 3) "b" (dict '(2 3) "a" 'key2 "b")))|]
+        prog3 `succeedsWith` String "b"
 
-    , testCase "'insert' insert the value of key in map" $ do
-        let prog = [s|(lookup 'key1 (insert 'key1 "b" (dict)))|]
-        prog `succeedsWith` String "b"
+    , testCase "'insert' inserts the value of key in map" $ do
+        let prog1 = [s|(lookup 'key1 (insert 'key1 "b" (dict)))|]
+        prog1 `succeedsWith` String "b"
+        let prog2 = [s|(lookup 5 (insert 5 "b" (dict)))|]
+        prog2 `succeedsWith` String "b"
+        let prog3 = [s|(lookup '(2 3) (insert '(2 3) "b" (dict)))|]
+        prog3 `succeedsWith` String "b"
 
     , testProperty "'string-append' concatenates string" $ \ss -> do
         let args = T.unwords $ renderPrettyDef . String <$> ss
