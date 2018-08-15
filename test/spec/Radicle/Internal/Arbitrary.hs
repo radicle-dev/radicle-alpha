@@ -3,15 +3,9 @@ module Radicle.Internal.Arbitrary where
 
 import           Protolude
 
-import           Control.Monad.Identity (Identity)
-import           Data.Bifunctor (first)
 import           Data.Functor.Foldable (Fix(Fix))
 import qualified Data.Map as Map
-import           Data.Maybe (isJust)
 import           Data.Scientific (Scientific)
-import qualified Data.Text as T
-import           Data.Void (Void)
-import           Safe (readMay)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
@@ -45,7 +39,7 @@ instance {-# OVERLAPPING #-} Arbitrary (Value Void) where
         prims :: Map.Map Ident ([Value Reference] -> Lang Identity (Value Reference))
         prims = purePrimops
         isPrimop x = x `elem` Map.keys prims
-        isNum x = isJust (readMay (T.unpack $ fromIdent x) :: Maybe Scientific)
+        isNum x = isJust (readMaybe (toS $ fromIdent x) :: Maybe Scientific)
 
 instance {-# OVERLAPPABLE #-} Arbitrary r => Arbitrary (Value r) where
     arbitrary = frequency [ (20, coerceRefs <$> arbitrary)
@@ -56,7 +50,7 @@ instance Arbitrary (Fix Value) where
     arbitrary = Fix <$> arbitrary
 
 instance Arbitrary Ident where
-    arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (mkIdent . T.pack)
+    arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (mkIdent . toS)
       where
         allChars = take 100 ['!' .. maxBound]
         firstL = elements $ filter isValidIdentFirst allChars

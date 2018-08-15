@@ -15,14 +15,11 @@ dependencies:
 - deriving-compat
 - haskeline
 - megaparsec
-- mmorph
 - mtl
 - prettyprinter
 - prettyprinter-ansi-terminal
 - recursion-schemes
 - scientific
-- STMonadTrans
-- syb
 - text
 
 data-files:
