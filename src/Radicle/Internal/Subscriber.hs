@@ -20,8 +20,8 @@ import           Radicle.Internal.Subscriber.Capabilities
 
 type ReplM m =
     ( Monad m, Stdout (Lang m), Stdin (Lang m)
-    , GetEnv (Lang m) (Value Reference)
-    , SetEnv (Lang m) (Value Reference) )
+    , GetEnv (Lang m) Value
+    , SetEnv (Lang m) Value )
 
 repl :: FilePath -> Text -> IO ()
 repl histFile preCode = do
@@ -77,7 +77,7 @@ replPrimops = Map.fromList $ first toIdent <$>
             allPrims <- gets bindingsPrimops
             let p = parse "[stdin]" ln (Map.keys allPrims)
             case p of
-                Right v -> makeRefs v
+                Right v -> pure v
                 Left e -> throwError $ ThrownError (Ident "parse-error")
                                                    (String e)
         xs  -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
@@ -88,7 +88,7 @@ replPrimops = Map.fromList $ first toIdent <$>
             v' <- eval v
             s <- get
             case (x', v') of
-                (Dict m, fn) -> case Map.lookup (toIdent "getter") m of
+                (Dict m, fn) -> case Map.lookup (Atom $ toIdent "getter") m of
                     Nothing -> throwError
                         $ OtherError "subscribe-to!: Expected 'getter' key"
                     Just g -> forever go
