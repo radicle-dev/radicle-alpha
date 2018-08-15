@@ -512,7 +512,7 @@ test_repl =
         result @?= output
     ]
     where
-      getCfg = getDataFileName "repl/config.rad" >>= readFile
+      getCfg = getDataFileName "rad/config.rad" >>= readFile
       -- The repl catches exceptions, including the "out of stdin" exception
       -- that occurs at the end of a session, so we take the 'init' of the
       -- result.
@@ -522,7 +522,7 @@ test_repl =
 -- function to ensure they are in the proper format.
 test_source_files :: IO TestTree
 test_source_files = testGroup "Radicle source file tests" <$> do
-    oneOf'Em <- getDataFileName "repl/config.rad"
+    oneOf'Em <- getDataFileName "rad/config.rad"
     let dir = reverse $ drop (T.length ("config.rad" :: Text)) $ reverse oneOf'Em
     files <- getDirectoryContents dir
     let radFiles = filter (".rad" `isSuffixOf`) files

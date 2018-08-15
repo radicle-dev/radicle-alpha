@@ -19,12 +19,13 @@ dependencies:
 - prettyprinter
 - prettyprinter-ansi-terminal
 - recursion-schemes
+- serialise
 - scientific
 - text
 
 data-files:
-- repl/config.rad
-- repl/prelude.rad
+- rad/config.rad
+- rad/prelude.rad
 
 library:
   source-dirs: src
@@ -64,16 +65,46 @@ tests:
 executables:
   repl:
     main: Main.hs
-    source-dirs: repl
+    source-dirs: exe/Repl
     dependencies:
     - radicle
     - optparse-applicative
     ghc-options: -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+  server:
+    main: Server.hs
+    source-dirs: exe/Server
+    other-modules: API
+    dependencies:
+    - radicle
+    - optparse-applicative
+    - bytestring
+    - servant
+    - servant-server
+    - http-media
+    - stm-containers
+    - stm
+    - warp
+    ghc-options: -main-is Server -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+  client:
+    main: Client.hs
+    source-dirs: exe/Server
+    other-modules: API
+    dependencies:
+    - radicle
+    - exceptions
+    - optparse-applicative
+    - bytestring
+    - servant
+    - servant-client
+    - http-media
+    - http-client
+    ghc-options: -main-is Client -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 default-extensions:
 - NoImplicitPrelude
 - AutoDeriveTypeable
 - ConstraintKinds
+- DataKinds
 - DeriveDataTypeable
 - DeriveFunctor
 - DeriveFoldable
@@ -92,3 +123,4 @@ default-extensions:
 - TypeOperators
 - ScopedTypeVariables
 - LambdaCase
+- StandaloneDeriving
