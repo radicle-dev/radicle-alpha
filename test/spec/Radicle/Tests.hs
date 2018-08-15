@@ -1,19 +1,14 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Radicle.Tests where
 
-import           Protolude hiding ((<>), toList)
+import           Protolude hiding (toList)
 
-import           Data.Either (isLeft)
 import           Data.Functor.Foldable (Fix(..), unfix)
-import           Data.Functor.Identity (runIdentity)
 import           Data.List (isSuffixOf)
-import           Data.Semigroup ((<>))
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import           Data.Void (Void)
 import           GHC.Exts (fromList, toList)
+import qualified Data.Text as T
 import           System.Directory (getDirectoryContents)
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -56,7 +51,7 @@ test_eval =
 
     , testProperty "'eq?' considers equal values equal" $ \(val :: Value Void) -> do
         let prog = [i|(eq? #{renderPrettyDef val} #{renderPrettyDef val})|]
-            res  = runTest' $ T.pack prog
+            res  = runTest' $ toS prog
         counterexample prog $  isLeft res || res == Right (Boolean True)
 
     , testCase "'eq?' works for quoted values" $ do
@@ -69,7 +64,7 @@ test_eval =
         -- We quote the values to prevent errors from being thrown
         let prog = [i|(eq? (quote #{renderPrettyDef v1})
                            (quote #{renderPrettyDef v2}))|]
-            res  = runTest' $ T.pack prog
+            res  = runTest' $ toS prog
         -- Either evaluation failed or their equal.
         counterexample prog $ isLeft res || res == Right (Boolean False)
 
@@ -100,7 +95,7 @@ test_eval =
             expected = Right . String $ mconcat ss
             info = "Expected:\n" <> prettyEither expected <>
                    "Got:\n" <> prettyEither res
-        counterexample (T.unpack info) $ res == expected
+        counterexample (toS info) $ res == expected
 
     , testCase "'foldl' foldls the list" $ do
         let prog = [s|(foldl - 0 (list 1 2 3))|]
@@ -128,11 +123,11 @@ test_eval =
     , testProperty "'eval' does not alter functions" $ \(_v :: Value Int) -> do
         let prog1 = [i| (eval (lambda () #{renderPrettyDef _v})) |]
             prog2 = [i| (lambda () #{renderPrettyDef _v}) |]
-            res1 = runTest' $ T.pack prog1
-            res2 = runTest' $ T.pack prog2
+            res1 = runTest' $ toS prog1
+            res2 = runTest' $ toS prog2
             info = "Expected:\n" <> prettyEither res2
                 <> "\nGot:\n" <> prettyEither res1
-        counterexample (T.unpack info) $ res1 == res2
+        counterexample (toS info) $ res1 == res2
 
     , testCase "lambdas work" $ do
         let prog = [s|((lambda (x) x) #t)|]
@@ -224,12 +219,12 @@ test_eval =
 
     , testProperty "'>' works" $ \(x, y) -> do
         let prog = [i|(> #{renderPrettyFix $ Number x} #{renderPrettyFix $ Number y})|]
-            res  = runTest' $ T.pack prog
+            res  = runTest' $ toS prog
         counterexample prog $ res == Right (Boolean (x > y))
 
     , testProperty "'<' works" $ \(x, y) -> do
         let prog = [i|(< #{renderPrettyFix $ Number x} #{renderPrettyFix $ Number y})|]
-            res  = runTest' $ T.pack prog
+            res  = runTest' $ toS prog
         counterexample prog $ res == Right (Boolean (x < y))
 
     , testCase "'define' fails when first arg is not an atom" $ do
@@ -273,10 +268,10 @@ test_eval =
         res @?= Right (Number 6)
 
     , testProperty "read-ref . ref == id" $ \v -> do
-        let derefed = runTest' $ T.pack [i|(read-ref (ref #{renderPrettyFix v}))|]
-            orig    = runTest' $ T.pack [i|#{renderPrettyFix v}|]
-            info    = "Expected:\n" <> T.unpack (prettyEither orig)
-                   <> "\nGot:\n" <> T.unpack (prettyEither derefed)
+        let derefed = runTest' $ toS [i|(read-ref (ref #{renderPrettyFix v}))|]
+            orig    = runTest' $ toS [i|#{renderPrettyFix v}|]
+            info    = "Expected:\n" <> toS (prettyEither orig)
+                   <> "\nGot:\n" <> toS (prettyEither derefed)
         counterexample info $ derefed == orig
 
     , testCase "'show' works" $ do
@@ -349,9 +344,9 @@ test_pretty =
             actual = parseTest rendered
             original = removeEnv' val
             info = case actual of
-              Left e -> "parse error in: " <> T.unpack rendered <> "\n"
+              Left e -> "parse error in: " <> toS rendered <> "\n"
                       <> toS e
-              Right v -> "pretty: " <> T.unpack rendered <> "\n"
+              Right v -> "pretty: " <> toS rendered <> "\n"
                       <> "reparsed: " <> show v <> "\n"
                       <> "original: " <> show original <> "\n"
         in counterexample info $ actual == Right original
@@ -367,7 +362,7 @@ test_repl_primops :: [TestTree]
 test_repl_primops =
     [ testProperty "get-line! returns the input line" $ \(v :: Value Void) ->
         let prog = [i|(eq? (get-line!) (quote #{renderPrettyDef v}))|]
-            res = run [renderPrettyDef v] $ T.pack prog
+            res = run [renderPrettyDef v] $ toS prog
         in counterexample prog $ res == Right (Boolean True)
 
     , testCase "catch catches get-line errors" $ do
@@ -426,7 +421,7 @@ test_repl =
         result @?= output
     ]
     where
-      getCfg = getDataFileName "repl/config.rad" >>= T.readFile
+      getCfg = getDataFileName "repl/config.rad" >>= readFile
       -- The repl catches exceptions, including the "out of stdin" exception
       -- that occurs at the end of a session, so we take the 'init' of the
       -- result.
@@ -441,12 +436,12 @@ test_source_files = testGroup "Radicle source file tests" <$> do
     files <- getDirectoryContents dir
     let radFiles = filter (".rad" `isSuffixOf`) files
     sequence $ radFiles <&> \file -> do
-        contents <- T.readFile $ dir <> file
+        contents <- readFile $ dir <> file
         let (_, out) = runTestWith replBindings [] contents
         let makeTest line = let (name, result) = T.span (/= '\'')
                                                $ T.drop 1
                                                $ T.dropWhile (/= '\'') line
-                            in testCase (T.unpack name) $ result @?= "' succeeded\""
+                            in testCase (toS name) $ result @?= "' succeeded\""
         pure $ testGroup file
             $ [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]
 
@@ -464,9 +459,9 @@ removeEnv v = case v of
 removeEnv' :: Value (Fix Value) -> Value (Fix Value)
 removeEnv' v = Fix . removeEnv' . unfix <$> removeEnv v
 
-prettyEither :: Pretty s => Either (LangError (Value s)) (Value s) -> T.Text
+prettyEither :: Pretty s => Either (LangError (Value s)) (Value s) -> Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e
 prettyEither (Right v) = renderPrettyDef v
 
-renderPrettyFix :: Value (Fix Value) -> T.Text
+renderPrettyFix :: Value (Fix Value) -> Text
 renderPrettyFix = renderPrettyDef

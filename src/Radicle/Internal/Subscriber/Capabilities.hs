@@ -6,9 +6,6 @@ module Radicle.Internal.Subscriber.Capabilities where
 
 import           Protolude
 
-import           Control.Monad.State (gets, modify)
-import           Data.Text (Text)
-import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           System.Console.Haskeline
 
@@ -21,14 +18,14 @@ instance {-# OVERLAPPABLE #-} Stdin m => Stdin (Lang m) where
 instance (MonadException m, Monad m) => Stdin (InputT m) where
     getLineS = getInputLine "rad> " >>= \x -> case x of
         Nothing -> panic "curious about why this would happen"
-        Just v  -> pure $ T.pack v
+        Just v  -> pure . toS $ v
 
 class (Monad m) => Stdout m where
     putStrS :: Text -> m ()
 instance {-# OVERLAPPABLE #-} Stdout m => Stdout (Lang m) where
     putStrS = lift . putStrS
 instance (MonadException m, Monad m) => Stdout (InputT m) where
-    putStrS = outputStrLn . T.unpack
+    putStrS = outputStrLn . toS
 
 class (Monad m) => Exit m where
     exitS :: m ()

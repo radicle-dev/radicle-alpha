@@ -4,9 +4,7 @@ module Radicle.Internal.Pretty where
 import           Protolude hiding ((<>), TypeError)
 
 import           Data.Functor.Foldable (Fix, unfix)
---import           Data.List.NonEmpty (toList)
 import qualified Data.Map as Map
-import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text

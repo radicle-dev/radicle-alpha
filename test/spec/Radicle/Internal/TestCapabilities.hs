@@ -4,8 +4,6 @@ module Radicle.Internal.TestCapabilities where
 
 import           Protolude
 
-import           Data.Text (Text)
-
 import           Radicle
 import           Radicle.Internal.Subscriber.Capabilities
 

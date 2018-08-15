@@ -1,9 +1,7 @@
 module Main (main) where
 
-import           Protolude hiding ((<>))
+import           Protolude
 
-import           Data.Semigroup ((<>))
-import qualified Data.Text.IO as T
 import           Options.Applicative
 import           System.Environment
 
@@ -12,7 +10,7 @@ import           Radicle
 main :: IO ()
 main = do
     opts' <- execParser allOpts
-    cfgSrc <- T.readFile =<< case configFile opts' of
+    cfgSrc <- readFile =<< case configFile opts' of
         Nothing  -> getConfig
         Just cfg -> pure cfg
     hist <- case histFile opts' of

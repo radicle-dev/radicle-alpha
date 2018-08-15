@@ -2,20 +2,11 @@ module Radicle.Internal.Parse where
 
 import           Protolude hiding (some, try)
 
-import           Control.Applicative (many, (<|>))
-import           Control.Monad (void, (>=>))
-import           Control.Monad.Except (MonadError, throwError)
-import           Control.Monad.Identity (Identity)
-import           Control.Monad.Reader (Reader, ask, runReader)
-import           Control.Monad.State (gets)
 import           Data.Char (isAlphaNum, isLetter)
-import           Data.Either (partitionEithers)
 import           Data.Functor.Foldable (Fix(..))
 import           Data.List.NonEmpty (NonEmpty((:|)), fromList)
 import qualified Data.Map as Map
-import           Data.Text (Text)
 import qualified Data.Text as T
-import           Data.Void (Void)
 import           GHC.Exts (IsString(..))
 import           Text.Megaparsec (ParsecT, State(..), between, choice,
                                   defaultTabWidth, eof, initialPos, manyTill,
@@ -52,7 +43,7 @@ parensP = between (symbol "(" >> spaceConsumer) (spaceConsumer >> symbol ")")
 
 stringLiteralP :: VParser
 stringLiteralP = lexeme $
-    String . T.pack <$> (char '"' >> manyTill L.charLiteral (char '"'))
+    String . toS <$> (char '"' >> manyTill L.charLiteral (char '"'))
 
 boolLiteralP :: VParser
 boolLiteralP = lexeme $ Boolean <$> (char '#' >>

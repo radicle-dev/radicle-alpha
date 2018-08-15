@@ -11,7 +11,6 @@ import           Radicle.Internal.Pretty as X
 import           Radicle.Internal.Primops as X
 import           Radicle.Internal.Subscriber as X
 
-import           Data.Text (Text)
 import qualified Text.Megaparsec as M
 
 -- | Smart constructor for Ident.

@@ -2,14 +2,7 @@ module Radicle.Internal.Subscriber where
 
 import           Protolude hiding (TypeError)
 
-import           Control.Monad (forever, void)
-import           Control.Monad.Except (throwError)
-import           Control.Monad.State (get, gets)
-import           Data.Bifunctor (first)
-import           Data.List (isPrefixOf)
 import qualified Data.Map as Map
-import           Data.Monoid ((<>))
-import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc (pretty)
 import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc)
