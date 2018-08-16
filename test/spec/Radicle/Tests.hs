@@ -280,6 +280,50 @@ test_eval =
             res = runTest' prog
         res @?= Right (Number 6)
 
+    , testCase "mutations to refs are persisted beyond a lambda's scope" $ do
+        let prog = [s|
+            (define inc-ref
+              (lambda (r)
+                (define temp (read-ref r))
+                (write-ref r (+ temp 1))
+                ))
+            (define a (ref 0))
+            (inc-ref a)
+            (read-ref a)
+            |]
+        let prog2 = [s|
+            (define ref-mapper
+              (lambda (f)
+                (lambda (r)
+                  (define temp (read-ref r))
+                  (write-ref r (f temp)))))
+            (define ref-incer (ref-mapper (lambda (x) (+ x 1))))
+            (define foo (ref 0))
+            (ref-incer foo)
+            (read-ref foo)
+            |]
+        runTest' prog @?= Right (Number 1)
+        runTest' prog2 @?= Right (Number 1)
+
+    , testCase "muliple refs mutated in multiple lambdas" $ do
+        let prog = [s|
+            (define make-counter
+              (lambda ()
+                (define current (ref 0))
+                (lambda ()
+                  (define temp (read-ref current))
+                  (write-ref current (+ temp 1))
+                  temp)))
+            (define c1 (make-counter))
+            (c1)
+            (c1)
+            (define c2 (make-counter))
+            (c2)
+            (c1)
+            (list (c1) (c2))
+            |]
+        runTest' prog @?= Right (List [Number 3, Number 1])
+
     , testProperty "read-ref . ref == id" $ \(v :: Value) -> do
         let derefed = runTest' $ toS [i|(read-ref (ref #{renderPrettyDef v}))|]
             orig    = runTest' $ toS [i|#{renderPrettyDef v}|]

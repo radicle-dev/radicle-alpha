@@ -86,7 +86,7 @@ replPrimops = Map.fromList $ first toIdent <$>
         [x, v] -> do
             x' <- eval x
             v' <- eval v
-            s <- get
+            e <- gets bindingsEnv
             case (x', v') of
                 (Dict m, fn) -> case Map.lookup (Atom $ toIdent "getter") m of
                     Nothing -> throwError
@@ -102,7 +102,7 @@ replPrimops = Map.fromList $ first toIdent <$>
                             -- Similarly, the application of the subscriber
                             -- function is evaluated in the original
                             -- environment.
-                            void $ withEnv (const s) (fn $$ [quote line])
+                            void $ withEnv (const e) (fn $$ [quote line])
                 _  -> throwError $ TypeError "subscribe-to!: Expected dict"
         xs  -> throwError $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
     ]
