@@ -42,6 +42,10 @@ purePrimops = fromList $ first Ident <$>
               pure nil
           [_, _]           -> throwError $ OtherError $ "define expects atom for first arg"
           xs               -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
+    , ("do", \case
+                [] -> pure nil
+                [x] -> 
+      )
     , ("catch", \args -> case args of
           [l, form, handler] -> do
               mlabel <- baseEval l
