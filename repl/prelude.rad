@@ -56,8 +56,9 @@
   (list 3))
 
 ;; modify-ref
-(define modify-ref (lambda (ref fn)
-  (write-ref ref (fn (read-ref ref)))))
+(define modify-ref
+  (lambda (r fn)
+    (write-ref r (fn (read-ref r)))))
 
 ;; modify-map
 (define modify-map (lambda (key fn mp)
@@ -66,6 +67,65 @@
 (should-be "modify-map"
   (modify-map 'a (lambda (x) (+ x 1)) (dict 'a 5))
   (dict 'a 6))
+
+;; Lenses
+
+;; Makes a lens out of a getter and a setter.
+(define make-lens
+  (lambda (g s)
+    (dict 'getter g 'setter s)))
+
+;; View a a view through a lens.
+(define view
+  (lambda (lens target)
+    ((lookup 'getter lens) target)))
+
+;; Set a value though a lens.
+(define set
+  (lambda (lens new-view target)
+    ((lookup 'setter lens) new-view target)))
+
+;; Compose lenses
+(define ..
+  (lambda (lens1 lens2)
+    (make-lens
+     (lambda (target) (view lens2 (view lens1 target)))
+     (lambda (new-view target) (set lens1 (set lens2 new-view (view lens1 target)) target)))))
+
+;; Modify a value through a lens.
+(define over
+  (lambda (lens f target)
+    (set lens (f (view lens target)) target)))
+
+;; A lens targetting keys of dicts.
+(define key
+  (lambda (k)
+    (make-lens (lambda (mp) (lookup k mp))
+               (lambda (v mp) (insert k v mp)))))
+
+;; Voting stuff
+
+(define state
+  (ref
+   (dict
+    'voters '("Alice" "Bob" "Charlie" "Dan")
+    'votes (dict))))
+
+(define ev-vote
+  (lambda (expr)
+    (if (eq? (head expr) 'vote)
+        (modify-ref state
+                    (lambda (s)
+                      (set (.. (key 'votes) (key (head (tail expr))))
+                           (head (tail (tail expr)))
+                           s)))
+        'invalid-command)))
+
+(define boom
+  (quote
+    (define eval ev-vote)))
+
+
 
 ;; Account stuff. Should be moved elsewhere when we have an import mechanism
 
