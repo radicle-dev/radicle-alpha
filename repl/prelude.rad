@@ -8,7 +8,23 @@
 (define empty? (lambda (ls) (eq? ls (list))))
 (should-be "empty" (empty? (list 2)) #f)
 
-;; y-combinator
+;; boolean functions
+(define and
+  (lambda (x y)
+    (if x y x)))
+
+(define or
+  (lambda (x y)
+    (if x x y)))
+
+(define all
+  (lambda (xs) (foldr and #t xs)))
+
+(define some
+  (lambda (xs) (foldr or #f xs)))
+
+;; y-combinators
+
 (define Y
   (lambda (h)
     ((lambda (x) (x x))
@@ -23,6 +39,12 @@
 ((lambda ()
   (define fac (Y (lambda (f) (lambda (x) (if (< x 2) 1 (* x (f (- x 1))))))))
   (should-be "fac" (fac 10) 3628800)))
+
+;; List functions
+
+(define length
+  (lambda (xs)
+    (foldr (lambda (x acc) (+ acc 1)) 0 xs)))
 
 ;; reverse
 (define reverse (lambda (ls)
@@ -103,7 +125,7 @@
     (make-lens (lambda (mp) (lookup k mp))
                (lambda (v mp) (insert k v mp)))))
 
-;; Voting stuff
+;; Voting stuff. Should be moved elsewhere when we have an import mechanism.
 
 (define state
   (ref
@@ -113,12 +135,18 @@
 
 (define ev-vote
   (lambda (expr)
-    (if (eq? (head expr) 'vote)
-        (modify-ref state
-                    (lambda (s)
-                      (set (.. (key 'votes) (key (head (tail expr))))
-                           (head (tail (tail expr)))
-                           s)))
+    (if (all
+         (list (list? expr)
+               (atom? (head expr))
+               (string? (head (tail expr)))
+               (boolean? (head (tail (tail expr))))))
+        (if (eq? (head expr) 'vote)
+            (modify-ref state
+                        (lambda (s)
+                          (set (.. (key 'votes) (key (head (tail expr))))
+                               (head (tail (tail expr)))
+                               s)))
+          'invalid-command)
         'invalid-command)))
 
 (define boom
