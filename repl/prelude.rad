@@ -135,19 +135,19 @@
 
 (define ev-vote
   (lambda (expr)
-    (if (all
-         (list (list? expr)
-               (atom? (head expr))
-               (string? (head (tail expr)))
-               (boolean? (head (tail (tail expr))))))
-        (if (eq? (head expr) 'vote)
-            (modify-ref state
-                        (lambda (s)
-                          (set (.. (key 'votes) (key (head (tail expr))))
-                               (head (tail (tail expr)))
-                               s)))
-          'invalid-command)
-        'invalid-command)))
+    (if (eq? (head expr) 'vote)
+        (if (and (string? (head (tail expr)))
+                 (boolean? (head (tail (tail expr)))))
+            (if (member? (head (tail expr)) (view (key 'voters) (read-ref state)))
+                (modify-ref state
+                            (lambda (s)
+                              (set (.. (key 'votes) (key (head (tail expr))))
+                                   (head (tail (tail expr)))
+                                   s)))
+                (throw 'invalid-input "You do not have permission to vote."))
+            (throw 'invalid-input "A vote must be a name and a bool."))
+        (throw 'invalid-input "All you can do is vote."))
+    ))
 
 (define boom
   (quote
