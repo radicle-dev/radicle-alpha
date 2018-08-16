@@ -135,24 +135,6 @@ data Bindings m = Bindings
     , bindingsNextRef :: Int
     } deriving (Generic)
 
-instance Semigroup (Bindings m) where
-    a <> b = Bindings
-      { bindingsEnv = bindingsEnv a <> bindingsEnv b
-      , bindingsPrimops = bindingsPrimops a <> bindingsPrimops b
-      , bindingsRefs = bindingsRefs a
-                       <> IntMap.mapKeys (+ bindingsNextRef a) (bindingsRefs b)
-      , bindingsNextRef = bindingsNextRef a + bindingsNextRef b
-      }
-
-instance Monoid (Bindings m) where
-    mempty = Bindings
-        { bindingsEnv = mempty
-        , bindingsPrimops = mempty
-        , bindingsRefs = mempty
-        , bindingsNextRef = 0
-        }
-    mappend = (<>)
-
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
     { fromLangT :: ExceptT (LangError Value) (StateT r m) a }
@@ -170,13 +152,15 @@ runLang
     -> m (Either (LangError Value) a, Bindings m)
 runLang e l = runStateT (runExceptT $ fromLangT l) e
 
--- | Like 'local' or 'withState'
-withEnv :: Monad m => (Bindings m -> Bindings m) -> Lang m a -> Lang m a
+-- | Like 'local' or 'withState'. Will run an action with a modified environment
+-- and then restore the original environment. Other bindings (i.e. primops and
+-- refs) are not affected.
+withEnv :: Monad m => (Env Value -> Env Value) -> Lang m a -> Lang m a
 withEnv modifier action = do
-    oldEnv <- get
-    modify modifier
+    oldEnv <- gets bindingsEnv
+    modify $ \s -> s { bindingsEnv = modifier oldEnv }
     res <- action
-    put oldEnv
+    modify $ \s -> s { bindingsEnv = oldEnv }
     pure res
 
 -- * Functions
@@ -220,7 +204,7 @@ eval val = do
         Lambda [bnd] body (Just closure) -> do
               let mappings = GhcExts.fromList [(bnd, val)]
                   modEnv = mappings <> closure
-              NonEmpty.last <$> withEnv (\e' -> e' { bindingsEnv = modEnv})
+              NonEmpty.last <$> withEnv (const modEnv)
                                         (traverse eval body)
         _ -> throwError $ TypeError "Trying to apply a non-function"
 
@@ -269,7 +253,7 @@ mfn $$ vs = do
                     vs' <- traverse baseEval vs
                     let mappings = GhcExts.fromList (zip bnds vs')
                     NonEmpty.last <$> withEnv
-                        (\e -> e { bindingsEnv = mappings <> bindingsEnv e })
+                        (mappings <>)
                         (traverse baseEval body)
         Lambda bnds body (Just closure) ->
             if length bnds /= length vs
@@ -279,7 +263,7 @@ mfn $$ vs = do
                     vs' <- traverse baseEval vs
                     let mappings = GhcExts.fromList (zip bnds vs')
                         modEnv = mappings <> closure
-                    NonEmpty.last <$> withEnv (\e -> e { bindingsEnv = modEnv })
+                    NonEmpty.last <$> withEnv (const modEnv)
                                               (traverse baseEval body)
         _ -> throwError $ TypeError "Trying to apply a non-function"
 
