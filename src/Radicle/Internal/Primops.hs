@@ -42,10 +42,11 @@ purePrimops = fromList $ first Ident <$>
               pure nil
           [_, _]           -> throwError $ OtherError $ "define expects atom for first arg"
           xs               -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
-    , ("do", \case
-                [] -> pure nil
-                [x] -> 
-      )
+    , ("do", let go = \case
+                        [] -> pure nil
+                        [x] -> baseEval x
+                        x:y:xs -> baseEval x >> go (y:xs)
+             in go)
     , ("catch", \args -> case args of
           [l, form, handler] -> do
               mlabel <- baseEval l
@@ -174,7 +175,14 @@ purePrimops = fromList $ first Ident <$>
                                   $ TypeError "write-ref: first argument must be a ref"
           xs                     -> throwError
                                   $ WrongNumberOfArgs "write-ref" 2 (length xs))
-    , ( "show", evalOneArg "show" (pure . String . renderPrettyDef))
+    , ("show", evalOneArg "show" (pure . String . renderPrettyDef))
+    , ( "seq"
+      , evalOneArg "seq" $
+          \case
+            x@(List _) -> pure x
+            Dict kvs -> pure $ List [List [k, v] | (k,v) <- Map.toList kvs ]
+            _ -> throwError $ TypeError "seq: can only create a list from a list of a dict"
+      )
     ]
   where
     -- Many primops evaluate their arguments just as normal functions do.
