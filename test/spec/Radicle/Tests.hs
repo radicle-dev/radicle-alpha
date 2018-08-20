@@ -199,6 +199,21 @@ test_eval =
 
     , testCase "'keyword?' is false for non keywords" $ do
         "(keyword? #t)" `succeedsWith` Boolean False
+    , testCase "'do' returns the empty list if called on nothing" $ do
+        "(do)" `succeedsWith` List []
+
+    , testCase "'do' returns the result of the last argument" $ do
+        "(do 1)" `succeedsWith` Number 1
+        "(do 1 2 3)" `succeedsWith` Number 3
+
+    , testCase "'do' runs effects in order" $ do
+        let prog = [s|
+                   (define r (ref 0))
+                   (do (write-ref r 1)
+                       (write-ref r 2))
+                   (read-ref r)
+                   |]
+        prog `succeedsWith` Number 2
 
     , testCase "'string?' is true for strings" $ do
         let prog = [s|(string? "hi")|]
