@@ -67,6 +67,12 @@ atomOrPrimP = do
     prims <- ask
     pure $ if i `elem` prims then Primop i else Atom i
 
+keywordP :: VParser
+keywordP = do
+  _ <- char ':'
+  kw <- many (satisfy isValidIdentRest)
+  pure . Keyword . Ident . fromString $ kw
+
 applyP :: VParser
 applyP = List <$> valueP `sepBy` spaceConsumer
 
@@ -85,6 +91,7 @@ valueP = do
   v <- choice
       [ stringLiteralP <?> "string"
       , boolLiteralP <?> "boolean"
+      , keywordP <?> "keyword"
       , try numLiteralP <?> "number"
       , atomOrPrimP <?> "identifier"
       , quoteP <?> "quote"
@@ -194,7 +201,7 @@ parseTest t = parse "(test)" t (Map.keys $ bindingsPrimops e)
 -- | A predicate which returns true if the character is valid as the first
 -- character of an identifier.
 isValidIdentFirst :: Char -> Bool
-isValidIdentFirst x = isLetter x || x `elem` extendedChar
+isValidIdentFirst x = x /= ':' && (isLetter x || x `elem` extendedChar)
 
 -- | A predicate which returns true if the character is valid as the second or
 -- later character of an identifier.

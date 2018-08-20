@@ -91,3 +91,4 @@ default-extensions:
 - TypeFamilies
 - TypeOperators
 - ScopedTypeVariables
+- LambdaCase
