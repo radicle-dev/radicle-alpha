@@ -129,6 +129,10 @@ purePrimops = fromList $ first Ident <$>
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
           [_, _]        -> throwError $ TypeError "map: second argument should be a list"
           xs            -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
+    , ("keyword?", evalArgs $ \case
+          [Keyword _] -> pure $ Boolean True
+          [_]         -> pure $ Boolean False
+          xs          -> throwError $ WrongNumberOfArgs "keyword?" 1 (length xs))
     , ("string?", evalArgs $ \args -> case args of
           [String _] -> pure $ Boolean True
           [_]        -> pure $ Boolean False

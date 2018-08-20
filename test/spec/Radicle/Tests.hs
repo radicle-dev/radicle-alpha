@@ -25,6 +25,9 @@ test_eval =
     [ testCase "Fails for undefined atoms" $
         [s|blah|] `failsWith` UnknownIdentifier (toIdent "blah")
 
+    , testCase "Keywords eval to themselves" $
+        [s|:blah|] `succeedsWith` Keyword (toIdent "blah")
+
     , testCase "Succeeds for defined atoms" $ do
         let prog = [s|
               (define rocky-clark "Steve Wozniak")
@@ -191,13 +194,15 @@ test_eval =
         let prog = [s|(if #t "a" (#t "non-sense"))|]
         prog `succeedsWith` String "a"
 
+    , testCase "'keyword?' is true for keywords" $ do
+        "(keyword? :foo)" `succeedsWith` Boolean True
+
+    , testCase "'keyword?' is false for non keywords" $ do
+        "(keyword? #t)" `succeedsWith` Boolean False
+
     , testCase "'string?' is true for strings" $ do
         let prog = [s|(string? "hi")|]
         prog `succeedsWith` Boolean True
-
-    , testCase "'string?' is false for nonStrings" $ do
-        let prog = [s|(string? #f)|]
-        prog `succeedsWith` Boolean False
 
     , testCase "'string?' is false for nonStrings" $ do
         let prog = [s|(string? #f)|]
@@ -364,6 +369,14 @@ test_parser =
     , testCase "parses primops" $ do
         "boolean?" ~~> Primop (toIdent "boolean?")
         "base-eval" ~~> Primop (toIdent "base-eval")
+
+    , testCase "parses keywords" $ do
+        let kw = Keyword . toIdent
+        ":foo" ~~> kw "foo"
+        ":what?crazy!" ~~> kw "what?crazy!"
+        ":::" ~~> kw "::"
+        "::foo" ~~> kw ":foo"
+        ":456" ~~> kw "456"
 
     , testCase "parses identifiers" $ do
         "++" ~~> Atom (toIdent "++")

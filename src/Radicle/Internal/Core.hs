@@ -88,6 +88,8 @@ readRef (Reference r) = do
 data Value =
     -- | A regular (hyperstatic) variable.
       Atom Ident
+    -- | Symbolic identifiers that evaluate to themselves.
+    | Keyword Ident
     | String Text
     | Number Scientific
     | Boolean Bool
@@ -212,6 +214,7 @@ eval val = do
 baseEval :: Monad m => Value -> Lang m Value
 baseEval val = case val of
     Atom i -> lookupAtom i
+    kw@(Keyword _) -> pure kw
     Ref i -> pure $ Ref i
     List (f:vs) -> f $$ vs
     List xs -> throwError
