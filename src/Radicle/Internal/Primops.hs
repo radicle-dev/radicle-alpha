@@ -40,13 +40,10 @@ purePrimops = fromList $ first Ident <$>
               val' <- baseEval val
               defineAtom name val'
               pure nil
-          [_, _]           -> throwError $ OtherError $ "define expects atom for first arg"
+          [_, _]           -> throwError $ OtherError "define expects atom for first arg"
           xs               -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
-    , ("do", let go = \case
-                        [] -> pure nil
-                        [x] -> baseEval x
-                        x:y:xs -> baseEval x >> go (y:xs)
-             in go)
+    , ( "do", evalArgs $ pure . lastDef nil
+      )
     , ("catch", \args -> case args of
           [l, form, handler] -> do
               mlabel <- baseEval l
@@ -188,7 +185,7 @@ purePrimops = fromList $ first Ident <$>
     -- Many primops evaluate their arguments just as normal functions do.
     evalArgs f args = traverse baseEval args >>= f
 
-    -- Many eval just one argument.
+    -- Many primops evaluate a single argument.
     evalOneArg fname f = evalArgs $ \case
       [x] -> f x
       xs -> throwError $ WrongNumberOfArgs fname 1 (length xs)
