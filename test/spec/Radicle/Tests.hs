@@ -199,6 +199,7 @@ test_eval =
 
     , testCase "'keyword?' is false for non keywords" $ do
         "(keyword? #t)" `succeedsWith` Boolean False
+
     , testCase "'do' returns the empty list if called on nothing" $ do
         "(do)" `succeedsWith` List []
 
