@@ -232,7 +232,35 @@ baseEval val = case val of
 
 -- * Helpers
 
--- | Infix function application
+
+callFn :: Monad m => Value -> [Value] -> Lang m Value
+callFn f vs = case f of
+  Primop i -> do
+    f <- lookupPrimop i
+    f vs
+  -- This happens if a quoted lambda is explicitly evaled. We then
+  -- give it the current environment.
+  Lambda bnds body Nothing ->
+      if length bnds /= length vs
+          then throwError $ WrongNumberOfArgs "lambda" (length bnds)
+                                                       (length vs)
+          else do
+              let mappings = GhcExts.fromList (zip bnds vs)
+              NonEmpty.last <$> withEnv
+                  (mappings <>)
+                  (traverse baseEval body)
+  Lambda bnds body (Just closure) ->
+      if length bnds /= length vs
+          then throwError $ WrongNumberOfArgs "lambda" (length bnds)
+                                                       (length vs)
+          else do
+              let mappings = GhcExts.fromList (zip bnds vs)
+                  modEnv = mappings <> closure
+              NonEmpty.last <$> withEnv (const modEnv)
+                                        (traverse baseEval body)
+  x -> throwError $ TypeError $ "Trying to call a non-function: " <> show x
+
+-- | Infix evaluation of application (of functions or primops)
 infixr 1 $$
 ($$) :: Monad m => Value -> [Value] -> Lang m Value
 mfn $$ vs = do
@@ -243,29 +271,11 @@ mfn $$ vs = do
             -- Primops get to decide whether and how their args are
             -- evaluated.
             fn vs
-        -- This happens if a quoted lambda is explicitly evaled. We then
-        -- give it the current environment.
-        Lambda bnds body Nothing ->
-            if length bnds /= length vs
-                then throwError $ WrongNumberOfArgs "lambda" (length bnds)
-                                                             (length vs)
-                else do
-                    vs' <- traverse baseEval vs
-                    let mappings = GhcExts.fromList (zip bnds vs')
-                    NonEmpty.last <$> withEnv
-                        (mappings <>)
-                        (traverse baseEval body)
-        Lambda bnds body (Just closure) ->
-            if length bnds /= length vs
-                then throwError $ WrongNumberOfArgs "lambda" (length bnds)
-                                                             (length vs)
-                else do
-                    vs' <- traverse baseEval vs
-                    let mappings = GhcExts.fromList (zip bnds vs')
-                        modEnv = mappings <> closure
-                    NonEmpty.last <$> withEnv (const modEnv)
-                                              (traverse baseEval body)
+        f@(Lambda _ _ _) -> do
+          vs' <- traverse baseEval vs
+          callFn f vs'
         _ -> throwError $ TypeError "Trying to apply a non-function"
+
 
 nil :: Value
 nil = List []

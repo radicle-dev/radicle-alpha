@@ -116,17 +116,17 @@ purePrimops = fromList $ first Ident <$>
           [_, _]               -> throwError $ TypeError ">: expecting number"
           xs                   -> throwError $ WrongNumberOfArgs ">" 2 (length xs))
     , ("foldl", evalArgs $ \args -> case args of
-          [fn, init', List ls] -> foldlM (\b a -> (fn $$) [b,a]) init' ls
+          [fn, init', List ls] -> foldlM (\b a -> callFn fn [b, a]) init' ls
           [_, _, _]            -> throwError
                                 $ TypeError "foldl: third argument should be a list"
           xs                   -> throwError $ WrongNumberOfArgs "foldl" 3 (length xs))
     , ("foldr", evalArgs $ \args -> case args of
-          [fn, init', List ls] -> foldrM (\b a -> (fn $$) [b,a]) init' ls
+          [fn, init', List ls] -> foldrM (\b a -> callFn fn [b, a]) init' ls
           [_, _, _]            -> throwError
                                 $ TypeError "foldr: third argument should be a list"
           xs                   -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", evalArgs $ \args -> case args of
-          [fn, List ls] -> List <$> traverse (fn $$) (pure <$> ls)
+          [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
           [_, _]        -> throwError $ TypeError "map: second argument should be a list"
           xs            -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
     , ("string?", evalArgs $ \args -> case args of

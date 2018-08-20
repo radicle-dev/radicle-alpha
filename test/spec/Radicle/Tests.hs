@@ -122,6 +122,11 @@ test_eval =
         let prog = [s|(map (lambda (x) (+ x 1)) (list 1 2))|]
         prog `succeedsWith` List [Number 2, Number 3]
 
+    , testCase "'map' (and co.) don't over-eval elements of argument list" $ do
+        let prog = [s|(map (lambda (x) (cons 1 x)) (list (list 1)))
+                   |]
+        prog `succeedsWith` List [List [Number 1, Number 1]]
+
     , testCase "'eval' evaluates the list" $ do
         let prog = [s|(eval (quote #t))|]
         prog `succeedsWith` Boolean True
