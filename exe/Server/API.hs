@@ -1,6 +1,6 @@
 module API where
 
-import           Codec.Serialise (Serialise, deserialise, serialise)
+import           Codec.Serialise (Serialise, deserialiseOrFail, serialise)
 import           Network.HTTP.Media ((//))
 import           Protolude
 import           Radicle
@@ -15,7 +15,7 @@ instance Serialise a => MimeRender CBOR a where
     mimeRender _ x = serialise x
 
 instance Serialise a => MimeUnrender CBOR a where
-    mimeUnrender _ x = Right $ deserialise x
+    mimeUnrender _ x = first show (deserialiseOrFail x)
 
 type API
   =    "submit" :> ReqBody '[CBOR] Value :> Post '[CBOR] ()
