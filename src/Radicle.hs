@@ -17,9 +17,8 @@ module Radicle
     , interpretMany
     , LangError(..)
     , ($$)
-    , Ident
+    , Ident(..)
     , Reference(..)
-    , fromIdent
     , mkIdent
     , quote
     , Env(..)
@@ -47,6 +46,17 @@ module Radicle
 
     -- * Repl
     , repl
+
+    -- * Primops
+    , Primops
+    , purePrimops
+    , replPrimops
+    , ReplM
+    , evalArgs
+
+    -- * CLI
+    , getConfig
+    , getHistory
     ) where
 
 import           Control.Monad.Identity (runIdentity)

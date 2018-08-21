@@ -114,6 +114,26 @@
                       (tail (tail expr)))))
   (print! "transaction must be new-account, transfer, or account-balance"))))))
 
+;; Chains
+
+(define empty-state (dict
+    :env (dict 'eval base-eval)
+    :refs (list)))
+
+(define empty-chain (dict
+    :state empty-state
+    :logs (list)
+    :results (list)))
+
+(define chains (ref (dict "root" empty-chain)))
+
+;; Updates chain and prints new results.
+(define update-chain (lambda (chain-name)
+  (define cur-chains (read-ref chains))
+  (define res (receive! chain-name (lookup chain-name cur-chains)))
+  (print! (head res))
+  (write-ref chains (modify-map chain-name (lambda (x) (head (tail res))) cur-chains))))
+
 
 ;; The Repl
 

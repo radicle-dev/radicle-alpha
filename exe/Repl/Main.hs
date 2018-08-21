@@ -1,9 +1,7 @@
 module Main (main) where
 
 import           Protolude
-
 import           Options.Applicative
-import           System.Environment
 
 import           Radicle
 
@@ -16,29 +14,13 @@ main = do
     hist <- case histFile opts' of
         Nothing -> getHistory
         Just h  -> pure h
-    repl hist cfgSrc
+    repl hist cfgSrc replBindings
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
        <> progDesc "Run the radicle REPL"
        <> header "rad - The radicle REPL"
         )
-
--- | Uses XDG_CONFIG_HOME if available.
-getConfig :: IO FilePath
-getConfig = do
-    mCfgHome <- lookupEnv "XDG_CONFIG_HOME"
-    pure $ case mCfgHome of
-        Nothing      -> "$HOME/.config/rad/config.rad"
-        Just cfgHome -> cfgHome <> "/rad/config.rad"
-
--- | Uses XDG_CACHE_HOME if available.
-getHistory :: IO FilePath
-getHistory = do
-    mCfgHome <- lookupEnv "XDG_CACHE_HOME"
-    pure $ case mCfgHome of
-        Nothing      -> "$HOME/.cache/rad/history"
-        Just cfgHome -> cfgHome <> "/rad/history"
 
 data Opts = Opts
     { configFile :: Maybe FilePath
