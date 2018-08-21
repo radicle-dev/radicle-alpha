@@ -125,7 +125,7 @@
     :logs (list)
     :results (list)))
 
-(define chains (ref (dict :root empty-chain)))
+(define chains (ref (dict "root" empty-chain)))
 
 ;; Updates chain and prints new results.
 (define update-chain (lambda (chain-name)
