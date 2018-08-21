@@ -26,8 +26,8 @@ server st = submit st :<|> since st
 -- second the expression being submitted.
 submit :: Chains -> Value -> Handler ()
 submit st val = case val of
-    List [Atom i, v] -> do
-        r <- liftIO . atomically $ insertExpr st (fromIdent i) v
+    List [String i, v] -> do
+        r <- liftIO . atomically $ insertExpr st i v
         case r of
             Right () -> pure ()
             Left err -> throwError
