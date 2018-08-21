@@ -42,8 +42,7 @@ purePrimops = fromList $ first Ident <$>
               pure nil
           [_, _]           -> throwError $ OtherError "define expects atom for first arg"
           xs               -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
-    , ( "do", evalArgs $ pure . lastDef nil
-      )
+    , ("do", evalArgs $ pure . lastDef nil)
     , ("catch", \args -> case args of
           [l, form, handler] -> do
               mlabel <- baseEval l
@@ -127,7 +126,7 @@ purePrimops = fromList $ first Ident <$>
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
           [_, _]        -> throwError $ TypeError "map: second argument should be a list"
           xs            -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
-    , ("keyword?", evalOneArg $ \case
+    , ("keyword?", evalOneArg "keyword?" $ \case
           Keyword _ -> pure tt
           _         -> pure ff)
     , ("atom?", evalOneArg "atom?" $ \case
