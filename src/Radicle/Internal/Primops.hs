@@ -1,6 +1,7 @@
 module Radicle.Internal.Primops
   ( pureEnv
   , purePrimops
+  , evalArgs
   ) where
 
 import           Protolude hiding (TypeError)
@@ -182,8 +183,6 @@ purePrimops = fromList $ first Ident <$>
       )
     ]
   where
-    -- Many primops evaluate their arguments just as normal functions do.
-    evalArgs f args = traverse baseEval args >>= f
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text
@@ -197,3 +196,9 @@ purePrimops = fromList $ first Ident <$>
         [Number _] -> throwError
                     $ OtherError $ name <> ": expects at least 2 arguments"
         _ -> throwError $ TypeError $ name <> ": expecting number")
+
+-- * Helpers
+
+-- | Many primops evaluate their arguments just as normal functions do.
+evalArgs :: Monad m => ([Value] -> Lang m Value) -> [Value] -> Lang m Value
+evalArgs f args = traverse baseEval args >>= f

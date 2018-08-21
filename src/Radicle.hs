@@ -52,6 +52,7 @@ module Radicle
     , purePrimops
     , replPrimops
     , ReplM
+    , evalArgs
 
     -- * CLI
     , getConfig
