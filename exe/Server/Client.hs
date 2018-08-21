@@ -74,49 +74,50 @@ primops cEnv = fromList [sendPrimop, receivePrimop] <> replPrimops
   where
     sendPrimop =
       ( Ident "send!"
-      , traverse eval >=> \x -> case x of
-         [Atom name, v] -> do
-             res <- liftIO $ runClientM (submit $ List $ [Atom name, v]) cEnv
+      , evalArgs $ \case
+         [String name, v] -> do
+             res <- liftIO $ runClientM (submit $ List $ [String name, v]) cEnv
              case res of
                  Left e   -> throwError . OtherError
                            $ "send!: failed:" <> show e
                  Right () -> pure $ List []
-         [_, _] -> throwError $ TypeError "send!: first argument should be an atom"
+         [_, _] -> throwError $ TypeError "send!: first argument should be a string"
          xs     -> throwError $ WrongNumberOfArgs "send!" 2 (length xs)
       )
     receivePrimop =
       ( Ident "receive!"
-      , traverse eval >=> \x -> case x of
-         [Dict d] -> do
-             kvs <- forM (Map.toList d) $ \(k,v) -> case (k,v) of
-                 (Atom i, Dict s) -> do
-                     st <- dictLookup "state" s ?? "receive!: expecting 'state' key"
-                     logs' <- dictLookup "logs" s ?? "receive!: expecting 'logs' key"
-                     logs <- case logs' of
-                         List ls -> pure ls
-                         _ -> throwError $ TypeError "receive!: 'logs' should be list"
-                     newLogs' <- liftIO
-                               $ runClientM (since (fromIdent i) $ length logs) cEnv
-                     newLogs <- case newLogs' of
-                         Left err -> throwError . OtherError
-                                   $ "receive!: request failed:" <> show err
-                         Right v' -> pure v'
-                     bnds' <- makeBindings st
-                     let (evalRes, bnds) = runIdentity $ runLang bnds'
-                                   $ traverse eval newLogs
-                     case evalRes of
-                        Left e -> throwError e
-                        Right _ -> pure (Atom i, Dict $ Map.fromList
+      , evalArgs $ \case
+          [String name, Dict d] -> do
+              st <- dictLookup "state" d ?? "receive!: expecting 'state' key"
+              logs' <- dictLookup "logs" d ?? "receive!: expecting 'logs' key"
+              results' <- dictLookup "results" d ?? "receive!: expecting 'results' key"
+              logs <- case logs' of
+                  List ls -> pure ls
+                  _ -> throwError $ TypeError "receive!: 'logs' should be list"
+              results <- case results' of
+                  List ls -> pure ls
+                  _ -> throwError $ TypeError "receive!: 'results' should be list"
+              newLogs' <- liftIO
+                        $ runClientM (since name $ length logs) cEnv
+              newLogs <- case newLogs' of
+                  Left err -> throwError . OtherError
+                            $ "receive!: request failed:" <> show err
+                  Right v' -> pure v'
+              bnds' <- makeBindings st
+              let (evalRes, bnds) = runIdentity $ runLang bnds'
+                                  $ traverse eval newLogs
+              case evalRes of
+                 Left e -> throwError e
+                 Right newResults -> do
+                   let resDict = Dict $ Map.fromList
                            [ (identV "state", unmakeBindings bnds)
                            , (identV "logs", List $ logs ++ newLogs)
-                           ])
-                 (Atom _, _) -> throwError
-                              $ TypeError "receive!: expecting dict as second arg"
-                 (_, _)      -> throwError
-                              $ TypeError "receive!: expecting atom as first arg"
-             pure $ Dict $ Map.fromList kvs
-         [_] -> throwError $ TypeError "receive!: expecting dict "
-         xs -> throwError $ WrongNumberOfArgs "receive!" 0 (length xs)
+                           , (identV "results", List $ results ++ newResults)
+                           ]
+                   pure $ List [List newResults, resDict]
+          [Keyword _, _] -> throwError $ TypeError "receive!: expecting dict as second arg"
+          [_, _]      -> throwError $ TypeError "receive!: expecting keyword as first arg"
+          xs -> throwError $ WrongNumberOfArgs "receive!" 2 (length xs)
       )
 
 -- | Convert Bindings into a Value that can be used with radicle.
@@ -151,7 +152,7 @@ makeBindings val = case val of
 -- * Helpers
 
 identV :: Text -> Value
-identV = Atom . Ident
+identV = Keyword . Ident
 
 dictLookup :: Text -> Map Value Value -> Maybe Value
 dictLookup key = Map.lookup (identV key)
