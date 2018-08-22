@@ -191,7 +191,7 @@ purePrimops = fromList $ first Ident <$>
       [] -> pure nil
       (c,e):ps -> do
         b <- baseEval c
-        if b == tt
+        if b /= ff
           then baseEval e
           else cond ps
 

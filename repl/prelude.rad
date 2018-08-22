@@ -219,27 +219,21 @@
   (lambda (init-state transition)
     (define state (ref init-state))
     (lambda (e)
+      (print! e)
       (cond
        (not (list? e))          (throw 'invalid-input "Input must be a compound expression.")
-       (not (eq? (length e) 2)) (throw 'invalid-input "Input can't be empty.")
+       (not (eq? (length e) 2)) (throw 'invalid-input "Input must be a verb and an input expression.")
        :else
-       (do (print! "here!")
-           (define verb (head e))
+       (do (define verb (head e))
            (define input (head (tail e)))
            (cond
             (eq? verb 'input) (do
                                 (define new-state (transition (read-ref state) input))
                                 (write-ref state new-state)
-                                (print! "ACCEPTED! new state:")
-                                (print! new-state))
+                                (print! (string-append "ACCEPTED! new state: " new-state))
+                                )
             (eq? verb 'new-trans-func) (throw 'not-impl-yet "yo")
-            :else (throw 'invalid-input "Only verbs supported are 'input' and 'new-trans-func'.")
-            )
-           )
-       )
-      )
-    )
-  )
+            :else (throw 'invalid-input "Only verbs supported are 'input' and 'new-trans-func'.")))))))
 
 (define inc (lambda (e) (+ x 1)))
 

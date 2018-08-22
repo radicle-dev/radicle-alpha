@@ -238,9 +238,6 @@ baseEval val = case val of
 
 callFn :: Monad m => Value -> [Value] -> Lang m Value
 callFn f vs = case f of
-  Primop i -> do
-    f <- lookupPrimop i
-    f vs
   -- This happens if a quoted lambda is explicitly evaled. We then
   -- give it the current environment.
   Lambda bnds body Nothing ->
@@ -261,7 +258,8 @@ callFn f vs = case f of
                   modEnv = mappings <> closure
               NonEmpty.last <$> withEnv (const modEnv)
                                         (traverse baseEval body)
-  x -> throwError $ TypeError $ "Trying to call a non-function: " <> show x
+  Primop i -> throwError . TypeError $ "Trying to call a non-function: the primop '" <> show i <> "' cannot be used as a function."
+  x -> throwError . TypeError $ "Trying to call a non-function."
 
 -- | Infix evaluation of application (of functions or primops)
 infixr 1 $$
