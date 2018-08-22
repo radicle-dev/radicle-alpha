@@ -237,3 +237,44 @@ purePrimops = fromList $ first Ident <$>
 -- | Many primops evaluate their arguments just as normal functions do.
 evalArgs :: Monad m => ([Value] -> Lang m Value) -> [Value] -> Lang m Value
 evalArgs f args = traverse baseEval args >>= f
+
+-- | Convert Bindings into a Value that can be used with radicle.
+unmakeBindings :: Bindings m -> Value
+unmakeBindings bnds = Dict $ Map.fromList
+    [ (Keyword $ Ident "env", Dict $ Map.mapKeys Atom $ fromEnv $ bindingsEnv bnds)
+    , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs bnds))
+    ]
+
+-- | Convert a value into Bindings, or throw an error.
+makeBindings :: (Monad m, Monad n) => Value -> Lang m (Bindings n)
+makeBindings val = case val of
+    Dict d -> do
+        env' <- kwLookup "env" d ?? "expecting 'env' key"
+        refs' <- kwLookup "refs" d ?? "expecting 'refs' key"
+        (nextRef, refs) <- makeRefs refs'
+        env <- makeEnv env'
+        pure $ Bindings env purePrimops refs nextRef
+    _ -> throwError $ TypeError "expecting dict"
+  where
+    makeEnv env = case env of
+        Dict d -> fmap (Env . Map.fromList)
+                $ forM (Map.toList d) $ \(k, v) -> case k of
+            Atom i -> pure (i, v)
+            _      -> throwError $ TypeError "Expecting atom keys"
+        _ -> throwError $ TypeError "Expecting dict"
+
+    makeRefs refs = case refs of
+        List ls -> pure (length ls, IntMap.fromList $ zip [0..] ls)
+        _       -> throwError $ TypeError "Expecting dict"
+
+
+kwLookup :: Text -> Map Value Value -> Maybe Value
+kwLookup key = Map.lookup (Keyword $ Ident key)
+
+-- | Throws an OtherError with the specified message if the Maybe is not a
+-- Just.
+(??) :: MonadError (LangError Value) m => Maybe a -> Text -> m a
+a ?? msg = case a of
+    Nothing -> throwError $ OtherError msg
+    Just v  -> pure v
+

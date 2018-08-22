@@ -120,49 +120,10 @@ primops cEnv = fromList [sendPrimop, receivePrimop] <> replPrimops
           xs -> throwError $ WrongNumberOfArgs "receive!" 2 (length xs)
       )
 
--- | Convert Bindings into a Value that can be used with radicle.
-unmakeBindings :: Bindings m -> Value
-unmakeBindings bnds = Dict $ Map.fromList
-    [ (identV "env", Dict $ Map.mapKeys Atom $ fromEnv $ bindingsEnv bnds)
-    , (identV "refs", List $ IntMap.elems (bindingsRefs bnds))
-    ]
-
--- | Convert a value into Bindings, or throw an error.
-makeBindings :: (Monad m, Monad n) => Value -> Lang m (Bindings n)
-makeBindings val = case val of
-    Dict d -> do
-        env' <- dictLookup "env" d ?? "expecting 'env' key"
-        refs' <- dictLookup "refs" d ?? "expecting 'refs' key"
-        (nextRef, refs) <- makeRefs refs'
-        env <- makeEnv env'
-        pure $ Bindings env purePrimops refs nextRef
-    _ -> throwError $ TypeError "expecting dict"
-  where
-    makeEnv env = case env of
-        Dict d -> fmap (Env . Map.fromList)
-                $ forM (Map.toList d) $ \(k, v) -> case k of
-            Atom i -> pure (i, v)
-            _      -> throwError $ TypeError "Expecting atom keys"
-        _ -> throwError $ TypeError "Expecting dict"
-
-    makeRefs refs = case refs of
-        List ls -> pure (length ls, IntMap.fromList $ zip [0..] ls)
-        _       -> throwError $ TypeError "Expecting dict"
-
 -- * Helpers
 
 identV :: Text -> Value
 identV = Keyword . Ident
-
-dictLookup :: Text -> Map Value Value -> Maybe Value
-dictLookup key = Map.lookup (identV key)
-
--- | Throws an OtherError with the specified message if the Maybe is not a
--- Just.
-(??) :: MonadError (LangError Value) m => Maybe a -> Text -> m a
-a ?? msg = case a of
-    Nothing -> throwError $ OtherError msg
-    Just v  -> pure v
 
 -- * Client functions
 
