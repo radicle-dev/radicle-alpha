@@ -114,11 +114,11 @@ test_eval =
         counterexample (toS info) $ res == expected
 
     , testCase "'foldl' foldls the list" $ do
-        let prog = [s|(foldl - 0 (list 1 2 3))|]
+        let prog = [s|(foldl (lambda (x y) (- x y)) 0 (list 1 2 3))|]
         prog `succeedsWith` Number (-6)
 
     , testCase "'foldr' foldrs the list" $ do
-        let prog = [s|(foldr - 0 (list 1 2 3))|]
+        let prog = [s|(foldr (lambda (x y) (- x y)) 0 (list 1 2 3))|]
         prog `succeedsWith` Number 2
 
     , testCase "'map' maps over the list" $ do

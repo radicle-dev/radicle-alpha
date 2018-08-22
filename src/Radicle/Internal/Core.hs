@@ -259,7 +259,7 @@ callFn f vs = case f of
               NonEmpty.last <$> withEnv (const modEnv)
                                         (traverse baseEval body)
   Primop i -> throwError . TypeError $ "Trying to call a non-function: the primop '" <> show i <> "' cannot be used as a function."
-  x -> throwError . TypeError $ "Trying to call a non-function."
+  _ -> throwError . TypeError $ "Trying to call a non-function."
 
 -- | Infix evaluation of application (of functions or primops)
 infixr 1 $$

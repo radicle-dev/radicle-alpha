@@ -1,3 +1,6 @@
+;; Make 'pure' primops into functions
+(define foldr (lambda (f n xs) (foldr f n xs)))
+(define foldl (lambda (f n xs) (foldl f n xs)))
 
 (define should-be
   (lambda (name x y)
