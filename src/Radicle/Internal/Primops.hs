@@ -25,13 +25,7 @@ purePrimops :: forall m. (Monad m) => Primops m
 purePrimops = fromList $ first Ident <$>
     [ ("base-eval", evalOneArg "base-eval" baseEval)
     , ("list", evalArgs $ \args -> pure $ List args)
-    , ("dict", evalArgs $ \args ->
-          let go (k:v:rest) = Map.insert k v $ go rest
-              go [] = mempty
-              go _  = panic "impossible"
-          in if length args `mod` 2 == 0
-              then pure . Dict $ go args
-              else throwError $ OtherError "'dict' expects even number of args")
+    , ("dict", evalArgs $ (Dict . foldr (uncurry Map.insert) mempty <$>) . evenArgs "dict")
     , ("quote", \args -> case args of
           [v] -> pure v
           xs  -> throwError $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -150,12 +144,13 @@ purePrimops = fromList $ first Ident <$>
                         $ TypeError "member?: second argument must be list"
           xs           -> throwError $ WrongNumberOfArgs "eq?" 2 (length xs))
     , ("if", \args -> case args of
-          [cond, t, f] -> do
-            b <- baseEval cond
+          [condition, t, f] -> do
+            b <- baseEval condition
             -- I hate this as much as everyone that might ever read Haskell, but
             -- in Lisps a lot of things that one might object to are True...
             if b == ff then baseEval f else baseEval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
+    , ( "cond", (cond =<<) . evenArgs "cond" )
     , ("ref", evalOneArg "ref" newRef)
     , ("read-ref", evalOneArg "read-ref" $ \case
           Ref (Reference x) -> gets bindingsRefs >>= \m -> case IntMap.lookup x m of
@@ -191,6 +186,22 @@ purePrimops = fromList $ first Ident <$>
 
     tt = Boolean True
     ff = Boolean False
+
+    cond = \case
+      [] -> pure nil
+      (c,e):ps -> do
+        b <- baseEval c
+        if b == tt
+          then baseEval e
+          else cond ps
+
+    -- | Some forms/functions expect an even number or arguments.
+    evenArgs name = \case
+      [] -> pure []
+      [_] -> throwError . OtherError $ name <> ": expects an even number of arguments"
+      x:y:xs -> do
+        ps <- evenArgs name xs
+        pure ((x,y):ps)
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text
