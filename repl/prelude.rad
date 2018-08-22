@@ -11,6 +11,8 @@
 
 ;; boolean functions
 
+(define not (lambda (x) (if x #f #t)))
+
 (define and
   (lambda (x y)
     (if x y x)))
@@ -91,12 +93,12 @@
 (should-be "range" (range 1 5) (list 1 2 3 4 5))
 
 ;; filter
-(define filter (Y2 (lambda (filter) (lambda (cond ls)
+(define filter (Y2 (lambda (filter) (lambda (pred ls)
   (if (empty? ls)
       ls
-  (if (cond (head ls))
-      (cons (head ls) (filter cond (tail ls)))
-      (filter cond (tail ls))))))))
+  (if (pred (head ls))
+      (cons (head ls) (filter pred (tail ls)))
+      (filter pred (tail ls))))))))
 
 (should-be "filter"
   (filter (lambda (x) (< x 10)) (list 3 10 11))
@@ -190,27 +192,58 @@
 ;; Voting stuff. Should be moved elsewhere when we have an import mechanism.
 
 ;; Initial state of the vote
-(define state
-  (ref
-   (dict
-    'voters '("Alice" "Bob" "Charlie" "Dan")
-    'votes (dict))))
+;; (define state
+;;   (ref
+;;    (dict
+;;     'voters '("Alice" "Bob" "Charlie" "Dan")
+;;     'votes (dict))))
 
 ;; Takes a state and a vote and returns a new state, or throws and error if the
 ;; voting expression is invalid.
-(define ev-vote
-  (lambda (s expr)
-    (if (eq? (head expr) 'vote)
-        (if (and (string? (head (tail expr)))
-                 (boolean? (head (tail (tail expr)))))
-            (if (member? (head (tail expr)) (view (key 'voters) (read-ref state)))
-                (set (.. (key 'votes) (key (head (tail expr))))
-                     (head (tail (tail expr)))
-                     s)
-                (throw 'invalid-input "You do not have permission to vote."))
-            (throw 'invalid-input "A vote must be a name and a bool."))
-        (throw 'invalid-input "All you can do is vote."))
-    ))
+;; (define ev-vote
+;;   (lambda (s expr)
+;;     (if (eq? (head expr) 'vote)
+;;         (if (and (string? (head (tail expr)))
+;;                  (boolean? (head (tail (tail expr)))))
+;;             (if (member? (head (tail expr)) (view (key 'voters) (read-ref state)))
+;;                 (set (.. (key 'votes) (key (head (tail expr))))
+;;                      (head (tail (tail expr)))
+;;                      s)
+;;                 (throw 'invalid-input "You do not have permission to vote."))
+;;             (throw 'invalid-input "A vote must be a name and a bool."))
+;;         (throw 'invalid-input "All you can do is vote."))
+;;     ))
+
+;; Returns an eval which operates a state machine.
+(define state-machine-eval
+  (lambda (init-state transition)
+    (define state (ref init-state))
+    (lambda (e)
+      (cond
+       (not (list? e))          (throw 'invalid-input "Input must be a compound expression.")
+       (not (eq? (length e) 2)) (throw 'invalid-input "Input can't be empty.")
+       :else
+       (do (print! "here!")
+           (define verb (head e))
+           (define input (head (tail e)))
+           (cond
+            (eq? verb 'input) (do
+                                (define new-state (transition (read-ref state) input))
+                                (write-ref state new-state)
+                                (print! "ACCEPTED! new state:")
+                                (print! new-state))
+            (eq? verb 'new-trans-func) (throw 'not-impl-yet "yo")
+            :else (throw 'invalid-input "Only verbs supported are 'input' and 'new-trans-func'.")
+            )
+           )
+       )
+      )
+    )
+  )
+
+(define inc (lambda (e) (+ x 1)))
+
+;; (do (define eval-ref (ref eval)) (define eval (lambda (e) ((read-ref eval-ref) e))) (write-ref eval-ref (state-machine-eval 0 +)))
 
 (define voting-ended?
   (lambda (s)
