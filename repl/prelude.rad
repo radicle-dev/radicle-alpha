@@ -1,12 +1,8 @@
-;; Make 'pure' primops into functions
-(define foldr (lambda (f n xs) (foldr f n xs)))
-(define foldl (lambda (f n xs) (foldl f n xs)))
-
 (define should-be
   (lambda (name x y)
     (if (eq? x y)
         (print! (string-append "Test '" name "' succeeded"))
-        (print! (string-append "Test '" name "' failed")))))
+      (print! (string-append "Test '" name "' failed")))))
 
 ;; empty?
 (define empty? (lambda (ls) (eq? ls (list))))
@@ -217,30 +213,63 @@
 ;;         (throw 'invalid-input "All you can do is vote."))
 ;;     ))
 
-;; Returns an eval which operates a state machine.
+;; Returns an eval which operates a state machine whose transition function may
+;; be updated. To update the transition function all voters must agree on it.
 (define state-machine-eval
-  (lambda (init-state transition)
+  (lambda (voters init-state init-transition)
     (define state (ref init-state))
+    (define transition (ref init-transition))
+    (define mode (ref :normal))
+    (define vote-state (ref 0))
+    (define proposed-func (ref 0))
     (lambda (e)
-      (print! e)
       (cond
        (not (list? e))          (throw 'invalid-input "Input must be a compound expression.")
        (not (eq? (length e) 2)) (throw 'invalid-input "Input must be a verb and an input expression.")
        :else
        (do (define verb (head e))
            (define input (head (tail e)))
-           (cond
-            (eq? verb 'input) (do
-                                (define new-state (transition (read-ref state) input))
-                                (write-ref state new-state)
-                                (print! (string-append "ACCEPTED! new state: " new-state))
-                                )
-            (eq? verb 'new-trans-func) (throw 'not-impl-yet "yo")
-            :else (throw 'invalid-input "Only verbs supported are 'input' and 'new-trans-func'.")))))))
+         (cond
+          (eq? (read-ref mode) :normal)
+          (cond
+           (eq? verb 'input)
+           (do (define new-state ((read-ref transition) (read-ref state) input))
+               (write-ref state new-state)
+             (print! (string-append "ACCEPTED! new state: " (show new-state))))
+           (eq? verb 'new-trans-func)
+           (do (write-ref mode :vote-on-new)
+               (write-ref vote-state (dict))
+               (write-ref proposed-func input)
+               (print! (string-append "A new transition function has been proposed! Please either agree or disagree with: " (show input))))
+           :else (throw 'invalid-input "Only verbs supported are 'input' and 'new-trans-func'."))
+          (eq? (read-ref mode) :vote-on-new)
+          (if (member? input voters)
+              (cond
+               (eq? verb 'agree)
+               (do (modify-ref vote-state (lambda (vs) (insert input #t vs)))
+                   (if (eq? (length (seq (read-ref vote-state))) (length voters))
+                       (do (print! "The voters have unanimously agreed on the new transition function. It will now change and normal operation will resume.")
+                           (write-ref transition (eval (read-ref proposed-func)))
+                           (write-ref mode :normal))
+                       (list)))
+               (eq? verb 'disagree)
+               (write-ref mode :normal)
+               :else (throw 'invalid-input "Can only agree or disagree when voting for a new transition function."))
+              (throw 'invalid-input "You are not allowed to vote, sorry."))
+          :else (throw 'invalid-state "State machine got into an invalid state.")))))))
 
-(define inc (lambda (e) (+ x 1)))
+(define integer-machine
+  (state-machine-eval (list "alice777" "bob_1337") 0 +))
 
-;; (do (define eval-ref (ref eval)) (define eval (lambda (e) ((read-ref eval-ref) e))) (write-ref eval-ref (state-machine-eval 0 +)))
+(define discussion
+  (state-machine-eval (list "james" "julian")
+                      ""
+                      (lambda (cur inp)
+                        (string-append cur "\n\n" (head inp) ": " (head (tail inp))))))
+
+(lambda (cur inp) (string-append cur "\n" (head inp) ": " (head (tail inp))))
+
+;; (do (define eval-ref (ref eval)) (define eval (lambda (e) ((read-ref eval-ref) e))))
 
 (define voting-ended?
   (lambda (s)
