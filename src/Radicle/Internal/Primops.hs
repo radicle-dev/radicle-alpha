@@ -2,6 +2,10 @@ module Radicle.Internal.Primops
   ( pureEnv
   , purePrimops
   , evalArgs
+  , kwLookup
+  , makeBindings
+  , unmakeBindings
+  , (??)
   ) where
 
 import           Protolude hiding (TypeError)
@@ -25,6 +29,14 @@ pureEnv = Bindings e purePrimops mempty 0
 purePrimops :: forall m. (Monad m) => Primops m
 purePrimops = fromList $ first Ident <$>
     [ ("base-eval", evalOneArg "base-eval" baseEval)
+    , ("eval-with-env", evalArgs $ \case
+          [expr, env] -> do
+              bnds <- makeBindings env
+              let (evalRes, bnds') = runIdentity $ runLang bnds $ eval expr
+              case evalRes of
+                  Left e    -> throwError e
+                  Right res -> pure $ List [res, unmakeBindings bnds']
+          xs -> throwError $ WrongNumberOfArgs "eval-with-env" 2 (length xs))
     , ("list", evalArgs $ \args -> pure $ List args)
     , ("dict", evalArgs $ (Dict . foldr (uncurry Map.insert) mempty <$>) . evenArgs "dict")
     , ("quote", \args -> case args of

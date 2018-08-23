@@ -150,6 +150,14 @@ test_eval =
                 <> "\nGot:\n" <> prettyEither res1
         counterexample (toS info) $ res1 == res2
 
+    , testCase "'eval-with-env' has access to variable definitions" $ do
+        let prog = [s|(head (eval-with-env
+                                't
+                                (dict :env (dict 'eval 'base-eval 't #t)
+                                      :refs (list))))
+                     |]
+        prog `succeedsWith` Boolean True
+
     , testCase "lambdas work" $ do
         let prog = [s|((lambda (x) x) #t)|]
         prog `succeedsWith` Boolean True

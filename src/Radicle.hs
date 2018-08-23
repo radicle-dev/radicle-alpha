@@ -52,11 +52,19 @@ module Radicle
     , purePrimops
     , replPrimops
     , ReplM
+    -- ** Primop helpers
     , evalArgs
 
     -- * CLI
     , getConfig
     , getHistory
+
+    -- * Helpers
+    , kwLookup
+    , makeBindings
+    , unmakeBindings
+    , (??)
+
     ) where
 
 import           Control.Monad.Identity (runIdentity)
