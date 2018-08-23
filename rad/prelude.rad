@@ -546,7 +546,7 @@
 ;; Chains
 
 (define empty-state (dict
-    :env (dict 'eval base-eval)
+    :env (dict 'eval 'base-eval)
     :refs (list)))
 
 (define empty-chain (dict
@@ -577,6 +577,34 @@
        (insert :state eval-result this-chain)))
   (write-ref chains (insert chain-name updated-chain cur-chains))))
 
+;; eval-in-chain
+
+(define eval-in-chain (lambda (expr chain)
+  (head (eval-with-env expr (lookup :state (lookup chain (read-ref
+                                                          chains)))))))
+
+(define chain-logs (lambda (chain)
+  (lookup :logs (lookup chain (read-ref chains)))))
+
+;; enter-chain
+
+;; (define eval-ref (ref eval))
+;;
+;; (define enter-chain (lambda (chain-name)
+;;   (define old-eval (read-ref eval-ref))
+;;   (define state (lookup :state (lookup chain-name (read-ref chains))))
+;;   (define local-state (ref state))
+;;   (print! state)
+;;   (write-ref eval-ref (lambda (expr)
+;;     (print! expr)
+;;     (if (eq? expr :quit) (do
+;;                            (print! "leaving chain"
+;;                            (write-ref eval-ref old-eval)))
+;;         (do
+;;           (define ev-result (eval-with-env expr state))
+;;           (write-ref state (head (tail ev-result)))
+;;           (print! ev-result)
+;;           (head ev-result)))))))
 
 ;; The Repl
 
@@ -599,3 +627,5 @@
 (catch 'any
     (subscribe-to! repl print!)
     (lambda (x) (print! x) (subscribe-to! repl print!)))
+
+(define eval (lambda (x) ((read-ref eval-ref) x)))
