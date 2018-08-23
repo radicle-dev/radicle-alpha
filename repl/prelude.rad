@@ -188,6 +188,25 @@
                  (dict :a (dict :b 2)))
            (dict :a (dict :b 3)))
 
+;; paper examples
+
+(define sas-password "very secret")
+(define sas-store (ref (dict)))
+(define sas-eval-ref (ref eval))
+
+;; self-amending key-val store
+(define sas-starting-eval
+  (lambda (expr)
+    (define command (head expr))
+    (cond
+     (eq? command 'get) (lookup (nth 1 expr) (read-ref sas-store))
+     (eq? command 'set) (modify-ref sas-store (lambda (s) (insert (nth 1 expr) (nth 2 expr) s)))
+     (and (eq? command 'update)
+          (eq? (nth 1 expr)
+               sas-password))
+     (write-ref sas-eval-ref (eval (nth 2 expr)))
+     :else (throw 'invalid-command "Valid commands are: 'get', 'set' and 'update'."))))
+
 ;; Voting stuff. Should be moved elsewhere when we have an import mechanism.
 
 ;; Initial state of the vote

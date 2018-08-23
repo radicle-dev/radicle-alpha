@@ -7,7 +7,7 @@ import           Protolude hiding (TypeError)
 
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
-import           Data.Scientific (Scientific)
+import           Data.Scientific (Scientific, floatingOrInteger)
 import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
@@ -67,6 +67,18 @@ purePrimops = fromList $ first Ident <$>
           List (_:xs) -> pure $ List xs
           List []     -> throwError $ OtherError "tail: empty list"
           _           -> throwError $ TypeError "tail: expects list argument")
+    , ( "nth"
+      , evalArgs $ \case
+          [Number n, List xs] -> case floatingOrInteger n of
+            Left (_ :: Double) -> throwError $ OtherError "nth: first argument was not an integer"
+            Right i -> do
+              let x_ = indexMay i xs
+              case x_ of
+                Just x -> pure x
+                Nothing -> throwError $ OtherError "nth: index out of bounds"
+          [_,_] -> throwError $ TypeError "nth: expects a integer and a list"
+          xs -> throwError $ WrongNumberOfArgs "nth" 2 (length xs)
+      )
     , ("lookup", evalArgs $ \args -> case args of
           [a, Dict m] -> pure $ case Map.lookup a m of
               Just v  -> v
@@ -194,6 +206,11 @@ purePrimops = fromList $ first Ident <$>
         if b /= ff
           then baseEval e
           else cond ps
+
+    indexMay :: Int -> [a] -> Maybe a
+    indexMay _ [] = Nothing
+    indexMay 0 (x:_) = pure x
+    indexMay n (_:xs) = indexMay (n - 1) xs
 
     -- | Some forms/functions expect an even number or arguments.
     evenArgs name = \case
