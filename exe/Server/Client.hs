@@ -1,13 +1,12 @@
 module Client where
 
 import           API
-import qualified Data.IntMap as IntMap
-import qualified Data.Map as Map
 import           GHC.Exts (fromList)
 import           Network.HTTP.Client (defaultManagerSettings, newManager)
 import           Options.Applicative
 import           Protolude hiding (TypeError, option)
 import           Radicle
+import Data.Scientific (floatingOrInteger)
 import           Servant.API ((:<|>)(..))
 import           Servant.Client
 import           System.Console.Haskeline (InputT)
@@ -87,37 +86,18 @@ primops cEnv = fromList [sendPrimop, receivePrimop] <> replPrimops
     receivePrimop =
       ( Ident "receive!"
       , evalArgs $ \case
-          [String name, Dict d] -> do
-              st <- dictLookup "state" d ?? "receive!: expecting 'state' key"
-              logs' <- dictLookup "logs" d ?? "receive!: expecting 'logs' key"
-              results' <- dictLookup "results" d ?? "receive!: expecting 'results' key"
-              logs <- case logs' of
-                  List ls -> pure ls
-                  _ -> throwError $ TypeError "receive!: 'logs' should be list"
-              results <- case results' of
-                  List ls -> pure ls
-                  _ -> throwError $ TypeError "receive!: 'results' should be list"
-              newLogs' <- liftIO
-                        $ runClientM (since name $ length logs) cEnv
-              newLogs <- case newLogs' of
-                  Left err -> throwError . OtherError
-                            $ "receive!: request failed:" <> show err
-                  Right v' -> pure v'
-              bnds' <- makeBindings st
-              let (evalRes, bnds) = runIdentity $ runLang bnds'
-                                  $ traverse eval newLogs
-              case evalRes of
-                 Left e -> throwError e
-                 Right newResults -> do
-                   let resDict = Dict $ Map.fromList
-                           [ (identV "state", unmakeBindings bnds)
-                           , (identV "logs", List $ logs ++ newLogs)
-                           , (identV "results", List $ results ++ newResults)
-                           ]
-                   pure $ List [List newResults, resDict]
-          [Keyword _, _] -> throwError $ TypeError "receive!: expecting dict as second arg"
-          [_, _]      -> throwError $ TypeError "receive!: expecting keyword as first arg"
-          xs -> throwError $ WrongNumberOfArgs "receive!" 2 (length xs)
+          [String name, Number n] -> do
+              case floatingOrInteger n of
+                  Left (_ :: Float) -> throwError . OtherError
+                                     $ "receive!: expecting int argument"
+                  Right r -> do
+                      liftIO (runClientM (since name r) cEnv) >>= \case
+                          Left err -> throwError . OtherError
+                                    $ "receive!: request failed:" <> show err
+                          Right v' -> pure $ List v'
+          [String _, _] -> throwError $ TypeError "receive!: expecting number as second arg"
+          [_, _]        -> throwError $ TypeError "receive!: expecting string as first arg"
+          xs            -> throwError $ WrongNumberOfArgs "receive!" 2 (length xs)
       )
 
 -- * Helpers

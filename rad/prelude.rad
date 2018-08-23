@@ -357,17 +357,33 @@
 
 (define empty-chain (dict
     :state empty-state
-    :logs (list)
-    :results (list)))
+    :logs (list)))
 
 (define chains (ref (dict "root" empty-chain)))
 
 ;; Updates chain and prints new results.
+
 (define update-chain (lambda (chain-name)
   (define cur-chains (read-ref chains))
-  (define res (receive! chain-name (lookup chain-name cur-chains)))
-  (print! (head res))
-  (write-ref chains (modify-map chain-name (lambda (x) (head (tail res))) cur-chains))))
+  (define this-chain (lookup chain-name cur-chains))
+  (define new-logs
+    (receive!
+      chain-name
+      (length (lookup :logs this-chain))))
+
+  ;; Eval the chain. If it fails to eval we don't change the ref and thrown an
+  ;; exception.
+  (define eval-next (lambda (acc new-expr)
+    (print! new-expr)
+    (define eval-step (eval-with-env new-expr (head (tail acc))))
+    (list (cons (head eval-step) (head acc)) (head (tail eval-step)))))
+  ;; (print! (lookup :state this-chain))
+  (define eval-result (foldl eval-next (list (list) (lookup :state this-chain)) new-logs))
+
+  (define updated-chain
+     (modify-map :logs (lambda (x) (cons (reverse new-logs) x))
+       (insert :state (head (tail eval-result) this-chain))))
+  (write-ref chains (insert chain-name updated-chain cur-chains))))
 
 
 ;; The Repl
