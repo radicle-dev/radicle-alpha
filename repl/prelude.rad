@@ -1,3 +1,4 @@
+
 (define should-be
   (lambda (name x y)
     (if (eq? x y)
@@ -8,7 +9,47 @@
 (define empty? (lambda (ls) (eq? ls (list))))
 (should-be "empty" (empty? (list 2)) #f)
 
-;; y-combinator
+;; boolean functions
+
+(define and
+  (lambda (x y)
+    (if x y x)))
+
+(should-be "and" (and #t #t) #t)
+(should-be "and" (and #t #f) #f)
+(should-be "and" (and #f #t) #f)
+(should-be "and" (and #f #f) #f)
+
+(define or
+  (lambda (x y)
+    (if x x y)))
+
+(should-be "or" (or #t #t) #t)
+(should-be "or" (or #t #f) #t)
+(should-be "or" (or #f #t) #t)
+(should-be "or" (or #f #f) #f)
+
+(define all
+  (lambda (xs) (foldr and #t xs)))
+
+(should-be "all" (all '()) #t)
+(should-be "all" (all '(#t)) #t)
+(should-be "all" (all '(#f)) #f)
+(should-be "all" (all '(#t #t #t #t)) #t)
+(should-be "all" (all '(#t #t #f #t)) #f)
+
+(define some
+  (lambda (xs) (foldr or #f xs)))
+
+(should-be "some" (some '()) #f)
+(should-be "some" (some '(#t)) #t)
+(should-be "some" (some '(#f)) #f)
+(should-be "some" (some '(#f #f #f)) #f)
+(should-be "some" (some '(#t #t #t #t)) #t)
+(should-be "some" (some '(#t #t #f #t)) #t)
+
+;; y-combinators
+
 (define Y
   (lambda (h)
     ((lambda (x) (x x))
@@ -23,6 +64,12 @@
 ((lambda ()
   (define fac (Y (lambda (f) (lambda (x) (if (< x 2) 1 (* x (f (- x 1))))))))
   (should-be "fac" (fac 10) 3628800)))
+
+;; List functions
+
+(define length
+  (lambda (xs)
+    (foldr (lambda (x acc) (+ acc 1)) 0 xs)))
 
 ;; reverse
 (define reverse (lambda (ls)
@@ -55,9 +102,29 @@
   (filter (lambda (x) (< x 10)) (list 3 10 11))
   (list 3))
 
+;; dict functions
+
+(define dict-from-list
+  (lambda (xs)
+    (foldr (lambda (kv acc) (insert (head kv) (head (tail kv)) acc)) (dict) xs)))
+
+(should-be "dict-from-list"
+           (dict-from-list '('(:one 1) '(:two 2)))
+           (dict :one 1 :two 2))
+
+(define keys
+  (lambda (d)
+    (map head (seq d))))
+
+;; Uncomment this test once map is fixed.
+;; (should-be "keys"
+;;            (keys (dict :one 1 :two 2))
+;;            '(:one :two))
+
 ;; modify-ref
-(define modify-ref (lambda (ref fn)
-  (write-ref ref (fn (read-ref ref)))))
+(define modify-ref
+  (lambda (r fn)
+    (write-ref r (fn (read-ref r)))))
 
 ;; modify-map
 (define modify-map (lambda (key fn mp)
@@ -66,6 +133,96 @@
 (should-be "modify-map"
   (modify-map 'a (lambda (x) (+ x 1)) (dict 'a 5))
   (dict 'a 6))
+
+;; Lenses
+
+;; Makes a lens out of a getter and a setter.
+(define make-lens
+  (lambda (g s)
+    (dict 'getter g 'setter s)))
+
+;; View a value through a lens.
+(define view
+  (lambda (lens target)
+    ((lookup 'getter lens) target)))
+
+;; Set a value though a lens.
+(define set
+  (lambda (lens new-view target)
+    ((lookup 'setter lens) new-view target)))
+
+;; Compose lenses
+(define ..
+  (lambda (lens1 lens2)
+    (make-lens
+     (lambda (target) (view lens2 (view lens1 target)))
+     (lambda (new-view target) (set lens1 (set lens2 new-view (view lens1 target)) target)))))
+
+;; Modify a value through a lens.
+(define over
+  (lambda (lens f target)
+    (set lens (f (view lens target)) target)))
+
+;; A lens targetting keys of dicts.
+(define key
+  (lambda (k)
+    (make-lens (lambda (mp) (lookup k mp))
+               (lambda (v mp) (insert k v mp)))))
+
+(should-be "view lens"
+           (view (key :one) (dict :one 1 :two 2))
+           1)
+
+(should-be "set lens"
+           (set (key :two) 42 (dict :one 1 :two 2))
+           (dict :one 1 :two 42))
+
+(should-be "over lens"
+           (over (key :one) (lambda (x) (+ x 1)) (dict :one 1 :two 2))
+           (dict :one 2 :two 2))
+
+(should-be "lens composition"
+           (over (.. (key :a) (key :b))
+                 (lambda (x) (+ x 1))
+                 (dict :a (dict :b 2)))
+           (dict :a (dict :b 3)))
+
+;; Voting stuff. Should be moved elsewhere when we have an import mechanism.
+
+;; Initial state of the vote
+(define state
+  (ref
+   (dict
+    'voters '("Alice" "Bob" "Charlie" "Dan")
+    'votes (dict))))
+
+;; Takes a state and a vote and returns a new state, or throws and error if the
+;; voting expression is invalid.
+(define ev-vote
+  (lambda (s expr)
+    (if (eq? (head expr) 'vote)
+        (if (and (string? (head (tail expr)))
+                 (boolean? (head (tail (tail expr)))))
+            (if (member? (head (tail expr)) (view (key 'voters) (read-ref state)))
+                (set (.. (key 'votes) (key (head (tail expr))))
+                     (head (tail (tail expr)))
+                     s)
+                (throw 'invalid-input "You do not have permission to vote."))
+            (throw 'invalid-input "A vote must be a name and a bool."))
+        (throw 'invalid-input "All you can do is vote."))
+    ))
+
+(define voting-ended?
+  (lambda (s)
+    (define votes (dict-from-list (map reverse (seq (view (key 'votes) s)))))
+    votes
+    ))
+
+(define boom
+  (quote
+    (define eval ev-vote)))
+
+
 
 ;; Account stuff. Should be moved elsewhere when we have an import mechanism
 

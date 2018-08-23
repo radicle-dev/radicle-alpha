@@ -23,9 +23,7 @@ pureEnv = Bindings e purePrimops mempty 0
 -- not shadowable via 'define'.
 purePrimops :: forall m. (Monad m) => Primops m
 purePrimops = fromList $ first Ident <$>
-    [ ("base-eval", evalArgs $ \args -> case args of
-          [x] -> baseEval x
-          xs  -> throwError $ WrongNumberOfArgs "base-eval" 1 (length xs))
+    [ ("base-eval", evalOneArg "base-eval" baseEval)
     , ("list", evalArgs $ \args -> pure $ List args)
     , ("dict", evalArgs $ \args ->
           let go (k:v:rest) = Map.insert k v $ go rest
@@ -44,6 +42,7 @@ purePrimops = fromList $ first Ident <$>
               pure nil
           [_, _]           -> throwError $ OtherError "define expects atom for first arg"
           xs               -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
+    , ("do", evalArgs $ pure . lastDef nil)
     , ("catch", \args -> case args of
           [l, form, handler] -> do
               mlabel <- baseEval l
@@ -66,16 +65,14 @@ purePrimops = fromList $ first Ident <$>
           [x, List xs] -> pure $ List (x:xs)
           [_, _]       -> throwError $ TypeError "cons: second argument must be list"
           xs           -> throwError $ WrongNumberOfArgs "cons" 2 (length xs))
-    , ("head", evalArgs $ \args -> case args of
-          [List (x:_)] -> pure x
-          [List []]    -> throwError $ OtherError "head: empty list"
-          [_]          -> throwError $ TypeError "head: expects list argument"
-          xs           -> throwError $ WrongNumberOfArgs "head" 1 (length xs))
-    , ("tail", evalArgs $ \args -> case args of
-          [List (_:xs)] -> pure $ List xs
-          [List []]     -> throwError $ OtherError "tail: empty list"
-          [_]           -> throwError $ TypeError "tail: expects list argument"
-          xs            -> throwError $ WrongNumberOfArgs "tail" 1 (length xs))
+    , ("head", evalOneArg "head" $ \case
+          List (x:_) -> pure x
+          List []    -> throwError $ OtherError "head: empty list"
+          _          -> throwError $ TypeError "head: expects list argument")
+    , ("tail", evalOneArg "tail" $ \case
+          List (_:xs) -> pure $ List xs
+          List []     -> throwError $ OtherError "tail: empty list"
+          _           -> throwError $ TypeError "tail: expects list argument")
     , ("lookup", evalArgs $ \args -> case args of
           [a, Dict m] -> pure $ case Map.lookup a m of
               Just v  -> v
@@ -129,22 +126,24 @@ purePrimops = fromList $ first Ident <$>
           [fn, List ls] -> List <$> traverse (fn $$) (pure <$> ls)
           [_, _]        -> throwError $ TypeError "map: second argument should be a list"
           xs            -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
-    , ("keyword?", evalArgs $ \case
-          [Keyword _] -> pure $ Boolean True
-          [_]         -> pure $ Boolean False
-          xs          -> throwError $ WrongNumberOfArgs "keyword?" 1 (length xs))
-    , ("string?", evalArgs $ \args -> case args of
-          [String _] -> pure $ Boolean True
-          [_]        -> pure $ Boolean False
-          xs         -> throwError $ WrongNumberOfArgs "string?" 1 (length xs))
-    , ("boolean?", evalArgs $ \args -> case args of
-          [Boolean _] -> pure $ Boolean True
-          [_]         -> pure $ Boolean False
-          xs          -> throwError $ WrongNumberOfArgs "boolean?" 1 (length xs))
-    , ("number?", evalArgs $ \args -> case args of
-          [Number _] -> pure $ Boolean True
-          [_]        -> pure $ Boolean False
-          xs         -> throwError $ WrongNumberOfArgs "number?" 1 (length xs))
+    , ("keyword?", evalOneArg "keyword?" $ \case
+          Keyword _ -> pure tt
+          _         -> pure ff)
+    , ("atom?", evalOneArg "atom?" $ \case
+                  Atom _ -> pure tt
+                  _      -> pure ff)
+    , ("list?", evalOneArg "list?" $ \case
+                  List _ -> pure tt
+                  _      -> pure ff)
+    , ("string?", evalOneArg "string?" $ \case
+          String _ -> pure tt
+          _        -> pure ff)
+    , ("boolean?", evalOneArg "boolean?" $ \case
+          Boolean _ -> pure tt
+          _         -> pure ff)
+    , ("number?", evalOneArg "number?" $ \case
+          Number _ -> pure tt
+          _        -> pure ff)
     , ("member?", evalArgs $ \args -> case args of
           [x, List xs] -> pure . Boolean $ elem x xs
           [_, _]       -> throwError
@@ -155,17 +154,14 @@ purePrimops = fromList $ first Ident <$>
             b <- baseEval cond
             -- I hate this as much as everyone that might ever read Haskell, but
             -- in Lisps a lot of things that one might object to are True...
-            if b == Boolean False then baseEval f else baseEval t
+            if b == ff then baseEval f else baseEval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
-    , ("ref", evalArgs $ \args -> case args of
-          [x] -> newRef x
-          xs  -> throwError $ WrongNumberOfArgs "ref" 1 (length xs))
-    , ("read-ref", evalArgs $ \args -> case args of
-          [Ref (Reference x)] -> gets bindingsRefs >>= \m -> case IntMap.lookup x m of
-              Nothing -> throwError $ Impossible "undefined reference"
-              Just v  -> pure v
-          [_]                 -> throwError $ TypeError "read-ref: argument must be a ref"
-          xs                  -> throwError $ WrongNumberOfArgs "read-ref" 1 (length xs))
+    , ("ref", evalOneArg "ref" newRef)
+    , ("read-ref", evalOneArg "read-ref" $ \case
+          Ref (Reference x) -> gets bindingsRefs >>= \m -> case IntMap.lookup x m of
+            Nothing -> throwError $ Impossible "undefined reference"
+            Just v  -> pure v
+          _                 -> throwError $ TypeError "read-ref: argument must be a ref")
     , ("write-ref", evalArgs $ \args -> case args of
           [Ref (Reference x), v] -> do
               st <- get
@@ -175,15 +171,26 @@ purePrimops = fromList $ first Ident <$>
                                   $ TypeError "write-ref: first argument must be a ref"
           xs                     -> throwError
                                   $ WrongNumberOfArgs "write-ref" 2 (length xs))
-    , ( "show"
-      , evalArgs $ \args -> case args of
-          [x] -> pure (String (renderPrettyDef x))
-          xs  -> throwError $ WrongNumberOfArgs "show" 1 (length xs)
+    , ("show", evalOneArg "show" (pure . String . renderPrettyDef))
+    , ( "seq"
+      , evalOneArg "seq" $
+          \case
+            x@(List _) -> pure x
+            Dict kvs -> pure $ List [List [k, v] | (k,v) <- Map.toList kvs ]
+            _ -> throwError $ TypeError "seq: can only create a list from a list of a dict"
       )
     ]
   where
     -- Many primops evaluate their arguments just as normal functions do.
     evalArgs f args = traverse baseEval args >>= f
+
+    -- Many primops evaluate a single argument.
+    evalOneArg fname f = evalArgs $ \case
+      [x] -> f x
+      xs -> throwError $ WrongNumberOfArgs fname 1 (length xs)
+
+    tt = Boolean True
+    ff = Boolean False
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text
