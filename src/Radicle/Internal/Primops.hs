@@ -197,7 +197,7 @@ purePrimops = fromList $ first Ident <$>
           \case
             x@(List _) -> pure x
             Dict kvs -> pure $ List [List [k, v] | (k,v) <- Map.toList kvs ]
-            _ -> throwError $ TypeError "seq: can only create a list from a list of a dict"
+            _ -> throwError $ TypeError "seq: can only create a list from a list or a dict"
       )
     ]
   where

@@ -161,6 +161,12 @@
   (lambda (lens new-view target)
     ((lookup 'setter lens) new-view target)))
 
+;; identity lens
+(define id-lens
+  (make-lens
+   (lambda (target) target)
+   (lambda (new-view target) new-view)))
+
 ;; Compose lenses
 (define ..
   (lambda (lens1 lens2)
@@ -168,34 +174,75 @@
      (lambda (target) (view lens2 (view lens1 target)))
      (lambda (new-view target) (set lens1 (set lens2 new-view (view lens1 target)) target)))))
 
+;; Compose many lenses
+(define ... (lambda (lenses) (foldr .. id-lens lenses)))
+
 ;; Modify a value through a lens.
 (define over
   (lambda (lens f target)
     (set lens (f (view lens target)) target)))
 
 ;; A lens targetting keys of dicts.
-(define key
+(define @
   (lambda (k)
     (make-lens (lambda (mp) (lookup k mp))
                (lambda (v mp) (insert k v mp)))))
 
 (should-be "view lens"
-           (view (key :one) (dict :one 1 :two 2))
+           (view (@ :one) (dict :one 1 :two 2))
            1)
 
 (should-be "set lens"
-           (set (key :two) 42 (dict :one 1 :two 2))
+           (set (@ :two) 42 (dict :one 1 :two 2))
            (dict :one 1 :two 42))
 
 (should-be "over lens"
-           (over (key :one) (lambda (x) (+ x 1)) (dict :one 1 :two 2))
+           (over (@ :one) (lambda (x) (+ x 1)) (dict :one 1 :two 2))
            (dict :one 2 :two 2))
 
 (should-be "lens composition"
-           (over (.. (key :a) (key :b))
+           (over (.. (@ :a) (@ :b))
                  (lambda (x) (+ x 1))
                  (dict :a (dict :b 2)))
            (dict :a (dict :b 3)))
+
+(do (define d
+      (lambda (x) (dict :a (dict :b (dict :c x)))))
+    (should-be "deep lenses"
+               (over (... (list (@ :a) (@ :b) (@ :c)))
+                     (lambda (x) (+ x 1))
+                     (d 0))
+               (d 1)))
+
+;; Lens access to refs
+
+(define view-ref
+  (lambda (r lens)
+    (view lens (read-ref r))))
+
+(should-be "view-ref"
+           (view-ref (ref (dict :key 1)) (@ :key))
+           1)
+
+(define set-ref
+  (lambda (r lens v)
+    (modify-ref r (lambda (x) (set lens v x)))))
+
+(should-be "set-ref"
+           (do (define r (ref (dict :a 1)))
+               (set-ref r (@ :a) 2)
+               (view-ref r (@ :a)))
+           2)
+
+(define over-ref
+  (lambda (r lens f)
+    (modify-ref r (lambda (x) (over lens f x)))))
+
+(should-be "over-ref"
+           (do (define r (ref (dict :a 2)))
+               (over-ref r (@ :a) (lambda (x) (* x 2)))
+               (view-ref r (@ :a)))
+           4)
 
 ;; paper examples
 
@@ -216,75 +263,55 @@
      (write-ref sas-eval-ref (eval (nth 2 expr)))
      :else (throw 'invalid-command "Valid commands are: 'get', 'set' and 'update'."))))
 
-;; Voting stuff. Should be moved elsewhere when we have an import mechanism.
+;; Handle an input in the morphing state-machine.
+(define state-machine-input
+  (lambda (state i)
+    (define upd (lambda (s) ((view-ref state (@ :transition-fn)) s i)))
+    (over-ref state (@ :machine-state) upd)
+    (print! (string-append "ACCEPTED! new state: " (show (view-ref state (@ :machine-state)))))))
 
-;; Initial state of the vote
-;; (define state
-;;   (ref
-;;    (dict
-;;     'voters '("Alice" "Bob" "Charlie" "Dan")
-;;     'votes (dict))))
+;; Trigger a new vote
+(define state-machine-new-trans
+  (lambda (state func)
+    (if (eq? (view-ref state (@ :voting)) :nothing)
+        (do (set-ref state (@ :voting) (dict :votes (dict)
+                                             :proposed-function func))
+          (print! (string-append "A new transition function has been proposed! Please either agree or disagree with: " (show func))))
+      (throw 'invalid-input "Can't propose new transition function while vote is ongoing."))))
 
-;; Takes a state and a vote and returns a new state, or throws and error if the
-;; voting expression is invalid.
-;; (define ev-vote
-;;   (lambda (s expr)
-;;     (if (eq? (head expr) 'vote)
-;;         (if (and (string? (head (tail expr)))
-;;                  (boolean? (head (tail (tail expr)))))
-;;             (if (member? (head (tail expr)) (view (key 'voters) (read-ref state)))
-;;                 (set (.. (key 'votes) (key (head (tail expr))))
-;;                      (head (tail (tail expr)))
-;;                      s)
-;;                 (throw 'invalid-input "You do not have permission to vote."))
-;;             (throw 'invalid-input "A vote must be a name and a bool."))
-;;         (throw 'invalid-input "All you can do is vote."))
-;;     ))
+(define state-machine-agree
+  (lambda (state voters userid)
+    (if (member? userid voters)
+        (do (set-ref state (... (list (@ :voting) (@ :votes) (@ userid))) #t)
+            (if (eq? (length (seq (view-ref state (.. (@ :voting) (@ :votes))))) (length voters))
+                (do (set-ref state (@ :transition-fn) (eval (view-ref state (.. (@ :voting) (@ :proposed-function)))))
+                    (set-ref state (@ :voting) :nothing)
+                    (print! "Voting has finished; a new transition function is in effect."))
+                '()))
+        (throw 'invalid-input "Not allowed to vote."))))
+
+(define state-machine-disagree
+  (lambda (state voters userid)
+    (if (member? userid voters)
+        (do (set-ref state (@ :voting) :nothing)
+            (print! "Voting has ended; someone disagreed."))
+        (throw 'invalid-input "You are not allowed to vote."))))
 
 ;; Returns an eval which operates a state machine whose transition function may
 ;; be updated. To update the transition function all voters must agree on it.
 (define state-machine-eval
   (lambda (voters init-state init-transition)
-    (define state (ref init-state))
-    (define transition (ref init-transition))
-    (define mode (ref :normal))
-    (define vote-state (ref 0))
-    (define proposed-func (ref 0))
-    (lambda (e)
+    (define state (ref (dict :machine-state init-state
+                             :transition-fn init-transition
+                             :voting :nothing)))
+    (lambda (expr)
+      (define verb (nth 0 expr))
+      (define input (nth 1 expr))
       (cond
-       (not (list? e))          (throw 'invalid-input "Input must be a compound expression.")
-       (not (eq? (length e) 2)) (throw 'invalid-input "Input must be a verb and an input expression.")
-       :else
-       (do (define verb (head e))
-           (define input (head (tail e)))
-         (cond
-          (eq? (read-ref mode) :normal)
-          (cond
-           (eq? verb 'input)
-           (do (define new-state ((read-ref transition) (read-ref state) input))
-               (write-ref state new-state)
-             (print! (string-append "ACCEPTED! new state: " (show new-state))))
-           (eq? verb 'new-trans-func)
-           (do (write-ref mode :vote-on-new)
-               (write-ref vote-state (dict))
-               (write-ref proposed-func input)
-               (print! (string-append "A new transition function has been proposed! Please either agree or disagree with: " (show input))))
-           :else (throw 'invalid-input "Only verbs supported are 'input' and 'new-trans-func'."))
-          (eq? (read-ref mode) :vote-on-new)
-          (if (member? input voters)
-              (cond
-               (eq? verb 'agree)
-               (do (modify-ref vote-state (lambda (vs) (insert input #t vs)))
-                   (if (eq? (length (seq (read-ref vote-state))) (length voters))
-                       (do (print! "The voters have unanimously agreed on the new transition function. It will now change and normal operation will resume.")
-                           (write-ref transition (eval (read-ref proposed-func)))
-                           (write-ref mode :normal))
-                       (list)))
-               (eq? verb 'disagree)
-               (write-ref mode :normal)
-               :else (throw 'invalid-input "Can only agree or disagree when voting for a new transition function."))
-              (throw 'invalid-input "You are not allowed to vote, sorry."))
-          :else (throw 'invalid-state "State machine got into an invalid state.")))))))
+       (eq? verb 'input)          (state-machine-input     state input)
+       (eq? verb 'new-trans-func) (state-machine-new-trans state input)
+       (eq? verb 'agree)          (state-machine-agree     state voters input)
+       (eq? verb 'disagree)       (state-machine-disagree  state voters input)))))
 
 (define integer-machine
   (state-machine-eval (list "alice777" "bob_1337") 0 +))
@@ -299,17 +326,7 @@
 
 ;; (do (define eval-ref (ref eval)) (define eval (lambda (e) ((read-ref eval-ref) e))))
 
-(define voting-ended?
-  (lambda (s)
-    (define votes (dict-from-list (map reverse (seq (view (key 'votes) s)))))
-    votes
-    ))
-
-(define boom
-  (quote
-    (define eval ev-vote)))
-
-
+(define boom (quote (define eval (state-machine-eval '("alice" "bob") 0 +))))
 
 ;; Account stuff. Should be moved elsewhere when we have an import mechanism
 
