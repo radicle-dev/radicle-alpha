@@ -110,7 +110,7 @@
     (foldr (lambda (kv acc) (insert (head kv) (head (tail kv)) acc)) (dict) xs)))
 
 (should-be "dict-from-list"
-           (dict-from-list '('(:one 1) '(:two 2)))
+           (dict-from-list (list (list :one 1) (list :two 2)))
            (dict :one 1 :two 2))
 
 (define keys
