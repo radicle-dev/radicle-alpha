@@ -8,26 +8,28 @@ import           Protolude hiding (fromStrict)
 import           Radicle
 import           Servant
 import qualified STMContainers.Map as STMMap
+import Paths_radicle
 
 -- * Main
 
 main :: IO ()
 main = do
     st <- newState
-    run 8000 (serve api (server st))
+    pBindings <- preludeBindings
+    run 8000 (serve api (server pBindings st))
 
-server :: Chains -> Server API
-server st = submit st :<|> since st
+server :: Bindings Identity -> Chains -> Server API
+server bnds st = submit bnds st :<|> since st
 
 -- * Handlers
 
 -- | Submit something to a chain. The value is expected to be a pair, with the
 -- first item specifying the chain the value is being submitted to, and the
 -- second the expression being submitted.
-submit :: Chains -> Value -> Handler ()
-submit st val = case val of
+submit :: Bindings Identity -> Chains -> Value -> Handler ()
+submit bnds st val = case val of
     List [String i, v] -> do
-        r <- liftIO . atomically $ insertExpr st i v
+        r <- liftIO . atomically $ insertExpr bnds st i v
         case r of
             Right () -> pure ()
             Left err -> throwError
@@ -45,13 +47,13 @@ since st name index = do
 
 -- * Helpers
 
-insertExpr :: Chains -> Text -> Value -> STM (Either Text ())
-insertExpr st name val = do
+insertExpr :: Bindings Identity -> Chains -> Text -> Value -> STM (Either Text ())
+insertExpr bnds st name val = do
     x <- STMMap.lookup name $ getChains st
-    let chain = fromMaybe (Chain name pureEnv mempty) x
+    let chain = fromMaybe (Chain name bnds mempty) x
     let (r, s) = runIdentity $ runLang (chainState chain) (eval val)
     case r of
-        Left _ -> pure $ Left "invalid expression"
+        Left err -> pure . Left $ "invalid expression" <> show err
         Right _ -> Right <$> STMMap.insert
             (chain { chainState = s
                    , chainExprs = chainExprs chain Seq.|> val })
@@ -62,6 +64,12 @@ getSince :: Chains -> Text -> Int -> STM (Maybe [Value])
 getSince st name index = do
     x <- STMMap.lookup name $ getChains st
     pure $ toList . Seq.drop index . chainExprs <$> x
+
+preludeBindings :: IO (Bindings Identity)
+preludeBindings = do
+  r <- getDataFileName "rad/prelude-no-repl.rad" >>= readFile
+  let (_, x) = runIdentity $ runLang pureEnv $ interpretMany "[chain]" r
+  pure x
 
 -- * Types
 
