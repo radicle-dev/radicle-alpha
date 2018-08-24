@@ -186,7 +186,7 @@ lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
 lookupPrimop i = get >>= \e -> case Map.lookup i $ bindingsPrimops e of
-    Nothing -> throwError $ Impossible "Unknown primop"
+    Nothing -> throwError . Impossible $ "Unknown primop: " <> fromIdent i
     Just v  -> pure v
 
 defineAtom :: Monad m => Ident -> Value -> Lang m ()

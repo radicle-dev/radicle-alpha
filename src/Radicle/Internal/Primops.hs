@@ -48,6 +48,13 @@ purePrimops = fromList $ first Ident <$>
           String s -> read s
           _ -> throwError $ TypeError "read: expects string"
       )
+    , ("apply", evalArgs $ \case
+          [fn, List args] -> eval . List $ fn:args
+          [_, _]          -> throwError $ TypeError "apply: expecting list as second arg"
+          xs              -> throwError $ WrongNumberOfArgs "apply" 2 (length xs))
+    , ("get-current-env", \case
+          [] -> unmakeBindings <$> get
+          xs -> throwError $ WrongNumberOfArgs "get-current-env" 0 (length xs))
     , ("list", evalArgs $ \args -> pure $ List args)
     , ("dict", evalArgs $ (Dict . foldr (uncurry Map.insert) mempty <$>) . evenArgs "dict")
     , ("quote", \args -> case args of

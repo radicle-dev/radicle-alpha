@@ -543,6 +543,54 @@
                       (tail (tail expr)))))
   (print! "transaction must be new-account, transfer, or account-balance"))))))
 
+;; Issues for rad prelude
+
+(define create-rad-issue-chain (lambda ()
+  (define issues (ref nil))
+  (define should-be (lambda (name x y) (eq? x y)))
+  (define current-prelude (ref (dict :env (dict 'should-be should-be 'eval eval) :refs nil)))
+
+
+  (define failing? (lambda (expr)
+    (define res (catch 'any
+                       (head (eval-with-env expr (read-ref current-prelude)))
+                       (lambda (x) #f)))
+    (eq? res #f)))
+
+  (define new-issue (lambda (creator title desc failing-test)
+    (if (failing? failing-test)
+        (modify-ref
+          issues
+          (lambda (x)
+            (cons (dict
+              :creator creator
+              :title title
+              :description desc
+              :failing-test failing-test) x)))
+        "Test is not failing")))
+
+  (define list-issues (lambda () (read-ref issues)))
+
+  (define dispatch (lambda (m)
+    (if (eq? m 'new-issue) new-issue
+    (if (eq? m 'list-issues) list-issues
+        (print! "error: unknown message")))))
+
+  dispatch))
+
+(define rad-issue-chain (create-rad-issue-chain))
+
+(define rad-issue-chain-eval (lambda (expr)
+  (eval-with-env
+     (if (eq? (head expr) 'new-issue)
+         (apply (rad-issue-chain 'new-issue) (tail expr))
+     (if (eq? (head expr) 'list-issues)
+         ((rad-issue-chain 'list-issues))
+         "must be one of: 'new-issue', 'list-issues'"))
+     (get-current-env))))
+
+
+
 ;; Chains
 
 (define empty-state (dict
@@ -555,9 +603,9 @@
 
 (define chains (ref (dict "root" empty-chain)))
 
-;; Updates chain and prints new results.
+;; Updates chain and applies the provided function to the results.
 
-(define update-chain (lambda (chain-name)
+(define update-chain-with (lambda (chain-name fn)
   (define cur-chains (read-ref chains))
   (define this-chain (lookup chain-name cur-chains))
   (define new-logs
@@ -569,13 +617,16 @@
   ;; exception.
   (define eval-next (lambda (acc new-expr)
     (define eval-step (eval-with-env new-expr acc))
-    (print! (head eval-step))
+    (fn (head eval-step))
     (head (tail eval-step))))
   (define eval-result (foldl eval-next (lookup :state this-chain) new-logs))
   (define updated-chain
      (modify-map :logs (lambda (x) (concat x new-logs))
        (insert :state eval-result this-chain)))
   (write-ref chains (insert chain-name updated-chain cur-chains))))
+
+(define update-chain (lambda (chain-name)
+  (update-chain-with chain-name print!)))
 
 ;; eval-in-chain
 
@@ -589,22 +640,26 @@
 ;; enter-chain
 
 ;; (define eval-ref (ref eval))
-;;
+;; (define eval (lambda (expr)
+;;     (eval-with-env expr (get-current-env))))
+
+
 ;; (define enter-chain (lambda (chain-name)
-;;   (define old-eval (read-ref eval-ref))
+;;   (define old-eval eval)
 ;;   (define state (lookup :state (lookup chain-name (read-ref chains))))
 ;;   (define local-state (ref state))
 ;;   (print! state)
 ;;   (write-ref eval-ref (lambda (expr)
 ;;     (print! expr)
 ;;     (if (eq? expr :quit) (do
-;;                            (print! "leaving chain"
-;;                            (write-ref eval-ref old-eval)))
+;;                            (print! "leaving chain")
+;;                            (write-ref eval-ref old-eval))
 ;;         (do
-;;           (define ev-result (eval-with-env expr state))
-;;           (write-ref state (head (tail ev-result)))
+;;           (define ev-result (eval-with-env expr (read-ref local-state)))
+;;           (write-ref local-state (head (tail ev-result)))
 ;;           (print! ev-result)
 ;;           (head ev-result)))))))
+
 
 ;; The Repl
 
@@ -627,5 +682,3 @@
 (catch 'any
     (subscribe-to! repl print!)
     (lambda (x) (print! x) (subscribe-to! repl print!)))
-
-(define eval (lambda (x) ((read-ref eval-ref) x)))
