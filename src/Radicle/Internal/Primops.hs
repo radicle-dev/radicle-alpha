@@ -20,9 +20,12 @@ import           Radicle.Internal.Pretty
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: (Monad m) => Bindings m
-pureEnv = Bindings e purePrimops mempty 0
+pureEnv = Bindings e purePrimops r 1
   where
-    e = fromList [(toIdent "eval", Primop $ toIdent "base-eval")]
+    e = fromList [ (toIdent "eval", Primop $ toIdent "base-eval")
+                 , (toIdent "_doc-ref", Ref $ Reference 0)
+                 ]
+    r = fromList [ (0, Dict mempty) ]
 
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.

@@ -278,7 +278,7 @@ mfn $$ vs = do
             -- Primops get to decide whether and how their args are
             -- evaluated.
             fn vs
-        f@(Lambda _ _ _) -> do
+        f@Lambda{} -> do
           vs' <- traverse baseEval vs
           callFn f vs'
         _ -> throwError $ TypeError "Trying to apply a non-function"
