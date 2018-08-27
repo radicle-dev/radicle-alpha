@@ -436,7 +436,7 @@
   (lambda (state i)
     (define upd (lambda (s) ((view-ref state (@ :transition-fn)) s i)))
     (over-ref state (@ :machine-state) upd)
-    (print! (string-append "ACCEPTED! new state: " (show (view-ref state (@ :machine-state)))))))
+    (string-append "ACCEPTED! new state: " (show (view-ref state (@ :machine-state))))))
 
 ;; Trigger a new vote
 (define state-machine-new-trans
@@ -444,7 +444,7 @@
     (if (eq? (view-ref state (@ :voting)) :nothing)
         (do (set-ref state (@ :voting) (dict :votes (dict)
                                              :proposed-function func))
-          (print! (string-append "A new transition function has been proposed! Please either agree or disagree with: " (show func))))
+          (string-append "A new transition function has been proposed! Please either agree or disagree with: " (show func)))
       (throw 'invalid-input "Can't propose new transition function while vote is ongoing."))))
 
 (define state-machine-agree
@@ -454,7 +454,7 @@
             (if (eq? (length (seq (view-ref state (.. (@ :voting) (@ :votes))))) (length voters))
                 (do (set-ref state (@ :transition-fn) (eval (view-ref state (.. (@ :voting) (@ :proposed-function)))))
                     (set-ref state (@ :voting) :nothing)
-                    (print! "Voting has finished; a new transition function is in effect."))
+                    "Voting has finished; a new transition function is in effect.")
                 '()))
         (throw 'invalid-input "Not allowed to vote."))))
 
@@ -462,7 +462,7 @@
   (lambda (state voters userid)
     (if (member? userid voters)
         (do (set-ref state (@ :voting) :nothing)
-            (print! "Voting has ended; someone disagreed."))
+            "Voting has ended; someone disagreed.")
         (throw 'invalid-input "You are not allowed to vote."))))
 
 ;; Returns an eval which operates a state machine whose transition function may
@@ -532,7 +532,7 @@
 (define currency (create-currency))
 
 
-(define new-eval (lambda (expr)
+(define currency-eval (lambda (expr)
   (if (eq? (head expr) 'new-account)
       ((currency 'new-account) (head (tail expr)))
   (if (eq? (head expr) 'account-balance)
@@ -602,7 +602,13 @@
     :state empty-state
     :logs (list)))
 
-(define chains (ref (dict "root" empty-chain "prel" empty-chain)))
+(define chains (ref (dict "root" empty-chain)))
+
+(define add-chain (lambda (name)
+  (modify-ref chains (lambda (c) (insert name empty-chain c)))))
+(define new-chain (lambda (name)
+  (send! name "starting chain")
+  (add-chain name)))
 
 ;; Updates chain and applies the provided function to the results.
 

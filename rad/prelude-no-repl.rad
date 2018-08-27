@@ -364,7 +364,7 @@
 (define currency (create-currency))
 
 
-(define new-eval (lambda (expr)
+(define currency-eval (lambda (expr)
   (if (eq? (head expr) 'new-account)
       ((currency 'new-account) (head (tail expr)))
   (if (eq? (head expr) 'account-balance)
