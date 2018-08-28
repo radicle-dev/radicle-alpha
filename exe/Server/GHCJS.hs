@@ -4,18 +4,65 @@ module GHCJS where
 import           Protolude hiding (TypeError)
 
 import           API
+import           Data.IORef
 import           Data.Scientific (floatingOrInteger)
 import           GHC.Exts (fromList)
-import           Paths_radicle
+import GHCJS.Marshal
+{-import           Paths_radicle-}
+import GHCJS.Foreign.Callback (Callback, syncCallback1, OnBlocked(ThrowWouldBlock))
+import JavaScript.Object (getProp, setProp)
+import JavaScript.Object.Internal (Object(..))
+import qualified Data.JSString as JSS
+import qualified Data.Text as T
+import           GHCJS.Types
 import           Radicle
 import           Servant.API ((:<|>)(..))
 import           Servant.Client.Ghcjs
-import           System.Console.Haskeline (InputT)
+import           System.Console.Haskeline (InputT, defaultSettings, runInputT)
+import           System.IO.Unsafe
 
 main :: IO ()
 main = do
-    cfgSrc <- readFile =<< getDataFileName "rad/prelude.rad"
-    repl Nothing cfgSrc bindings
+    putStrLn ("Starting haskell" :: T.Text)
+    cb <- syncCallback1 ThrowWouldBlock jsEval
+    putStrLn ("here1" :: T.Text)
+    js_set_eval cb
+    putStrLn ("set" :: T.Text)
+    -- do
+
+    {-cfgSrc <- readFile =<< getDataFileName "rad/prelude.rad"-}
+    {-repl Nothing cfgSrc bindings-}
+
+-- * FFI
+
+foreign import javascript unsafe "eval_fn_ = $1"
+  js_set_eval :: Callback a -> IO ()
+
+-- * Export
+
+bndsRef :: IORef (Bindings (InputT IO))
+bndsRef = unsafePerformIO $ newIORef bindings
+{-# NOINLINE bndsRef #-}
+
+jsEval :: JSVal -> IO ()
+jsEval v = runInputT defaultSettings $ do
+    let o = Object v
+    putStrLn ("here" :: T.Text)
+    ms <- liftIO $ fromJSVal =<< getProp "arg" o
+    let s = case ms of
+          Just s' -> s'
+          _ -> error "blah"
+    bnds <- liftIO $ readIORef bndsRef
+    res <- runLang bnds $ interpretMany "[repl]" s
+    out <- JSS.pack . T.unpack <$> case res of
+        (Left err, _) -> pure $ renderPrettyDef err
+        (Right v , newBnds) -> do
+            _ <- liftIO $ writeIORef bndsRef newBnds
+            pure $ renderPrettyDef v
+    sout <- liftIO $ toJSVal out
+    liftIO $ setProp "result" sout o
+
+
 
 -- * Primops
 

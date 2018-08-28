@@ -1,10 +1,23 @@
 <html>
   <head>
-    <script language="javascript" src="all.js"></script>
+    <link rel="stylesheet" href="codemirror-repl.css"/>
+    <script src="codemirror-repl.js"></script>
   </head>
   <body>
+    <textarea id="repl" autofocus="true"></textarea>
   </body>
+    <script language="javascript" src="all.js"></script>
   <script language="javascript">
-h$main(h$mainZCMainzimain);
-  <script/>
+var repl = new CodeMirrorREPL("repl", {
+    mode: "javascript",
+    theme: "eclipse"
+});
+function eval_fn(expr) {
+    var tmp = {"arg": expr};
+    eval_fn_(tmp);
+    repl.print(tmp.result);
+}
+repl.eval = eval_fn
+
+</script>
 </html>
