@@ -14,7 +14,7 @@ main = do
     hist <- case histFile opts' of
         Nothing -> getHistory
         Just h  -> pure h
-    repl hist cfgSrc replBindings
+    repl (Just hist) cfgSrc replBindings
   where
     allOpts = info (opts <**> helper)
         ( fullDesc

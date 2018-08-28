@@ -22,7 +22,7 @@ main = do
         Just h  -> pure h
     mgr <- newManager defaultManagerSettings
     let cEnv = mkClientEnv mgr (serverURL opts')
-    repl hist cfgSrc (bindings cEnv)
+    repl (Just hist) cfgSrc (bindings cEnv)
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
@@ -109,4 +109,4 @@ identV = Keyword . Ident
 
 submit :: Value -> ClientM ()
 since :: Text -> Int -> ClientM [Value]
-submit :<|> since = client api
+submit :<|> since :<|> _ = client api
