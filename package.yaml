@@ -66,14 +66,21 @@ executables:
   repl:
     main: Main.hs
     source-dirs: exe/Repl
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
     dependencies:
     - radicle
     - optparse-applicative
     ghc-options: -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+
   server:
     main: Server.hs
     source-dirs: exe/Server
     other-modules: API
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
     dependencies:
     - radicle
     - optparse-applicative
@@ -85,6 +92,7 @@ executables:
     - stm
     - warp
     ghc-options: -main-is Server -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+
   client:
     main: Client.hs
     source-dirs: exe/Server
@@ -95,10 +103,32 @@ executables:
     - optparse-applicative
     - bytestring
     - servant
-    - servant-client
     - http-media
     - http-client
+    - servant-client
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
     ghc-options: -main-is Client -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+
+  client-ghcjs:
+    main: GHCJS.hs
+    source-dirs: exe/Server
+    other-modules: API
+    dependencies:
+    - radicle
+    - exceptions
+    - bytestring
+    - servant
+    - servant-client-ghcjs
+    - http-media
+    when:
+      - condition: impl(ghcjs)
+        then:
+          buildable: true
+        else:
+          buildable: false
+    ghc-options: -main-is GHCJS -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 default-extensions:
 - NoImplicitPrelude

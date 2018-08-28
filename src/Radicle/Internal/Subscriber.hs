@@ -24,10 +24,10 @@ type ReplM m =
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
 
-repl :: FilePath -> Text -> Bindings (InputT IO) -> IO ()
+repl :: Maybe FilePath -> Text -> Bindings (InputT IO) -> IO ()
 repl histFile preCode bindings = do
     let settings = setComplete completion
-                 $ defaultSettings { historyFile = Just histFile }
+                 $ defaultSettings { historyFile = histFile }
     r <- runInputT settings
         $ fmap fst $ runLang bindings
         $ void $ interpretMany "[pre]" preCode
