@@ -17,7 +17,7 @@ main = do
     run 8000 (serve api (server st))
 
 server :: Chains -> Server API
-server st = submit st :<|> since st
+server st = submit st :<|> since st :<|> static
 
 -- * Handlers
 
@@ -43,6 +43,8 @@ since st name index = do
         Nothing -> throwError $ err400 { errBody = "No such chain/index" }
         Just v  -> pure v
 
+static :: Server Raw
+static = serveDirectoryFileServer "static/"
 -- * Helpers
 
 insertExpr :: Chains -> Text -> Value -> STM (Either Text ())

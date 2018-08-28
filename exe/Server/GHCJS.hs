@@ -9,7 +9,7 @@ import           Data.Scientific (floatingOrInteger)
 import           GHC.Exts (fromList)
 import GHCJS.Marshal
 {-import           Paths_radicle-}
-import GHCJS.Foreign.Callback (Callback, syncCallback1, OnBlocked(ThrowWouldBlock))
+import GHCJS.Foreign.Callback (Callback, syncCallback1, OnBlocked(..))
 import JavaScript.Object (getProp, setProp)
 import JavaScript.Object.Internal (Object(..))
 import qualified Data.JSString as JSS
@@ -23,15 +23,8 @@ import           System.IO.Unsafe
 
 main :: IO ()
 main = do
-    putStrLn ("Starting haskell" :: T.Text)
-    cb <- syncCallback1 ThrowWouldBlock jsEval
-    putStrLn ("here1" :: T.Text)
+    cb <- syncCallback1 ContinueAsync jsEval
     js_set_eval cb
-    putStrLn ("set" :: T.Text)
-    -- do
-
-    {-cfgSrc <- readFile =<< getDataFileName "rad/prelude.rad"-}
-    {-repl Nothing cfgSrc bindings-}
 
 -- * FFI
 
@@ -47,7 +40,6 @@ bndsRef = unsafePerformIO $ newIORef bindings
 jsEval :: JSVal -> IO ()
 jsEval v = runInputT defaultSettings $ do
     let o = Object v
-    putStrLn ("here" :: T.Text)
     ms <- liftIO $ fromJSVal =<< getProp "arg" o
     let s = case ms of
           Just s' -> s'
@@ -113,4 +105,4 @@ identV = Keyword . Ident
 
 submit :: Value -> ClientM ()
 since :: Text -> Int -> ClientM [Value]
-submit :<|> since = client api
+submit :<|> since :<|> _ = client api
