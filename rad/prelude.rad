@@ -226,7 +226,7 @@
 
 (define keys
   (lambda (d)
-    (map head (seq d))))
+    (map (lambda (x) (head x)) (seq d))))
 
 (document 'keys
   '(("dict" dict))
@@ -492,8 +492,6 @@
 
 (lambda (cur inp) (string-append cur "\n" (head inp) ": " (head (tail inp))))
 
-;; (do (define eval-ref (ref eval)) (define eval (lambda (e) ((read-ref eval-ref) e))))
-
 (define boom (quote (define eval (state-machine-eval '("alice" "bob") 0 +))))
 
 ;; Account stuff. Should be moved elsewhere when we have an import mechanism
@@ -590,7 +588,12 @@
 
 
 
-;; Chains
+;; Chains: Functions for dealing with chains.
+
+;; A chain is conceptually:
+;;   - A known starting state (i.e. environment, and the assumption that `eval
+;;     == base-eval')
+;;   - A sequence of inputs.
 
 (define empty-state (get-current-env))
 
@@ -598,75 +601,93 @@
 ;;    :env (dict 'eval 'base-eval)
 ;;    :refs (list)))
 
-(define empty-chain (dict
-    :state empty-state
-    :logs (list)))
+(define empty-chain
+  (dict :state empty-state
+        :inputs (list)
+        :index 0))
 
-(define chains (ref (dict "root" empty-chain)))
+;; Evaluates an expression inside a chain. Returns the :result and the new
+;; :chain in a dict.
+(define eval-in-chain
+  (lambda (expr chain)
+    (define x (eval-with-env expr (lookup :state chain)))
+    (dict :chain (dict :state (head (tail x))
+                       :input (cons expr (lookup :logs chain))
+                       :index (+ 1 (lookup :index chain)))
+          :result (head x))))
 
-(define add-chain (lambda (name)
-  (modify-ref chains (lambda (c) (insert name empty-chain c)))))
-(define new-chain (lambda (name)
-  (send! name "starting chain")
-  (add-chain name)))
+;; Updates a local chain according to activity on a remote chain, by pulling
+;; down and evaluating new inputs. Also accepts two callbacks: one it applies to
+;; input expressions, and one it applies to results. Usually one uses `print`
+;; for both of these.
+;; ASSUMES that the remote chain starts with the inputs of the local chain.
+(define update-chain-with
+  (lambda (chain remote-chain-id cb-expr cb-res)
+    (define new-inputs
+      (receive! remote-chain-id (lookup :index chain)))
+    (define upd-ch
+      (lambda (ch expr)
+        (define x (eval-in-chain expr ch))
+        (cb-expr expr)
+        (cb-res (view (@ :result) x))
+        (view (@ :chain) x)))
+    (foldl upd-ch chain new-inputs)))
 
-;; Updates chain and applies the provided function to the results.
+;; Experiment in a local chain.
+(define enter-chain
+  (lambda (eval-definer chain)
+    (define old-eval eval)
+    (define ch (ref chain))
+    (define ev
+      (lambda (e)
+        (if (eq? e :quit)
+            (do (print! "leaving chain")
+                (eval-definer old-eval))
+          (do (define x (eval-in-chain e (read-ref ch)))
+              (write-ref ch (view (@ :chain) x))
+              (view (@ :result) x)))))
+    (eval-definer ev)))
 
-(define update-chain-with (lambda (chain-name fn)
-  (define cur-chains (read-ref chains))
-  (define this-chain (lookup chain-name cur-chains))
-  (define new-logs
-    (receive!
-      chain-name
-      (length (lookup :logs this-chain))))
+;; Syncs up to a remote chain, and allows experimentation inputs. There are two
+;; special inputs:
+;; - `:quit` will just leave the chain.
+;; - `:send` will send all the inputs entered to the chain, in one go (wrapped
+;;   in a `do`), and then leave the chain.
+(define remote-chain
+  (lambda (eval-definer chain-id)
+    (define old-eval eval)
+    (define chain (update-chain-with empty-chain chain-id (lambda (e) '()) (lambda (e) '())))
+    (print! (string-append "Synced with remote chain, at index: " (show (view (@ :index) chain))))
+    (define ch (ref chain))
+    (define inputs (ref (list)))
+    (eval-definer
+     (lambda (e)
+       (cond
+        (eq? e :quit) (do (print! "Leaving remote-chain.")
+                          (eval-definer old-eval))
+        (eq? e :send) (do (print! "Sending inputs to remote chain.")
+                          (send! chain-id (cons 'do (reverse (read-ref inputs))))
+                          (print! "Done! Leaving remote-chain.")
+                          (eval-definer old-eval))
+        :else (do (define x (eval-in-chain e (read-ref ch)))
+                  (write-ref ch (view (@ :chain) x))
+                  (modify-ref inputs (lambda (is) (cons e is)))
+                  (view (@ :result) x)))))))
 
-  ;; Eval the chain. If it fails to eval we don't change the ref and thrown an
-  ;; exception.
-  (define eval-next (lambda (acc new-expr)
-    (define eval-step (eval-with-env new-expr acc))
-    (fn (head eval-step))
-    (head (tail eval-step))))
-  (define eval-result (foldl eval-next (lookup :state this-chain) new-logs))
-  (define updated-chain
-     (modify-map :logs (lambda (x) (concat x new-logs))
-       (insert :state eval-result this-chain)))
-  (write-ref chains (insert chain-name updated-chain cur-chains))))
+(define boom
+  (quote
+   (do (define eval-ref (ref eval))
+       (define eval-definer (lambda (f) (write-ref eval-ref f)))
+       (define eval (lambda (e) ((read-ref eval-ref) e))))))
 
-(define update-chain (lambda (chain-name)
-  (update-chain-with chain-name print!)))
+;; ;; A global ref storing local copies of remote chains.
+;; (define chains (ref (dict "root" empty-chain "prel" empty-chain)))
 
-;; eval-in-chain
+;; (define update-chain (lambda (chain-name)
+;;   (update-chain-with chain-name print!)))
 
-(define eval-in-chain (lambda (expr chain)
-  (head (eval-with-env expr (lookup :state (lookup chain (read-ref
-                                                          chains)))))))
-
-(define chain-logs (lambda (chain)
-  (lookup :logs (lookup chain (read-ref chains)))))
-
-;; enter-chain
-
-;; (define eval-ref (ref eval))
-;; (define eval (lambda (expr)
-;;     (eval-with-env expr (get-current-env))))
-
-
-;; (define enter-chain (lambda (chain-name)
-;;   (define old-eval eval)
-;;   (define state (lookup :state (lookup chain-name (read-ref chains))))
-;;   (define local-state (ref state))
-;;   (print! state)
-;;   (write-ref eval-ref (lambda (expr)
-;;     (print! expr)
-;;     (if (eq? expr :quit) (do
-;;                            (print! "leaving chain")
-;;                            (write-ref eval-ref old-eval))
-;;         (do
-;;           (define ev-result (eval-with-env expr (read-ref local-state)))
-;;           (write-ref local-state (head (tail ev-result)))
-;;           (print! ev-result)
-;;           (head ev-result)))))))
-
+;; (define chain-logs (lambda (chain)
+;;   (lookup :logs (lookup chain (read-ref chains)))))
 
 ;; The Repl
 
