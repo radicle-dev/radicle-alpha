@@ -479,7 +479,8 @@
        (eq? verb 'input)          (state-machine-input     state input)
        (eq? verb 'new-trans-func) (state-machine-new-trans state input)
        (eq? verb 'agree)          (state-machine-agree     state voters input)
-       (eq? verb 'disagree)       (state-machine-disagree  state voters input)))))
+       (eq? verb 'disagree)       (state-machine-disagree  state voters input)
+       :else                      (throw 'invalid-input (string-append "The only valid commands are 'input', 'new-trans-func', 'agree' and 'disagree': " (show expr)))))))
 
 (define integer-machine
   (state-machine-eval (list "alice777" "bob_1337") 0 +))
@@ -491,8 +492,6 @@
                         (string-append cur "\n\n" (head inp) ": " (head (tail inp))))))
 
 (lambda (cur inp) (string-append cur "\n" (head inp) ": " (head (tail inp))))
-
-(define boom (quote (define eval (state-machine-eval '("alice" "bob") 0 +))))
 
 ;; Account stuff. Should be moved elsewhere when we have an import mechanism
 
@@ -666,7 +665,7 @@
         (eq? e :quit) (do (print! "Leaving remote-chain.")
                           (eval-definer old-eval))
         (eq? e :send) (do (print! "Sending inputs to remote chain.")
-                          (send! chain-id (cons 'do (reverse (read-ref inputs))))
+                          (map (lambda (i) (send! chain-id i)) (reverse (read-ref inputs)))
                           (print! "Done! Leaving remote-chain.")
                           (eval-definer old-eval))
         :else (do (define x (eval-in-chain e (read-ref ch)))
