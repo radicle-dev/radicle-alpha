@@ -13,8 +13,18 @@ import qualified STMContainers.Map as STMMap
 
 main :: IO ()
 main = do
-    st <- newState
-    run 8000 (serve api (server st))
+    args <- getArgs
+    case args of
+      [portStr] -> case readEither portStr of
+          Right port -> do
+             st <- newState
+             run port (serve api (server st))
+          Left _ -> die "Expecting argument to be a port (integer)"
+      [] -> do
+          st <- newState
+          run 443 (serve api (server st))
+
+      _ -> die "Expecting zero or one arguments (port)"
 
 server :: Chains -> Server API
 server st = submit st :<|> since st :<|> static

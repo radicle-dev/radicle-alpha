@@ -72,7 +72,7 @@ executables:
     dependencies:
     - radicle
     - optparse-applicative
-    ghc-options: -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+    ghc-options: -Wall -threaded -O3 -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
   server:
     main: Server.hs
@@ -91,7 +91,7 @@ executables:
     - stm-containers
     - stm
     - warp
-    ghc-options: -main-is Server -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+    ghc-options: -main-is Server -Wall -O3 -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
   client:
     main: Client.hs
@@ -109,7 +109,7 @@ executables:
     when:
       - condition: impl(ghcjs)
         buildable: false
-    ghc-options: -main-is Client -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+    ghc-options: -main-is Client -Wall -O3 -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
   client-ghcjs:
     main: GHCJS.hs
