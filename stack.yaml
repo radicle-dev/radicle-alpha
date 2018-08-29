@@ -49,8 +49,6 @@ image:
       name: "radicle/server"
       executables:
         - server
-      entrypoints:
-        - server-exe
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
