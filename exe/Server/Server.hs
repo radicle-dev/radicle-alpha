@@ -15,8 +15,7 @@ import Paths_radicle
 main :: IO ()
 main = do
     st <- newState
-    pBindings <- preludeBindings
-    run 8000 (serve api (server pBindings st))
+    run 8000 (serve api (server pureEnv st))
 
 server :: Bindings Identity -> Chains -> Server API
 server bnds st = submit bnds st :<|> since st
@@ -64,12 +63,6 @@ getSince :: Chains -> Text -> Int -> STM (Maybe [Value])
 getSince st name index = do
     x <- STMMap.lookup name $ getChains st
     pure $ toList . Seq.drop index . chainExprs <$> x
-
-preludeBindings :: IO (Bindings Identity)
-preludeBindings = do
-  r <- getDataFileName "rad/prelude-no-repl.rad" >>= readFile
-  let (_, x) = runIdentity $ runLang pureEnv $ interpretMany "[chain]" r
-  pure x
 
 -- * Types
 

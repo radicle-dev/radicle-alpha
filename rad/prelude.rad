@@ -1,109 +1,63 @@
-(define document
-  (lambda (name args description)
-    (define old (read-ref _doc-ref))
-    (write-ref
-       _doc-ref
-       (insert name (dict :args args :desc description) old))))
-
-(document 'document
-  '(("name" atom) '("args" list) '("description" desc))
-  "Documents an atom. The documentation can then be retrieved with '(doc name)'.")
-
-;; doc
-
-(define doc
-  (lambda (name)
-    (define the-doc (lookup name (read-ref _doc-ref)))
-    (string-append
-       (lookup :desc the-doc)
-       "\nArguments:\n\t"
-       (show (lookup :args the-doc)))))
-
-(document 'doc
-  '(("name" atom))
-  "Retrieves the documentation for an atom, if there is any.")
-
-;; should-be
-
-(define should-be
-  (lambda (name x y)
-    (if (eq? x y)
-        (print! (string-append "Test '" name "' succeeded"))
-      (print! (string-append "Test '" name "' failed")))))
-
-(document 'should-be
-  '(("test-name" string) ("actual" any) ("expected" any))
-  "Checks that 'actual' equals 'expected'. Used for tests")
-
-(should-be "doc" (string? (doc 'doc)) #t)
-
-;; y-combinators ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define Y
-  (lambda (h)
-    ((lambda (x) (x x))
-     (lambda (g)
-       (h (lambda (arg) ((g g) arg)))))))
-(define Y2
-  (lambda (h)
-    ((lambda (x) (x x))
-     (lambda (g)
-       (h (lambda (arg1 arg2) ((g g) arg1 arg2)))))))
-
-((lambda ()
-  (define fac (Y (lambda (f) (lambda (x) (if (< x 2) 1 (* x (f (- x 1))))))))
-  (should-be "fac" (fac 10) 3628800)))
-
+(load! "rad/prelude/doc.rad")
+(load! "rad/prelude/should-be.rad")
+(load! "rad/prelude/recursion.rad")
 (load! "rad/prelude/bool.rad")
 (load! "rad/prelude/list.rad")
 (load! "rad/prelude/dict.rad")
 (load! "rad/prelude/ref.rad")
 (load! "rad/prelude/lens.rad")
 
-;; Issues for rad prelude
+(define pure-prelude-files
+  (list
+   "rad/prelude/doc.rad"
+   "rad/prelude/pure-should-be.rad"
+   "rad/prelude/recursion.rad"
+   "rad/prelude/bool.rad"
+   "rad/prelude/list.rad"
+   "rad/prelude/dict.rad"
+   "rad/prelude/ref.rad"
+   "rad/prelude/lens.rad"
+   ))
 
-(define create-rad-issue-chain (lambda ()
-  (define issues (ref nil))
-  (define should-be (lambda (name x y) (eq? x y)))
-  (define current-prelude (ref (dict :env (dict 'should-be should-be 'eval eval) :refs nil)))
+(document 'pure-prelude-files
+          '()
+          "List of files which together define the pure prelude.")
 
+(define pure-prelude-code
+  (read
+   (string-append
+    "(do "
+    (apply string-append
+           (map (lambda (f) (read-file! f)) pure-prelude-files))
+    ")")))
 
-  (define failing? (lambda (expr)
-    (define res (catch 'any
-                       (head (eval-with-env expr (read-ref current-prelude)))
-                       (lambda (x) #f)))
-    (eq? res #f)))
+(document 'pure-prelude-code
+          '()
+          "The pure prelude.")
 
-  (define new-issue (lambda (creator title desc failing-test)
-    (if (failing? failing-test)
-        (modify-ref
-          issues
-          (lambda (x)
-            (cons (dict
-              :creator creator
-              :title title
-              :description desc
-              :failing-test failing-test) x)))
-        "Test is not failing")))
+(define read-code!
+  (lambda (filename)
+    (read (string-append "(do " (read-file! filename) ")"))))
 
-  (define list-issues (lambda () (read-ref issues)))
+(document 'read-code!
+          '("filename" string)
+          "Read code (as data) from a file.")
 
-  (define dispatch (lambda (m)
-    (if (eq? m 'new-issue) new-issue
-    (if (eq? m 'list-issues) list-issues
-        "error: unknown message"))))
+(define send-code!
+  (lambda (chain-id filename)
+    (send! chain-id (read-code! filename))))
 
-  dispatch))
+(document 'send-code!
+          '(("chain-id" string) ("filename" string))
+          "Send code from a file to a remote chain.")
 
-(define rad-issue-chain (create-rad-issue-chain))
+(define send-prelude!
+  (lambda (chain-id)
+    (send! chain-id pure-prelude-code)))
 
-(define rad-issue-chain-eval (lambda (expr)
-     (if (eq? (head expr) 'new-issue)
-         (apply (rad-issue-chain 'new-issue) (tail expr))
-     (if (eq? (head expr) 'list-issues)
-         ((rad-issue-chain 'list-issues))
-         "must be one of: 'new-issue', 'list-issues'"))
-     ))
+(document 'send-prelude!
+          '(("chain-id" string))
+          "Send the pure prelude to a chain.")
 
 ;; The Repl
 
