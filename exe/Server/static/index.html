@@ -7,15 +7,29 @@
     <textarea id="repl" autofocus="true"></textarea>
   </body>
     <script language="javascript" src="all.js"></script>
-  <script language="javascript">
+
+    <script language="javascript">
+// Setup the repl.
 var repl = new CodeMirrorREPL("repl", {
     mode: "javascript",
     theme: "eclipse"
 });
-function eval_fn(expr) {
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function eval_fn(expr) {
     var tmp = {"arg": expr};
-    eval_fn_(tmp);
-    repl.print(tmp.result);
+    try {
+        eval_fn_(tmp);
+        if (typeof tmp.result === "undefined") {
+            console.log("sleeping in the hope this is an async call");
+            await sleep(1000);
+        }
+        repl.print(tmp.result);
+    } catch (error) {
+        console.log(error);
+        repl.print(error, "error");
+    }
 }
 repl.eval = eval_fn
 

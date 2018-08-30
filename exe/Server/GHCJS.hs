@@ -1,20 +1,22 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE TemplateHaskell #-}
 module GHCJS where
 
-import           Protolude hiding (TypeError)
+import           Protolude hiding (TypeError, on)
 
 import           API
 import           Data.IORef
-import           Data.Scientific (floatingOrInteger)
-import           GHC.Exts (fromList)
-import GHCJS.Marshal
-{-import           Paths_radicle-}
-import GHCJS.Foreign.Callback (Callback, syncCallback1, OnBlocked(..))
-import JavaScript.Object (getProp, setProp)
-import JavaScript.Object.Internal (Object(..))
 import qualified Data.JSString as JSS
+import           Data.Scientific (floatingOrInteger)
 import qualified Data.Text as T
+import           GHC.Exts (fromList)
+import           GHCJS.DOM.XMLHttpRequest (getResponseText, openSimple, newXMLHttpRequest, readyStateChange, send)
+import           GHCJS.Foreign.Callback (Callback, OnBlocked(..), syncCallback1)
+import GHCJS.DOM.EventM
+import           GHCJS.Marshal
 import           GHCJS.Types
+import           JavaScript.Object (getProp, setProp)
+import           JavaScript.Object.Internal (Object(..))
 import           Radicle
 import           Servant.API ((:<|>)(..))
 import           Servant.Client.Ghcjs
@@ -23,8 +25,19 @@ import           System.IO.Unsafe
 
 main :: IO ()
 main = do
+    putStrLn ("Getting prelude" :: Text)
+    msrc <- preludeSrc
     cb <- syncCallback1 ContinueAsync jsEval
     js_set_eval cb
+    case msrc of
+        Nothing -> putStrLn ("Prelude not readable" :: Text)
+        Just src -> do
+            putStrLn src
+            bnds <- readIORef bndsRef
+            res <- runInputT defaultSettings $ runLang bnds $ interpretMany "prelude" src
+            case res of
+                (Left _, newBnds) -> liftIO $ writeIORef bndsRef newBnds
+                (Right _, newBnds) -> liftIO $ writeIORef bndsRef newBnds
 
 -- * FFI
 
@@ -43,16 +56,26 @@ jsEval v = runInputT defaultSettings $ do
     ms <- liftIO $ fromJSVal =<< getProp "arg" o
     let s = case ms of
           Just s' -> s'
-          _ -> error "blah"
+          _       -> error "blah"
     bnds <- liftIO $ readIORef bndsRef
     res <- runLang bnds $ interpretMany "[repl]" s
     out <- JSS.pack . T.unpack <$> case res of
         (Left err, _) -> pure $ renderPrettyDef err
-        (Right v , newBnds) -> do
+        (Right v', newBnds) -> do
             _ <- liftIO $ writeIORef bndsRef newBnds
-            pure $ renderPrettyDef v
+            pure $ renderPrettyDef v'
     sout <- liftIO $ toJSVal out
     liftIO $ setProp "result" sout o
+
+-- * Prelude src
+
+preludeSrc :: IO (Maybe Text)
+preludeSrc = do
+    req <- newXMLHttpRequest
+    {-join $ on readyStateChange act-}
+    openSimple req ("GET" :: Text) ("prelude.rad" :: Text)
+    send req
+    getResponseText req
 
 
 
