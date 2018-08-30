@@ -91,6 +91,7 @@ executables:
     - stm-containers
     - stm
     - warp
+    - wai-extra
     ghc-options: -main-is Server -Wall -O3 -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
   client:
@@ -123,6 +124,7 @@ executables:
     - servant
     - servant-client-ghcjs
     - http-media
+    - ghcjs-dom
     when:
       - condition: impl(ghcjs)
         then:

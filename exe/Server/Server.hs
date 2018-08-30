@@ -4,6 +4,7 @@ import           API
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Sequence as Seq
 import           Network.Wai.Handler.Warp
+import           Network.Wai.Middleware.Gzip
 import           Protolude hiding (fromStrict)
 import           Radicle
 import           Servant
@@ -13,18 +14,18 @@ import qualified STMContainers.Map as STMMap
 
 main :: IO ()
 main = do
+    st <- newState
+    let gzipSettings = def { gzipFiles = GzipPreCompressed GzipIgnore }
+        app = gzip gzipSettings (serve api (server st))
     args <- getArgs
     case args of
       [portStr] -> case readEither portStr of
-          Right port -> do
-             st <- newState
-             run port (serve api (server st))
+          Right port -> run port app
           Left _ -> die "Expecting argument to be a port (integer)"
-      [] -> do
-          st <- newState
-          run 443 (serve api (server st))
+      [] -> run 80 app
 
       _ -> die "Expecting zero or one arguments (port)"
+
 
 server :: Chains -> Server API
 server st = submit st :<|> since st :<|> static

@@ -47,3 +47,5 @@ extra-deps:
 - parser-combinators-0.4.0
 - prettyprinter-1.2.1
 - prettyprinter-ansi-terminal-1.1.1.2
+- ghcjs-dom-0.9.2.0
+- ghcjs-dom-jsffi-0.9.2.0
