@@ -9,12 +9,7 @@
 #
 #       OPTIONS: ---
 #  REQUIREMENTS: UglifyJS, gsutil
-#          BUGS: ---
-#         NOTES: ---
-#        AUTHOR: YOUR NAME (),
-#  ORGANIZATION:
 #       CREATED: 08/29/2018 14:52
-#      REVISION:  ---
 #===============================================================================
 
 set -o nounset
