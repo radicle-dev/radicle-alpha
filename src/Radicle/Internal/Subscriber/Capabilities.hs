@@ -51,6 +51,13 @@ class (Monad m) => GetSubs m where
 class (Monad m) => SetSubs m where
     setSubS :: Text -> (Value -> m ()) -> m ()
 
+class (Monad m) => ReadFile m where
+    readFileS :: Text -> m Text
+instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
+    readFileS = lift . readFileS
+instance ReadFile (InputT IO) where
+    readFileS = lift . readFile . toS
+
 putStrLnS :: (Stdout m) => Text -> m ()
 putStrLnS t = putStrS t >> putStrS "\n"
 

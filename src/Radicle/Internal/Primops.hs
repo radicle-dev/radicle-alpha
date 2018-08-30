@@ -2,6 +2,8 @@ module Radicle.Internal.Primops
   ( pureEnv
   , purePrimops
   , evalArgs
+  , evalOneArg
+  , read
   , kwLookup
   , makeBindings
   , unmakeBindings
@@ -17,6 +19,7 @@ import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Pretty
+import           Radicle.Internal.Parse
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: (Monad m) => Bindings m
@@ -40,6 +43,11 @@ purePrimops = fromList $ first Ident <$>
                   Left e    -> throwError e
                   Right res -> pure $ List [res, unmakeBindings bnds']
           xs -> throwError $ WrongNumberOfArgs "eval-with-env" 2 (length xs))
+    , ( "read"
+      , evalOneArg "read" $ \case
+          String s -> read s
+          _ -> throwError $ TypeError "read: expects string"
+      )
     , ("list", evalArgs $ \args -> pure $ List args)
     , ("dict", evalArgs $ (Dict . foldr (uncurry Map.insert) mempty <$>) . evenArgs "dict")
     , ("quote", \args -> case args of
@@ -205,11 +213,6 @@ purePrimops = fromList $ first Ident <$>
     ]
   where
 
-    -- Many primops evaluate a single argument.
-    evalOneArg fname f = evalArgs $ \case
-      [x] -> f x
-      xs -> throwError $ WrongNumberOfArgs fname 1 (length xs)
-
     tt = Boolean True
     ff = Boolean False
 
@@ -252,6 +255,20 @@ purePrimops = fromList $ first Ident <$>
 -- | Many primops evaluate their arguments just as normal functions do.
 evalArgs :: Monad m => ([Value] -> Lang m Value) -> [Value] -> Lang m Value
 evalArgs f args = traverse baseEval args >>= f
+
+-- Many primops evaluate a single argument.
+evalOneArg :: Monad m => Text -> (Value -> Lang m Value) -> [Value] -> Lang m Value
+evalOneArg fname f = evalArgs $ \case
+  [x] -> f x
+  xs -> throwError $ WrongNumberOfArgs fname 1 (length xs)
+
+read :: (MonadError (LangError Value) m, MonadState (Bindings n) m) => Text -> m Value
+read s = do
+    allPrims <- gets bindingsPrimops
+    let p = parse "[read-primop]" s (Map.keys allPrims)
+    case p of
+      Right v -> pure v
+      Left e -> throwError $ ThrownError (Ident "parse-error") (String e)
 
 -- | Convert Bindings into a Value that can be used with radicle.
 unmakeBindings :: Bindings m -> Value
