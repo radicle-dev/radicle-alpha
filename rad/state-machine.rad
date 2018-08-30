@@ -1,0 +1,61 @@
+"not a comment"
+
+;; Handle an input in the morphing state-machine.
+(define state-machine-input
+  (lambda (state i)
+    (define upd (lambda (s) ((view-ref state (@ :transition-fn)) s i)))
+    (over-ref state (@ :machine-state) upd)
+    (string-append "ACCEPTED! new state: " (show (view-ref state (@ :machine-state))))))
+
+;; Trigger a new vote
+(define state-machine-new-trans
+  (lambda (state func)
+    (if (eq? (view-ref state (@ :voting)) :nothing)
+        (do (set-ref state (@ :voting) (dict :votes (dict)
+                                             :proposed-function func))
+          (string-append "A new transition function has been proposed! Please either agree or disagree with: " (show func)))
+      (throw 'invalid-input "Can't propose new transition function while vote is ongoing."))))
+
+(define state-machine-agree
+  (lambda (state voters userid)
+    (if (member? userid voters)
+        (do (set-ref state (... (list (@ :voting) (@ :votes) (@ userid))) #t)
+            (if (eq? (length (seq (view-ref state (.. (@ :voting) (@ :votes))))) (length voters))
+                (do (set-ref state (@ :transition-fn) (eval (view-ref state (.. (@ :voting) (@ :proposed-function)))))
+                    (set-ref state (@ :voting) :nothing)
+                    "Voting has finished; a new transition function is in effect.")
+                '()))
+        (throw 'invalid-input "Not allowed to vote."))))
+
+(define state-machine-disagree
+  (lambda (state voters userid)
+    (if (member? userid voters)
+        (do (set-ref state (@ :voting) :nothing)
+            "Voting has ended; someone disagreed.")
+        (throw 'invalid-input "You are not allowed to vote."))))
+
+;; Returns an eval which operates a state machine whose transition function may
+;; be updated. To update the transition function all voters must agree on it.
+(define state-machine-eval
+  (lambda (voters init-state init-transition)
+    (define state (ref (dict :machine-state init-state
+                             :transition-fn init-transition
+                             :voting :nothing)))
+    (lambda (expr)
+      (define verb (nth 0 expr))
+      (define input (nth 1 expr))
+      (cond
+       (eq? verb 'input)          (state-machine-input     state input)
+       (eq? verb 'new-trans-func) (state-machine-new-trans state input)
+       (eq? verb 'agree)          (state-machine-agree     state voters input)
+       (eq? verb 'disagree)       (state-machine-disagree  state voters input)
+       :else                      (throw 'invalid-input (string-append "The only valid commands are 'input', 'new-trans-func', 'agree' and 'disagree': " (show expr)))))))
+
+(define integer-machine
+  (state-machine-eval (list "alice777" "bob_1337") 0 +))
+
+(define discussion
+  (state-machine-eval (list "james" "julian")
+                      ""
+                      (lambda (cur inp)
+                        (string-append cur "\n\n" (head inp) ": " (head (tail inp))))))

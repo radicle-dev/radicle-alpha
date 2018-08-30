@@ -1,0 +1,39 @@
+"not a comment"
+
+;; dict-from-list
+
+(define dict-from-list
+  (lambda (xs)
+    (foldr (lambda (kv acc) (insert (head kv) (head (tail kv)) acc)) (dict) xs)))
+
+(document 'dict-from-list
+  '(("list" list))
+  "Creates a dictionary from a list of key-value pairs.")
+
+(should-be "dict-from-list"
+           (dict-from-list (list (list :one 1) (list :two 2)))
+           (dict :one 1 :two 2))
+
+;; keys
+
+(define keys
+  (lambda (d)
+    (map (lambda (x) (head x)) (seq d))))
+
+(document 'keys
+  '(("dict" dict))
+  "Returns the list of keys in a dictionary.")
+
+;; Uncomment this test once map is fixed.
+;; (should-be "keys"
+;;            (keys (dict :one 1 :two 2))
+;;            '(:one :two))
+
+
+;; modify-map
+(define modify-map (lambda (key fn mp)
+  (insert key (fn (lookup key mp)) mp)))
+
+(should-be "modify-map"
+  (modify-map 'a (lambda (x) (+ x 1)) (dict 'a 5))
+  (dict 'a 6))
