@@ -23,7 +23,6 @@ main = do
           Right port -> run port app
           Left _ -> die "Expecting argument to be a port (integer)"
       [] -> run 80 app
-
       _ -> die "Expecting zero or one arguments (port)"
 
 

@@ -87,7 +87,6 @@ executables:
     - bytestring
     - servant
     - servant-server
-    - http-media
     - stm-containers
     - stm
     - warp
