@@ -34,7 +34,6 @@ module Radicle
 
     -- * Parsing
     , parse
-    , parseTest
 
     -- * Pretty-printing
     , renderPretty

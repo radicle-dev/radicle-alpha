@@ -20,6 +20,7 @@ import           Radicle.Internal.Subscriber.Capabilities
 
 type ReplM m =
     ( Monad m, Stdout (Lang m), Stdin (Lang m)
+    , ReadFile (Lang m)
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
 
@@ -72,14 +73,7 @@ replPrimops = Map.fromList $ first toIdent <$>
         xs  -> throwError $ WrongNumberOfArgs "set-env!" 2 (length xs))
 
     , ("get-line!", \args -> case args of
-        [] -> do
-            ln <- getLineS
-            allPrims <- gets bindingsPrimops
-            let p = parse "[stdin]" ln (Map.keys allPrims)
-            case p of
-                Right v -> pure v
-                Left e -> throwError $ ThrownError (Ident "parse-error")
-                                                   (String e)
+        [] -> String <$> getLineS
         xs  -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
     , ("subscribe-to!", \args -> case args of
@@ -105,4 +99,14 @@ replPrimops = Map.fromList $ first toIdent <$>
                             void $ withEnv (const e) (fn $$ [quote line])
                 _  -> throwError $ TypeError "subscribe-to!: Expected dict"
         xs  -> throwError $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
+    , ( "read-file!"
+      , evalOneArg "read-file" $ \case
+          String filename -> String <$> readFileS filename
+          _ -> throwError $ TypeError "read-file: expects a string"
+      )
+    , ( "load!"
+      , evalOneArg "load" $ \case
+          String filename -> readFileS filename >>= interpretMany "[load!]"
+          _ -> throwError $ TypeError "load: expects a string"
+      )
     ]
