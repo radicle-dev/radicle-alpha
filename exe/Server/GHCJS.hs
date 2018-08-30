@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-deprecations #-}
 module GHCJS where
 
 import           Protolude hiding (TypeError, on)
@@ -10,9 +10,9 @@ import qualified Data.JSString as JSS
 import           Data.Scientific (floatingOrInteger)
 import qualified Data.Text as T
 import           GHC.Exts (fromList)
-import           GHCJS.DOM.XMLHttpRequest (getResponseText, openSimple, newXMLHttpRequest, readyStateChange, send)
+import           GHCJS.DOM.XMLHttpRequest (getResponseText, newXMLHttpRequest,
+                                           openSimple, send)
 import           GHCJS.Foreign.Callback (Callback, OnBlocked(..), syncCallback1)
-import GHCJS.DOM.EventM
 import           GHCJS.Marshal
 import           GHCJS.Types
 import           JavaScript.Object (getProp, setProp)
@@ -36,7 +36,7 @@ main = do
             bnds <- readIORef bndsRef
             res <- runInputT defaultSettings $ runLang bnds $ interpretMany "prelude" src
             case res of
-                (Left _, newBnds) -> liftIO $ writeIORef bndsRef newBnds
+                (Left _, newBnds)  -> liftIO $ writeIORef bndsRef newBnds
                 (Right _, newBnds) -> liftIO $ writeIORef bndsRef newBnds
 
 -- * FFI
@@ -56,7 +56,7 @@ jsEval v = runInputT defaultSettings $ do
     ms <- liftIO $ fromJSVal =<< getProp "arg" o
     let s = case ms of
           Just s' -> s'
-          _       -> error "blah"
+          _       -> error "expecting 'arg' key"
     bnds <- liftIO $ readIORef bndsRef
     res <- runLang bnds $ interpretMany "[repl]" s
     out <- JSS.pack . T.unpack <$> case res of
@@ -72,7 +72,6 @@ jsEval v = runInputT defaultSettings $ do
 preludeSrc :: IO (Maybe Text)
 preludeSrc = do
     req <- newXMLHttpRequest
-    {-join $ on readyStateChange act-}
     openSimple req ("GET" :: Text) ("prelude.rad" :: Text)
     send req
     getResponseText req
