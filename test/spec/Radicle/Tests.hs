@@ -463,14 +463,14 @@ test_env =
 
 test_repl_primops :: [TestTree]
 test_repl_primops =
-    [ testProperty "get-line! returns the input line" $ \(v :: Value) ->
-        let prog = [i|(eq? (get-line!) (quote #{renderPrettyDef v}))|]
+    [ testProperty "(read (get-line!)) returns the input line" $ \(v :: Value) ->
+        let prog = [i|(eq? (read (get-line!)) (quote #{renderPrettyDef v}))|]
             res = run [renderPrettyDef v] $ toS prog
         in counterexample prog $ res == Right (Boolean True)
 
-    , testCase "catch catches get-line errors" $ do
+    , testCase "catch catches read-line errors" $ do
         let prog = [s|
-                 (define repl (dict 'name "repl" 'getter get-line!))
+                 (define repl (dict 'name "repl" 'getter (lambda () (read (get-line!)))))
                  (catch 'any
                         (subscribe-to! repl (lambda (x) (print! x)))
                         (lambda (x) "caught"))

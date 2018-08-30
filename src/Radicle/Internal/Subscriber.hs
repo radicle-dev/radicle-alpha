@@ -73,7 +73,7 @@ replPrimops = Map.fromList $ first toIdent <$>
         xs  -> throwError $ WrongNumberOfArgs "set-env!" 2 (length xs))
 
     , ("get-line!", \args -> case args of
-        [] -> getLineS >>= read
+        [] -> String <$> getLineS
         xs  -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
     , ("subscribe-to!", \args -> case args of
