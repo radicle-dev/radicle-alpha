@@ -1,0 +1,93 @@
+"not a comment"
+
+;; Chains: Functions for dealing with chains.
+
+;; A chain is conceptually:
+;;   - A known starting state (i.e. environment, and the assumption that `eval
+;;     == base-eval')
+;;   - A sequence of inputs.
+
+(define empty-state (get-current-env))
+
+(define empty-chain
+  (dict :state empty-state
+        :inputs (list)
+        :index 0))
+
+(define eval-in-chain
+  (lambda (expr chain)
+    (define x (eval-with-env expr (lookup :state chain)))
+    (dict :chain (dict :state (head (tail x))
+                       :input (cons expr (lookup :logs chain))
+                       :index (+ 1 (lookup :index chain)))
+          :result (head x))))
+
+(document 'eval-in-chain
+          '(("expr" any) ("chain" chain))
+          "Evaluates 'expr' in the 'chain' and returns a dict with the ':result' and the resulting ':chain'.")
+
+(define update-chain-with
+  (lambda (chain remote-chain-id cb-expr cb-res)
+    (define new-inputs
+      (receive! remote-chain-id (lookup :index chain)))
+    (define upd-ch
+      (lambda (ch expr)
+        (define x (eval-in-chain expr ch))
+        (cb-expr expr)
+        (cb-res (view (@ :result) x))
+        (view (@ :chain) x)))
+    (foldl upd-ch chain new-inputs)))
+
+(document 'update-chain-with
+          '(("chain" chain) ("chain-id" string) ("cb-expr" function) ("cb-res" function))
+          "Updates 'chain' according to activity on the remote chain with ID 'chain-id', by pulling down and evaluating new inputs. Accepts two callbacks: 'cb-expr' is applied to the incoming expressions, and 'cb-res' is applied to the resulting values. Usually one uses 'print!' for both of these. If 'chain' is not a past version of the remote chain then the behaviour is unspecified.")
+
+(define enter-chain
+  (lambda (eval-definer chain)
+    (define old-eval eval)
+    (define ch (ref chain))
+    (define ev
+      (lambda (e)
+        (if (eq? e :quit)
+            (do (print! "leaving chain")
+                (eval-definer old-eval))
+          (do (define x (eval-in-chain e (read-ref ch)))
+              (write-ref ch (view (@ :chain) x))
+              (view (@ :result) x)))))
+    (eval-definer ev)))
+
+(document 'enter-chain
+          '(("eval-definer" function) ("chain" chain))
+          "Instantiates an 'eval' which evaluates expressions in 'chain'. The expression ':quit' will return to the previous eval. Uses the parameter 'eval-definer' for eval redefinition.")
+
+(define enter-remote-chain
+  (lambda (eval-definer chain-id)
+    (define old-eval eval)
+    (define chain (update-chain-with empty-chain chain-id (lambda (e) '()) (lambda (e) '())))
+    (print! (string-append "Synced with remote chain, at index: " (show (view (@ :index) chain))))
+    (define ch (ref chain))
+    (define inputs (ref (list)))
+    (eval-definer
+     (lambda (e)
+       (cond
+        (eq? e :quit) (do (print! "Leaving remote-chain.")
+                          (eval-definer old-eval))
+        (eq? e :send) (do (print! "Sending inputs to remote chain.")
+                          (map (lambda (i) (send! chain-id i)) (reverse (read-ref inputs)))
+                          (print! "Done! Leaving remote-chain.")
+                          (eval-definer old-eval))
+        :else (do (define x (eval-in-chain e (read-ref ch)))
+                  (write-ref ch (view (@ :chain) x))
+                  (modify-ref inputs (lambda (is) (cons e is)))
+                  (view (@ :result) x)))))))
+
+(document 'enter-remote-chain
+          '(("eval-definer" function) ("chain-id" string))
+          "Syncs up to a remote chain, and allows experimentation inputs. There are two special inputs: ':quit' will leave the chain, ':send' will send all the accumulated inputs to the remote chain, one by one, and then leave the chain. Uses the parameter 'eval-definer' for eval redefinition.")
+
+;; Setup an eval definer
+(define boom
+  (quote
+   (do (define eval-ref (ref eval))
+       (define eval-definer (lambda (f) (write-ref eval-ref f)))
+       (define eval (lambda (e) ((read-ref eval-ref) e))))))

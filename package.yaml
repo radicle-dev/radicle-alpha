@@ -73,7 +73,9 @@ executables:
   server:
     main: Server.hs
     source-dirs: exe/Server
-    other-modules: API
+    other-modules:
+    - API
+    - Paths_radicle
     dependencies:
     - radicle
     - optparse-applicative

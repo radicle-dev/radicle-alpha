@@ -1,0 +1,48 @@
+"not a comment"
+
+;; Account stuff. Should be moved elsewhere when we have an import mechanism
+
+(define create-currency (lambda ()
+
+  ;; The map of all accounts
+  (define accounts (ref (dict)))
+
+  ;; Create an account with 10 coins.
+  (define new-account (lambda (name)
+    (modify-ref accounts (lambda (acc)
+      (insert name 10 acc)))))
+
+  ;; Get an account's balance
+  (define account-balance (lambda (name)
+    (lookup name (read-ref accounts))))
+
+  ;; Transfer money
+  (define transfer (lambda (from to amount)
+    (define acc (read-ref accounts))
+    (write-ref accounts (if (> amount (lookup from acc))
+            (print! "not enough balance")
+            (modify-map
+              to
+              (lambda (x) (+ x amount))
+              (modify-map from (lambda (x) (- x amount)) acc))))))
+
+  (define dispatch (lambda (m)
+    (if (eq? m 'new-account) new-account
+    (if (eq? m 'account-balance) account-balance
+    (if (eq? m 'transfer) transfer
+        (print! "error: currency- unknown message"))))))
+  dispatch))
+
+(define currency (create-currency))
+
+
+(define currency-eval (lambda (expr)
+  (if (eq? (head expr) 'new-account)
+      ((currency 'new-account) (head (tail expr)))
+  (if (eq? (head expr) 'account-balance)
+      ((currency 'account-balance) (head (tail expr)))
+  (if (eq? (head expr) 'transfer)
+      ((currency 'transfer) (head (tail expr)) (head (tail (tail expr))) (head
+          (tail
+                      (tail (tail expr)))))
+  (print! "transaction must be new-account, transfer, or account-balance"))))))

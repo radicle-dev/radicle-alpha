@@ -1,0 +1,154 @@
+"not a comment"
+
+;; make-lens
+
+(define make-lens
+  (lambda (g s)
+    (dict 'getter g 'setter s)))
+
+(document 'make-lens
+  '(("getter" function) ("setter" function))
+  "Makes a lens out of a getter and a setter.")
+
+;; view
+
+(define view
+  (lambda (lens target)
+    ((lookup 'getter lens) target)))
+
+(document 'view
+  '(("lens" dict) ("target" any))
+  "View a value through a lens.")
+
+;; set
+
+(define set
+  (lambda (lens new-view target)
+    ((lookup 'setter lens) new-view target)))
+
+(document 'set
+  '(("lens" dict) ("value" any) ("target" any))
+  "Set a value though a lens.")
+
+;; id-lens
+
+(define id-lens
+  (make-lens
+   (lambda (target) target)
+   (lambda (new-view target) new-view)))
+
+(document 'id-lens
+  '()
+  "The identity lens.")
+
+;; ..
+
+(define ..
+  (lambda (lens1 lens2)
+    (make-lens
+     (lambda (target) (view lens2 (view lens1 target)))
+     (lambda (new-view target) (set lens1 (set lens2 new-view (view lens1 target)) target)))))
+
+(document '..
+  '(("lens1" dict) ("lens2" dict))
+  "Compose two lenses.")
+
+;; ...
+
+(define ... (lambda (lenses) (foldr .. id-lens lenses)))
+
+(document '...
+  '(("lenses" list))
+  "Compose multiple lenses.")
+
+;; over
+(define over
+  (lambda (lens f target)
+    (set lens (f (view lens target)) target)))
+
+(document 'over
+  '(("lens" dict) ("fn" function) ("target" any))
+  "Modify a value through a lens.")
+
+;; @
+
+(define @
+  (lambda (k)
+    (make-lens (lambda (mp) (lookup k mp))
+               (lambda (v mp) (insert k v mp)))))
+
+(document '@
+  '(("key" any))
+  " Returns a lens targetting keys of dicts.")
+
+(should-be "view lens"
+           (view (@ :one) (dict :one 1 :two 2))
+           1)
+
+(should-be "set lens"
+           (set (@ :two) 42 (dict :one 1 :two 2))
+           (dict :one 1 :two 42))
+
+(should-be "over lens"
+           (over (@ :one) (lambda (x) (+ x 1)) (dict :one 1 :two 2))
+           (dict :one 2 :two 2))
+
+(should-be "lens composition"
+           (over (.. (@ :a) (@ :b))
+                 (lambda (x) (+ x 1))
+                 (dict :a (dict :b 2)))
+           (dict :a (dict :b 3)))
+
+(do (define d
+      (lambda (x) (dict :a (dict :b (dict :c x)))))
+    (should-be "deep lenses"
+               (over (... (list (@ :a) (@ :b) (@ :c)))
+                     (lambda (x) (+ x 1))
+                     (d 0))
+               (d 1)))
+
+;; Lens access to refs
+
+;; view-ref
+(define view-ref
+  (lambda (r lens)
+    (view lens (read-ref r))))
+
+(document 'view-ref
+  '(("ref" ref) ("lens" dict))
+  "Like 'view', but for refs.")
+
+(should-be "view-ref"
+           (view-ref (ref (dict :key 1)) (@ :key))
+           1)
+
+;; set-ref
+
+(define set-ref
+  (lambda (r lens v)
+    (modify-ref r (lambda (x) (set lens v x)))))
+
+(document 'set-ref
+  '(("ref" ref) ("lens" dict) ("new-value" any))
+  "Like 'set', but for refs.")
+
+(should-be "set-ref"
+           (do (define r (ref (dict :a 1)))
+               (set-ref r (@ :a) 2)
+               (view-ref r (@ :a)))
+           2)
+;; set-ref
+
+(define over-ref
+  (lambda (r lens f)
+    (modify-ref r (lambda (x) (over lens f x)))))
+
+(document 'over-ref
+  '(("ref" ref) ("lens" dict) ("fn" function))
+  "Like 'over', but for refs.")
+
+(should-be "over-ref"
+           (do (define r (ref (dict :a 2)))
+               (over-ref r (@ :a) (lambda (x) (* x 2)))
+               (view-ref r (@ :a)))
+           4)
