@@ -1,12 +1,12 @@
 module Client where
 
 import           API
+import           Data.Scientific (floatingOrInteger)
 import           GHC.Exts (fromList)
 import           Network.HTTP.Client (defaultManagerSettings, newManager)
 import           Options.Applicative
 import           Protolude hiding (TypeError, option)
 import           Radicle
-import Data.Scientific (floatingOrInteger)
 import           Servant.API ((:<|>)(..))
 import           Servant.Client
 import           System.Console.Haskeline (InputT)
@@ -15,14 +15,14 @@ main :: IO ()
 main = do
     opts' <- execParser allOpts
     cfgSrc <- readFile =<< case configFile opts' of
-        Nothing -> getConfig
+        Nothing  -> getConfig
         Just cfg -> pure cfg
     hist <- case histFile opts' of
         Nothing -> getHistory
         Just h  -> pure h
     mgr <- newManager defaultManagerSettings
     let cEnv = mkClientEnv mgr (serverURL opts')
-    repl hist cfgSrc (bindings cEnv)
+    repl (Just hist) cfgSrc (bindings cEnv)
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
@@ -33,9 +33,9 @@ main = do
 -- * CLI Opts
 
 data Opts = Opts
-    { configFile  :: Maybe FilePath
-    , serverURL   :: BaseUrl
-    , histFile :: Maybe FilePath
+    { configFile :: Maybe FilePath
+    , serverURL  :: BaseUrl
+    , histFile   :: Maybe FilePath
     }
 
 opts :: Parser Opts
@@ -109,4 +109,4 @@ identV = Keyword . Ident
 
 submit :: Value -> ClientM ()
 since :: Text -> Int -> ClientM [Value]
-submit :<|> since = client api
+submit :<|> since :<|> _ = client api

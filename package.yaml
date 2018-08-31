@@ -22,6 +22,9 @@ dependencies:
 - serialise
 - scientific
 - text
+when:
+ - condition: impl(ghcjs)
+   dependencies: ghcjs-dom
 
 data-files:
 - rad/config.rad
@@ -66,25 +69,33 @@ executables:
   repl:
     main: Main.hs
     source-dirs: exe/Repl
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
     dependencies:
     - radicle
     - optparse-applicative
-    ghc-options: -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+    ghc-options: -Wall -threaded -O3 -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+
   server:
     main: Server.hs
     source-dirs: exe/Server
     other-modules: API
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
     dependencies:
     - radicle
     - optparse-applicative
     - bytestring
     - servant
     - servant-server
-    - http-media
     - stm-containers
     - stm
     - warp
-    ghc-options: -main-is Server -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+    - wai-extra
+    ghc-options: -main-is Server -Wall -O3 -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+
   client:
     main: Client.hs
     source-dirs: exe/Server
@@ -95,10 +106,33 @@ executables:
     - optparse-applicative
     - bytestring
     - servant
-    - servant-client
     - http-media
     - http-client
-    ghc-options: -main-is Client -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+    - servant-client
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    ghc-options: -main-is Client -Wall -O3 -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+
+  client-ghcjs:
+    main: GHCJS.hs
+    source-dirs: exe/Server
+    other-modules: API
+    dependencies:
+    - radicle
+    - ghcjs-base
+    - exceptions
+    - bytestring
+    - servant
+    - servant-client-ghcjs
+    - http-media
+    when:
+      - condition: impl(ghcjs)
+        then:
+          buildable: true
+        else:
+          buildable: false
+    ghc-options: -main-is GHCJS -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 default-extensions:
 - NoImplicitPrelude

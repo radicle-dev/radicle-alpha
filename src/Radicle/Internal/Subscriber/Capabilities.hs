@@ -2,12 +2,17 @@
 --
 -- The intent is that any set of primops may wear on their sleaves (i.e.
 -- constraints) what effects they do.
+{-# LANGUAGE CPP #-}
 module Radicle.Internal.Subscriber.Capabilities where
 
 import           Protolude
 
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           System.Console.Haskeline
+#ifdef ghcjs_HOST_OS
+import           GHCJS.DOM.XMLHttpRequest (getResponseText, newXMLHttpRequest,
+                                           openSimple, send)
+#endif
 
 import           Radicle.Internal.Core
 
@@ -53,10 +58,26 @@ class (Monad m) => SetSubs m where
 
 class (Monad m) => ReadFile m where
     readFileS :: Text -> m Text
-instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
-    readFileS = lift . readFileS
+#ifdef ghcjs_HOST_OS
+instance ReadFile (InputT IO) where
+    readFileS = lift . requestFile
+      where
+        requestFile :: Text -> IO Text
+        requestFile filename = do
+            req <- newXMLHttpRequest
+            openSimple req ("GET" :: Text) filename
+            send req
+            resp <- getResponseText req
+            pure $ case resp of
+                Nothing -> ""
+                Just v  -> v
+#else
 instance ReadFile (InputT IO) where
     readFileS = lift . readFile . toS
+#endif
+instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
+    readFileS = lift . readFileS
+
 
 putStrLnS :: (Stdout m) => Text -> m ()
 putStrLnS t = putStrS t >> putStrS "\n"

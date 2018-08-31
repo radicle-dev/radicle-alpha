@@ -43,25 +43,3 @@
 (document 'send-prelude!
           '(("chain-id" string))
 "Send the pure prelude to a chain.")
-
-;; The Repl
-
-(define _initial_prompt-text
-  "Welcome to radicle. Type (help) for help.")
-
-(define help (lambda ()
-  "radicle is a LISP-like language intendended for programming chains, and
-  interacting with those chains.
-
-  Type (doc <name>) for further documentation of <name>."))
-
-
-(define repl
-  (dict
-     'name "repl"
-     ;; Parse errors are thrown here
-     'getter (lambda () (catch 'parse-error (read-line!) print!))))
-
-(catch 'any
-    (subscribe-to! repl print!)
-    (lambda (x) (print! x) (subscribe-to! repl print!)))

@@ -4,6 +4,7 @@ import           API
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Sequence as Seq
 import           Network.Wai.Handler.Warp
+import           Network.Wai.Middleware.Gzip
 import           Protolude hiding (fromStrict)
 import           Radicle
 import           Servant
@@ -14,10 +15,19 @@ import qualified STMContainers.Map as STMMap
 main :: IO ()
 main = do
     st <- newState
-    run 8000 (serve api (server st))
+    let gzipSettings = def { gzipFiles = GzipPreCompressed GzipIgnore }
+        app = gzip gzipSettings (serve api (server st))
+    args <- getArgs
+    case args of
+      [portStr] -> case readEither portStr of
+          Right port -> run port app
+          Left _ -> die "Expecting argument to be a port (integer)"
+      [] -> run 80 app
+      _ -> die "Expecting zero or one arguments (port)"
+
 
 server :: Chains -> Server API
-server st = submit st :<|> since st
+server st = submit st :<|> since st :<|> static
 
 -- * Handlers
 
@@ -43,6 +53,8 @@ since st name index = do
         Nothing -> throwError $ err400 { errBody = "No such chain/index" }
         Just v  -> pure v
 
+static :: Server Raw
+static = serveDirectoryFileServer "static/"
 -- * Helpers
 
 insertExpr :: Chains -> Text -> Value -> STM (Either Text ())

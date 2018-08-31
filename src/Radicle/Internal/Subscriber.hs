@@ -24,10 +24,10 @@ type ReplM m =
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
 
-repl :: FilePath -> Text -> Bindings (InputT IO) -> IO ()
+repl :: Maybe FilePath -> Text -> Bindings (InputT IO) -> IO ()
 repl histFile preCode bindings = do
     let settings = setComplete completion
-                 $ defaultSettings { historyFile = Just histFile }
+                 $ defaultSettings { historyFile = histFile }
     r <- runInputT settings
         $ fmap fst $ runLang bindings
         $ void $ interpretMany "[pre]" preCode
@@ -85,8 +85,12 @@ replPrimops = Map.fromList $ first toIdent <$>
                 (Dict m, fn) -> case Map.lookup (Atom $ toIdent "getter") m of
                     Nothing -> throwError
                         $ OtherError "subscribe-to!: Expected 'getter' key"
-                    Just g -> forever go
+                    Just g -> forever (protect go)
                       where
+                        protect action = do
+                            st <- get
+                            action `catchError`
+                                (\err -> putStrS (renderPrettyDef err) >> put st)
                         go = do
                             -- We need to evaluate the getter in the original
                             -- environment in which it was defined, but the

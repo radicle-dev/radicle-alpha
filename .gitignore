@@ -8,4 +8,6 @@ radicle.cabal
 .virthualenv
 .hsenv
 .cabal-sandbox/
+exe/Server/static/all.js
 cabal.sandbox.config
+out/

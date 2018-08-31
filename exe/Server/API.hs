@@ -1,25 +1,22 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module API where
 
-import           Codec.Serialise (Serialise, deserialiseOrFail, serialise)
-import           Network.HTTP.Media ((//))
 import           Protolude
 import           Radicle
 import           Servant.API
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Text as T
 
-data CBOR
+instance Show a => MimeRender PlainText a where
+    mimeRender _ x = show x
 
-instance Accept CBOR where
-    contentType _ = "application" // "cbor"
-
-instance Serialise a => MimeRender CBOR a where
-    mimeRender _ x = serialise x
-
-instance Serialise a => MimeUnrender CBOR a where
-    mimeUnrender _ x = first show (deserialiseOrFail x)
+instance Read a => MimeUnrender PlainText a where
+    mimeUnrender _ x = readEither $ T.unpack $ decodeUtf8 $ LBS.toStrict x
 
 type API
-  =    "submit" :> ReqBody '[CBOR] Value :> Post '[CBOR] ()
-  :<|> "since"  :> Capture "chain" Text :> Capture "index" Int :> Get '[CBOR] [Value]
+  =    "submit" :> ReqBody '[PlainText] Value :> Post '[PlainText] ()
+  :<|> "since"  :> Capture "chain" Text :> Capture "index" Int :> Get '[PlainText] [Value]
+  :<|> Raw
 
 api :: Proxy API
 api = Proxy
