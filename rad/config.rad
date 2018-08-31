@@ -2,7 +2,7 @@
   (dict
      'name "repl"
      ;; Parse errors are thrown here
-     'getter (lambda () (catch 'parse-error (get-line!) print!))))
+     'getter (lambda () (catch 'parse-error (read (get-line!)) print!))))
 
 ;; Evaluation errors are thrown here
 (catch 'any

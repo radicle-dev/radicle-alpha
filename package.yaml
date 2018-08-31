@@ -26,7 +26,6 @@ dependencies:
 data-files:
 - rad/config.rad
 - rad/prelude.rad
-- rad/prelude-no-repl.rad
 
 library:
   source-dirs: src

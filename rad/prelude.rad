@@ -6,6 +6,7 @@
 (load! "rad/prelude/dict.rad")
 (load! "rad/prelude/ref.rad")
 (load! "rad/prelude/lens.rad")
+(load! "rad/prelude/io.rad")
 
 (define pure-prelude-files
   (list
@@ -75,7 +76,7 @@
   (dict
      'name "repl"
      ;; Parse errors are thrown here
-     'getter (lambda () (catch 'parse-error (get-line!) print!))))
+     'getter (lambda () (catch 'parse-error (read-line!) print!))))
 
 (catch 'any
     (subscribe-to! repl print!)

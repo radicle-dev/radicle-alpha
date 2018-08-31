@@ -1,0 +1,21 @@
+(define read-line! (lambda () (read (get-line!))))
+
+(document 'read-line!
+          '()
+          "Read a line of data from the")
+
+(define read-code!
+  (lambda (filename)
+    (read (string-append "(do " (read-file! filename) ")"))))
+
+(document 'read-code!
+          '("filename" string)
+          "Read code (as data) from a file.")
+
+(define send-code!
+  (lambda (chain-id filename)
+    (send! chain-id (read-code! filename))))
+
+(document 'send-code!
+          '(("chain-id" string) ("filename" string))
+          "Send code from a file to a remote chain.")

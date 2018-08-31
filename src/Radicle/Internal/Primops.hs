@@ -3,7 +3,7 @@ module Radicle.Internal.Primops
   , purePrimops
   , evalArgs
   , evalOneArg
-  , read
+  , readValue
   , kwLookup
   , makeBindings
   , unmakeBindings
@@ -45,7 +45,7 @@ purePrimops = fromList $ first Ident <$>
           xs -> throwError $ WrongNumberOfArgs "eval-with-env" 2 (length xs))
     , ( "read"
       , evalOneArg "read" $ \case
-          String s -> read s
+          String s -> readValue s
           _ -> throwError $ TypeError "read: expects string"
       )
     , ("apply", evalArgs $ \case
@@ -269,8 +269,8 @@ evalOneArg fname f = evalArgs $ \case
   [x] -> f x
   xs -> throwError $ WrongNumberOfArgs fname 1 (length xs)
 
-read :: (MonadError (LangError Value) m, MonadState (Bindings n) m) => Text -> m Value
-read s = do
+readValue :: (MonadError (LangError Value) m, MonadState (Bindings n) m) => Text -> m Value
+readValue s = do
     allPrims <- gets bindingsPrimops
     let p = parse "[read-primop]" s (Map.keys allPrims)
     case p of
