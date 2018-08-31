@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-deprecations #-}
 module GHCJS where
 
@@ -10,8 +9,6 @@ import qualified Data.JSString as JSS
 import           Data.Scientific (floatingOrInteger)
 import qualified Data.Text as T
 import           GHC.Exts (fromList)
-import           GHCJS.DOM.XMLHttpRequest (getResponseText, newXMLHttpRequest,
-                                           openSimple, send)
 import           GHCJS.Foreign.Callback (Callback, OnBlocked(..), syncCallback1)
 import           GHCJS.Marshal
 import           GHCJS.Types
@@ -25,19 +22,8 @@ import           System.Console.Haskeline (InputT, defaultSettings, runInputT)
 main :: IO ()
 main = do
     bndsRef <- newIORef bindings
-    putStrLn ("Getting prelude" :: Text)
-    msrc <- preludeSrc
     cb <- syncCallback1 ContinueAsync (jsEval bndsRef)
     js_set_eval cb
-    case msrc of
-        Nothing -> putStrLn ("Prelude not readable" :: Text)
-        Just src -> do
-            putStrLn src
-            bnds <- readIORef bndsRef
-            res <- runInputT defaultSettings $ runLang bnds $ interpretMany "prelude" src
-            case res of
-                (Left _, newBnds)  -> liftIO $ writeIORef bndsRef newBnds
-                (Right _, newBnds) -> liftIO $ writeIORef bndsRef newBnds
 
 -- * FFI
 
@@ -63,16 +49,6 @@ jsEval bndsRef v = runInputT defaultSettings $ do
             pure $ renderPrettyDef v'
     sout <- liftIO $ toJSVal out
     liftIO $ setProp "result" sout o
-
--- * Prelude src
-
-preludeSrc :: IO (Maybe Text)
-preludeSrc = do
-    req <- newXMLHttpRequest
-    openSimple req ("GET" :: Text) ("prelude.rad" :: Text)
-    send req
-    getResponseText req
-
 
 -- * Primops
 

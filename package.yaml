@@ -22,6 +22,9 @@ dependencies:
 - serialise
 - scientific
 - text
+when:
+ - condition: impl(ghcjs)
+   dependencies: ghcjs-dom
 
 data-files:
 - rad/config.rad
@@ -123,7 +126,6 @@ executables:
     - servant
     - servant-client-ghcjs
     - http-media
-    - ghcjs-dom
     when:
       - condition: impl(ghcjs)
         then:
