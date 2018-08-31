@@ -128,7 +128,6 @@ executables:
     - servant
     - servant-client-ghcjs
     - http-media
-    - ghcjs-dom
     when:
       - condition: impl(ghcjs)
         then:
