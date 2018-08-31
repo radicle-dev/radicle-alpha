@@ -21,7 +21,7 @@ main = do
     case args of
       [portStr] -> case readEither portStr of
           Right port -> run port app
-          Left _     -> die "Expecting argument to be a port (integer)"
+          Left _ -> die "Expecting argument to be a port (integer)"
       [] -> run 80 app
       _ -> die "Expecting zero or one arguments (port)"
 
@@ -74,7 +74,7 @@ insertExpr st name val = do
     let chain = fromMaybe (Chain name pureEnv mempty) x
     let (r, s) = runIdentity $ runLang (chainState chain) (eval val)
     case r of
-        Left _ -> pure $ Left "invalid expression"
+        Left e -> pure . Left $ "invalid expression: " <> show e
         Right o -> Right <$> STMMap.insert
             (chain { chainState = s
                    , chainExprs = chainExprs chain Seq.|> (val, o) })

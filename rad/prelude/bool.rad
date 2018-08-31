@@ -1,0 +1,64 @@
+"not a comment"
+
+;; boolean functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; not
+
+(define not (lambda (x) (if x #f #t)))
+
+(document 'not
+  '(("arg" any))
+  "True if 'arg' is #f, false otherwise.")
+
+;; and
+
+(define and
+  (lambda (x y)
+    (if x y x)))
+
+(document 'and
+  '(("arg1" any) ("arg2" any))
+  "Returns 'arg2' if 'arg1' is not #f, otherwise returns 'arg1'")
+
+(should-be "and" (and #t #t) #t)
+(should-be "and" (and #t #f) #f)
+(should-be "and" (and #f #t) #f)
+(should-be "and" (and #f #f) #f)
+
+;; or
+
+(define or
+  (lambda (x y)
+    (if x x y)))
+
+(document 'or
+  '(("arg1" any) ("arg2" any))
+  "Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'")
+
+(should-be "or" (or #t #t) #t)
+(should-be "or" (or #t #f) #t)
+(should-be "or" (or #f #t) #t)
+(should-be "or" (or #f #f) #f)
+
+;; all
+
+(define all
+  (lambda (xs) (foldr and #t xs)))
+
+(should-be "all" (all '()) #t)
+(should-be "all" (all '(#t)) #t)
+(should-be "all" (all '(#f)) #f)
+(should-be "all" (all '(#t #t #t #t)) #t)
+(should-be "all" (all '(#t #t #f #t)) #f)
+
+;; some
+
+(define some
+  (lambda (xs) (foldr or #f xs)))
+
+(should-be "some" (some '()) #f)
+(should-be "some" (some '(#t)) #t)
+(should-be "some" (some '(#f)) #f)
+(should-be "some" (some '(#f #f #f)) #f)
+(should-be "some" (some '(#t #t #t #t)) #t)
+(should-be "some" (some '(#t #t #f #t)) #t)

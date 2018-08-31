@@ -24,6 +24,9 @@ dependencies:
 - aeson
 - scientific
 - text
+when:
+ - condition: impl(ghcjs)
+   dependencies: ghcjs-dom
 
 data-files:
 - rad/config.rad

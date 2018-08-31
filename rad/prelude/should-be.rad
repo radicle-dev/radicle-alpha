@@ -1,0 +1,15 @@
+"not a comment"
+
+;; should-be
+
+(define should-be
+  (lambda (name x y)
+    (if (eq? x y)
+        (print! (string-append "Test '" name "' succeeded"))
+      (print! (string-append "Test '" name "' failed")))))
+
+(document 'should-be
+  '(("test-name" string) ("actual" any) ("expected" any))
+  "Checks that 'actual' equals 'expected'. Used for tests")
+
+(should-be "doc" (string? (doc 'doc)) #t)
