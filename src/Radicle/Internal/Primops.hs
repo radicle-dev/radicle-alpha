@@ -35,6 +35,11 @@ pureEnv = Bindings e purePrimops r 1
 purePrimops :: forall m. (Monad m) => Primops m
 purePrimops = fromList $ first Ident <$>
     [ ("base-eval", evalOneArg "base-eval" baseEval)
+    , ( "pure-env"
+      , \case
+          [] -> pure $ unmakeBindings (pureEnv :: Bindings m)
+          xs -> throwError $ WrongNumberOfArgs "pure-env" 0 (length xs)
+      )
     , ("eval-with-env", evalArgs $ \case
           [expr, env] -> do
               bnds <- makeBindings env
