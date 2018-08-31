@@ -51,7 +51,7 @@ insertExpr st name val = do
     let chain = fromMaybe (Chain name pureEnv mempty) x
     let (r, s) = runIdentity $ runLang (chainState chain) (eval val)
     case r of
-        Left _ -> pure $ Left "invalid expression"
+        Left e -> pure . Left $ "invalid expression: " <> show e
         Right _ -> Right <$> STMMap.insert
             (chain { chainState = s
                    , chainExprs = chainExprs chain Seq.|> val })

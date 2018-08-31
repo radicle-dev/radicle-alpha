@@ -35,6 +35,11 @@ pureEnv = Bindings e purePrimops r 1
 purePrimops :: forall m. (Monad m) => Primops m
 purePrimops = fromList $ first Ident <$>
     [ ("base-eval", evalOneArg "base-eval" baseEval)
+    , ( "pure-env"
+      , \case
+          [] -> pure $ unmakeBindings (pureEnv :: Bindings m)
+          xs -> throwError $ WrongNumberOfArgs "pure-env" 0 (length xs)
+      )
     , ("eval-with-env", evalArgs $ \case
           [expr, env] -> do
               bnds <- makeBindings env
@@ -43,11 +48,18 @@ purePrimops = fromList $ first Ident <$>
                   Left e    -> throwError e
                   Right res -> pure $ List [res, unmakeBindings bnds']
           xs -> throwError $ WrongNumberOfArgs "eval-with-env" 2 (length xs))
+    , ("apply", evalArgs $ \case
+          [fn, List args] -> eval . List $ fn:args
+          [_, _]          -> throwError $ TypeError "apply: expecting list as second arg"
+          xs -> throwError $ WrongNumberOfArgs "apply" 2 (length xs))
     , ( "read"
       , evalOneArg "read" $ \case
           String s -> readValue s
           _ -> throwError $ TypeError "read: expects string"
       )
+    , ("get-current-env", \case
+          [] -> unmakeBindings <$> get
+          xs -> throwError $ WrongNumberOfArgs "get-current-env" 0 (length xs))
     , ("list", evalArgs $ \args -> pure $ List args)
     , ("dict", evalArgs $ (Dict . foldr (uncurry Map.insert) mempty <$>) . evenArgs "dict")
     , ("quote", \args -> case args of
