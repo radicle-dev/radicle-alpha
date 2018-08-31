@@ -16,6 +16,7 @@ instance Read a => MimeUnrender PlainText a where
 type API
   =    "submit" :> ReqBody '[PlainText] Value :> Post '[PlainText] ()
   :<|> "since"  :> Capture "chain" Text :> Capture "index" Int :> Get '[PlainText] [Value]
+  :<|> "outputs" :> Capture "chain" Text :> Get '[JSON, PlainText] [Maybe DataValue]
   :<|> Raw
 
 api :: Proxy API

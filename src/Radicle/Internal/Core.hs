@@ -6,8 +6,11 @@ import           Codec.Serialise (Serialise)
 import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
                                        throwError)
 import           Control.Monad.State
+import           Data.Aeson (ToJSON(..), FromJSON(..))
+import qualified Data.Aeson as A
 import           Data.Data (Data)
 import qualified Data.IntMap as IntMap
+import qualified Data.HashMap.Strict as HashMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
@@ -16,7 +19,7 @@ import           Data.Semigroup ((<>))
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
 
-import Radicle.Internal.Orphans ()
+import           Radicle.Internal.Orphans ()
 
 -- * Value
 
@@ -110,6 +113,64 @@ data Value =
     deriving (Eq, Show, Ord, Read, Generic)
 
 instance Serialise Value
+
+-- | The data portion of values.
+data DataValue =
+      DAtom Ident
+    | DKeyword Ident
+    | DString Text
+    | DNumber Scientific
+    | DBoolean Bool
+    | DList [DataValue]
+    | DDict (Map.Map DataValue DataValue)
+    deriving (Eq, Show, Ord, Read, Generic)
+
+instance A.ToJSON Ident
+instance A.FromJSON Ident
+instance A.ToJSONKey DataValue
+instance A.FromJSONKey DataValue
+
+instance A.ToJSON DataValue where
+  toJSON = \case
+      DNumber n -> toJSON n
+      DList ls -> toJSON ls
+      DBoolean b -> toJSON b
+      DString s -> toJSON s
+      DDict m ->
+        let kvs = Map.toList m
+        in  case traverse isString (fst <$> kvs) of
+              Just ss -> A.Object (HashMap.fromList (zip ss (toJSON . snd <$> kvs)))
+              Nothing -> toJSON m
+      x -> A.genericToJSON A.defaultOptions x
+    where
+      isString (DString s) = Just s
+      isString _ = Nothing
+
+instance A.FromJSON DataValue where
+  parseJSON = \case
+    A.Number n -> pure $ DNumber n
+    A.String s -> pure $ DString s
+    A.Array ls -> DList . toList <$> traverse parseJSON ls
+    A.Bool b -> pure $ DBoolean b
+    A.Null -> pure $ DKeyword (toIdent "null")
+    o@(A.Object hm) ->
+          A.genericParseJSON A.defaultOptions o
+      <|> do let kvs = HashMap.toList hm
+             vs <- traverse parseJSON (snd <$> kvs)
+             pure . DDict . Map.fromList $ zip (DString . fst <$> kvs) vs
+
+isData :: Value -> Maybe DataValue
+isData = \case
+    Atom i -> pure $ DAtom i
+    Keyword i -> pure $ DKeyword i
+    String s -> pure $ DString s
+    Number n -> pure $ DNumber n
+    Boolean b -> pure $ DBoolean b
+    List ls -> DList <$> traverse isData ls
+    Dict m -> DDict . Map.fromList <$> traverse kv (Map.toList m)
+    _ -> Nothing
+  where
+    kv (k,v) = (,) <$> isData k <*> isData v
 
 -- | An identifier in the language.
 --

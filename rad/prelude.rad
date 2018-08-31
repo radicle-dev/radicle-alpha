@@ -38,7 +38,7 @@
 (should-be "doc" (string? (doc 'doc)) #t)
 
 ;; read-line
-(define read-line
+(define read-line!
   (lambda () (read (get-line!))))
 
 ;; boolean functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

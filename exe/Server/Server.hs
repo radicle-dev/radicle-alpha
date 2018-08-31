@@ -21,13 +21,13 @@ main = do
     case args of
       [portStr] -> case readEither portStr of
           Right port -> run port app
-          Left _ -> die "Expecting argument to be a port (integer)"
+          Left _     -> die "Expecting argument to be a port (integer)"
       [] -> run 80 app
       _ -> die "Expecting zero or one arguments (port)"
 
 
 server :: Chains -> Server API
-server st = submit st :<|> since st :<|> static
+server st = submit st :<|> since st :<|> jsonOutputs st :<|> static
 
 -- * Handlers
 
@@ -45,16 +45,27 @@ submit st val = case val of
     _ -> throwError
        $ err400 { errBody = "Expecting pair with chain name and val" }
 
--- | Get all expressions submitted to a chain since 'index'.
-since :: Chains -> Text -> Int -> Handler [Value]
-since st name index = do
+getActivitySince :: Chains -> Text -> Int -> Handler [(Value, Value)]
+getActivitySince st name index = do
     r <- liftIO . atomically $ getSince st name index
     case r of
         Nothing -> throwError $ err400 { errBody = "No such chain/index" }
         Just v  -> pure v
 
+-- | Get all expressions submitted to a chain since 'index'.
+since :: Chains -> Text -> Int -> Handler [Value]
+since st name index =
+    fmap fst <$> getActivitySince st name index
+
+jsonOutputs :: Chains -> Text -> Handler [Maybe DataValue]
+jsonOutputs st name = do
+  vs <- fmap snd <$> getActivitySince st name 0
+  let ds = isData <$> vs
+  pure ds
+
 static :: Server Raw
 static = serveDirectoryFileServer "static/"
+
 -- * Helpers
 
 insertExpr :: Chains -> Text -> Value -> STM (Either Text ())
@@ -64,13 +75,13 @@ insertExpr st name val = do
     let (r, s) = runIdentity $ runLang (chainState chain) (eval val)
     case r of
         Left _ -> pure $ Left "invalid expression"
-        Right _ -> Right <$> STMMap.insert
+        Right o -> Right <$> STMMap.insert
             (chain { chainState = s
-                   , chainExprs = chainExprs chain Seq.|> val })
+                   , chainExprs = chainExprs chain Seq.|> (val, o) })
             name
             (getChains st)
 
-getSince :: Chains -> Text -> Int -> STM (Maybe [Value])
+getSince :: Chains -> Text -> Int -> STM (Maybe [(Value, Value)])
 getSince st name index = do
     x <- STMMap.lookup name $ getChains st
     pure $ toList . Seq.drop index . chainExprs <$> x
@@ -80,7 +91,7 @@ getSince st name index = do
 data Chain = Chain
     { chainName  :: Text
     , chainState :: Bindings Identity
-    , chainExprs :: Seq Value
+    , chainExprs :: Seq (Value, Value)
     } deriving (Generic)
 
 newtype Chains = Chains { getChains :: STMMap.Map Text Chain }
