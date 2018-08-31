@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-deprecations #-}
 module GHCJS where
 
-import           Protolude hiding (TypeError, on)
+import           Protolude hiding (TypeError)
 
 import           API
 import           Data.IORef
