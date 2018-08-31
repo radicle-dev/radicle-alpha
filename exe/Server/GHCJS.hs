@@ -21,13 +21,13 @@ import           Radicle
 import           Servant.API ((:<|>)(..))
 import           Servant.Client.Ghcjs
 import           System.Console.Haskeline (InputT, defaultSettings, runInputT)
-import           System.IO.Unsafe
 
 main :: IO ()
 main = do
+    bndsRef <- newIORef bindings
     putStrLn ("Getting prelude" :: Text)
     msrc <- preludeSrc
-    cb <- syncCallback1 ContinueAsync jsEval
+    cb <- syncCallback1 ContinueAsync (jsEval bndsRef)
     js_set_eval cb
     case msrc of
         Nothing -> putStrLn ("Prelude not readable" :: Text)
@@ -46,12 +46,9 @@ foreign import javascript unsafe "eval_fn_ = $1"
 
 -- * Export
 
-bndsRef :: IORef (Bindings (InputT IO))
-bndsRef = unsafePerformIO $ newIORef bindings
-{-# NOINLINE bndsRef #-}
 
-jsEval :: JSVal -> IO ()
-jsEval v = runInputT defaultSettings $ do
+jsEval :: IORef (Bindings (InputT IO)) -> JSVal -> IO ()
+jsEval bndsRef v = runInputT defaultSettings $ do
     let o = Object v
     ms <- liftIO $ fromJSVal =<< getProp "arg" o
     let s = case ms of
@@ -75,7 +72,6 @@ preludeSrc = do
     openSimple req ("GET" :: Text) ("prelude.rad" :: Text)
     send req
     getResponseText req
-
 
 
 -- * Primops
