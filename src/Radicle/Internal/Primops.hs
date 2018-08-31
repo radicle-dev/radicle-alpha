@@ -43,6 +43,10 @@ purePrimops = fromList $ first Ident <$>
                   Left e    -> throwError e
                   Right res -> pure $ List [res, unmakeBindings bnds']
           xs -> throwError $ WrongNumberOfArgs "eval-with-env" 2 (length xs))
+    , ("apply", evalArgs $ \case
+          [fn, List args] -> eval . List $ fn:args
+          [_, _]          -> throwError $ TypeError "apply: expecting list as second arg"
+          xs -> throwError $ WrongNumberOfArgs "apply" 2 (length xs))
     , ( "read"
       , evalOneArg "read" $ \case
           String s -> readValue s

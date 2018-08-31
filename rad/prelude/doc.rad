@@ -1,0 +1,24 @@
+(define document
+  (lambda (name args description)
+    (define old (read-ref _doc-ref))
+    (write-ref
+       _doc-ref
+       (insert name (dict :args args :desc description) old))))
+
+(document 'document
+  '(("name" atom) '("args" list) '("description" desc))
+  "Documents an atom. The documentation can then be retrieved with '(doc name)'.")
+
+;; doc
+
+(define doc
+  (lambda (name)
+    (define the-doc (lookup name (read-ref _doc-ref)))
+    (string-append
+       (lookup :desc the-doc)
+       "\nArguments:\n\t"
+       (show (lookup :args the-doc)))))
+
+(document 'doc
+  '(("name" atom))
+  "Retrieves the documentation for an atom, if there is any.")

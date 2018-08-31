@@ -1,0 +1,12 @@
+"not a comment"
+
+;; ref functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; modify-ref
+(define modify-ref
+  (lambda (r fn)
+    (write-ref r (fn (read-ref r)))))
+
+(document 'modify-ref
+  '(("ref" ref) ("fn" function))
+  "Modify 'ref' by applying the provided function.")
