@@ -3,9 +3,11 @@
 ;; Handle an input in the morphing state-machine.
 (define state-machine-input
   (lambda (state i)
-    (define upd (lambda (s) ((view-ref state (@ :transition-fn)) s i)))
-    (over-ref state (@ :machine-state) upd)
-    (string-append "ACCEPTED! new state: " (show (view-ref state (@ :machine-state))))))
+    (define trans-fn (view-ref state (@ :transition-fn)))
+    (define current-state (view-ref state (@ :machine-state)))
+    (define next (trans-fn current-state i))
+    (set-ref state (@ :machine-state) (view (@ :state) next))
+    (view (@ :output) next)))
 
 ;; Trigger a new vote
 (define state-machine-new-trans
@@ -51,11 +53,15 @@
        (eq? verb 'disagree)       (state-machine-disagree  state voters input)
        :else                      (throw 'invalid-input (string-append "The only valid commands are 'input', 'new-trans-func', 'agree' and 'disagree': " (show expr)))))))
 
-(define integer-machine
-  (state-machine-eval (list "alice777" "bob_1337") 0 +))
-
-(define discussion
-  (state-machine-eval (list "james" "julian")
-                      ""
-                      (lambda (cur inp)
-                        (string-append cur "\n\n" (head inp) ": " (head (tail inp))))))
+(define issues
+  (state-machine-eval
+   (list "alice" "bob")
+   (dict :next-id 0 :comments (list))
+   (lambda (state inp)
+     (define c (insert "issue_id" (show (view (@ :next-id) state)) inp))
+     (dict :state (over (@ :comments)
+                        (lambda (cs) (cons c cs))
+                  (over (@ :next-id)
+                        (lambda (x) (+ x 1))
+                        state))
+           :output c))))
