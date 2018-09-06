@@ -4,6 +4,7 @@ import           API
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Sequence as Seq
 import           Network.Wai.Handler.Warp
+import           Network.Wai.Middleware.Cors
 import           Network.Wai.Middleware.Gzip
 import           Protolude hiding (fromStrict)
 import           Radicle
@@ -16,12 +17,12 @@ main :: IO ()
 main = do
     st <- newState
     let gzipSettings = def { gzipFiles = GzipPreCompressed GzipIgnore }
-        app = gzip gzipSettings (serve api (server st))
+        app = simpleCors $ gzip gzipSettings (serve api (server st))
     args <- getArgs
     case args of
       [portStr] -> case readEither portStr of
-          Right port -> run port app
-          Left _ -> die "Expecting argument to be a port (integer)"
+          Right port ->            run port app
+          Left _     -> die "Expecting argument to be a port (integer)"
       [] -> run 80 app
       _ -> die "Expecting zero or one arguments (port)"
 

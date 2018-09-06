@@ -1,0 +1,3 @@
+[submodule "static/rad-issues-frontend"]
+	path = static/rad-issues-frontend
+	url = git@github.com:jameshaydon/rad-issues-frontend.git
