@@ -28,14 +28,19 @@ instance Pretty Value where
         Number n -> pretty (show n :: Text)
         Boolean True -> "#t"
         Boolean False -> "#f"
-        List vs -> parens (sep (pretty <$> vs))
+        List vs -> case vs of
+          [] -> "()"
+          [v'] -> parens $ pretty v'
+          v':vs' -> parens $ (pretty v') <+> (align . sep $ pretty <$> vs')
         Primop i -> pretty i
         Dict mp -> parens $
-            "dict" <+> sep [ pretty k <+> pretty val
-                           | (k, val) <- Map.toList mp ]
+            "dict" <+> align (sep [ pretty k <+> pretty val
+                                  | (k, val) <- Map.toList mp ])
         Lambda ids vals _ -> parens $
-            "lambda" <+> parens (sep $ pretty <$> ids)
-                     <+> sep (pretty <$> toList vals)
+            "lambda" <+> (align $ sep
+                            [ parens . sep $ pretty <$> ids
+                            , sep $ pretty <$> toList vals
+                            ])
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
 
