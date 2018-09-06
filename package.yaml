@@ -96,6 +96,7 @@ executables:
     - stm
     - warp
     - wai-extra
+    - wai-cors
     ghc-options: -main-is Server -Wall -O3 -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
   client:

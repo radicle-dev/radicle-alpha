@@ -1,5 +1,38 @@
 "not a comment"
 
+(define head-shots
+  (dict "onur" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/1712926.png"
+        "ele" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/853825.png"
+        "alexis" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/40774.png"
+        "kim" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/6163.png"
+        "julien" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/2326909.jpg"))
+
+(define get-head-shot
+  (lambda (x)
+    (define y (lookup x head-shots))
+    (if (eq? y '())
+        "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/2326909.jpg"
+        y)))
+
+(define issue-trans
+  (lambda (state inp)
+    (define c (dict "key" (show (view (@ :next-id) state))
+                    "username" (nth 0 inp)
+                    "comment" (nth 1 inp)
+                    "profile_pic_url" (get-head-shot (nth 0 inp))))
+    (dict :state (over (@ :comments)
+                       (lambda (cs) (cons c cs))
+                       (over (@ :next-id)
+                             (lambda (x) (+ x 1))
+                             state))
+          :output c)))
+
+(define kim-trans
+  (lambda (state i)
+    (if (eq? (nth 0 i) "kim")
+        (issue-trans state (list "kim" "LGTM"))
+        (issue-trans state i))))
+
 ;; Handle an input in the morphing state-machine.
 (define state-machine-input
   (lambda (state i)
@@ -57,11 +90,5 @@
   (state-machine-eval
    (list "alice" "bob")
    (dict :next-id 0 :comments (list))
-   (lambda (state inp)
-     (define c (insert "issue_id" (show (view (@ :next-id) state)) inp))
-     (dict :state (over (@ :comments)
-                        (lambda (cs) (cons c cs))
-                  (over (@ :next-id)
-                        (lambda (x) (+ x 1))
-                        state))
-           :output c))))
+   issue-trans
+   ))
