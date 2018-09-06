@@ -2,7 +2,7 @@ name: radicle
 version: '0.0.0'
 author: Monadic <team@monadic.xyz>
 maintainer: Monadic <team@monadic.xyz>
-license: BSD3
+license: MIT
 git: oscoin/radicle
 extra-source-files:
 - README.md
