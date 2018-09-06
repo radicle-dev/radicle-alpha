@@ -135,9 +135,9 @@
   "Like 'set', but for refs.")
 
 (should-be "set-ref"
-           (do (define r (ref (dict :a 1)))
-               (set-ref r (@ :a) 2)
-               (view-ref r (@ :a)))
+           (do (define __r (ref (dict :a 1)))
+               (set-ref __r (@ :a) 2)
+               (view-ref __r (@ :a)))
            2)
 ;; set-ref
 

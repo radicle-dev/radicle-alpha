@@ -7,10 +7,9 @@
   "Welcome to radicle. Type (help) for help.")
 
 (define help (lambda ()
-  "radicle is a LISP-like language intendended for programming chains, and
-  interacting with those chains.
+  "radicle is a LISP-like language intendended for programming chains, and interacting with those chains.
 
-  Type (doc <name>) for further documentation of <name>."))
+  Type (doc '<name>) for further documentation of <name>."))
 
 
 (define repl
