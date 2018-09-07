@@ -14,7 +14,7 @@
         "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/2326909.jpg"
         y)))
 
-(define issue-trans
+(define pr-trans
   (lambda (state inp)
     (define c (dict "key" (show (view (@ :next-id) state))
                     "username" (nth 0 inp)
@@ -86,9 +86,16 @@
        (eq? verb 'disagree)       (state-machine-disagree  state voters input)
        :else                      (throw 'invalid-input (string-append "The only valid commands are 'input', 'new-trans-func', 'agree' and 'disagree': " (show expr)))))))
 
-(define issues
+(define simple-trans
+  (lambda (f)
+    (lambda (s i)
+      (define y (f s i))
+      (dict :state y
+            :output y))))
+
+(define pr-thread
   (state-machine-eval
    (list "alice" "bob")
    (dict :next-id 0 :comments (list))
-   issue-trans
+   pr-trans
    ))
