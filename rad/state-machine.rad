@@ -30,8 +30,8 @@
 (define kim-trans
   (lambda (state i)
     (if (eq? (nth 0 i) "kim")
-        (issue-trans state (list "kim" "LGTM"))
-        (issue-trans state i))))
+        (pr-trans state (list "kim" "LGTM"))
+        (pr-trans state i))))
 
 ;; Handle an input in the morphing state-machine.
 (define state-machine-input
