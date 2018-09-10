@@ -184,6 +184,7 @@ purePrimops = fromList $ first Ident <$>
       , let kw = pure . Keyword . Ident
         in evalOneArg "type" $ \case
              Atom _ -> kw "atom"
+             Keyword _ -> kw "keyword"
              String _ -> kw "string"
              Number _ -> kw "number"
              Boolean _ -> kw "boolean"
