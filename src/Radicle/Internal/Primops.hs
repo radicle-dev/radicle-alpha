@@ -18,8 +18,8 @@ import           Data.Scientific (Scientific, floatingOrInteger)
 import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
-import           Radicle.Internal.Pretty
 import           Radicle.Internal.Parse
+import           Radicle.Internal.Pretty
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: (Monad m) => Bindings m
@@ -110,7 +110,7 @@ purePrimops = fromList $ first Ident <$>
             Right i -> do
               let x_ = indexMay i xs
               case x_ of
-                Just x -> pure x
+                Just x  -> pure x
                 Nothing -> throwError $ OtherError "nth: index out of bounds"
           [_,_] -> throwError $ TypeError "nth: expects a integer and a list"
           xs -> throwError $ WrongNumberOfArgs "nth" 2 (length xs)
@@ -177,6 +177,22 @@ purePrimops = fromList $ first Ident <$>
     , ("list?", evalOneArg "list?" $ \case
                   List _ -> pure tt
                   _      -> pure ff)
+    , ("dict?", evalOneArg "dict?" $ \case
+                  Dict _ -> pure tt
+                  _      -> pure ff)
+    , ( "type"
+      , let kw = pure . Keyword . Ident
+        in evalOneArg "type" $ \case
+             Atom _ -> kw "atom"
+             String _ -> kw "string"
+             Number _ -> kw "number"
+             Boolean _ -> kw "boolean"
+             List _ -> kw "list"
+             Primop _ -> kw "primop"
+             Dict _ -> kw "dict"
+             Ref _ -> kw "ref"
+             Lambda{} -> kw "lambda"
+      )
     , ("string?", evalOneArg "string?" $ \case
           String _ -> pure tt
           _        -> pure ff)
@@ -234,8 +250,8 @@ purePrimops = fromList $ first Ident <$>
           else cond ps
 
     indexMay :: Int -> [a] -> Maybe a
-    indexMay _ [] = Nothing
-    indexMay 0 (x:_) = pure x
+    indexMay _ []     = Nothing
+    indexMay 0 (x:_)  = pure x
     indexMay n (_:xs) = indexMay (n - 1) xs
 
     -- | Some forms/functions expect an even number or arguments.
@@ -280,7 +296,7 @@ readValue s = do
     let p = parse "[read-primop]" s (Map.keys allPrims)
     case p of
       Right v -> pure v
-      Left e -> throwError $ ThrownError (Ident "parse-error") (String e)
+      Left e  -> throwError $ ThrownError (Ident "parse-error") (String e)
 
 -- | Convert Bindings into a Value that can be used with radicle.
 unmakeBindings :: Bindings m -> Value
