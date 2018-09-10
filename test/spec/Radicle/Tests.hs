@@ -266,7 +266,7 @@ test_eval =
         "(type 'a)" `hasTy` "atom"
         "(type 1)" `hasTy` "number"
         "(type #t)" `hasTy` "boolean"
-        "(type if)" `hasTy` "primop"
+        "(type list?)" `hasTy` "primop"
         "(type (list 1 2 3))" `hasTy` "list"
         "(type (dict 1 2))" `hasTy` "dict"
         "(type (ref 0))" `hasTy` "ref"
