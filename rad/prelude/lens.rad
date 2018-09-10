@@ -135,9 +135,11 @@
   "Like 'set', but for refs.")
 
 (should-be "set-ref"
-           (do (define r (ref (dict :a 1)))
-               (set-ref r (@ :a) 2)
-               (view-ref r (@ :a)))
+           ((lambda (r)
+              (define r (ref (dict :a 1)))
+              (set-ref r (@ :a) 2)
+              (view-ref r (@ :a)))
+            (ref (dict :a 1)))
            2)
 ;; set-ref
 
@@ -150,7 +152,9 @@
   "Like 'over', but for refs.")
 
 (should-be "over-ref"
-           (do (define r (ref (dict :a 2)))
-               (over-ref r (@ :a) (lambda (x) (* x 2)))
-               (view-ref r (@ :a)))
+           ((lambda (r)
+              (define r (ref (dict :a 2)))
+              (over-ref r (@ :a) (lambda (x) (* x 2)))
+              (view-ref r (@ :a)))
+            (ref (dict :a 2)))
            4)
