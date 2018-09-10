@@ -225,9 +225,6 @@ purePrimops = fromList $ first Ident <$>
     ]
   where
 
-    tt = Boolean True
-    ff = Boolean False
-
     cond = \case
       [] -> pure nil
       (c,e):ps -> do
@@ -248,6 +245,9 @@ purePrimops = fromList $ first Ident <$>
       x:y:xs -> do
         ps <- evenArgs name xs
         pure ((x,y):ps)
+
+    tt = Boolean True
+    ff = Boolean False
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text
