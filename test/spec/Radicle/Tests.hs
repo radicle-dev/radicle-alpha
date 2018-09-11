@@ -247,6 +247,29 @@ test_eval =
         let prog = [s|(number? #t)|]
         prog `succeedsWith` Boolean False
 
+    , testCase "'list?' works" $ do
+        "(list? '(1 :foo ))" `succeedsWith` Boolean True
+        "(list? '())" `succeedsWith` Boolean True
+        "(list? :foo)" `succeedsWith` Boolean False
+
+    , testCase "'dict?' works" $ do
+        "(dict? (dict))" `succeedsWith` Boolean True
+        "(dict? (dict :key 2))" `succeedsWith` Boolean True
+        "(dict? :foo)" `succeedsWith` Boolean False
+
+    , testCase "'type' returns the type, as a keyword" $ do
+        let hasTy prog ty = prog `succeedsWith` (Keyword (Ident ty))
+        "(type :keyword)" `hasTy` "keyword"
+        "(type \"string\")" `hasTy` "string"
+        "(type 'a)" `hasTy` "atom"
+        "(type 1)" `hasTy` "number"
+        "(type #t)" `hasTy` "boolean"
+        "(type list?)" `hasTy` "primop"
+        "(type (list 1 2 3))" `hasTy` "list"
+        "(type (dict 1 2))" `hasTy` "dict"
+        "(type (ref 0))" `hasTy` "ref"
+        "(type (lambda (x) x))" `hasTy` "lambda"
+
     , testCase "'+' sums the list of numbers" $ do
         let prog1 = [s|(+ 2 (+ 2 3))|]
         prog1 `succeedsWith` Number 7
