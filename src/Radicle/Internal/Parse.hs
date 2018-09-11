@@ -3,14 +3,13 @@ module Radicle.Internal.Parse where
 import           Protolude hiding (some, try)
 
 import           Data.Char (isAlphaNum, isLetter)
-import           Data.List.NonEmpty (NonEmpty((:|)), fromList)
+import           Data.List.NonEmpty (NonEmpty((:|)))
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import           GHC.Exts (IsString(..))
 import           Text.Megaparsec (ParsecT, State(..), between, choice,
                                   defaultTabWidth, eof, initialPos, manyTill,
-                                  runParserT, runParserT', sepBy, some, try,
-                                  (<?>))
+                                  runParserT, runParserT', sepBy, try, (<?>))
 import qualified Text.Megaparsec as M
 import           Text.Megaparsec.Char (char, satisfy, space1)
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -36,8 +35,14 @@ symbol = L.symbol spaceConsumer
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme spaceConsumer
 
+inside :: Text -> Text -> Parser a -> Parser a
+inside b e = between (symbol b >> spaceConsumer) (spaceConsumer >> symbol e)
+
 parensP :: Parser a -> Parser a
-parensP = between (symbol "(" >> spaceConsumer) (spaceConsumer >> symbol ")")
+parensP = inside "(" ")"
+
+bracesP :: Parser a -> Parser a
+bracesP = inside "{" "}"
 
 stringLiteralP :: VParser
 stringLiteralP = lexeme $
@@ -72,18 +77,21 @@ keywordP = do
   kw <- many (satisfy isValidIdentRest)
   pure . Keyword . Ident . fromString $ kw
 
-applyP :: VParser
-applyP = List <$> valueP `sepBy` spaceConsumer
+listP :: VParser
+listP = parensP (List <$> valueP `sepBy` spaceConsumer)
+
+mapP :: VParser
+mapP = bracesP (Dict . Map.fromList <$> evenItems)
+  where
+    evenItems = twoItems `sepBy` spaceConsumer
+    twoItems = do
+      x <- valueP
+      spaceConsumer
+      y <- valueP
+      pure (x,y)
 
 quoteP :: VParser
 quoteP = List . ((Primop $ toIdent "quote") :) . pure <$> (char '\'' >> valueP)
-
-lambdaP :: VParser
-lambdaP = do
-    void $ symbol "lambda"
-    vars <- parensP $ identP `sepBy` spaceConsumer
-    body <- fromList <$> some valueP
-    pure $ Lambda vars body Nothing
 
 valueP :: VParser
 valueP = do
@@ -94,15 +102,11 @@ valueP = do
       , try numLiteralP <?> "number"
       , atomOrPrimP <?> "identifier"
       , quoteP <?> "quote"
-      , parensP appLike <?> "application"
+      , listP <?> "list"
+      , mapP <?> "dict"
       ]
   spaceConsumer
   pure v
-  where
-    appLike = choice
-        [ lambdaP <?> "lambda"
-        , applyP <?> "application"
-        ]
 
 -- * Utilities
 

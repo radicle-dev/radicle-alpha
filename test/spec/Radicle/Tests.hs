@@ -396,7 +396,7 @@ test_eval =
         runTest' "(show #f)" @?= Right (String "#f")
         runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1.0 \"foo\" (b (quote x) 2.0 \"bar\"))")
         runTest' "eval" @?= Right (Primop (toIdent "base-eval"))
-        runTest' "(show (dict 'a 1))" @?= Right (String "(dict a 1.0)")
+        runTest' "(show (dict 'a 1))" @?= Right (String "{a 1.0}")
         runTest' "(show (lambda (x) x))" @?= Right (String "(lambda (x) x)")
 
     , testCase "'read' works" $
@@ -437,7 +437,7 @@ test_parser =
         "(++)" ~~> List [Atom (toIdent "++")]
         "(++ \"merge\" \"d\")" ~~> List [Atom (toIdent "++"), String "merge", String "d"]
 
-    , testCase "parses number" $ do
+    , testCase "parses numbers" $ do
         "0.15" ~~> Number 0.15
         "2000" ~~> Number 2000
 
@@ -447,6 +447,9 @@ test_parser =
 
     , testCase "parses identifiers that have a primop as prefix" $ do
         "evaluate" ~~> Atom (toIdent "evaluate")
+
+    , testCase "parses dicts" $ do
+        "{:foo 3}" ~~> Dict (Map.singleton (Keyword (toIdent "foo")) (Number 3))
     ]
   where
     x ~~> y = parseTest x @?= Right y

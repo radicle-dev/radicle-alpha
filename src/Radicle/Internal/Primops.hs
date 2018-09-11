@@ -34,7 +34,15 @@ pureEnv = Bindings e purePrimops r 1
 -- not shadowable via 'define'.
 purePrimops :: forall m. (Monad m) => Primops m
 purePrimops = fromList $ first Ident <$>
-    [ ("base-eval", evalOneArg "base-eval" baseEval)
+    [ ( "lambda"
+      , \case
+          List atoms_ : b : bs -> do
+            atoms <- traverse isAtom atoms_ ?? "lambda: expecting a list of symbols"
+            e <- gets bindingsEnv
+            pure (Lambda atoms (b :| bs) (Just e))
+          xs -> throwError $ WrongNumberOfArgs "lambda" 2 (length xs) -- TODO: technically "at least 2"
+      )
+    , ("base-eval", evalOneArg "base-eval" baseEval)
     , ( "pure-env"
       , \case
           [] -> pure $ unmakeBindings (pureEnv :: Bindings m)
