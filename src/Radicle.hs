@@ -13,8 +13,7 @@ module Radicle
     --
     -- | The definition of the core language.
       Value(..)
-    , DataValue(..)
-    , isData
+    , isJsonData
     , interpret
     , interpretMany
     , LangError(..)

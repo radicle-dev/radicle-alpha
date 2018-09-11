@@ -401,6 +401,11 @@ test_eval =
 
     , testCase "'read' works" $
         runTest' "(read \"(:hello 42)\")" @?= Right (List [Keyword (toIdent "hello"), Number 42])
+
+    , testCase "'to-json' works" $ do
+        runTest' "(to-json (dict \"foo\" #t))" @?= Right (String "{\"foo\":true}")
+        runTest' "(to-json (dict \"key\" (list 1 \"value\")))" @?= Right (String "{\"key\":[1,\"value\"]}")
+        runTest' "(to-json (dict 1 2))" @?= Left (OtherError "Could not serialise value to JSON")
     ]
   where
     failsWith src err    = runTest' src @?= Left err
