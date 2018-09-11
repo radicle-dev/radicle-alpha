@@ -90,7 +90,12 @@ replPrimops = Map.fromList $ first toIdent <$>
                         protect action = do
                             st <- get
                             action `catchError`
-                                (\err -> putStrS (renderPrettyDef err) >> put st)
+                                (\err -> case err of
+                                   Exit -> throwError err
+                                   Impossible _ -> do
+                                       putStrS (renderPrettyDef err)
+                                       throwError err
+                                   _ -> putStrS (renderPrettyDef err) >> put st)
                         go = do
                             -- We need to evaluate the getter in the original
                             -- environment in which it was defined, but the

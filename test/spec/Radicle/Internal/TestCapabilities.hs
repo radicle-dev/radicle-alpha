@@ -5,9 +5,12 @@ module Radicle.Internal.TestCapabilities where
 import           Protolude
 
 import qualified Data.Map.Strict as Map
+import qualified System.FilePath.Find as FP
 
 import           Radicle
 import           Radicle.Internal.Subscriber.Capabilities
+
+import           Paths_radicle
 
 data WorldState = WorldState
     { worldStateStdin  :: [Text]
@@ -62,11 +65,19 @@ runTest bnds prog = fst $ runTestWith bnds [] prog
 runTest' :: Text -> Either (LangError Value) Value
 runTest' = runTest pureEnv
 
+-- | The radicle source files, along with their directory.
+sourceFiles :: IO (FilePath, [FilePath])
+sourceFiles = do
+    dir <- getDataDir
+    allFiles <- FP.find FP.always (FP.extension FP.==? ".rad") dir
+    pure (dir <> "/", drop (length dir + 1) <$> allFiles)
+
+
 instance {-# OVERLAPPING #-} Stdin TestLang where
     getLineS = do
         ws <- lift get
         case worldStateStdin ws of
-            []   -> throwError $ OtherError "test: out of stdin"
+            []   -> throwError Exit
             h:hs -> lift (put $ ws { worldStateStdin = hs }) >> pure h
 
 instance {-# OVERLAPPING #-} Stdout TestLang where
@@ -77,5 +88,5 @@ instance {-# OVERLAPPING #-} ReadFile TestLang where
   readFileS fn = do
     fs <- lift $ gets worldStateFiles
     case Map.lookup fn fs of
-      Just f -> pure f
-      Nothing -> throwError $ OtherError "File not found"
+      Just f  -> pure f
+      Nothing -> throwError . OtherError $ "File not found: " <> fn

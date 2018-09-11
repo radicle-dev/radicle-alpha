@@ -29,8 +29,7 @@ when:
    dependencies: ghcjs-dom
 
 data-files:
-- rad/config.rad
-- rad/prelude.rad
+- rad/**/*.rad
 
 library:
   source-dirs: src
@@ -45,6 +44,7 @@ tests:
     dependencies:
     - radicle
     - directory
+    - filemanip
     - QuickCheck
     - quickcheck-instances
     - interpolate

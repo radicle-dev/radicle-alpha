@@ -3,13 +3,13 @@ module Radicle.Tests where
 
 import           Protolude hiding (toList)
 
-import           Data.List (isSuffixOf)
+import           Data.List (isInfixOf, isSuffixOf)
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromJust)
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
 import           GHC.Exts (fromList, toList)
-import           System.Directory (getDirectoryContents)
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck (counterexample, testProperty, (==>))
@@ -18,8 +18,6 @@ import           Radicle
 import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (toIdent)
 import           Radicle.Internal.TestCapabilities
-
-import           Paths_radicle
 
 test_eval :: [TestTree]
 test_eval =
@@ -470,10 +468,7 @@ test_repl_primops =
 
     , testCase "catch catches read-line errors" $ do
         let prog = [s|
-                 (define repl (dict 'name "repl" 'getter (lambda () (read (get-line!)))))
-                 (catch 'any
-                        (subscribe-to! repl (lambda (x) (print! x)))
-                        (lambda (x) "caught"))
+                 (catch 'any (read-line!) (lambda (x) "caught"))
                  |]
             input = ["\"blah"]
             res = run input prog
@@ -501,7 +496,7 @@ test_repl =
         let input = [ "((lambda (x) x) #t)" ]
             output = [ "#t" ]
         (_, result) <- runInRepl input
-        result @?= output
+        result @==> output
 
     , testCase "handles env modifications" $ do
         let input = [ "(define id (lambda (x) x))"
@@ -511,7 +506,7 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @?= output
+        result @==> output
 
     , testCase "handles 'eval' redefinition" $ do
         let input = [ "(define eval (lambda (x) #t))"
@@ -521,7 +516,7 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @?= output
+        result @==> output
 
     , testCase "(define eval (quote base-eval)) doesn't change things" $ do
         let input = [ "(define eval (quote base-eval))"
@@ -533,25 +528,27 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @?= output
+        result @==> output
     ]
     where
-      getCfg = getDataFileName "rad/config.rad" >>= readFile
+      r @==> out = reverse (take (length out) $ reverse r) @?= out
       -- The repl catches exceptions, including the "out of stdin" exception
       -- that occurs at the end of a session, so we take the 'init' of the
       -- result.
-      runInRepl inp = fmap initSafe <$> (runTestWith replBindings inp <$> getCfg)
+      runInRepl inp = do
+        (dir, srcs) <- sourceFiles
+        srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
+        let replSrc = head [ src | (name, src) <- srcMap, "repl.rad" `T.isSuffixOf` name ]
+        pure $ runTestWithFiles replBindings inp (Map.fromList srcMap) (fromJust replSrc)
 
 -- Tests all radicle files 'repl' dir. These should use the 'should-be'
 -- function to ensure they are in the proper format.
 test_source_files :: IO TestTree
 test_source_files = testGroup "Radicle source file tests" <$> do
-    oneOf'Em <- getDataFileName "rad/config.rad"
-    let dir = reverse $ drop (T.length ("config.rad" :: Text)) $ reverse oneOf'Em
-    files <- getDirectoryContents dir
-    let radFiles = filter (".rad" `isSuffixOf`) files
+    (dir, files) <- sourceFiles
+    let radFiles = filter (\x -> ".rad" `isSuffixOf` x && "repl." `isInfixOf` x) files
     sequence $ radFiles <&> \file -> do
-        contents <- readFile $ dir <> file
+        contents <- readFile (dir <> file)
         let (_, out) = runTestWith replBindings [] contents
         let makeTest line = let (name, result) = T.span (/= '\'')
                                                $ T.drop 1
