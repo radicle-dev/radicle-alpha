@@ -114,6 +114,11 @@ data Value =
 
 instance Serialise Value
 
+-- Should just be a prism
+isAtom :: Value -> Maybe Ident
+isAtom (Atom i) = pure i
+isAtom _ = Nothing
+
 -- | The data portion of values.
 data DataValue =
       DAtom Ident

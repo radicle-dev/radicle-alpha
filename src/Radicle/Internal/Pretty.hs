@@ -33,9 +33,9 @@ instance Pretty Value where
           [v'] -> parens $ pretty v'
           v':vs' -> parens $ (pretty v') <+> (align . sep $ pretty <$> vs')
         Primop i -> pretty i
-        Dict mp -> parens $
-            "dict" <+> align (sep [ pretty k <+> pretty val
-                                  | (k, val) <- Map.toList mp ])
+        Dict mp -> braces . align $
+            sep [ pretty k <+> pretty val
+                | (k, val) <- Map.toList mp ]
         Lambda ids vals _ -> parens $
             "lambda" <+> (align $ sep
                             [ parens . sep $ pretty <$> ids
