@@ -28,7 +28,7 @@ when:
  - condition: impl(ghcjs)
    dependencies: ghcjs-dom
 ghc-options:
-  -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+  -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wpartial-fields
 
 data-files:
 - rad/**/*.rad
