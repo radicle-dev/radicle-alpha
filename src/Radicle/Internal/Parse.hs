@@ -80,8 +80,8 @@ keywordP = do
 listP :: VParser
 listP = parensP (List <$> valueP `sepBy` spaceConsumer)
 
-mapP :: VParser
-mapP = bracesP (Dict . Map.fromList <$> evenItems)
+dictP :: VParser
+dictP = bracesP (Dict . Map.fromList <$> evenItems)
   where
     evenItems = twoItems `sepBy` spaceConsumer
     twoItems = do
@@ -103,7 +103,7 @@ valueP = do
       , atomOrPrimP <?> "identifier"
       , quoteP <?> "quote"
       , listP <?> "list"
-      , mapP <?> "dict"
+      , dictP <?> "dict"
       ]
   spaceConsumer
   pure v
