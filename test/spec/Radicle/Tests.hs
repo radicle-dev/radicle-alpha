@@ -492,13 +492,13 @@ test_pretty =
         let r = renderPretty (apl 80) (Dict $ Map.fromList [ (kw "k1", Number 1)
                                                            , (kw "k2", Number 2)
                                                            ])
-        r @?= "(dict :k1 1.0 :k2 2.0)"
+        r @?= "{:k1 1.0 :k2 2.0}"
 
     , testCase "dicts split with key-val pairs" $ do
         let r = renderPretty (apl 5) (Dict $ Map.fromList [ (kw "k1", Number 1)
                                                           , (kw "k2", Number 2)
                                                           ])
-        r @?= "(dict\n  :k1 1.0\n  :k2 2.0)"
+        r @?= "{:k1 1.0\n :k2 2.0}"
     ]
   where
     apl cols = AvailablePerLine cols 1
