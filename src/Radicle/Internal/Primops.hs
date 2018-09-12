@@ -16,6 +16,7 @@ import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
 import           GHC.Exts (IsList(..))
+import qualified Data.Aeson as Aeson
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Parse
@@ -244,6 +245,10 @@ purePrimops = fromList $ first Ident <$>
             x@(List _) -> pure x
             Dict kvs -> pure $ List [List [k, v] | (k,v) <- Map.toList kvs ]
             _ -> throwError $ TypeError "seq: can only create a list from a list or a dict"
+      )
+    , ( "to-json"
+      , evalOneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
+          maybeJson v ?? "Could not serialise value to JSON"
       )
     ]
   where

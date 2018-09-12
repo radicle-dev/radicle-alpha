@@ -10,6 +10,7 @@ import           Protolude hiding (fromStrict)
 import           Radicle
 import           Servant
 import qualified STMContainers.Map as STMMap
+import qualified Data.Aeson as A
 
 -- * Main
 
@@ -58,10 +59,10 @@ since :: Chains -> Text -> Int -> Handler [Value]
 since st name index =
     fmap fst <$> getActivitySince st name index
 
-jsonOutputs :: Chains -> Text -> Handler [Maybe DataValue]
+jsonOutputs :: Chains -> Text -> Handler [Maybe A.Value]
 jsonOutputs st name = do
   vs <- fmap snd <$> getActivitySince st name 0
-  pure (isData <$> vs)
+  pure (maybeJson <$> vs)
 
 static :: Server Raw
 static = serveDirectoryFileServer "static/"
