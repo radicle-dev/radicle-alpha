@@ -396,7 +396,7 @@ test_eval =
         runTest' "(show #f)" @?= Right (String "#f")
         runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1.0 \"foo\" (b (quote x) 2.0 \"bar\"))")
         runTest' "eval" @?= Right (Primop (toIdent "base-eval"))
-        runTest' "(show (dict 'a 1))" @?= Right (String "(dict a 1.0)")
+        runTest' "(show (dict 'a 1))" @?= Right (String "{a 1.0}")
         runTest' "(show (lambda (x) x))" @?= Right (String "(lambda (x) x)")
 
     , testCase "'read' works" $
@@ -437,7 +437,7 @@ test_parser =
         "(++)" ~~> List [Atom (toIdent "++")]
         "(++ \"merge\" \"d\")" ~~> List [Atom (toIdent "++"), String "merge", String "d"]
 
-    , testCase "parses number" $ do
+    , testCase "parses numbers" $ do
         "0.15" ~~> Number 0.15
         "2000" ~~> Number 2000
 
@@ -447,6 +447,12 @@ test_parser =
 
     , testCase "parses identifiers that have a primop as prefix" $ do
         "evaluate" ~~> Atom (toIdent "evaluate")
+
+    , testCase "parses dicts" $ do
+        "{:foo 3}" ~~> Dict (Map.singleton (Keyword (toIdent "foo")) (Number 3))
+
+    , testCase "a dict litteral with an odd number of forms is a syntax error" $
+        assertBool "succesfully parsed a dict with 3 forms" (isLeft $ parseTest "{:foo 3 4}")
     ]
   where
     x ~~> y = parseTest x @?= Right y
@@ -486,13 +492,13 @@ test_pretty =
         let r = renderPretty (apl 80) (Dict $ Map.fromList [ (kw "k1", Number 1)
                                                            , (kw "k2", Number 2)
                                                            ])
-        r @?= "(dict :k1 1.0 :k2 2.0)"
+        r @?= "{:k1 1.0 :k2 2.0}"
 
     , testCase "dicts split with key-val pairs" $ do
         let r = renderPretty (apl 5) (Dict $ Map.fromList [ (kw "k1", Number 1)
                                                           , (kw "k2", Number 2)
                                                           ])
-        r @?= "(dict\n  :k1 1.0\n  :k2 2.0)"
+        r @?= "{:k1 1.0\n :k2 2.0}"
     ]
   where
     apl cols = AvailablePerLine cols 1
