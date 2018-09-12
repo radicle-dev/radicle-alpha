@@ -17,30 +17,28 @@
   ;; Transfer money
   (define transfer (lambda (from to amount)
     (define acc (read-ref accounts))
-    (write-ref accounts (if (> amount (lookup from acc))
-            (print! "not enough balance")
-            (modify-map
-              to
-              (lambda (x) (+ x amount))
-              (modify-map from (lambda (x) (- x amount)) acc))))))
+    (write-ref accounts
+       (if (> amount (lookup from acc))
+           (print! "not enough balance")
+           (modify-map
+             to
+             (lambda (x) (+ x amount))
+             (modify-map from (lambda (x) (- x amount)) acc))))))
 
   (define dispatch (lambda (m)
-    (if (eq? m 'new-account) new-account
-    (if (eq? m 'account-balance) account-balance
-    (if (eq? m 'transfer) transfer
-        (print! "error: currency- unknown message"))))))
+    (cond
+      (eq? m 'new-account)     new-account
+      (eq? m 'account-balance) account-balance
+      (eq? m 'transfer)        transfer
+      :else                    (print! "error: currency- unknown message"))))
   dispatch))
 
 (define currency (create-currency))
 
 
 (define new-eval (lambda (expr)
-  (if (eq? (head expr) 'new-account)
-      ((currency 'new-account) (head (tail expr)))
-  (if (eq? (head expr) 'account-balance)
-      ((currency 'account-balance) (head (tail expr)))
-  (if (eq? (head expr) 'transfer)
-      ((currency 'transfer) (head (tail expr)) (head (tail (tail expr))) (head
-          (tail
-                      (tail (tail expr)))))
-  (print! "transaction must be new-account, transfer, or account-balance"))))))
+  (cond
+    (eq? (head expr) 'new-account)     ((currency 'new-account) (nth 1 expr))
+    (eq? (head expr) 'account-balance) ((currency 'account-balance) (nth 2 expr))
+    (eq? (head expr) 'transfer)        ((currency 'transfer) (nth 1 expr) (nth 2 expr) (nth 3 expr)))
+    else:                              (print! "transaction must be new-account, transfer, or account-balance")))

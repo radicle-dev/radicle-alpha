@@ -29,9 +29,10 @@
   (define list-issues (lambda () (read-ref issues)))
 
   (define dispatch (lambda (m)
-    (if (eq? m 'new-issue) new-issue
-    (if (eq? m 'list-issues) list-issues
-        "error: unknown message"))))
+    (cond
+      (eq? m 'new-issue)   new-issue
+      (eq? m 'list-issues) list-issues
+      :else                "error: unknown message")))
 
   dispatch))
 

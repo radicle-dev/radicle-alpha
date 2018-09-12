@@ -31,7 +31,7 @@ instance Pretty Value where
         List vs -> case vs of
           [] -> "()"
           [v'] -> parens $ pretty v'
-          vs -> parens $ hang 1 (sep $ pretty <$> vs)
+          _ -> parens $ hang 1 (sep $ pretty <$> vs)
         Primop i -> pretty i
         Dict mp -> parens . hang 1 $
             "dict" <%> (sep [ pretty k <+> pretty val
@@ -77,7 +77,7 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 -- "(\"hi\" \"there\")"
 --
 -- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"])
--- "(\"hi\"\n\"there\")"
+-- "(\"hi\"\n  \"there\")"
 renderPretty :: Pretty v => PageWidth -> v -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 
