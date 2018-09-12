@@ -28,16 +28,22 @@ instance Pretty Value where
         Number n -> pretty (show n :: Text)
         Boolean True -> "#t"
         Boolean False -> "#f"
-        List vs -> parens (sep (pretty <$> vs))
+        List vs -> case vs of
+          [] -> "()"
+          [v'] -> parens $ pretty v'
+          _ -> parens $ hang 1 (sep $ pretty <$> vs)
         Primop i -> pretty i
-        Dict mp -> parens $
-            "dict" <+> sep [ pretty k <+> pretty val
+        Dict mp -> parens . hang 1 $
+            "dict" <%> sep [ pretty k <+> pretty val
                            | (k, val) <- Map.toList mp ]
         Lambda ids vals _ -> parens $
-            "lambda" <+> parens (sep $ pretty <$> ids)
-                     <+> sep (pretty <$> toList vals)
+            "lambda" <+> align (sep
+                            [ parens . sep $ pretty <$> ids
+                            , sep $ pretty <$> toList vals
+                            ])
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
+        a <%> b = a <> softline <> b
 
 instance Pretty r => Pretty (LangError r) where
     pretty v = case v of
@@ -66,12 +72,11 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 --
 -- Examples:
 --
--- >>> import Data.Void
 -- >>> renderPretty Unbounded (List [String "hi", String "there"])
 -- "(\"hi\" \"there\")"
 --
 -- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"])
--- "(\"hi\"\n\"there\")"
+-- "(\"hi\"\n  \"there\")"
 renderPretty :: Pretty v => PageWidth -> v -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 
@@ -79,7 +84,6 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 --
 -- Examples:
 --
--- >>> import Data.Void
 -- >>> renderPrettyDef (List [String "hi", String "there"])
 -- "(\"hi\" \"there\")"
 renderPrettyDef :: Pretty v => v -> Text

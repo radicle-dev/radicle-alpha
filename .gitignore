@@ -5,7 +5,7 @@ radicle.cabal
 *.hi
 *.chi
 *.chs.h
-.virthualenv
 .hsenv
 .cabal-sandbox/
 cabal.sandbox.config
+out/

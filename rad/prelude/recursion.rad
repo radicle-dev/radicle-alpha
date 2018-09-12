@@ -1,0 +1,18 @@
+"not a comment"
+
+;; y-combinators ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define Y
+  (lambda (h)
+    ((lambda (x) (x x))
+     (lambda (g)
+       (h (lambda (arg) ((g g) arg)))))))
+(define Y2
+  (lambda (h)
+    ((lambda (x) (x x))
+     (lambda (g)
+       (h (lambda (arg1 arg2) ((g g) arg1 arg2)))))))
+
+((lambda ()
+  (define fac (Y (lambda (f) (lambda (x) (if (< x 2) 1 (* x (f (- x 1))))))))
+  (should-be "fac" (fac 10) 3628800)))

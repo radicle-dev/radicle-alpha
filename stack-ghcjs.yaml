@@ -1,0 +1,51 @@
+resolver: lts-7.24
+compiler: ghcjs-0.2.1.9007019_ghc-8.0.1
+compiler-check: match-exact
+
+setup-info:
+  ghcjs:
+    source:
+      ghcjs-0.2.1.9007019_ghc-8.0.1:
+           url: http://ghcjs.tolysz.org/ghc-8.0-2017-02-05-lts-7.19-9007019.tar.gz
+           sha1: d2cfc25f9cda32a25a87d9af68891b2186ee52f9
+packages:
+- .
+extra-deps:
+- git: git@github.com:well-typed/cborg.git
+  commit: 37de2c0ae6bc7fa53f24f8d13748a7c370da9149
+  subdirs:
+      - serialise
+      - cborg
+- git: https://github.com/ghcjs/ghcjs-base.git
+  commit: 3bb9ed0ffd3f384ed37456b4d6247be732c79c8e
+- git: git@github.com:haskell-servant/servant.git
+  commit: c3caa149551843fdd74eb5abf3251a16547161dd
+  subdirs:
+      - servant
+      - servant-client-ghcjs
+      - servant-client-core
+- aeson-1.2.4.0
+- attoparsec-0.13.2.2
+- attoparsec-iso8601-1.0.0.0
+- cabal-doctest-1.0.6
+- case-insensitive-1.2.0.11
+- free-4.12.4
+- natural-transformation-0.4
+- th-abstraction-0.2.8.0
+- mmorph-1.1.2
+- singleton-bool-0.1.4
+- vault-0.3.1.2
+- base-compat-0.9.3
+- exceptions-0.10.0
+- generics-sop-0.3.2.0
+- http-api-data-0.3.8.1
+- http-media-0.7.1.2
+- http-types-0.12.1
+- safe-0.3.17
+- text-1.2.3.0
+- megaparsec-6.4.1
+- parser-combinators-0.4.0
+- prettyprinter-1.2.1
+- prettyprinter-ansi-terminal-1.1.1.2
+- ghcjs-dom-0.9.2.0
+- ghcjs-dom-jsffi-0.9.2.0

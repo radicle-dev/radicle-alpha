@@ -13,13 +13,14 @@ module Radicle
     --
     -- | The definition of the core language.
       Value(..)
+    , DataValue(..)
+    , isData
     , interpret
     , interpretMany
     , LangError(..)
     , ($$)
-    , Ident
+    , Ident(..)
     , Reference(..)
-    , fromIdent
     , mkIdent
     , quote
     , Env(..)
@@ -35,7 +36,6 @@ module Radicle
 
     -- * Parsing
     , parse
-    , parseTest
 
     -- * Pretty-printing
     , renderPretty
@@ -47,6 +47,25 @@ module Radicle
 
     -- * Repl
     , repl
+
+    -- * Primops
+    , Primops
+    , purePrimops
+    , replPrimops
+    , ReplM
+    -- ** Primop helpers
+    , evalArgs
+
+    -- * CLI
+    , getConfig
+    , getHistory
+
+    -- * Helpers
+    , kwLookup
+    , makeBindings
+    , unmakeBindings
+    , (??)
+
     ) where
 
 import           Control.Monad.Identity (runIdentity)

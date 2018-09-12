@@ -17,7 +17,6 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Core
-import           Radicle.Internal.Primops
 
 -- * The parser
 
@@ -112,6 +111,7 @@ valueP = do
 -- Examples:
 --
 -- >>> import Control.Monad.Identity
+-- >>> import Radicle.Internal.Primops
 -- >>> runIdentity $ interpret "test" "((lambda (x) x) #t)" pureEnv
 -- Right (Boolean True)
 --
@@ -135,6 +135,7 @@ interpret sourceName expr bnds = do
 --
 -- Examples:
 --
+-- >>> import Radicle.Internal.Primops
 -- >>> fmap fst <$> runLang pureEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
 -- Right (Boolean True)
 interpretMany :: Monad m => Text -> Text -> Lang m Value
@@ -183,15 +184,6 @@ parse file src ids = do
   case res of
     Left err -> throwError . toS $ M.parseErrorPretty' src err
     Right v  -> pure v
-
--- | Like 'parse', but uses "(test)" as the source name and the default set of
--- primops.
-parseTest :: MonadError Text m => Text -> m Value
-parseTest t = parse "(test)" t (Map.keys $ bindingsPrimops e)
-  where
-    e :: Bindings (Lang Identity)
-    e = pureEnv
-
 
 -- ** Valid identifiers
 -- These are made top-level so construction of arbitrary instances that matches

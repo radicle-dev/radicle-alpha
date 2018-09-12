@@ -3,12 +3,13 @@ module Radicle.Tests where
 
 import           Protolude hiding (toList)
 
-import           Data.List (isSuffixOf)
+import           Data.List (isInfixOf, isSuffixOf)
+import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromJust)
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
 import           GHC.Exts (fromList, toList)
-import           System.Directory (getDirectoryContents)
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck (counterexample, testProperty, (==>))
@@ -17,8 +18,6 @@ import           Radicle
 import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (toIdent)
 import           Radicle.Internal.TestCapabilities
-
-import           Paths_radicle
 
 test_eval :: [TestTree]
 test_eval =
@@ -114,16 +113,21 @@ test_eval =
         counterexample (toS info) $ res == expected
 
     , testCase "'foldl' foldls the list" $ do
-        let prog = [s|(foldl - 0 (list 1 2 3))|]
+        let prog = [s|(foldl (lambda (x y) (- x y)) 0 (list 1 2 3))|]
         prog `succeedsWith` Number (-6)
 
     , testCase "'foldr' foldrs the list" $ do
-        let prog = [s|(foldr - 0 (list 1 2 3))|]
+        let prog = [s|(foldr (lambda (x y) (- x y)) 0 (list 1 2 3))|]
         prog `succeedsWith` Number 2
 
     , testCase "'map' maps over the list" $ do
         let prog = [s|(map (lambda (x) (+ x 1)) (list 1 2))|]
         prog `succeedsWith` List [Number 2, Number 3]
+
+    , testCase "'map' (and co.) don't over-eval elements of argument list" $ do
+        let prog = [s|(map (lambda (x) (cons 1 x)) (list (list 1)))
+                   |]
+        prog `succeedsWith` List [List [Number 1, Number 1]]
 
     , testCase "'eval' evaluates the list" $ do
         let prog = [s|(eval (quote #t))|]
@@ -144,6 +148,14 @@ test_eval =
             info = "Expected:\n" <> prettyEither res2
                 <> "\nGot:\n" <> prettyEither res1
         counterexample (toS info) $ res1 == res2
+
+    , testCase "'eval-with-env' has access to variable definitions" $ do
+        let prog = [s|(head (eval-with-env
+                                't
+                                (dict :env (dict 'eval 'base-eval 't #t)
+                                      :refs (list))))
+                     |]
+        prog `succeedsWith` Boolean True
 
     , testCase "lambdas work" $ do
         let prog = [s|((lambda (x) x) #t)|]
@@ -194,6 +206,7 @@ test_eval =
 
     , testCase "'keyword?' is false for non keywords" $ do
         "(keyword? #t)" `succeedsWith` Boolean False
+
     , testCase "'do' returns the empty list if called on nothing" $ do
         "(do)" `succeedsWith` List []
 
@@ -233,6 +246,29 @@ test_eval =
     , testCase "'number?' is false for non-numbers" $ do
         let prog = [s|(number? #t)|]
         prog `succeedsWith` Boolean False
+
+    , testCase "'list?' works" $ do
+        "(list? '(1 :foo ))" `succeedsWith` Boolean True
+        "(list? '())" `succeedsWith` Boolean True
+        "(list? :foo)" `succeedsWith` Boolean False
+
+    , testCase "'dict?' works" $ do
+        "(dict? (dict))" `succeedsWith` Boolean True
+        "(dict? (dict :key 2))" `succeedsWith` Boolean True
+        "(dict? :foo)" `succeedsWith` Boolean False
+
+    , testCase "'type' returns the type, as a keyword" $ do
+        let hasTy prog ty = prog `succeedsWith` Keyword (Ident ty)
+        "(type :keyword)" `hasTy` "keyword"
+        "(type \"string\")" `hasTy` "string"
+        "(type 'a)" `hasTy` "atom"
+        "(type 1)" `hasTy` "number"
+        "(type #t)" `hasTy` "boolean"
+        "(type list?)" `hasTy` "primop"
+        "(type (list 1 2 3))" `hasTy` "list"
+        "(type (dict 1 2))" `hasTy` "dict"
+        "(type (ref 0))" `hasTy` "ref"
+        "(type (lambda (x) x))" `hasTy` "lambda"
 
     , testCase "'+' sums the list of numbers" $ do
         let prog1 = [s|(+ 2 (+ 2 3))|]
@@ -362,6 +398,9 @@ test_eval =
         runTest' "eval" @?= Right (Primop (toIdent "base-eval"))
         runTest' "(show (dict 'a 1))" @?= Right (String "(dict a 1.0)")
         runTest' "(show (lambda (x) x))" @?= Right (String "(lambda (x) x)")
+
+    , testCase "'read' works" $
+        runTest' "(read \"(:hello 42)\")" @?= Right (List [Keyword (toIdent "hello"), Number 42])
     ]
   where
     failsWith src err    = runTest' src @?= Left err
@@ -381,7 +420,6 @@ test_parser =
         "base-eval" ~~> Primop (toIdent "base-eval")
 
     , testCase "parses keywords" $ do
-        let kw = Keyword . toIdent
         ":foo" ~~> kw "foo"
         ":what?crazy!" ~~> kw "what?crazy!"
         ":::" ~~> kw "::"
@@ -435,7 +473,29 @@ test_pretty =
                       <> "reparsed: " <> show v <> "\n"
                       <> "original: " <> show original <> "\n"
         in counterexample info $ actual == Right original
+
+    , testCase "long lists are indented" $ do
+        let r = renderPretty (apl 5) (List [String "fn", String "abc"])
+        r @?= "(\"fn\"\n  \"abc\")"
+
+    , testCase "lists try to fit on one line" $ do
+        let r = renderPretty (apl 80) (List [atom "fn", atom "arg1", atom "arg2"])
+        r @?= "(fn arg1 arg2)"
+
+    , testCase "dicts try to fit on one line" $ do
+        let r = renderPretty (apl 80) (Dict $ Map.fromList [ (kw "k1", Number 1)
+                                                           , (kw "k2", Number 2)
+                                                           ])
+        r @?= "(dict :k1 1.0 :k2 2.0)"
+
+    , testCase "dicts split with key-val pairs" $ do
+        let r = renderPretty (apl 5) (Dict $ Map.fromList [ (kw "k1", Number 1)
+                                                          , (kw "k2", Number 2)
+                                                          ])
+        r @?= "(dict\n  :k1 1.0\n  :k2 2.0)"
     ]
+  where
+    apl cols = AvailablePerLine cols 1
 
 test_env :: [TestTree]
 test_env =
@@ -445,25 +505,34 @@ test_env =
 
 test_repl_primops :: [TestTree]
 test_repl_primops =
-    [ testProperty "get-line! returns the input line" $ \(v :: Value) ->
-        let prog = [i|(eq? (get-line!) (quote #{renderPrettyDef v}))|]
+    [ testProperty "(read (get-line!)) returns the input line" $ \(v :: Value) ->
+        let prog = [i|(eq? (read (get-line!)) (quote #{renderPrettyDef v}))|]
             res = run [renderPrettyDef v] $ toS prog
         in counterexample prog $ res == Right (Boolean True)
 
-    , testCase "catch catches get-line errors" $ do
+    , testCase "catch catches read-line errors" $ do
         let prog = [s|
-                 (define repl (dict 'name "repl" 'getter get-line!))
-                 (catch 'any
-                        (subscribe-to! repl (lambda (x) (print! x)))
-                        (lambda (x) "caught"))
+                 (catch 'any (read-line!) (lambda (x) "caught"))
                  |]
             input = ["\"blah"]
             res = run input prog
         res @?= Right (String "caught")
+    , testCase "read-file! can read a file" $ do
+        let prog = "(read-file! \"foobar.rad\")"
+            files = Map.singleton "foobar.rad" "foobar"
+        runFiles files prog @?= Right (String "foobar")
+    , testCase "load! can load definitions" $ do
+        let prog = [s|
+                   (load! "foo.rad")
+                   (+ foo bar)
+                   |]
+            files = Map.singleton "foo.rad" "(define foo 42) (define bar 8)"
+        runFiles files prog @?= Right (Number 50)
     ]
   where
     run stdin' prog = fst $ runTestWith replBindings stdin' prog
-
+    runFiles :: Map Text Text -> Text -> Either (LangError Value) Value
+    runFiles files prog = fst $ runTestWithFiles replBindings [] files prog
 
 test_repl :: [TestTree]
 test_repl =
@@ -471,7 +540,7 @@ test_repl =
         let input = [ "((lambda (x) x) #t)" ]
             output = [ "#t" ]
         (_, result) <- runInRepl input
-        result @?= output
+        result @==> output
 
     , testCase "handles env modifications" $ do
         let input = [ "(define id (lambda (x) x))"
@@ -481,7 +550,7 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @?= output
+        result @==> output
 
     , testCase "handles 'eval' redefinition" $ do
         let input = [ "(define eval (lambda (x) #t))"
@@ -491,7 +560,7 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @?= output
+        result @==> output
 
     , testCase "(define eval (quote base-eval)) doesn't change things" $ do
         let input = [ "(define eval (quote base-eval))"
@@ -503,25 +572,30 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @?= output
+        result @==> output
     ]
     where
-      getCfg = getDataFileName "repl/config.rad" >>= readFile
-      -- The repl catches exceptions, including the "out of stdin" exception
-      -- that occurs at the end of a session, so we take the 'init' of the
-      -- result.
-      runInRepl inp = fmap initSafe <$> (runTestWith replBindings inp <$> getCfg)
+      -- In addition to the output of the lines tested, 'should-be's get
+      -- printed, so we take only the last few output lines.
+      r @==> out = reverse (take (length out) $ reverse r) @?= out
+      -- Find repl.rad, give it all other files as possible imports, and run
+      -- it.
+      runInRepl inp = do
+        (dir, srcs) <- sourceFiles
+        srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
+        let replSrc = head [ src | (name, src) <- srcMap
+                                 , "repl.rad" `T.isSuffixOf` name
+                                 ]
+        pure $ runTestWithFiles replBindings inp (Map.fromList srcMap) (fromJust replSrc)
 
 -- Tests all radicle files 'repl' dir. These should use the 'should-be'
 -- function to ensure they are in the proper format.
 test_source_files :: IO TestTree
 test_source_files = testGroup "Radicle source file tests" <$> do
-    oneOf'Em <- getDataFileName "repl/config.rad"
-    let dir = reverse $ drop (T.length ("config.rad" :: Text)) $ reverse oneOf'Em
-    files <- getDirectoryContents dir
-    let radFiles = filter (".rad" `isSuffixOf`) files
+    (dir, files) <- sourceFiles
+    let radFiles = filter (\x -> ".rad" `isSuffixOf` x && "repl." `isInfixOf` x) files
     sequence $ radFiles <&> \file -> do
-        contents <- readFile $ dir <> file
+        contents <- readFile (dir <> file)
         let (_, out) = runTestWith replBindings [] contents
         let makeTest line = let (name, result) = T.span (/= '\'')
                                                $ T.drop 1
@@ -531,6 +605,20 @@ test_source_files = testGroup "Radicle source file tests" <$> do
             $ [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]
 
 -- * Utils
+
+kw :: Text -> Value
+kw = Keyword . toIdent
+
+atom :: Text -> Value
+atom = Atom . toIdent
+
+-- -- | Like 'parse', but uses "(test)" as the source name and the default set of
+-- -- primops.
+parseTest :: MonadError Text m => Text -> m Value
+parseTest t = parse "(test)" t (Map.keys $ bindingsPrimops e)
+  where
+    e :: Bindings (Lang Identity)
+    e = pureEnv
 
 -- | Environments are neither printed nor parsed, but are generated by the
 -- arbitrary instance.

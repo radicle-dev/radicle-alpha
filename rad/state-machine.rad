@@ -1,0 +1,101 @@
+"not a comment"
+
+(define head-shots
+  (dict "onur" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/1712926.png"
+        "ele" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/853825.png"
+        "alexis" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/40774.png"
+        "kim" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/6163.png"
+        "julien" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/2326909.jpg"))
+
+(define get-head-shot
+  (lambda (x)
+    (define y (lookup x head-shots))
+    (if (eq? y '())
+        "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/2326909.jpg"
+        y)))
+
+(define pr-trans
+  (lambda (state inp)
+    (define c (dict "key" (show (view (@ :next-id) state))
+                    "username" (nth 0 inp)
+                    "comment" (nth 1 inp)
+                    "profile_pic_url" (get-head-shot (nth 0 inp))))
+    (dict :state (over (@ :comments)
+                       (lambda (cs) (cons c cs))
+                       (over (@ :next-id)
+                             (lambda (x) (+ x 1))
+                             state))
+          :output c)))
+
+(define kim-trans
+  (lambda (state i)
+    (if (eq? (nth 0 i) "kim")
+        (pr-trans state (list "kim" "LGTM"))
+        (pr-trans state i))))
+
+;; Handle an input in the morphing state-machine.
+(define state-machine-input
+  (lambda (state i)
+    (define trans-fn (view-ref state (@ :transition-fn)))
+    (define current-state (view-ref state (@ :machine-state)))
+    (define next (trans-fn current-state i))
+    (set-ref state (@ :machine-state) (view (@ :state) next))
+    (view (@ :output) next)))
+
+;; Trigger a new vote
+(define state-machine-new-trans
+  (lambda (state func)
+    (if (eq? (view-ref state (@ :voting)) :nothing)
+        (do (set-ref state (@ :voting) (dict :votes (dict)
+                                             :proposed-function func))
+          (string-append "A new transition function has been proposed! Please either agree or disagree with:\n" (show func)))
+      (throw 'invalid-input "Can't propose new transition function while vote is ongoing."))))
+
+(define state-machine-agree
+  (lambda (state voters userid)
+    (if (member? userid voters)
+        (do (set-ref state (... (list (@ :voting) (@ :votes) (@ userid))) #t)
+            (if (eq? (length (seq (view-ref state (.. (@ :voting) (@ :votes))))) (length voters))
+                (do (set-ref state (@ :transition-fn) (eval (view-ref state (.. (@ :voting) (@ :proposed-function)))))
+                    (set-ref state (@ :voting) :nothing)
+                    "Voting has finished; a new transition function is in effect.")
+                '()))
+        (throw 'invalid-input "Not allowed to vote."))))
+
+(define state-machine-disagree
+  (lambda (state voters userid)
+    (if (member? userid voters)
+        (do (set-ref state (@ :voting) :nothing)
+            "Voting has ended; someone disagreed.")
+        (throw 'invalid-input "You are not allowed to vote."))))
+
+;; Returns an eval which operates a state machine whose transition function may
+;; be updated. To update the transition function all voters must agree on it.
+(define state-machine-eval
+  (lambda (voters init-state init-transition)
+    (define state (ref (dict :machine-state init-state
+                             :transition-fn init-transition
+                             :voting :nothing)))
+    (lambda (expr)
+      (define verb (nth 0 expr))
+      (define input (nth 1 expr))
+      (cond
+       (eq? verb 'input)          (state-machine-input     state input)
+       (eq? verb 'new-trans-func) (state-machine-new-trans state input)
+       (eq? verb 'agree)          (state-machine-agree     state voters input)
+       (eq? verb 'disagree)       (state-machine-disagree  state voters input)
+       :else                      (throw 'invalid-input (string-append "The only valid commands are 'input', 'new-trans-func', 'agree' and 'disagree': " (show expr)))))))
+
+(define simple-trans
+  (lambda (f)
+    (lambda (s i)
+      (define y (f s i))
+      (dict :state y
+            :output y))))
+
+(define pr-thread
+  (state-machine-eval
+   (list "alice" "bob")
+   (dict :next-id 0 :comments (list))
+   pr-trans
+   ))

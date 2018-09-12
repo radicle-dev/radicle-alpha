@@ -2,9 +2,15 @@ module Radicle.Internal.Core where
 
 import           Protolude hiding (TypeError, (<>))
 
+import           Codec.Serialise (Serialise)
+import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
+                                       throwError)
 import           Control.Monad.State
+import           Data.Aeson (ToJSON(..), FromJSON(..))
+import qualified Data.Aeson as A
 import           Data.Data (Data)
 import qualified Data.IntMap as IntMap
+import qualified Data.HashMap.Strict as HashMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
@@ -12,6 +18,8 @@ import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
+
+import           Radicle.Internal.Orphans ()
 
 -- * Value
 
@@ -64,7 +72,7 @@ errorToValue e = case e of
     makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Atom . Ident) . GhcExts.fromList $ v)
 
 newtype Reference = Reference { getReference :: Int }
-    deriving (Show, Read, Ord, Eq, Generic)
+    deriving (Show, Read, Ord, Eq, Generic, Serialise)
 
 -- | Create a new ref with the supplied initial value.
 newRef :: Monad m => Value -> Lang m Value
@@ -77,7 +85,7 @@ newRef v = do
     pure . Ref $ Reference ix
 
 -- | Read the value of a reference.
-readRef :: MonadError (LangError Value) m => Reference -> Lang m Value
+readRef :: Monad m => Reference -> Lang m Value
 readRef (Reference r) = do
     refs <- gets bindingsRefs
     case IntMap.lookup r refs of
@@ -104,13 +112,72 @@ data Value =
     | Lambda [Ident] (NonEmpty Value) (Maybe (Env Value))
     deriving (Eq, Show, Ord, Read, Generic)
 
+instance Serialise Value
+
+-- | The data portion of values.
+data DataValue =
+      DAtom Ident
+    | DKeyword Ident
+    | DString Text
+    | DNumber Scientific
+    | DBoolean Bool
+    | DList [DataValue]
+    | DDict (Map.Map DataValue DataValue)
+    deriving (Eq, Show, Ord, Read, Generic)
+
+instance A.ToJSON Ident
+instance A.FromJSON Ident
+instance A.ToJSONKey DataValue
+instance A.FromJSONKey DataValue
+
+instance A.ToJSON DataValue where
+  toJSON = \case
+      DNumber n -> toJSON n
+      DList ls -> toJSON ls
+      DBoolean b -> toJSON b
+      DString s -> toJSON s
+      DDict m ->
+        let kvs = Map.toList m
+        in  case traverse isString (fst <$> kvs) of
+              Just ss -> A.Object (HashMap.fromList (zip ss (toJSON . snd <$> kvs)))
+              Nothing -> toJSON m
+      x -> A.genericToJSON A.defaultOptions x
+    where
+      isString (DString s) = Just s
+      isString _ = Nothing
+
+instance A.FromJSON DataValue where
+  parseJSON = \case
+    A.Number n -> pure $ DNumber n
+    A.String s -> pure $ DString s
+    A.Array ls -> DList . toList <$> traverse parseJSON ls
+    A.Bool b -> pure $ DBoolean b
+    A.Null -> pure $ DKeyword (toIdent "null")
+    o@(A.Object hm) ->
+          A.genericParseJSON A.defaultOptions o
+      <|> do let kvs = HashMap.toList hm
+             vs <- traverse parseJSON (snd <$> kvs)
+             pure . DDict . Map.fromList $ zip (DString . fst <$> kvs) vs
+
+isData :: Value -> Maybe DataValue
+isData = \case
+    Atom i -> pure $ DAtom i
+    Keyword i -> pure $ DKeyword i
+    String s -> pure $ DString s
+    Number n -> pure $ DNumber n
+    Boolean b -> pure $ DBoolean b
+    List ls -> DList <$> traverse isData ls
+    Dict m -> DDict . Map.fromList <$> traverse kv (Map.toList m)
+    _ -> Nothing
+  where
+    kv (k,v) = (,) <$> isData k <*> isData v
 
 -- | An identifier in the language.
 --
--- Not all `Text`s are valid identifiers, so we do not export the constructor.
--- Instead, use `makeIdent`.
+-- Not all `Text`s are valid identifiers, so use Ident at your own risk.
+-- `makeIdent` is the safe version.
 newtype Ident = Ident { fromIdent :: Text }
-    deriving (Eq, Show, Read, Ord, Generic, Data)
+    deriving (Eq, Show, Read, Ord, Generic, Data, Serialise)
 
 -- Unsafe! Only use this if you know the string at compile-time and know it's a
 -- valid identifier
@@ -119,7 +186,7 @@ toIdent = Ident
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident s }
-    deriving (Eq, Semigroup, Monoid, Ord, Show, Read, Generic, Functor, Foldable, Traversable)
+    deriving (Eq, Semigroup, Monoid, Ord, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
 
 instance GhcExts.IsList (Env s) where
     type Item (Env s) = (Ident, s)
@@ -140,7 +207,7 @@ data Bindings m = Bindings
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
     { fromLangT :: ExceptT (LangError Value) (StateT r m) a }
-    deriving (Functor, Applicative, Monad, MonadError (LangError Value), MonadState r)
+    deriving (Functor, Applicative, Monad, MonadError (LangError Value), MonadIO, MonadState r)
 
 instance MonadTrans (LangT r) where lift = LangT . lift . lift
 
@@ -235,7 +302,35 @@ baseEval val = case val of
 
 -- * Helpers
 
--- | Infix function application
+
+callFn :: Monad m => Value -> [Value] -> Lang m Value
+callFn f vs = case f of
+  -- This happens if a quoted lambda is explicitly evaled. We then
+  -- give it the current environment.
+  Lambda bnds body Nothing ->
+      if length bnds /= length vs
+          then throwError $ WrongNumberOfArgs "lambda" (length bnds)
+                                                       (length vs)
+          else do
+              let mappings = GhcExts.fromList (zip bnds vs)
+              NonEmpty.last <$> withEnv
+                  (mappings <>)
+                  (traverse baseEval body)
+  Lambda bnds body (Just closure) ->
+      if length bnds /= length vs
+          then throwError $ WrongNumberOfArgs "lambda" (length bnds)
+                                                       (length vs)
+          else do
+              let mappings = GhcExts.fromList (zip bnds vs)
+                  modEnv = mappings <> closure
+              NonEmpty.last <$> withEnv (const modEnv)
+                                        (traverse baseEval body)
+  Primop i -> throwError . TypeError
+    $ "Trying to call a non-function: the primop '" <> show i
+    <> "' cannot be used as a function."
+  _ -> throwError . TypeError $ "Trying to call a non-function."
+
+-- | Infix evaluation of application (of functions or primops)
 infixr 1 $$
 ($$) :: Monad m => Value -> [Value] -> Lang m Value
 mfn $$ vs = do
@@ -246,29 +341,11 @@ mfn $$ vs = do
             -- Primops get to decide whether and how their args are
             -- evaluated.
             fn vs
-        -- This happens if a quoted lambda is explicitly evaled. We then
-        -- give it the current environment.
-        Lambda bnds body Nothing ->
-            if length bnds /= length vs
-                then throwError $ WrongNumberOfArgs "lambda" (length bnds)
-                                                             (length vs)
-                else do
-                    vs' <- traverse baseEval vs
-                    let mappings = GhcExts.fromList (zip bnds vs')
-                    NonEmpty.last <$> withEnv
-                        (mappings <>)
-                        (traverse baseEval body)
-        Lambda bnds body (Just closure) ->
-            if length bnds /= length vs
-                then throwError $ WrongNumberOfArgs "lambda" (length bnds)
-                                                             (length vs)
-                else do
-                    vs' <- traverse baseEval vs
-                    let mappings = GhcExts.fromList (zip bnds vs')
-                        modEnv = mappings <> closure
-                    NonEmpty.last <$> withEnv (const modEnv)
-                                              (traverse baseEval body)
+        f@Lambda{} -> do
+          vs' <- traverse baseEval vs
+          callFn f vs'
         _ -> throwError $ TypeError "Trying to apply a non-function"
+
 
 nil :: Value
 nil = List []

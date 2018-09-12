@@ -39,7 +39,16 @@ packages:
 - .
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-# extra-deps: []
+extra-deps:
+- serialise-0.2.0.0
+- cborg-0.2.0.0
+
+image:
+  containers:
+    - base: "fpco/ubuntu-with-libgmp:14.04"
+      name: "radicle/server"
+      executables:
+        - server
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

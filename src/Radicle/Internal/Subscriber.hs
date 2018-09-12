@@ -20,15 +20,16 @@ import           Radicle.Internal.Subscriber.Capabilities
 
 type ReplM m =
     ( Monad m, Stdout (Lang m), Stdin (Lang m)
+    , ReadFile (Lang m)
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
 
-repl :: FilePath -> Text -> IO ()
-repl histFile preCode = do
+repl :: Maybe FilePath -> Text -> Bindings (InputT IO) -> IO ()
+repl histFile preCode bindings = do
     let settings = setComplete completion
-                 $ defaultSettings { historyFile = Just histFile }
+                 $ defaultSettings { historyFile = histFile }
     r <- runInputT settings
-        $ fmap fst $ runLang replBindings
+        $ fmap fst $ runLang bindings
         $ void $ interpretMany "[pre]" preCode
     case r of
         Left Exit -> pure ()
@@ -72,14 +73,7 @@ replPrimops = Map.fromList $ first toIdent <$>
         xs  -> throwError $ WrongNumberOfArgs "set-env!" 2 (length xs))
 
     , ("get-line!", \args -> case args of
-        [] -> do
-            ln <- getLineS
-            allPrims <- gets bindingsPrimops
-            let p = parse "[stdin]" ln (Map.keys allPrims)
-            case p of
-                Right v -> pure v
-                Left e -> throwError $ ThrownError (Ident "parse-error")
-                                                   (String e)
+        [] -> String <$> getLineS
         xs  -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
     , ("subscribe-to!", \args -> case args of
@@ -91,8 +85,17 @@ replPrimops = Map.fromList $ first toIdent <$>
                 (Dict m, fn) -> case Map.lookup (Atom $ toIdent "getter") m of
                     Nothing -> throwError
                         $ OtherError "subscribe-to!: Expected 'getter' key"
-                    Just g -> forever go
+                    Just g -> forever (protect go)
                       where
+                        protect action = do
+                            st <- get
+                            action `catchError`
+                                (\err -> case err of
+                                   Exit -> throwError err
+                                   Impossible _ -> do
+                                       putStrS (renderPrettyDef err)
+                                       throwError err
+                                   _ -> putStrS (renderPrettyDef err) >> put st)
                         go = do
                             -- We need to evaluate the getter in the original
                             -- environment in which it was defined, but the
@@ -105,4 +108,14 @@ replPrimops = Map.fromList $ first toIdent <$>
                             void $ withEnv (const e) (fn $$ [quote line])
                 _  -> throwError $ TypeError "subscribe-to!: Expected dict"
         xs  -> throwError $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
+    , ( "read-file!"
+      , evalOneArg "read-file" $ \case
+          String filename -> String <$> readFileS filename
+          _ -> throwError $ TypeError "read-file: expects a string"
+      )
+    , ( "load!"
+      , evalOneArg "load" $ \case
+          String filename -> readFileS filename >>= interpretMany "[load!]"
+          _ -> throwError $ TypeError "load: expects a string"
+      )
     ]

@@ -1,0 +1,89 @@
+"not a comment"
+
+;; List functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; nil
+
+(define nil (list))
+
+;; empty?
+
+(define empty? (lambda (ls) (eq? ls nil)))
+
+(document 'empty?
+  '(("list" list))
+  "True if 'list' is empty, false otherwise.")
+
+(should-be "empty" (empty? (list 2)) #f)
+
+
+;; length
+
+(define length
+  (lambda (xs)
+    (foldr (lambda (x acc) (+ acc 1)) 0 xs)))
+
+(document 'length
+  '(("list" list))
+  "Returns the length of 'list'.")
+
+(should-be "length" (length nil) 0)
+(should-be "length" (length (list 2)) 1)
+
+;; reverse
+
+(define reverse (lambda (ls)
+  (define go (Y2 (lambda (go)
+    (lambda (acc new)
+      (if (empty? new)
+          acc
+          (go (cons (head new) acc) (tail new)))))))
+  (go (list) ls)))
+
+(document 'reverse
+  '(("list" list))
+  "Returns the reversed 'list'.")
+
+(should-be "reverse" (reverse (list 1 2 3)) (list 3 2 1))
+
+;; range
+
+(define range (Y2 (lambda (range) (lambda (from to)
+  (if (eq? from to)
+      (list to)
+      (cons from (range (+ 1 from) to)))))))
+
+(document 'range
+  '(("start" number) ("end" number))
+  "Returns a list with all integers from 'start' to 'end', inclusive.")
+
+(should-be "range" (range 1 5) (list 1 2 3 4 5))
+
+;; concat
+
+(define concat (lambda (list1 list2)
+  (foldr (lambda (a b) (cons a b)) list2 list1)))
+
+(document 'concat
+  '(("list1" list) ("list2" list))
+  "Concatenates 'list1' and 'list2'.")
+
+(should-be "concat" (concat '(1 2 3) '(4 5 6)) '(1 2 3 4 5 6))
+
+
+;; filter
+
+(define filter (Y2 (lambda (filter) (lambda (pred ls)
+  (if (empty? ls)
+      ls
+  (if (pred (head ls))
+      (cons (head ls) (filter pred (tail ls)))
+      (filter pred (tail ls))))))))
+
+(document 'filter
+  '(("filter-cond" function) ("list" list))
+  "Returns 'list' with only the elements that satisfy 'filter-cond'.")
+
+(should-be "filter"
+  (filter (lambda (x) (< x 10)) (list 3 10 11))
+  (list 3))

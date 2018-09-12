@@ -11,6 +11,7 @@ extra-source-files:
 dependencies:
 - base >=4 && <5
 - protolude
+- aeson
 - containers
 - deriving-compat
 - haskeline
@@ -20,28 +21,34 @@ dependencies:
 - prettyprinter-ansi-terminal
 - recursion-schemes
 - scientific
+- serialise
 - text
+- unordered-containers
+when:
+ - condition: impl(ghcjs)
+   dependencies: ghcjs-dom
+ghc-options:
+  -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 data-files:
-- repl/config.rad
-- repl/prelude.rad
+- rad/**/*.rad
 
 library:
   source-dirs: src
-  ghc-options: -Wall
 
 tests:
   spec:
     main: Main.hs
     source-dirs:
     - test/spec
-    ghc-options: -Wall -threaded
+    ghc-options: -threaded
     dependencies:
     - radicle
     - directory
+    - filemanip
+    - interpolate
     - QuickCheck
     - quickcheck-instances
-    - interpolate
     - safe
     - string-qq
     - tasty
@@ -52,7 +59,7 @@ tests:
     main: Main.hs
     source-dirs:
     - test/docs
-    ghc-options: -Wall -threaded
+    ghc-options: -threaded
     other-modules:
     - Paths_radicle
     dependencies:
@@ -64,31 +71,94 @@ tests:
 executables:
   repl:
     main: Main.hs
-    source-dirs: repl
+    source-dirs: exe/Repl
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
     dependencies:
     - radicle
     - optparse-applicative
-    ghc-options: -Wall -threaded -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+    ghc-options: -threaded -O3
+
+  server:
+    main: Server.hs
+    source-dirs: exe/Server
+    other-modules: API
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    dependencies:
+    - radicle
+    - optparse-applicative
+    - bytestring
+    - servant
+    - servant-server
+    - stm-containers
+    - stm
+    - warp
+    - wai-extra
+    - wai-cors
+    ghc-options: -main-is Server -O3 -threaded
+
+  client:
+    main: Client.hs
+    source-dirs: exe/Server
+    other-modules: API
+    dependencies:
+    - radicle
+    - exceptions
+    - optparse-applicative
+    - bytestring
+    - servant
+    - http-media
+    - http-client
+    - servant-client
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    ghc-options: -main-is Client -O3 -threaded
+
+  client-ghcjs:
+    main: GHCJS.hs
+    source-dirs: exe/Server
+    other-modules: API
+    dependencies:
+    - radicle
+    - ghcjs-base
+    - exceptions
+    - bytestring
+    - servant
+    - servant-client-ghcjs
+    - http-media
+    when:
+      - condition: impl(ghcjs)
+        then:
+          buildable: true
+        else:
+          buildable: false
+    ghc-options: -main-is GHCJS -threaded
 
 default-extensions:
-- NoImplicitPrelude
 - AutoDeriveTypeable
 - ConstraintKinds
+- DataKinds
 - DeriveDataTypeable
-- DeriveFunctor
 - DeriveFoldable
-- DeriveTraversable
+- DeriveFunctor
 - DeriveGeneric
+- DeriveTraversable
 - FlexibleContexts
 - FlexibleInstances
 - FunctionalDependencies
 - GeneralizedNewtypeDeriving
+- LambdaCase
 - MultiParamTypeClasses
+- NoImplicitPrelude
 - OverloadedStrings
 - RankNTypes
 - RecordWildCards
+- ScopedTypeVariables
+- StandaloneDeriving
 - TupleSections
 - TypeFamilies
 - TypeOperators
-- ScopedTypeVariables
-- LambdaCase

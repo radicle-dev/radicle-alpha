@@ -1,37 +1,67 @@
 module Radicle.Internal.Primops
   ( pureEnv
   , purePrimops
+  , evalArgs
+  , evalOneArg
+  , readValue
+  , kwLookup
+  , makeBindings
+  , unmakeBindings
+  , (??)
   ) where
 
 import           Protolude hiding (TypeError)
 
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
-import           Data.Scientific (Scientific)
+import           Data.Scientific (Scientific, floatingOrInteger)
 import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
+import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: (Monad m) => Bindings m
-pureEnv = Bindings e purePrimops mempty 0
+pureEnv = Bindings e purePrimops r 1
   where
-    e = fromList [(toIdent "eval", Primop $ toIdent "base-eval")]
+    e = fromList [ (toIdent "eval", Primop $ toIdent "base-eval")
+                 , (toIdent "_doc-ref", Ref $ Reference 0)
+                 ]
+    r = fromList [ (0, Dict mempty) ]
 
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
 purePrimops :: forall m. (Monad m) => Primops m
 purePrimops = fromList $ first Ident <$>
     [ ("base-eval", evalOneArg "base-eval" baseEval)
+    , ( "pure-env"
+      , \case
+          [] -> pure $ unmakeBindings (pureEnv :: Bindings m)
+          xs -> throwError $ WrongNumberOfArgs "pure-env" 0 (length xs)
+      )
+    , ("eval-with-env", evalArgs $ \case
+          [expr, env] -> do
+              bnds <- makeBindings env
+              let (evalRes, bnds') = runIdentity $ runLang bnds $ eval expr
+              case evalRes of
+                  Left e    -> throwError e
+                  Right res -> pure $ List [res, unmakeBindings bnds']
+          xs -> throwError $ WrongNumberOfArgs "eval-with-env" 2 (length xs))
+    , ("apply", evalArgs $ \case
+          [fn, List args] -> eval . List $ fn:args
+          [_, _]          -> throwError $ TypeError "apply: expecting list as second arg"
+          xs -> throwError $ WrongNumberOfArgs "apply" 2 (length xs))
+    , ( "read"
+      , evalOneArg "read" $ \case
+          String s -> readValue s
+          _ -> throwError $ TypeError "read: expects string"
+      )
+    , ("get-current-env", \case
+          [] -> unmakeBindings <$> get
+          xs -> throwError $ WrongNumberOfArgs "get-current-env" 0 (length xs))
     , ("list", evalArgs $ \args -> pure $ List args)
-    , ("dict", evalArgs $ \args ->
-          let go (k:v:rest) = Map.insert k v $ go rest
-              go [] = mempty
-              go _  = panic "impossible"
-          in if length args `mod` 2 == 0
-              then pure . Dict $ go args
-              else throwError $ OtherError "'dict' expects even number of args")
+    , ("dict", evalArgs $ (Dict . foldr (uncurry Map.insert) mempty <$>) . evenArgs "dict")
     , ("quote", \args -> case args of
           [v] -> pure v
           xs  -> throwError $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -73,6 +103,18 @@ purePrimops = fromList $ first Ident <$>
           List (_:xs) -> pure $ List xs
           List []     -> throwError $ OtherError "tail: empty list"
           _           -> throwError $ TypeError "tail: expects list argument")
+    , ( "nth"
+      , evalArgs $ \case
+          [Number n, List xs] -> case floatingOrInteger n of
+            Left (_ :: Double) -> throwError $ OtherError "nth: first argument was not an integer"
+            Right i -> do
+              let x_ = indexMay i xs
+              case x_ of
+                Just x  -> pure x
+                Nothing -> throwError $ OtherError "nth: index out of bounds"
+          [_,_] -> throwError $ TypeError "nth: expects a integer and a list"
+          xs -> throwError $ WrongNumberOfArgs "nth" 2 (length xs)
+      )
     , ("lookup", evalArgs $ \args -> case args of
           [a, Dict m] -> pure $ case Map.lookup a m of
               Just v  -> v
@@ -113,17 +155,17 @@ purePrimops = fromList $ first Ident <$>
           [_, _]               -> throwError $ TypeError ">: expecting number"
           xs                   -> throwError $ WrongNumberOfArgs ">" 2 (length xs))
     , ("foldl", evalArgs $ \args -> case args of
-          [fn, init', List ls] -> foldlM (\b a -> (fn $$) [b,a]) init' ls
+          [fn, init', List ls] -> foldlM (\b a -> callFn fn [b, a]) init' ls
           [_, _, _]            -> throwError
                                 $ TypeError "foldl: third argument should be a list"
           xs                   -> throwError $ WrongNumberOfArgs "foldl" 3 (length xs))
     , ("foldr", evalArgs $ \args -> case args of
-          [fn, init', List ls] -> foldrM (\b a -> (fn $$) [b,a]) init' ls
+          [fn, init', List ls] -> foldrM (\b a -> callFn fn [b, a]) init' ls
           [_, _, _]            -> throwError
                                 $ TypeError "foldr: third argument should be a list"
           xs                   -> throwError $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", evalArgs $ \args -> case args of
-          [fn, List ls] -> List <$> traverse (fn $$) (pure <$> ls)
+          [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
           [_, _]        -> throwError $ TypeError "map: second argument should be a list"
           xs            -> throwError $ WrongNumberOfArgs "map" 3 (length xs))
     , ("keyword?", evalOneArg "keyword?" $ \case
@@ -135,6 +177,23 @@ purePrimops = fromList $ first Ident <$>
     , ("list?", evalOneArg "list?" $ \case
                   List _ -> pure tt
                   _      -> pure ff)
+    , ("dict?", evalOneArg "dict?" $ \case
+                  Dict _ -> pure tt
+                  _      -> pure ff)
+    , ( "type"
+      , let kw = pure . Keyword . Ident
+        in evalOneArg "type" $ \case
+             Atom _ -> kw "atom"
+             Keyword _ -> kw "keyword"
+             String _ -> kw "string"
+             Number _ -> kw "number"
+             Boolean _ -> kw "boolean"
+             List _ -> kw "list"
+             Primop _ -> kw "primop"
+             Dict _ -> kw "dict"
+             Ref _ -> kw "ref"
+             Lambda{} -> kw "lambda"
+      )
     , ("string?", evalOneArg "string?" $ \case
           String _ -> pure tt
           _        -> pure ff)
@@ -150,18 +209,17 @@ purePrimops = fromList $ first Ident <$>
                         $ TypeError "member?: second argument must be list"
           xs           -> throwError $ WrongNumberOfArgs "eq?" 2 (length xs))
     , ("if", \args -> case args of
-          [cond, t, f] -> do
-            b <- baseEval cond
+          [condition, t, f] -> do
+            b <- baseEval condition
             -- I hate this as much as everyone that might ever read Haskell, but
             -- in Lisps a lot of things that one might object to are True...
             if b == ff then baseEval f else baseEval t
           xs -> throwError $ WrongNumberOfArgs "if" 3 (length xs))
+    , ( "cond", (cond =<<) . evenArgs "cond" )
     , ("ref", evalOneArg "ref" newRef)
     , ("read-ref", evalOneArg "read-ref" $ \case
-          Ref (Reference x) -> gets bindingsRefs >>= \m -> case IntMap.lookup x m of
-            Nothing -> throwError $ Impossible "undefined reference"
-            Just v  -> pure v
-          _                 -> throwError $ TypeError "read-ref: argument must be a ref")
+          Ref ref -> readRef ref
+          _       -> throwError $ TypeError "read-ref: argument must be a ref")
     , ("write-ref", evalArgs $ \args -> case args of
           [Ref (Reference x), v] -> do
               st <- get
@@ -177,17 +235,31 @@ purePrimops = fromList $ first Ident <$>
           \case
             x@(List _) -> pure x
             Dict kvs -> pure $ List [List [k, v] | (k,v) <- Map.toList kvs ]
-            _ -> throwError $ TypeError "seq: can only create a list from a list of a dict"
+            _ -> throwError $ TypeError "seq: can only create a list from a list or a dict"
       )
     ]
   where
-    -- Many primops evaluate their arguments just as normal functions do.
-    evalArgs f args = traverse baseEval args >>= f
 
-    -- Many primops evaluate a single argument.
-    evalOneArg fname f = evalArgs $ \case
-      [x] -> f x
-      xs -> throwError $ WrongNumberOfArgs fname 1 (length xs)
+    cond = \case
+      [] -> pure nil
+      (c,e):ps -> do
+        b <- baseEval c
+        if b /= ff
+          then baseEval e
+          else cond ps
+
+    indexMay :: Int -> [a] -> Maybe a
+    indexMay _ []     = Nothing
+    indexMay 0 (x:_)  = pure x
+    indexMay n (_:xs) = indexMay (n - 1) xs
+
+    -- | Some forms/functions expect an even number or arguments.
+    evenArgs name = \case
+      [] -> pure []
+      [_] -> throwError . OtherError $ name <> ": expects an even number of arguments"
+      x:y:xs -> do
+        ps <- evenArgs name xs
+        pure ((x,y):ps)
 
     tt = Boolean True
     ff = Boolean False
@@ -204,3 +276,64 @@ purePrimops = fromList $ first Ident <$>
         [Number _] -> throwError
                     $ OtherError $ name <> ": expects at least 2 arguments"
         _ -> throwError $ TypeError $ name <> ": expecting number")
+
+-- * Helpers
+
+-- | Many primops evaluate their arguments just as normal functions do.
+evalArgs :: Monad m => ([Value] -> Lang m Value) -> [Value] -> Lang m Value
+evalArgs f args = traverse baseEval args >>= f
+
+-- Many primops evaluate a single argument.
+evalOneArg :: Monad m => Text -> (Value -> Lang m Value) -> [Value] -> Lang m Value
+evalOneArg fname f = evalArgs $ \case
+  [x] -> f x
+  xs -> throwError $ WrongNumberOfArgs fname 1 (length xs)
+
+readValue :: (MonadError (LangError Value) m, MonadState (Bindings n) m) => Text -> m Value
+readValue s = do
+    allPrims <- gets bindingsPrimops
+    let p = parse "[read-primop]" s (Map.keys allPrims)
+    case p of
+      Right v -> pure v
+      Left e  -> throwError $ ThrownError (Ident "parse-error") (String e)
+
+-- | Convert Bindings into a Value that can be used with radicle.
+unmakeBindings :: Bindings m -> Value
+unmakeBindings bnds = Dict $ Map.fromList
+    [ (Keyword $ Ident "env", Dict $ Map.mapKeys Atom $ fromEnv $ bindingsEnv bnds)
+    , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs bnds))
+    ]
+
+-- | Convert a value into Bindings, or throw an error.
+makeBindings :: (Monad m, Monad n) => Value -> Lang m (Bindings n)
+makeBindings val = case val of
+    Dict d -> do
+        env' <- kwLookup "env" d ?? "expecting 'env' key"
+        refs' <- kwLookup "refs" d ?? "expecting 'refs' key"
+        (nextRef, refs) <- makeRefs refs'
+        env <- makeEnv env'
+        pure $ Bindings env purePrimops refs nextRef
+    _ -> throwError $ TypeError "expecting dict"
+  where
+    makeEnv env = case env of
+        Dict d -> fmap (Env . Map.fromList)
+                $ forM (Map.toList d) $ \(k, v) -> case k of
+            Atom i -> pure (i, v)
+            _      -> throwError $ TypeError "Expecting atom keys"
+        _ -> throwError $ TypeError "Expecting dict"
+
+    makeRefs refs = case refs of
+        List ls -> pure (length ls, IntMap.fromList $ zip [0..] ls)
+        _       -> throwError $ TypeError "Expecting dict"
+
+
+kwLookup :: Text -> Map Value Value -> Maybe Value
+kwLookup key = Map.lookup (Keyword $ Ident key)
+
+-- | Throws an OtherError with the specified message if the Maybe is not a
+-- Just.
+(??) :: MonadError (LangError Value) m => Maybe a -> Text -> m a
+a ?? msg = case a of
+    Nothing -> throwError $ OtherError msg
+    Just v  -> pure v
+
