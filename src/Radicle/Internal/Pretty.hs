@@ -72,7 +72,6 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 --
 -- Examples:
 --
--- >>> import Data.Void
 -- >>> renderPretty Unbounded (List [String "hi", String "there"])
 -- "(\"hi\" \"there\")"
 --
@@ -85,7 +84,6 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 --
 -- Examples:
 --
--- >>> import Data.Void
 -- >>> renderPrettyDef (List [String "hi", String "there"])
 -- "(\"hi\" \"there\")"
 renderPrettyDef :: Pretty v => v -> Text
