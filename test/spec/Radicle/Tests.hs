@@ -451,6 +451,9 @@ test_parser =
 
     , testCase "parses dicts" $ do
         "{:foo 3}" ~~> Dict (Map.singleton (Keyword (toIdent "foo")) (Number 3))
+
+    , testCase "a dict litteral with an odd number of forms is a syntax error" $
+        assertBool "succesfully parsed a dict with 3 forms" (isLeft $ parseTest "{:foo 3 4}")
     ]
   where
     x ~~> y = parseTest x @?= Right y
