@@ -62,7 +62,7 @@ since st name index =
 jsonOutputs :: Chains -> Text -> Handler [Maybe A.Value]
 jsonOutputs st name = do
   vs <- fmap snd <$> getActivitySince st name 0
-  pure (isJsonData <$> vs)
+  pure (maybeJson <$> vs)
 
 static :: Server Raw
 static = serveDirectoryFileServer "static/"

@@ -126,16 +126,16 @@ instance A.FromJSON Value where
       vs <- traverse parseJSON (snd <$> kvs)
       pure . Dict . Map.fromList $ zip (String . fst <$> kvs) vs
 
-isJsonData :: Value -> Maybe A.Value
-isJsonData = \case
+maybeJson :: Value -> Maybe A.Value
+maybeJson = \case
     Number n -> pure $ A.Number n
     String s -> pure $ A.String s
     Boolean b -> pure $ A.Bool b
-    List ls -> toJSON <$> traverse isJsonData ls
+    List ls -> toJSON <$> traverse maybeJson ls
     Dict m -> do
       let kvs = Map.toList m
       ks <- traverse isStr (fst <$> kvs)
-      vs <- traverse isJsonData (snd <$> kvs)
+      vs <- traverse maybeJson (snd <$> kvs)
       pure $ A.Object (HashMap.fromList (zip ks vs))
     _ -> Nothing
   where

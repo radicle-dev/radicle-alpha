@@ -242,7 +242,7 @@ purePrimops = fromList $ first Ident <$>
       )
     , ( "to-json"
       , evalOneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
-          isJsonData v ?? "Could not serialise value to JSON"
+          maybeJson v ?? "Could not serialise value to JSON"
       )
     ]
   where
