@@ -27,20 +27,21 @@ dependencies:
 when:
  - condition: impl(ghcjs)
    dependencies: ghcjs-dom
+ghc-options:
+  -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 data-files:
 - rad/**/*.rad
 
 library:
   source-dirs: src
-  ghc-options: -Wall
 
 tests:
   spec:
     main: Main.hs
     source-dirs:
     - test/spec
-    ghc-options: -Wall -threaded
+    ghc-options: -threaded
     dependencies:
     - radicle
     - directory
@@ -58,7 +59,7 @@ tests:
     main: Main.hs
     source-dirs:
     - test/docs
-    ghc-options: -Wall -threaded
+    ghc-options: -threaded
     other-modules:
     - Paths_radicle
     dependencies:
@@ -77,7 +78,7 @@ executables:
     dependencies:
     - radicle
     - optparse-applicative
-    ghc-options: -Wall -threaded -O3
+    ghc-options: -threaded -O3
 
   server:
     main: Server.hs
@@ -97,7 +98,7 @@ executables:
     - warp
     - wai-extra
     - wai-cors
-    ghc-options: -main-is Server -Wall -O3 -threaded
+    ghc-options: -main-is Server -O3 -threaded
 
   client:
     main: Client.hs
@@ -115,7 +116,7 @@ executables:
     when:
       - condition: impl(ghcjs)
         buildable: false
-    ghc-options: -main-is Client -Wall -O3 -threaded
+    ghc-options: -main-is Client -O3 -threaded
 
   client-ghcjs:
     main: GHCJS.hs
@@ -135,7 +136,7 @@ executables:
           buildable: true
         else:
           buildable: false
-    ghc-options: -main-is GHCJS -Wall -threaded
+    ghc-options: -main-is GHCJS -threaded
 
 default-extensions:
 - AutoDeriveTypeable
