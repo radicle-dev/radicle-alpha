@@ -63,7 +63,7 @@ instance Pretty r => Pretty (LangError r) where
 -- Examples:
 --
 -- >>> renderCompactPretty (List [String "hi", String "there"])
--- "(\"hi\"\n\"there\")"
+-- "(\"hi\" \"there\")"
 renderCompactPretty :: Pretty v => v -> Text
 renderCompactPretty = renderStrict . layoutCompact . pretty
 
@@ -76,7 +76,7 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 -- "(\"hi\" \"there\")"
 --
 -- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"])
--- "(\"hi\"\n\"there\")"
+-- "(\"hi\" \"there\")"
 renderPretty :: Pretty v => PageWidth -> v -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 
