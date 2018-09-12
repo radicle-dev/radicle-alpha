@@ -38,7 +38,11 @@ foreign import javascript unsafe "eval_fn_ = $1"
 
 -- * Export
 
-
+-- | Interop with JS is quite nasty. We take a JS object, expecting the 'arg'
+-- property to be set to the argument, and we set the 'result' property of it
+-- with the result.
+--
+-- The IORef keeps the state/env of the REPL so far.
 jsEval :: IORef (Bindings (InputT IO)) -> JSVal -> IO ()
 jsEval bndsRef v = runInputT defaultSettings $ do
     let o = Object v

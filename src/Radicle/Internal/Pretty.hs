@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Pretty where
 
-import           Protolude hiding (TypeError, (<>))
+import           Protolude hiding (TypeError, (<>), group)
 
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -31,10 +31,10 @@ instance Pretty Value where
         List vs -> case vs of
           [] -> "()"
           [v'] -> parens $ pretty v'
-          v':vs' -> parens $ (pretty v') <+> (align . sep $ pretty <$> vs')
+          vs -> parens $ hang 1 (sep $ pretty <$> vs)
         Primop i -> pretty i
-        Dict mp -> parens $
-            "dict" <+> align (sep [ pretty k <+> pretty val
+        Dict mp -> parens . hang 1 $
+            "dict" <%> (sep [ pretty k <+> pretty val
                                   | (k, val) <- Map.toList mp ])
         Lambda ids vals _ -> parens $
             "lambda" <+> (align $ sep
@@ -43,6 +43,7 @@ instance Pretty Value where
                             ])
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
+        a <%> b = a <> softline <> b
 
 instance Pretty r => Pretty (LangError r) where
     pretty v = case v of

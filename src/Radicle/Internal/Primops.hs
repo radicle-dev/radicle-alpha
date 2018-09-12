@@ -218,10 +218,8 @@ purePrimops = fromList $ first Ident <$>
     , ( "cond", (cond =<<) . evenArgs "cond" )
     , ("ref", evalOneArg "ref" newRef)
     , ("read-ref", evalOneArg "read-ref" $ \case
-          Ref (Reference x) -> gets bindingsRefs >>= \m -> case IntMap.lookup x m of
-            Nothing -> throwError $ Impossible "undefined reference"
-            Just v  -> pure v
-          _                 -> throwError $ TypeError "read-ref: argument must be a ref")
+          Ref ref -> readRef ref
+          _       -> throwError $ TypeError "read-ref: argument must be a ref")
     , ("write-ref", evalArgs $ \args -> case args of
           [Ref (Reference x), v] -> do
               st <- get

@@ -85,7 +85,7 @@ newRef v = do
     pure . Ref $ Reference ix
 
 -- | Read the value of a reference.
-readRef :: MonadError (LangError Value) m => Reference -> Lang m Value
+readRef :: Monad m => Reference -> Lang m Value
 readRef (Reference r) = do
     refs <- gets bindingsRefs
     case IntMap.lookup r refs of

@@ -420,7 +420,6 @@ test_parser =
         "base-eval" ~~> Primop (toIdent "base-eval")
 
     , testCase "parses keywords" $ do
-        let kw = Keyword . toIdent
         ":foo" ~~> kw "foo"
         ":what?crazy!" ~~> kw "what?crazy!"
         ":::" ~~> kw "::"
@@ -474,7 +473,29 @@ test_pretty =
                       <> "reparsed: " <> show v <> "\n"
                       <> "original: " <> show original <> "\n"
         in counterexample info $ actual == Right original
+
+    , testCase "long lists are indented" $ do
+        let r = renderPretty (apl 5) (List [String "fn", String "abc"])
+        r @?= "(\"fn\"\n  \"abc\")"
+
+    , testCase "lists try to fit on one line" $ do
+        let r = renderPretty (apl 80) (List [atom "fn", atom "arg1", atom "arg2"])
+        r @?= "(fn arg1 arg2)"
+
+    , testCase "dicts try to fit on one line" $ do
+        let r = renderPretty (apl 80) (Dict $ Map.fromList [ (kw "k1", Number 1)
+                                                           , (kw "k2", Number 2)
+                                                           ])
+        r @?= "(dict :k1 1.0 :k2 2.0)"
+
+    , testCase "dicts split with key-val pairs" $ do
+        let r = renderPretty (apl 5) (Dict $ Map.fromList [ (kw "k1", Number 1)
+                                                          , (kw "k2", Number 2)
+                                                          ])
+        r @?= "(dict\n  :k1 1.0\n  :k2 2.0)"
     ]
+  where
+    apl cols = AvailablePerLine cols 1
 
 test_env :: [TestTree]
 test_env =
@@ -554,14 +575,17 @@ test_repl =
         result @==> output
     ]
     where
+      -- In addition to the output of the lines tested, 'should-be's get
+      -- printed, so we take only the last few output lines.
       r @==> out = reverse (take (length out) $ reverse r) @?= out
-      -- The repl catches exceptions, including the "out of stdin" exception
-      -- that occurs at the end of a session, so we take the 'init' of the
-      -- result.
+      -- Find repl.rad, give it all other files as possible imports, and run
+      -- it.
       runInRepl inp = do
         (dir, srcs) <- sourceFiles
         srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
-        let replSrc = head [ src | (name, src) <- srcMap, "repl.rad" `T.isSuffixOf` name ]
+        let replSrc = head [ src | (name, src) <- srcMap
+                                 , "repl.rad" `T.isSuffixOf` name
+                                 ]
         pure $ runTestWithFiles replBindings inp (Map.fromList srcMap) (fromJust replSrc)
 
 -- Tests all radicle files 'repl' dir. These should use the 'should-be'
@@ -581,6 +605,12 @@ test_source_files = testGroup "Radicle source file tests" <$> do
             $ [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]
 
 -- * Utils
+
+kw :: Text -> Value
+kw = Keyword . toIdent
+
+atom :: Text -> Value
+atom = Atom . toIdent
 
 -- -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- -- primops.
