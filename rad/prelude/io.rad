@@ -1,5 +1,3 @@
-"not a comment"
-
 ;; read-line
 (define read-line!
   (lambda () (read (get-line!))))

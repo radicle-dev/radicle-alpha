@@ -95,6 +95,7 @@ quoteP = List . ((Primop $ toIdent "quote") :) . pure <$> (char '\'' >> valueP)
 
 valueP :: VParser
 valueP = do
+  spaceConsumer
   v <- choice
       [ stringLiteralP <?> "string"
       , boolLiteralP <?> "boolean"

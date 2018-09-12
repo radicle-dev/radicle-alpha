@@ -1,5 +1,3 @@
-"not a comment"
-
 ;; A version of should-be for pure environments.
 
 (define should-be
