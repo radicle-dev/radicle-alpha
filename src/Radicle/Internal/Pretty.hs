@@ -43,7 +43,6 @@ instance Pretty Value where
                             ])
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
-        a <%> b = a <> softline <> b
 
 instance Pretty r => Pretty (LangError r) where
     pretty v = case v of
