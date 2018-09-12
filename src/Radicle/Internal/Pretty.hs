@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Pretty where
 
-import           Protolude hiding (TypeError, (<>), group)
+import           Protolude hiding (TypeError, (<>))
 
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -34,10 +34,10 @@ instance Pretty Value where
           _ -> parens $ hang 1 (sep $ pretty <$> vs)
         Primop i -> pretty i
         Dict mp -> parens . hang 1 $
-            "dict" <%> (sep [ pretty k <+> pretty val
-                                  | (k, val) <- Map.toList mp ])
+            "dict" <%> sep [ pretty k <+> pretty val
+                           | (k, val) <- Map.toList mp ]
         Lambda ids vals _ -> parens $
-            "lambda" <+> (align $ sep
+            "lambda" <+> align (sep
                             [ parens . sep $ pretty <$> ids
                             , sep $ pretty <$> toList vals
                             ])

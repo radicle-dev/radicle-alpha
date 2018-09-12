@@ -258,7 +258,7 @@ test_eval =
         "(dict? :foo)" `succeedsWith` Boolean False
 
     , testCase "'type' returns the type, as a keyword" $ do
-        let hasTy prog ty = prog `succeedsWith` (Keyword (Ident ty))
+        let hasTy prog ty = prog `succeedsWith` Keyword (Ident ty)
         "(type :keyword)" `hasTy` "keyword"
         "(type \"string\")" `hasTy` "string"
         "(type 'a)" `hasTy` "atom"
