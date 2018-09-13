@@ -1,6 +1,4 @@
-"not a comment"
-
-;; should-be
+;; should-be - testing functions
 
 (define should-be
   (lambda (name x y)

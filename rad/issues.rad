@@ -1,5 +1,3 @@
-"not a comment"
-
 ;; Issues for rad prelude
 
 (define create-rad-issue-chain (lambda ()

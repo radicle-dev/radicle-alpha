@@ -1,4 +1,3 @@
-"not a comment"
 
 (define head-shots
   (dict "onur" "https://res.cloudinary.com/juliendonck/image/upload/v1536080565/avatars/1712926.png"

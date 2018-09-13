@@ -1,3 +1,5 @@
+;; doc-related functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define document
   (lambda (name args description)
     (define old (read-ref _doc-ref))
