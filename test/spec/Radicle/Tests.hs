@@ -473,19 +473,7 @@ test_binding =
 
 test_pretty :: [TestTree]
 test_pretty =
-    [ testProperty "parse . pretty == identity" $ \(val :: Value)  ->
-        let rendered = renderPrettyDef val
-            actual = parseTest rendered
-            original = removeEnv val
-            info = case actual of
-              Left e -> "parse error in: " <> toS rendered <> "\n"
-                      <> toS e
-              Right v -> "pretty: " <> toS rendered <> "\n"
-                      <> "reparsed: " <> show v <> "\n"
-                      <> "original: " <> show original <> "\n"
-        in counterexample info $ actual == Right original
-
-    , testCase "long lists are indented" $ do
+    [ testCase "long lists are indented" $ do
         let r = renderPretty (apl 5) (List [String "fn", String "abc"])
         r @?= "(\"fn\"\n  \"abc\")"
 

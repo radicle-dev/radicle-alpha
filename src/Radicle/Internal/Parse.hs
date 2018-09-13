@@ -1,6 +1,6 @@
 module Radicle.Internal.Parse where
 
-import           Protolude hiding (some, try)
+import           Protolude hiding (try)
 
 import           Data.Char (isAlphaNum, isLetter)
 import           Data.List.NonEmpty (NonEmpty((:|)))
