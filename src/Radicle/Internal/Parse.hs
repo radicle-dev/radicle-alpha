@@ -95,7 +95,6 @@ quoteP = List . ((Primop $ toIdent "quote") :) . pure <$> (char '\'' >> valueP)
 
 valueP :: VParser
 valueP = do
-  spaceConsumer
   v <- choice
       [ stringLiteralP <?> "string"
       , boolLiteralP <?> "boolean"
@@ -131,7 +130,7 @@ interpret
     -> m (Either (LangError Value) Value)
 interpret sourceName expr bnds = do
     let primopNames = Map.keys (bindingsPrimops bnds)
-        parsed = runReader (runParserT (valueP <* eof) (toS sourceName) expr) primopNames
+        parsed = runReader (runParserT (spaceConsumer *> valueP <* eof) (toS sourceName) expr) primopNames
     case parsed of
         Left e  -> pure . Left $ ParseError e
         Right v -> fst <$> runLang bnds (eval v)
@@ -148,10 +147,12 @@ interpretMany sourceName src = do
     primopNames <- gets $ Map.keys . bindingsPrimops
     let parsed = parseValues sourceName src primopNames
     case partitionEithers parsed of
-        ([], vs) -> do es <- mapM eval vs
-                       case lastMay es of
-                         Just e -> pure e
-                         _ -> throwError (OtherError "InterpretMany should be called with at least one expression.")
+        ([], vs) -> do
+          es <- mapM eval vs
+          case lastMay es of
+             Just e -> pure e
+             _ -> throwError
+                $ OtherError "InterpretMany should be called with at least one expression."
         (e:_, _) -> throwError $ ParseError e
 
 -- | Parse a Text as a series of values.
@@ -159,14 +160,17 @@ interpretMany sourceName src = do
 --
 -- Note that parsing continues even if one value fails to parse.
 parseValues :: Text -> Text -> [Ident] -> [Either (Par.ParseError Char Void) Value]
-parseValues sourceName srcCode prims = go $ initial
+parseValues sourceName srcCode prims = withoutLeadingSpaces
   where
     initial = State
-        { stateInput = T.strip srcCode
+        { stateInput = srcCode
         , statePos = initialPos (toS sourceName) :| []
         , stateTokensProcessed = 0
         , stateTabWidth = defaultTabWidth
         }
+    withoutLeadingSpaces =
+      let (s', _) = runReader (runParserT' spaceConsumer initial) prims
+      in if T.null (stateInput s') then [] else go s'
     go s = let (s', v) = runReader (runParserT' valueP s) prims
            in if T.null (stateInput s') then [v] else v:go s'
 
@@ -185,7 +189,7 @@ parseValues sourceName srcCode prims = go $ initial
 -- Right (Atom (Ident {fromIdent = "hi"}))
 parse :: MonadError Text m => Text -> Text -> [Ident] -> m Value
 parse file src ids = do
-  let res = runReader (M.runParserT (valueP <* eof) (toS file) src) ids
+  let res = runReader (M.runParserT (spaceConsumer *> valueP <* eof) (toS file) src) ids
   case res of
     Left err -> throwError . toS $ M.parseErrorPretty' src err
     Right v  -> pure v
