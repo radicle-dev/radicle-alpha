@@ -265,15 +265,20 @@ eval val = do
             -- evaluated.
             fn [quote val, quote env] >>= \case
               List [val', newEnv] -> do
-                newEnv' <- makeEnv newEnv
-                modify $ \s -> s { bindingsEnv = newEnv' }
-                return val'
+                  newEnv' <- makeEnv newEnv
+                  modify $ \s -> s { bindingsEnv = newEnv' }
+                  return val'
               _ -> throwError $ OtherError "eval: should return list with value and new env"
-        Lambda [bnd] body closure -> do
-              let mappings = GhcExts.fromList [(bnd, val)]
+        Lambda [exprBnd, envBnd] body closure -> do
+              let mappings = GhcExts.fromList [(exprBnd, val), (envBnd, env)]
                   modEnv = mappings <> closure
-              NonEmpty.last <$> withEnv (const modEnv)
-                                        (traverse eval body)
+              res <- NonEmpty.last <$> withEnv (const modEnv) (traverse eval body)
+              case res of
+                List [val', newEnv] -> do
+                    newEnv' <- makeEnv newEnv
+                    modify $ \s -> s { bindingsEnv = newEnv' }
+                    return val'
+                _ -> throwError $ OtherError "eval: should return list with value and new env"
         _ -> throwError $ TypeError "Trying to apply a non-function"
 
 makeEnv :: Monad m => Value -> Lang m (Env Value)
