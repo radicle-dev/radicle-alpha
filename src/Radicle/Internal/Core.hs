@@ -257,18 +257,35 @@ quote v = List [Primop (Ident "quote"), v]
 eval :: Monad m => Value -> Lang m Value
 eval val = do
     e <- lookupAtom (toIdent "eval")
+    env <- gets (unmakeEnv . bindingsEnv)
     case e of
         Primop i -> do
             fn <- lookupPrimop i
             -- Primops get to decide whether and how their args are
             -- evaluated.
-            fn [quote val]
+            fn [quote val, env] >>= \case
+              List [val', newEnv] -> do
+                newEnv' <- makeEnv newEnv
+                modify $ \s -> s { bindingsEnv = newEnv' }
+                return val'
+              _ -> throwError $ OtherError "eval: should return list with value and new env"
         Lambda [bnd] body closure -> do
               let mappings = GhcExts.fromList [(bnd, val)]
                   modEnv = mappings <> closure
               NonEmpty.last <$> withEnv (const modEnv)
                                         (traverse eval body)
         _ -> throwError $ TypeError "Trying to apply a non-function"
+
+makeEnv :: Monad m => Value -> Lang m (Env Value)
+makeEnv env = case env of
+    Dict d -> fmap (Env . Map.fromList)
+            $ forM (Map.toList d) $ \(k, v) -> case k of
+        Atom i -> pure (i, v)
+        _      -> throwError $ TypeError "Expecting atom keys"
+    _ -> throwError $ TypeError "Expecting dict"
+
+unmakeEnv :: Env Value -> Value
+unmakeEnv env = Dict . Map.mapKeys Atom $ fromEnv env
 
 -- | The built-in, original, eval.
 baseEval :: Monad m => Value -> Lang m Value

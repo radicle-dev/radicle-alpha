@@ -43,7 +43,16 @@ purePrimops = fromList $ first Ident <$>
             pure (Lambda atoms (b :| bs) e)
           xs -> throwError $ WrongNumberOfArgs "lambda" 2 (length xs) -- TODO: technically "at least 2"
       )
-    , ("base-eval", evalOneArg "base-eval" baseEval)
+    , ( "base-eval"
+      , evalArgs $ \case
+          [expr, env] -> do
+              env' <- makeEnv env
+              modify $ \s -> s { bindingsEnv = env' }
+              val <- baseEval expr
+              newEnv <- gets bindingsEnv
+              pure $ List [val, unmakeEnv newEnv]
+          xs -> throwError $ WrongNumberOfArgs "base-eval" 2 (length xs)
+      )
     , ( "pure-env"
       , \case
           [] -> pure $ unmakeBindings (pureEnv :: Bindings m)
@@ -341,13 +350,6 @@ makeBindings val = case val of
         pure $ Bindings env purePrimops refs nextRef
     _ -> throwError $ TypeError "expecting dict"
   where
-    makeEnv env = case env of
-        Dict d -> fmap (Env . Map.fromList)
-                $ forM (Map.toList d) $ \(k, v) -> case k of
-            Atom i -> pure (i, v)
-            _      -> throwError $ TypeError "Expecting atom keys"
-        _ -> throwError $ TypeError "Expecting dict"
-
     makeRefs refs = case refs of
         List ls -> pure (length ls, IntMap.fromList $ zip [0..] ls)
         _       -> throwError $ TypeError "Expecting dict"
