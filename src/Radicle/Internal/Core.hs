@@ -263,7 +263,7 @@ eval val = do
             fn <- lookupPrimop i
             -- Primops get to decide whether and how their args are
             -- evaluated.
-            fn [quote val, env] >>= \case
+            fn [quote val, quote env] >>= \case
               List [val', newEnv] -> do
                 newEnv' <- makeEnv newEnv
                 modify $ \s -> s { bindingsEnv = newEnv' }
