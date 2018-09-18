@@ -14,6 +14,7 @@ dependencies:
 - aeson
 - containers
 - deriving-compat
+- directory
 - haskeline
 - megaparsec
 - mtl
