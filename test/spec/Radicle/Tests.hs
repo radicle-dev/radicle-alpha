@@ -326,10 +326,18 @@ test_eval =
 
     , testCase "evaluation can be redefined" $ do
         let prog = [s|
-            (define eval (lambda (x) #f))
+            (define eval (lambda (expr env) (list #f env)))
             #t
             |]
         prog `succeedsWith` Boolean False
+
+    , testCase "redefining eval keeps access to future definitions" $ do
+        let prog = [s|
+            (define eval (lambda (expr env) (eval expr env)))
+            (define t #t)
+            t
+            |]
+        prog `succeedsWith` Boolean True
 
     , testCase "'read-ref' returns the most recent value" $ do
         let prog = [s|
@@ -568,7 +576,7 @@ test_repl =
         result @==> output
 
     , testCase "handles 'eval' redefinition" $ do
-        let input = [ "(define eval (lambda (x) #t))"
+        let input = [ "(define eval (lambda (expr env) (list #t env)))"
                     , "#f"
                     ]
             output = [ "()"
