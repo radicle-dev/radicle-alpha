@@ -12,24 +12,26 @@ module Radicle
     -- * Language
     --
     -- | The definition of the core language.
-      Value(..)
-    , maybeJson
-    , interpret
+    -- ** Evaluation
+      interpret
     , interpretMany
+    , eval
+    -- ** Datatypes
+    --
+    -- *** Value
+    , Value(..)
+    , maybeJson
+    -- *** LangError
     , LangError(..)
-    , ($$)
     , Ident(..)
     , Reference(..)
     , mkIdent
-    , quote
     , Env(..)
     , pureEnv
     , Lang
     , runLang
     , Bindings(..)
-    , addBinding
     , replBindings
-    , eval
     -- ** Re-exports
     , runIdentity
 
@@ -60,6 +62,8 @@ module Radicle
     , getHistory
 
     -- * Helpers
+    , quote
+    , ($$)
     , kwLookup
     , makeBindings
     , unmakeBindings

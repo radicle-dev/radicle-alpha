@@ -1,3 +1,4 @@
+-- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
 
 import           Protolude hiding (TypeError, (<>))
@@ -131,6 +132,23 @@ instance A.FromJSON Value where
       vs <- traverse parseJSON (snd <$> kvs)
       pure . Dict . Map.fromList $ zip (String . fst <$> kvs) vs
 
+-- | Convert a radicle `Value` into an 'aeson' value, if possible.
+--
+-- >>> import Data.Aeson (encode)
+-- >>> encode $ maybeJson $ List [Number 3, String "hi"]
+-- "[3,\"hi\"]"
+--
+-- >>> import Data.Aeson (encode)
+-- >>> encode $ maybeJson $ Dict $ Map.fromList [(String "foo", String "bar")]
+-- "{\"foo\":\"bar\"}"
+--
+-- This fails for lambdas, since lambdas capture an entire environment
+-- (possibly recursively). It also fails for dictionaries with non-string key
+-- non-string keys.
+--
+-- >>> import Data.Aeson (encode)
+-- >>> encode $ maybeJson $ Dict $ Map.fromList [(Number 3, String "bar")]
+-- "null"
 maybeJson :: Value -> Maybe A.Value
 maybeJson = \case
     Number n -> pure $ A.Number n
@@ -149,8 +167,8 @@ maybeJson = \case
 
 -- | An identifier in the language.
 --
--- Not all `Text`s are valid identifiers, so use Ident at your own risk.
--- `makeIdent` is the safe version.
+-- Not all `Text`s are valid identifiers, so use 'Ident' at your own risk.
+-- `mkIdent` is the safe version.
 newtype Ident = Ident { fromIdent :: Text }
     deriving (Eq, Show, Read, Ord, Generic, Data, Serialise)
 
@@ -190,6 +208,8 @@ instance MonadTrans (LangT r) where lift = LangT . lift . lift
 -- with appropriate underlying monad.
 type Lang m = LangT (Bindings m) m
 
+-- | Run a `Lang` computation with the provided bindings. Returns the result as
+-- well as the updated bindings.
 runLang
     :: Bindings m
     -> Lang m a
