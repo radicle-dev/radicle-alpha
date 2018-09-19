@@ -110,7 +110,7 @@ valueP = do
 
 -- * Utilities
 
--- | Parse and evaluate a Text. Replaces refs with a number representing them.
+-- | Parse and evaluate a Text.
 --
 -- Examples:
 --
@@ -124,9 +124,9 @@ valueP = do
 -- Left (TypeError "Trying to apply a non-function")
 interpret
     :: Monad m
-    => Text
-    -> Text
-    -> Bindings m
+    => Text       -- ^ Name of source file (for error reporting)
+    -> Text       -- ^ Source code to be interpreted
+    -> Bindings m -- ^ Bindings to be used
     -> m (Either (LangError Value) Value)
 interpret sourceName expr bnds = do
     let primopNames = Map.keys (bindingsPrimops bnds)
@@ -137,12 +137,19 @@ interpret sourceName expr bnds = do
 
 -- | Parse and evaluate a Text as multiple expressions.
 --
+-- The first argument is the name of the source file to be used for error
+-- reporting.
+--
 -- Examples:
 --
 -- >>> import Radicle.Internal.Primops
 -- >>> fmap fst <$> runLang pureEnv $ interpretMany "test" "(define id (lambda (x) x))\n(id #t)"
 -- Right (Boolean True)
-interpretMany :: Monad m => Text -> Text -> Lang m Value
+interpretMany
+    :: Monad m
+    => Text  -- ^ Name of source file (for error reporting)
+    -> Text  -- ^ Source code to be interpreted
+    -> Lang m Value
 interpretMany sourceName src = do
     primopNames <- gets $ Map.keys . bindingsPrimops
     let parsed = parseValues sourceName src primopNames
@@ -156,10 +163,13 @@ interpretMany sourceName src = do
         (e:_, _) -> throwError $ ParseError e
 
 -- | Parse a Text as a series of values.
--- 'sourceName' is used for error reporting. 'prims' are the primop names.
 --
 -- Note that parsing continues even if one value fails to parse.
-parseValues :: Text -> Text -> [Ident] -> [Either (Par.ParseError Char Void) Value]
+parseValues
+    :: Text    -- ^ Name of source file (for error reporting)
+    -> Text    -- ^ Source code to be parsed
+    -> [Ident] -- ^ Primop identifiers
+    -> [Either (Par.ParseError Char Void) Value]
 parseValues sourceName srcCode prims = withoutLeadingSpaces
   where
     initial = State
@@ -174,8 +184,7 @@ parseValues sourceName srcCode prims = withoutLeadingSpaces
     go s = let (s', v) = runReader (runParserT' valueP s) prims
            in if T.null (stateInput s') then [v] else v:go s'
 
--- | Parse a value, using the String as source name, and the identifier list as
--- the primops.
+-- | Parse a single value.
 --
 -- Examples:
 --
@@ -187,7 +196,11 @@ parseValues sourceName srcCode prims = withoutLeadingSpaces
 --
 -- >>> parse "test" "hi" [] :: Either Text Value
 -- Right (Atom (Ident {fromIdent = "hi"}))
-parse :: MonadError Text m => Text -> Text -> [Ident] -> m Value
+parse :: MonadError Text m
+    => Text    -- ^ Name of source file (for error reporting)
+    -> Text    -- ^ Source code to be parsed
+    -> [Ident] -- ^ Primop identifiers
+    -> m Value
 parse file src ids = do
   let res = runReader (M.runParserT (spaceConsumer *> valueP <* eof) (toS file) src) ids
   case res of
