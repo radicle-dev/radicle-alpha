@@ -73,7 +73,7 @@ primops :: ClientEnv -> Primops (InputT IO)
 primops cEnv = Primops (fromList [sendPrimop, receivePrimop]) <> replPrimops
   where
     sendPrimop =
-      ( Ident "send!"
+      ( unsafeToIdent "send!"
       , evalArgs $ \case
          [String name, v] -> do
              res <- liftIO $ runClientM (submit $ List $ [String name, v]) cEnv
@@ -85,7 +85,7 @@ primops cEnv = Primops (fromList [sendPrimop, receivePrimop]) <> replPrimops
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
     receivePrimop =
-      ( Ident "receive!"
+      ( unsafeToIdent "receive!"
       , evalArgs $ \case
           [String name, Number n] -> do
               case floatingOrInteger n of
@@ -104,7 +104,7 @@ primops cEnv = Primops (fromList [sendPrimop, receivePrimop]) <> replPrimops
 -- * Helpers
 
 identV :: Text -> Value
-identV = Keyword . Ident
+identV = Keyword . unsafeToIdent
 
 -- * Client functions
 

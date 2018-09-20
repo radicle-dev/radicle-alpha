@@ -24,6 +24,7 @@ dependencies:
 - recursion-schemes
 - scientific
 - serialise
+- template-haskell
 - text
 - unordered-containers
 - cryptonite

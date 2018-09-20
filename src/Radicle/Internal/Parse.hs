@@ -111,7 +111,7 @@ dictP = bracesP (tag =<< (DictF . Map.fromList <$> evenItems))
 quoteP :: VParser
 quoteP = do
     val <- char '\'' >> valueP
-    q <- tag $ PrimopF (toIdent "quote")
+    q <- tag $ PrimopF (unsafeToIdent "quote")
     pure $ List [q, val]
 
 valueP :: VParser
@@ -160,7 +160,7 @@ parseValues sourceName srcCode prims = withoutLeadingSpaces
 -- >>> untag <$> parse "test" "#t" [] :: Either Text UntaggedValue
 -- Right (Annotated (Identity (BooleanF True)))
 --
--- >>> untag <$> parse "test" "hi" [toIdent "hi"] :: Either Text UntaggedValue
+-- >>> untag <$> parse "test" "hi" [unsafeToIdent "hi"] :: Either Text UntaggedValue
 -- Right (Annotated (Identity (PrimopF (Ident {fromIdent = "hi"}))))
 --
 -- >>> untag <$> parse "test" "hi" [] :: Either Text UntaggedValue
