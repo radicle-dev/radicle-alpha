@@ -12,6 +12,7 @@ dependencies:
 - base >=4 && <5
 - protolude
 - aeson
+- auth-adt
 - containers
 - deriving-compat
 - directory

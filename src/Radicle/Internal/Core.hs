@@ -7,17 +7,18 @@ import           Codec.Serialise (Serialise)
 import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
                                        throwError)
 import           Control.Monad.State
-import           Data.Aeson (ToJSON(..), FromJSON(..))
+import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
 import           Data.Data (Data)
-import qualified Data.IntMap as IntMap
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import qualified GHC.Exts as GhcExts
+import qualified Hash as AADT
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Orphans ()
@@ -118,7 +119,7 @@ instance Serialise Value
 -- Should just be a prism
 isAtom :: Value -> Maybe Ident
 isAtom (Atom i) = pure i
-isAtom _ = Nothing
+isAtom _        = Nothing
 
 instance A.FromJSON Value where
   parseJSON = \case
@@ -163,7 +164,7 @@ maybeJson = \case
     _ -> Nothing
   where
     isStr (String s) = pure s
-    isStr _ = Nothing
+    isStr _          = Nothing
 
 -- | An identifier in the language.
 --

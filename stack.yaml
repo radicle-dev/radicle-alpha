@@ -42,6 +42,9 @@ packages:
 extra-deps:
 - serialise-0.2.0.0
 - cborg-0.2.0.0
+- merkle-tree-0.1.0.0
+- git: git@github.com:adjoint-io/auth-adt
+  commit: ec9664e7c9e787c8397f1d1e66df8b2404064ec8
 
 image:
   containers:
