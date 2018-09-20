@@ -70,7 +70,7 @@ tests:
     - hpack
 
 executables:
-  repl:
+  radicle:
     main: Main.hs
     source-dirs: exe/Repl
     when:

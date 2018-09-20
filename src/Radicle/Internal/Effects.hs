@@ -1,4 +1,4 @@
-module Radicle.Internal.Subscriber where
+module Radicle.Internal.Effects where
 
 import           Protolude hiding (TypeError)
 
@@ -12,10 +12,11 @@ import           System.Console.Haskeline (CompletionFunc, InputT, completeWord,
                                            simpleCompletion)
 
 import           Radicle.Internal.Core
-import           Radicle.Internal.Parse
+import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.Primops
-import           Radicle.Internal.Subscriber.Capabilities
+import           Radicle.Internal.Effects.Capabilities
+
 
 
 type ReplM m =
@@ -74,7 +75,7 @@ replPrimops = Map.fromList $ first toIdent <$>
 
     , ("get-line!", \args -> case args of
         [] -> String <$> getLineS
-        xs  -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
+        xs -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
     , ("subscribe-to!", \args -> case args of
         [x, v] -> do

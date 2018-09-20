@@ -8,7 +8,7 @@ import qualified Data.Map.Strict as Map
 import qualified System.FilePath.Find as FP
 
 import           Radicle
-import           Radicle.Internal.Subscriber.Capabilities
+import           Radicle.Internal.Effects.Capabilities
 
 import           Paths_radicle
 
