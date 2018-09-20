@@ -8,13 +8,14 @@ import           Radicle
 main :: IO ()
 main = do
     opts' <- execParser allOpts
-    cfgSrc <- readFile =<< case configFile opts' of
+    cfgFile <- case configFile opts' of
         Nothing  -> getConfig
         Just cfg -> pure cfg
+    cfgSrc <- readFile cfgFile
     hist <- case histFile opts' of
         Nothing -> getHistory
         Just h  -> pure h
-    repl (Just hist) cfgSrc replBindings
+    repl (Just hist) (toS cfgFile) cfgSrc replBindings
   where
     allOpts = info (opts <**> helper)
         ( fullDesc

@@ -3,12 +3,15 @@ module Radicle.Internal.Pretty where
 
 import           Protolude hiding (TypeError, (<>))
 
+import           Data.Copointed (Copointed(..))
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
 import           Text.Megaparsec.Error (parseErrorPretty)
+import           Text.Megaparsec.Pos (sourcePosPretty)
 
+import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 
 -- | We can't just pretty print the pointer id since that would break
@@ -19,7 +22,7 @@ instance Pretty Reference where
 instance Pretty Ident where
     pretty (Ident i) = pretty i
 
-instance Pretty Value where
+instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) where
     pretty v = case v of
         Atom i -> pretty i
         Keyword i -> ":" <> pretty i
@@ -44,7 +47,15 @@ instance Pretty Value where
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
 
+instance Pretty Ann.SrcPos where
+    pretty (Ann.SrcPos pos)        = pretty (sourcePosPretty pos)
+    pretty (Ann.InternalPos stack) = pretty stack
+
 instance Pretty r => Pretty (LangError r) where
+    pretty (LangError stack err) = vsep $
+        [pretty err, "Call stack:"] ++ map pretty (reverse stack)
+
+instance Pretty r => Pretty (LangErrorData r) where
     pretty v = case v of
         UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
         Impossible t -> "This cannot be!" <+> pretty t
@@ -62,7 +73,7 @@ instance Pretty r => Pretty (LangError r) where
 --
 -- Examples:
 --
--- >>> renderCompactPretty (List [String "hi", String "there"])
+-- >>> renderCompactPretty (asValue (List [String "hi", String "there"]))
 -- "(\"hi\"\n\"there\")"
 renderCompactPretty :: Pretty v => v -> Text
 renderCompactPretty = renderStrict . layoutCompact . pretty
@@ -71,10 +82,10 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 --
 -- Examples:
 --
--- >>> renderPretty Unbounded (List [String "hi", String "there"])
+-- >>> renderPretty Unbounded (asValue (List [String "hi", String "there"]))
 -- "(\"hi\" \"there\")"
 --
--- >>> renderPretty (AvailablePerLine 6 0.5) (List [String "hi", String "there"])
+-- >>> renderPretty (AvailablePerLine 6 0.5) (asValue (List [String "hi", String "there"]))
 -- "(\"hi\"\n  \"there\")"
 renderPretty :: Pretty v => PageWidth -> v -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
@@ -83,7 +94,7 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 --
 -- Examples:
 --
--- >>> renderPrettyDef (List [String "hi", String "there"])
+-- >>> renderPrettyDef (asValue (List [String "hi", String "there"]))
 -- "(\"hi\" \"there\")"
 renderPrettyDef :: Pretty v => v -> Text
 renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . pretty

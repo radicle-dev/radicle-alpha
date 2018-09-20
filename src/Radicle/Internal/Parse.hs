@@ -1,6 +1,6 @@
 module Radicle.Internal.Parse where
 
-import           Protolude hiding (try)
+import           Protolude hiding (SrcLoc, try)
 
 import           Data.Char (isAlphaNum, isLetter)
 import           Data.List.NonEmpty (NonEmpty((:|)))
@@ -14,6 +14,7 @@ import           Text.Megaparsec
                  , choice
                  , defaultTabWidth
                  , eof
+                 , getPosition
                  , initialPos
                  , manyTill
                  , runParserT'
@@ -26,6 +27,7 @@ import           Text.Megaparsec.Char (char, satisfy, space1)
 import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Text.Megaparsec.Error as Par
 
+import           Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 
 -- * The parser
@@ -38,6 +40,11 @@ spaceConsumer = L.space space1 lineComment blockComment
   where
     lineComment  = L.skipLineComment ";;"
     blockComment = L.skipBlockComment "#|" "|#" -- R6RS
+
+tag :: ValueF Value -> VParser
+tag v = do
+    pos <- getPosition -- N.B. in megaparsec 7 this is called getSourcePos
+    pure $ Ann.Annotated (Ann.WithPos (Ann.SrcPos pos) v)
 
 
 symbol :: Text -> Parser Text
@@ -57,14 +64,14 @@ bracesP = inside "{" "}"
 
 stringLiteralP :: VParser
 stringLiteralP = lexeme $
-    String . toS <$> (char '"' >> manyTill L.charLiteral (char '"'))
+    tag =<< StringF . toS <$> (char '"' >> manyTill L.charLiteral (char '"'))
 
 boolLiteralP :: VParser
-boolLiteralP = lexeme $ Boolean <$> (char '#' >>
+boolLiteralP = lexeme $ tag =<< BooleanF <$> (char '#' >>
         (char 't' >> pure True) <|> (char 'f' >> pure False))
 
 numLiteralP :: VParser
-numLiteralP = Number <$> signed L.scientific
+numLiteralP = tag =<< NumberF <$> signed L.scientific
   where
     -- We don't allow spaces between the sign and digits so that we can remain
     -- consistent with the general Scheme of things.
@@ -80,19 +87,19 @@ atomOrPrimP :: VParser
 atomOrPrimP = do
     i <- identP
     prims <- ask
-    pure $ if i `elem` prims then Primop i else Atom i
+    tag $ if i `elem` prims then PrimopF i else AtomF i
 
 keywordP :: VParser
 keywordP = do
   _ <- char ':'
   kw <- many (satisfy isValidIdentRest)
-  pure . Keyword . Ident . fromString $ kw
+  tag . KeywordF . Ident . fromString $ kw
 
 listP :: VParser
-listP = parensP (List <$> valueP `sepBy` spaceConsumer)
+listP = parensP (tag =<< (ListF <$> valueP `sepBy` spaceConsumer))
 
 dictP :: VParser
-dictP = bracesP (Dict . Map.fromList <$> evenItems)
+dictP = bracesP (tag =<< (DictF . Map.fromList <$> evenItems))
   where
     evenItems = twoItems `sepBy` spaceConsumer
     twoItems = do
@@ -102,7 +109,10 @@ dictP = bracesP (Dict . Map.fromList <$> evenItems)
       pure (x,y)
 
 quoteP :: VParser
-quoteP = List . ((Primop $ toIdent "quote") :) . pure <$> (char '\'' >> valueP)
+quoteP = do
+    val <- char '\'' >> valueP
+    q <- tag $ PrimopF (toIdent "quote")
+    pure $ List [q, val]
 
 valueP :: VParser
 valueP = do
@@ -147,14 +157,14 @@ parseValues sourceName srcCode prims = withoutLeadingSpaces
 --
 -- Examples:
 --
--- >>> parse "test" "#t" [] :: Either Text Value
--- Right (Boolean True)
+-- >>> untag <$> parse "test" "#t" [] :: Either Text UntaggedValue
+-- Right (Annotated (Identity (BooleanF True)))
 --
--- >>> parse "test" "hi" [toIdent "hi"] :: Either Text Value
--- Right (Primop (Ident {fromIdent = "hi"}))
+-- >>> untag <$> parse "test" "hi" [toIdent "hi"] :: Either Text UntaggedValue
+-- Right (Annotated (Identity (PrimopF (Ident {fromIdent = "hi"}))))
 --
--- >>> parse "test" "hi" [] :: Either Text Value
--- Right (Atom (Ident {fromIdent = "hi"}))
+-- >>> untag <$> parse "test" "hi" [] :: Either Text UntaggedValue
+-- Right (Annotated (Identity (AtomF (Ident {fromIdent = "hi"}))))
 parse :: MonadError Text m
     => Text    -- ^ Name of source file (for error reporting)
     -> Text    -- ^ Source code to be parsed

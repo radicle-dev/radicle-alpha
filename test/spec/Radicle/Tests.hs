@@ -15,10 +15,12 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
                  (Arbitrary, counterexample, testProperty, (==>))
+import qualified Text.Megaparsec.Pos as Par
 
 import           Radicle
+import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary ()
-import           Radicle.Internal.Core (toIdent)
+import           Radicle.Internal.Core (asValue, noStack, toIdent)
 import           Radicle.Internal.Foo (Foo)
 import           Radicle.Internal.TestCapabilities
 
@@ -111,7 +113,7 @@ test_eval =
         prog3 `succeedsWith` String "b"
 
     , testProperty "'string-append' concatenates string" $ \ss -> do
-        let args = T.unwords $ renderPrettyDef . String <$> ss
+        let args = T.unwords $ renderPrettyDef . asValue . String <$> ss
             prog = "(string-append " <> args <> ")"
             res  = runTest' prog
             expected = Right . String $ mconcat ss
@@ -286,12 +288,12 @@ test_eval =
         prog `succeedsWith` Number 6
 
     , testProperty "'>' works" $ \(x, y) -> do
-        let prog = [i|(> #{renderPrettyDef $ Number x} #{renderPrettyDef $ Number y})|]
+        let prog = [i|(> #{renderPrettyDef . asValue $ Number x} #{renderPrettyDef . asValue $ Number y})|]
             res  = runTest' $ toS prog
         counterexample prog $ res == Right (Boolean (x > y))
 
     , testProperty "'<' works" $ \(x, y) -> do
-        let prog = [i|(< #{renderPrettyDef $ Number x} #{renderPrettyDef $ Number y})|]
+        let prog = [i|(< #{renderPrettyDef . asValue $ Number x} #{renderPrettyDef . asValue $ Number y})|]
             res  = runTest' $ toS prog
         counterexample prog $ res == Right (Boolean (x < y))
 
@@ -392,7 +394,7 @@ test_eval =
             orig    = runTest' $ toS [i|#{renderPrettyDef v}|]
             info    = "Expected:\n" <> toS (prettyEither orig)
                    <> "\nGot:\n" <> toS (prettyEither derefed)
-        counterexample info $ derefed == orig
+        counterexample info $ noStack derefed == noStack orig
 
     , testCase "'show' works" $ do
         runTest' "(show 'a)" @?= Right (String "a")
@@ -412,7 +414,8 @@ test_eval =
     , testCase "'to-json' works" $ do
         runTest' "(to-json (dict \"foo\" #t))" @?= Right (String "{\"foo\":true}")
         runTest' "(to-json (dict \"key\" (list 1 \"value\")))" @?= Right (String "{\"key\":[1,\"value\"]}")
-        runTest' "(to-json (dict 1 2))" @?= Left (OtherError "Could not serialise value to JSON")
+        noStack (runTest' "(to-json (dict 1 2))") @?= Left (OtherError "Could not serialise value to JSON")
+
     , testCase "define-rec can define recursive functions" $ do
         let prog = [s|
             (define-rec triangular
@@ -423,12 +426,41 @@ test_eval =
             (triangular 10)
             |]
         runTest' prog @?= Right (Number 55)
+
     , testCase "define-rec errors when defining a non-function" $
         failsWith "(define-rec x 42)" (OtherError "define-rec can only be used to define functions")
+
+    , testCase "stack traces work" $ do
+        let prog = [s|
+            (define inner (lambda () (notdefined)))
+            (define outer (lambda () (inner)))
+            (outer)
+            |]
+        case runTest' prog of
+            Left (LangError stack (UnknownIdentifier (Ident "notdefined"))) ->
+                assertEqual "correct line numbers" [3,2,1,1] (stackTraceLines stack)
+            r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
+
+    , testCase "stack traces work with HOFs" $ do
+        let prog = [s|
+            (define callit (lambda (f) (f)))
+            (define inner (lambda () (notdefined)))
+            (callit inner)
+            |]
+        case runTest' prog of
+            Left (LangError stack (UnknownIdentifier (Ident "notdefined"))) ->
+                assertEqual "correct line numbers" [3,1,2,2] (stackTraceLines stack)
+            r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
     ]
   where
-    failsWith src err    = runTest' src @?= Left err
+    failsWith src err    = noStack (runTest' src) @?= Left err
     succeedsWith src val = runTest' src @?= Right val
+
+stackTraceLines :: [Ann.SrcPos] -> [Int]
+stackTraceLines = concatMap go
+    where
+    go Ann.InternalPos{} = []
+    go (Ann.SrcPos pos)  = [Par.unPos (Par.sourceLine pos)]
 
 test_parser :: [TestTree]
 test_parser =
@@ -489,27 +521,26 @@ test_binding =
   where
     x ~~> y = runIdentity (interpret "test" x pureEnv) @?= Right y
 
-
 test_pretty :: [TestTree]
 test_pretty =
     [ testCase "long lists are indented" $ do
-        let r = renderPretty (apl 5) (List [String "fn", String "abc"])
+        let r = renderPretty (apl 5) (asValue (List [String "fn", String "abc"]))
         r @?= "(\"fn\"\n  \"abc\")"
 
     , testCase "lists try to fit on one line" $ do
-        let r = renderPretty (apl 80) (List [atom "fn", atom "arg1", atom "arg2"])
+        let r = renderPretty (apl 80) (asValue (List [atom "fn", atom "arg1", atom "arg2"]))
         r @?= "(fn arg1 arg2)"
 
     , testCase "dicts try to fit on one line" $ do
-        let r = renderPretty (apl 80) (Dict $ Map.fromList [ (kw "k1", Number 1)
-                                                           , (kw "k2", Number 2)
-                                                           ])
+        let r = renderPretty (apl 80) (asValue (Dict $ Map.fromList [ (kw "k1", Number 1)
+                                                                    , (kw "k2", Number 2)
+                                                                    ]))
         r @?= "{:k1 1.0 :k2 2.0}"
 
     , testCase "dicts split with key-val pairs" $ do
-        let r = renderPretty (apl 5) (Dict $ Map.fromList [ (kw "k1", Number 1)
-                                                          , (kw "k2", Number 2)
-                                                          ])
+        let r = renderPretty (apl 5) (asValue (Dict $ Map.fromList [ (kw "k1", Number 1)
+                                                                   , (kw "k2", Number 2)
+                                                                   ]))
         r @?= "{:k1 1.0\n :k2 2.0}"
     ]
   where

@@ -14,15 +14,16 @@ import           System.Console.Haskeline (InputT)
 main :: IO ()
 main = do
     opts' <- execParser allOpts
-    cfgSrc <- readFile =<< case configFile opts' of
+    cfgFile <- case configFile opts' of
         Nothing  -> getConfig
         Just cfg -> pure cfg
+    cfgSrc <- readFile cfgFile
     hist <- case histFile opts' of
         Nothing -> getHistory
         Just h  -> pure h
     mgr <- newManager defaultManagerSettings
     let cEnv = mkClientEnv mgr (serverURL opts')
-    repl (Just hist) cfgSrc (bindings cEnv)
+    repl (Just hist) (toS cfgFile) cfgSrc (bindings cEnv)
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
@@ -77,27 +78,27 @@ primops cEnv = Primops (fromList [sendPrimop, receivePrimop]) <> replPrimops
          [String name, v] -> do
              res <- liftIO $ runClientM (submit $ List $ [String name, v]) cEnv
              case res of
-                 Left e   -> throwError . OtherError
+                 Left e   -> throwErrorHere . OtherError
                            $ "send!: failed:" <> show e
                  Right () -> pure $ List []
-         [_, _] -> throwError $ TypeError "send!: first argument should be a string"
-         xs     -> throwError $ WrongNumberOfArgs "send!" 2 (length xs)
+         [_, _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
+         xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
     receivePrimop =
       ( Ident "receive!"
       , evalArgs $ \case
           [String name, Number n] -> do
               case floatingOrInteger n of
-                  Left (_ :: Float) -> throwError . OtherError
+                  Left (_ :: Float) -> throwErrorHere . OtherError
                                      $ "receive!: expecting int argument"
                   Right r -> do
                       liftIO (runClientM (since name r) cEnv) >>= \case
-                          Left err -> throwError . OtherError
+                          Left err -> throwErrorHere . OtherError
                                     $ "receive!: request failed:" <> show err
                           Right v' -> pure $ List v'
-          [String _, _] -> throwError $ TypeError "receive!: expecting number as second arg"
-          [_, _]        -> throwError $ TypeError "receive!: expecting string as first arg"
-          xs            -> throwError $ WrongNumberOfArgs "receive!" 2 (length xs)
+          [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
+          [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
+          xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)
       )
 
 -- * Helpers

@@ -1,3 +1,5 @@
+{-# LANGUAGE PatternSynonyms #-}
+
 -- | `radicle` - A LISP for blocktrees.
 --
 -- `radicle` is a *reflective* language, meaning evaluation can be modified,
@@ -19,10 +21,23 @@ module Radicle
     -- ** Datatypes
     --
     -- *** Value
-    , Value(..)
+    , ValueF(..)
+    , type Value
+    , pattern Atom
+    , pattern Keyword
+    , pattern String
+    , pattern Number
+    , pattern Boolean
+    , pattern List
+    , pattern Primop
+    , pattern Dict
+    , pattern Ref
+    , pattern Lambda
     , maybeJson
     -- *** LangError
     , LangError(..)
+    , LangErrorData(..)
+    , throwErrorHere
     , Ident(..)
     , Reference(..)
     , mkIdent
