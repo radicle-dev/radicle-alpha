@@ -280,6 +280,9 @@ eval val = do
                     return val'
                 _ -> throwError $ OtherError "eval: should return list with value and new env"
         _ -> throwError $ TypeError "Trying to apply a non-function"
+  where
+
+
 
 makeEnv :: Monad m => Value -> Lang m (Env Value)
 makeEnv env = case env of

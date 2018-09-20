@@ -134,11 +134,11 @@ test_eval =
         prog `succeedsWith` List [List [Number 1, Number 1]]
 
     , testCase "'eval' evaluates the list" $ do
-        let prog = [s|(eval (quote #t))|]
+        let prog = [s|(eval (quote #t) (get-current-env))|]
         prog `succeedsWith` Boolean True
 
     , testCase "'eval' only evaluates the first quote" $ do
-        let prog1 = [s|(eval (quote (quote (+ 3 2))))|]
+        let prog1 = [s|(eval (quote (quote (+ 3 2))) (get-current-env))|]
             prog2 = [s|(quote (+ 3 2))|]
             res1 = runTest' prog1
             res2 = runTest' prog2
