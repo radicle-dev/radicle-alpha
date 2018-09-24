@@ -4,10 +4,6 @@ module Radicle.Internal.Primops
   , evalArgs
   , evalOneArg
   , readValue
-  , kwLookup
-  , makeBindings
-  , unmakeBindings
-  , (??)
   ) where
 
 import           Protolude hiding (TypeError)
@@ -23,7 +19,7 @@ import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
-pureEnv :: (Monad m) => Bindings m
+pureEnv :: (Monad m) => Bindings (Primops m)
 pureEnv = Bindings e purePrimops r 1
   where
     e = fromList [ (toIdent "eval", Primop $ toIdent "base-eval")
@@ -34,28 +30,28 @@ pureEnv = Bindings e purePrimops r 1
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
 purePrimops :: forall m. (Monad m) => Primops m
-purePrimops = fromList $ first Ident <$>
+purePrimops = Primops $ fromList $ first Ident <$>
     [ ( "lambda"
       , \case
           List atoms_ : b : bs -> do
-            atoms <- traverse isAtom atoms_ ?? "lambda: expecting a list of symbols"
+            atoms <- traverse isAtom atoms_ ?? TypeError "lambda: expecting a list of symbols"
             e <- gets bindingsEnv
             pure (Lambda atoms (b :| bs) e)
           xs -> throwError $ WrongNumberOfArgs "lambda" 2 (length xs) -- TODO: technically "at least 2"
       )
     , ( "base-eval"
       , evalArgs $ \case
-          [expr, env] -> do
-              env' <- makeEnv env
-              modify $ \s -> s { bindingsEnv = env' }
-              val <- baseEval expr
-              newEnv <- gets bindingsEnv
-              pure $ List [val, unmakeEnv newEnv]
+          [expr, env] -> case (fromRadicle env :: Either Text (Bindings ())) of
+              Left e -> throwError $ OtherError e
+              Right env' -> withBindings (const $ fmap (const purePrimops) env') $ do
+                  val <- baseEval expr
+                  st <- get
+                  pure $ List [val, toRadicle st]
           xs -> throwError $ WrongNumberOfArgs "base-eval" 2 (length xs)
       )
     , ( "pure-env"
       , \case
-          [] -> pure $ unmakeBindings (pureEnv :: Bindings m)
+          [] -> pure $ toRadicle (pureEnv :: Bindings (Primops m))
           xs -> throwError $ WrongNumberOfArgs "pure-env" 0 (length xs)
       )
     , ("apply", evalArgs $ \case
@@ -68,7 +64,7 @@ purePrimops = fromList $ first Ident <$>
           _ -> throwError $ TypeError "read: expects string"
       )
     , ("get-current-env", \case
-          [] -> unmakeBindings <$> get
+          [] -> toRadicle <$> get
           xs -> throwError $ WrongNumberOfArgs "get-current-env" 0 (length xs))
     , ("list", evalArgs $ \args -> pure $ List args)
     , ("dict", evalArgs $ (Dict . foldr (uncurry Map.insert) mempty <$>) . evenArgs "dict")
@@ -262,7 +258,7 @@ purePrimops = fromList $ first Ident <$>
       )
     , ( "to-json"
       , evalOneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
-          maybeJson v ?? "Could not serialise value to JSON"
+          maybeJson v ?? OtherError "Could not serialise value to JSON"
       )
     ]
   where
@@ -316,44 +312,23 @@ evalOneArg fname f = evalArgs $ \case
   [x] -> f x
   xs -> throwError $ WrongNumberOfArgs fname 1 (length xs)
 
-readValue :: (MonadError (LangError Value) m, MonadState (Bindings n) m) => Text -> m Value
+readValue
+    :: (MonadError (LangError Value) m, MonadState (Bindings (Primops n)) m)
+    => Text
+    -> m Value
 readValue s = do
-    allPrims <- gets bindingsPrimops
+    allPrims <- gets (getPrimops . bindingsPrimops)
     let p = parse "[read-primop]" s (Map.keys allPrims)
     case p of
       Right v -> pure v
       Left e  -> throwError $ ThrownError (Ident "parse-error") (String e)
 
--- | Convert Bindings into a Value that can be used with radicle.
-unmakeBindings :: Bindings m -> Value
-unmakeBindings bnds = Dict $ Map.fromList
-    [ (Keyword $ Ident "env", Dict $ Map.mapKeys Atom $ fromEnv $ bindingsEnv bnds)
-    , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs bnds))
-    ]
 
--- | Convert a value into Bindings, or throw an error.
-makeBindings :: (Monad m, Monad n) => Value -> Lang m (Bindings n)
-makeBindings val = case val of
-    Dict d -> do
-        env' <- kwLookup "env" d ?? "expecting 'env' key"
-        refs' <- kwLookup "refs" d ?? "expecting 'refs' key"
-        (nextRef, refs) <- makeRefs refs'
-        env <- makeEnv env'
-        pure $ Bindings env purePrimops refs nextRef
-    _ -> throwError $ TypeError "expecting dict"
-  where
-    makeRefs refs = case refs of
-        List ls -> pure (length ls, IntMap.fromList $ zip [0..] ls)
-        _       -> throwError $ TypeError "Expecting dict"
-
-
-kwLookup :: Text -> Map Value Value -> Maybe Value
-kwLookup key = Map.lookup (Keyword $ Ident key)
 
 -- | Throws an OtherError with the specified message if the Maybe is not a
 -- Just.
-(??) :: MonadError (LangError Value) m => Maybe a -> Text -> m a
-a ?? msg = case a of
-    Nothing -> throwError $ OtherError msg
-    Just v  -> pure v
+{-(??) :: MonadError (LangError Value) m => Maybe a -> Text -> m a-}
+{-a ?? msg = case a of-}
+    {-Nothing -> throwError $ OtherError msg-}
+    {-Just v  -> pure v-}
 

@@ -638,9 +638,9 @@ atom = Atom . toIdent
 -- -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- -- primops.
 parseTest :: MonadError Text m => Text -> m Value
-parseTest t = parse "(test)" t (Map.keys $ bindingsPrimops e)
+parseTest t = parse "(test)" t (Map.keys . getPrimops $ bindingsPrimops e)
   where
-    e :: Bindings (Lang Identity)
+    e :: Bindings (Primops (Lang Identity))
     e = pureEnv
 
 prettyEither :: Either (LangError Value) Value -> T.Text

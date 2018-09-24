@@ -24,7 +24,7 @@ type TestLang = Lang (State WorldState)
 
 -- | Run a possibly side-effecting program with the given stdin input lines.
 runTestWithFiles
-    :: Bindings (State WorldState)
+    :: Bindings (Primops (State WorldState))
     -> [Text]  -- The stdin (errors if it runs out)
     -> Map Text Text -- The files
     -> Text -- The program
@@ -41,7 +41,7 @@ runTestWithFiles bindings inputs files action =
 
 -- | Run a possibly side-effecting program with the given stdin input lines.
 runTestWith
-    :: Bindings (State WorldState)
+    :: Bindings (Primops (State WorldState))
     -> [Text]  -- The stdin (errors if it runs out)
     -> Text -- The program
     -> (Either (LangError Value) Value, [Text])
@@ -56,7 +56,7 @@ runTestWith' = runTestWith pureEnv
 
 -- | Run a test without stdin/stdout
 runTest
-    :: Bindings (State WorldState)
+    :: Bindings (Primops (State WorldState))
     -> Text
     -> Either (LangError Value) Value
 runTest bnds prog = fst $ runTestWith bnds [] prog

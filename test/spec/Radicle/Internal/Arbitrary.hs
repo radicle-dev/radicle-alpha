@@ -28,7 +28,7 @@ instance Arbitrary Value where
                 , (3, Boolean <$> arbitrary)
                 , (3, Number <$> arbitrary)
                 , (1, List <$> sizedList)
-                , (6, Primop <$> elements (Map.keys prims))
+                , (6, Primop <$> elements (Map.keys $ getPrimops prims))
                 , (1, Lambda <$> sizedList
                              <*> scale (`div` 3) arbitrary
                              <*> scale (`div` 3) arbitrary)
@@ -39,9 +39,9 @@ instance Arbitrary Value where
         sizedList = sized $ \n -> do
             k <- choose (0, n)
             scale (`div` (k + 1)) $ vectorOf k arbitrary
-        prims :: Map.Map Ident ([Value] -> Lang Identity Value)
+        prims :: Primops Identity
         prims = purePrimops
-        isPrimop x = x `elem` Map.keys prims
+        isPrimop x = x `elem` Map.keys (getPrimops prims)
         isNum x = isJust (readMaybe (toS $ fromIdent x) :: Maybe Scientific)
 
 instance Arbitrary Ident where
