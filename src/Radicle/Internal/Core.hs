@@ -76,6 +76,9 @@ errorToValue e = case e of
 newtype Reference = Reference { getReference :: Int }
     deriving (Show, Read, Ord, Eq, Generic, Serialise)
 
+instance AADT.Hashable Reference where
+    toHash (Reference e) = AADT.toHash e
+
 -- | Create a new ref with the supplied initial value.
 newRef :: Monad m => Value -> Lang m Value
 newRef v = do
@@ -115,6 +118,7 @@ data Value =
     deriving (Eq, Show, Ord, Read, Generic)
 
 instance Serialise Value
+instance AADT.Hashable Value
 
 -- Should just be a prism
 isAtom :: Value -> Maybe Ident
@@ -173,6 +177,9 @@ maybeJson = \case
 newtype Ident = Ident { fromIdent :: Text }
     deriving (Eq, Show, Read, Ord, Generic, Data, Serialise)
 
+instance AADT.Hashable Ident where
+    toHash (Ident s) = AADT.toHash s
+
 -- Unsafe! Only use this if you know the string at compile-time and know it's a
 -- valid identifier
 toIdent :: Text -> Ident
@@ -186,6 +193,9 @@ instance GhcExts.IsList (Env s) where
     type Item (Env s) = (Ident, s)
     fromList = Env . Map.fromList
     toList = GhcExts.toList . fromEnv
+
+instance AADT.Hashable s => AADT.Hashable (Env s) where
+    toHash (Env s) = AADT.toHash s
 
 -- | Primop mappings. The parameter specifies the monad the primops run in.
 type Primops m = Map Ident ([Value ] -> Lang m Value)

@@ -14,6 +14,7 @@ dependencies:
 - aeson
 - auth-adt
 - containers
+- cryptonite
 - deriving-compat
 - directory
 - haskeline
