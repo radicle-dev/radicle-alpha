@@ -40,6 +40,10 @@ test_eval =
         let prog2 = [s|(dict 3 1)|]
         prog2 `succeedsWith` Dict (fromList [(Number 3, Number 1)])
 
+    , testCase "Dicts evaluate both keys are arguments" $ do
+        "{(+ 1 1) (+ 1 1)}" `succeedsWith` Dict (fromList [(Number 2, Number 2)])
+        "{(+ 1 1) :a (+ 0 2) :b}" `succeedsWith` Dict (fromList [(Number 2, kw "a")])
+
     , testCase "'cons' conses an element" $ do
         let prog = [s|(cons #t (list #f))|]
         prog `succeedsWith` List [Boolean True, Boolean False]

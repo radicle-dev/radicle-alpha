@@ -70,7 +70,7 @@ errorToValue e = case e of
     Exit -> makeVal ("exit", [])
   where
     makeA = quote . Atom
-    makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Atom . Ident) . GhcExts.fromList $ v)
+    makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Keyword . Ident) . GhcExts.fromList $ v)
 
 newtype Reference = Reference { getReference :: Int }
     deriving (Show, Read, Ord, Eq, Generic, Serialise)
@@ -280,10 +280,9 @@ baseEval val = case val of
                             2
                             (length xs)
     Dict mp -> do
-        let evalSnd (a,b) = (a ,) <$> baseEval b
-        Dict . Map.fromList <$> traverse evalSnd (Map.toList mp)
+        let evalBoth (a,b) = (,) <$> baseEval a <*> baseEval b
+        Dict . Map.fromList <$> traverse evalBoth (Map.toList mp)
     autoquote -> pure autoquote
-
 
 
 -- * Helpers
