@@ -7,11 +7,11 @@ import           Protolude
 
 import           Radicle.Internal.CLI as X
 import           Radicle.Internal.Core as X
+import           Radicle.Internal.Effects as X
 import           Radicle.Internal.Interpret as X
 import           Radicle.Internal.Parse as X
 import           Radicle.Internal.Pretty as X
 import           Radicle.Internal.Primops as X
-import           Radicle.Internal.Effects as X
 
 import qualified Text.Megaparsec as M
 

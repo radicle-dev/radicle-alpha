@@ -26,7 +26,7 @@ main = do
         $ runLang bindings
         $ interpretMany "[repl]" "(load! \"rad/prelude.rad\")"
     case res of
-        (Left err, _) -> liftIO $ print $ renderPrettyDef err
+        (Left err, _)      -> liftIO $ print $ renderPrettyDef err
         (Right _, newBnds) -> liftIO $ writeIORef bndsRef newBnds
     cb <- syncCallback1 ContinueAsync (jsEval bndsRef)
     js_set_eval cb

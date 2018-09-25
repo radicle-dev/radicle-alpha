@@ -1,6 +1,7 @@
 module Server where
 
 import           API
+import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Sequence as Seq
 import           Network.Wai.Handler.Warp
@@ -10,7 +11,6 @@ import           Protolude hiding (fromStrict)
 import           Radicle
 import           Servant
 import qualified STMContainers.Map as STMMap
-import qualified Data.Aeson as A
 
 -- * Main
 

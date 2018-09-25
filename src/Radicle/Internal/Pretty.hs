@@ -29,9 +29,9 @@ instance Pretty Value where
         Boolean True -> "#t"
         Boolean False -> "#f"
         List vs -> case vs of
-          [] -> "()"
+          []   -> "()"
           [v'] -> parens $ pretty v'
-          _ -> parens $ hang 1 (sep $ pretty <$> vs)
+          _    -> parens $ hang 1 (sep $ pretty <$> vs)
         Primop i -> pretty i
         Dict mp -> braces . align $
             sep [ pretty k <+> pretty val

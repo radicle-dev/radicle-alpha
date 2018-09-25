@@ -86,7 +86,7 @@ steps:
       #   >     )
       #
       # Default: inline
-      long_list_align: inline
+      long_list_align: new_line_multiline
 
       # Align empty list (importing instances)
       #
@@ -164,7 +164,7 @@ steps:
       #   between actual import and closing bracket.
       #
       # Default: true
-      align: false
+      align: true
 
       # stylish-haskell can detect redundancy of some language pragmas. If this
       # is set to true, it will remove those redundant pragmas. Default: true.
@@ -177,14 +177,26 @@ columns: 80
 newline: native
 
 language_extensions:
+  - AutoDeriveTypeable
+  - ConstraintKinds
+  - DataKinds
+  - DeriveDataTypeable
+  - DeriveFoldable
+  - DeriveFunctor
+  - DeriveGeneric
+  - DeriveTraversable
   - FlexibleContexts
+  - FlexibleInstances
   - FunctionalDependencies
+  - GeneralizedNewtypeDeriving
   - LambdaCase
   - MultiParamTypeClasses
-  - MultiWayIf
+  - NoImplicitPrelude
+  - OverloadedStrings
+  - RankNTypes
   - RecordWildCards
   - ScopedTypeVariables
+  - StandaloneDeriving
   - TupleSections
-  - TypeApplications
   - TypeFamilies
-  - ViewPatterns
+  - TypeOperators

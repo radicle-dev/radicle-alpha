@@ -10,8 +10,8 @@ import           Protolude
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           System.Console.Haskeline
 #ifdef ghcjs_HOST_OS
-import           GHCJS.DOM.XMLHttpRequest (getResponseText, newXMLHttpRequest,
-                                           openSimple, send)
+import           GHCJS.DOM.XMLHttpRequest
+                 (getResponseText, newXMLHttpRequest, openSimple, send)
 #endif
 
 import           Radicle.Internal.Core

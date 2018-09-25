@@ -1,10 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Orphans () where
 
-import Protolude
-import Prelude (fail)
-import Codec.Serialise (Serialise(..))
-import Data.Scientific
+import           Codec.Serialise (Serialise(..))
+import           Data.Scientific
+import           Prelude (fail)
+import           Protolude
 
 instance Serialise Scientific where
     encode = encode . (show :: Scientific -> Text)
