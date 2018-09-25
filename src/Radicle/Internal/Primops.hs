@@ -81,6 +81,19 @@ purePrimops = fromList $ first Ident <$>
               pure nil
           [_, _]           -> throwError $ OtherError "define expects atom for first arg"
           xs               -> throwError $ WrongNumberOfArgs "define" 2 (length xs))
+    , ( "define-rec"
+      , \case
+          [Atom name, val] -> do
+            val' <- baseEval val
+            case val' of
+                Lambda is b (Just e) -> do
+                    let v = Lambda is b (Just (Env . Map.insert name v . fromEnv $ e))
+                    defineAtom name v
+                    pure nil
+                _ -> throwError $ OtherError "define-rec can only be used to define functions"
+          [_, _]           -> throwError $ OtherError "define-rec expects atom for first arg"
+          xs               -> throwError $ WrongNumberOfArgs "define-rec" 2 (length xs)
+      )
     , ("do", evalArgs $ pure . lastDef nil)
     , ("catch", \args -> case args of
           [l, form, handler] -> do

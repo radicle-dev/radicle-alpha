@@ -406,6 +406,18 @@ test_eval =
         runTest' "(to-json (dict \"foo\" #t))" @?= Right (String "{\"foo\":true}")
         runTest' "(to-json (dict \"key\" (list 1 \"value\")))" @?= Right (String "{\"key\":[1,\"value\"]}")
         runTest' "(to-json (dict 1 2))" @?= Left (OtherError "Could not serialise value to JSON")
+    , testCase "define-rec can define recursive functions" $ do
+        let prog = [s|
+            (define-rec triangular
+              (lambda (n)
+                (if (eq? n 0)
+                    0
+                    (+ n (triangular (- n 1))))))
+            (triangular 10)
+            |]
+        runTest' prog @?= Right (Number 55)
+    , testCase "define-rec errors when defining a non-function" $
+        failsWith "(define-rec x 42)" (OtherError "define-rec can only be used to define functions")
     ]
   where
     failsWith src err    = runTest' src @?= Left err
