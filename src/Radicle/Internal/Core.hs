@@ -110,7 +110,7 @@ data Value =
     --
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
-    | Lambda [Ident] (NonEmpty Value) (Maybe (Env Value))
+    | Lambda [Ident] (NonEmpty Value) (Env Value)
     deriving (Eq, Show, Ord, Read, Generic)
 
 instance Serialise Value
@@ -263,9 +263,7 @@ eval val = do
             -- Primops get to decide whether and how their args are
             -- evaluated.
             fn [quote val]
-        Lambda _ _ Nothing -> throwError $ Impossible
-            "lambda should already have an env"
-        Lambda [bnd] body (Just closure) -> do
+        Lambda [bnd] body closure -> do
               let mappings = GhcExts.fromList [(bnd, val)]
                   modEnv = mappings <> closure
               NonEmpty.last <$> withEnv (const modEnv)
@@ -276,22 +274,15 @@ eval val = do
 baseEval :: Monad m => Value -> Lang m Value
 baseEval val = case val of
     Atom i -> lookupAtom i
-    kw@(Keyword _) -> pure kw
-    Ref i -> pure $ Ref i
     List (f:vs) -> f $$ vs
     List xs -> throwError
         $ WrongNumberOfArgs ("application: " <> show xs)
                             2
                             (length xs)
-    String s -> pure $ String s
-    Number n -> pure $ Number n
-    Boolean b -> pure $ Boolean b
-    Primop i -> pure $ Primop i
-    e@(Lambda _ _ (Just _)) -> pure e
-    Lambda args body Nothing -> gets $ Lambda args body . Just . bindingsEnv
     Dict mp -> do
         let evalSnd (a,b) = (a ,) <$> baseEval b
         Dict . Map.fromList <$> traverse evalSnd (Map.toList mp)
+    autoquote -> pure autoquote
 
 
 
@@ -300,18 +291,7 @@ baseEval val = case val of
 
 callFn :: Monad m => Value -> [Value] -> Lang m Value
 callFn f vs = case f of
-  -- This happens if a quoted lambda is explicitly evaled. We then
-  -- give it the current environment.
-  Lambda bnds body Nothing ->
-      if length bnds /= length vs
-          then throwError $ WrongNumberOfArgs "lambda" (length bnds)
-                                                       (length vs)
-          else do
-              let mappings = GhcExts.fromList (zip bnds vs)
-              NonEmpty.last <$> withEnv
-                  (mappings <>)
-                  (traverse baseEval body)
-  Lambda bnds body (Just closure) ->
+  Lambda bnds body closure ->
       if length bnds /= length vs
           then throwError $ WrongNumberOfArgs "lambda" (length bnds)
                                                        (length vs)

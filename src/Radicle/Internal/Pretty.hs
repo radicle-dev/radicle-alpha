@@ -23,7 +23,7 @@ instance Pretty Value where
     pretty v = case v of
         Atom i -> pretty i
         Keyword i -> ":" <> pretty i
-        Ref i -> parens $ "ref" <+> pretty i
+        Ref i -> pretty i
         String t -> "\"" <> pretty (escapeStr t) <> "\""
         Number n -> pretty (show n :: Text)
         Boolean True -> "#t"
