@@ -7,11 +7,11 @@ import           Codec.Serialise (Serialise)
 import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
                                        throwError)
 import           Control.Monad.State
-import           Data.Aeson (ToJSON(..), FromJSON(..))
+import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
 import           Data.Data (Data)
-import qualified Data.IntMap as IntMap
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
@@ -20,6 +20,7 @@ import           Data.Semigroup ((<>))
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
 
+import qualified Radicle.Internal.Crypto as Crypto
 import           Radicle.Internal.Orphans ()
 
 -- * Value
@@ -111,14 +112,14 @@ data Value =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
     | Lambda [Ident] (NonEmpty Value) (Maybe (Env Value))
+    | PublicKey Crypto.PublicKey
+    | Signature Crypto.Signature
     deriving (Eq, Show, Ord, Read, Generic)
-
-instance Serialise Value
 
 -- Should just be a prism
 isAtom :: Value -> Maybe Ident
 isAtom (Atom i) = pure i
-isAtom _ = Nothing
+isAtom _        = Nothing
 
 instance A.FromJSON Value where
   parseJSON = \case
@@ -163,7 +164,7 @@ maybeJson = \case
     _ -> Nothing
   where
     isStr (String s) = pure s
-    isStr _ = Nothing
+    isStr _          = Nothing
 
 -- | An identifier in the language.
 --
@@ -276,22 +277,17 @@ eval val = do
 baseEval :: Monad m => Value -> Lang m Value
 baseEval val = case val of
     Atom i -> lookupAtom i
-    kw@(Keyword _) -> pure kw
-    Ref i -> pure $ Ref i
     List (f:vs) -> f $$ vs
     List xs -> throwError
         $ WrongNumberOfArgs ("application: " <> show xs)
                             2
                             (length xs)
-    String s -> pure $ String s
-    Number n -> pure $ Number n
-    Boolean b -> pure $ Boolean b
-    Primop i -> pure $ Primop i
     e@(Lambda _ _ (Just _)) -> pure e
     Lambda args body Nothing -> gets $ Lambda args body . Just . bindingsEnv
     Dict mp -> do
         let evalSnd (a,b) = (a ,) <$> baseEval b
         Dict . Map.fromList <$> traverse evalSnd (Map.toList mp)
+    autoquote -> pure autoquote
 
 
 

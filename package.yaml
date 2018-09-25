@@ -25,6 +25,7 @@ dependencies:
 - serialise
 - text
 - unordered-containers
+- cryptonite
 when:
  - condition: impl(ghcjs)
    dependencies: ghcjs-dom
