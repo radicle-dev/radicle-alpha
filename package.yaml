@@ -16,7 +16,6 @@ dependencies:
 - deriving-compat
 - directory
 - errors
-- generics-eot
 - haskeline
 - megaparsec
 - mtl
