@@ -136,32 +136,24 @@ test_eval =
         prog `succeedsWith` List [List [Number 1, Number 1]]
 
     , testCase "'eval' evaluates the list" $ do
-        let prog = [s|(eval (quote #t) (get-current-env))|]
+        let prog = [s|(head (eval (quote #t) (get-current-env)))|]
         prog `succeedsWith` Boolean True
 
     , testCase "'eval' only evaluates the first quote" $ do
-        let prog1 = [s|(eval (quote (quote (+ 3 2))) (get-current-env))|]
+        let prog1 = [s|(head (eval (quote (quote (+ 3 2))) (get-current-env)))|]
             prog2 = [s|(quote (+ 3 2))|]
             res1 = runTest' prog1
             res2 = runTest' prog2
         res1 @?= res2
 
     , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
-        let prog1 = [i| (eval (lambda () #{renderPrettyDef _v})) |]
+        let prog1 = [i| (head (eval (lambda () #{renderPrettyDef _v}) (get-current-env))) |]
             prog2 = [i| (lambda () #{renderPrettyDef _v}) |]
             res1 = runTest' $ toS prog1
             res2 = runTest' $ toS prog2
             info = "Expected:\n" <> prettyEither res2
                 <> "\nGot:\n" <> prettyEither res1
         counterexample (toS info) $ res1 == res2
-
-    , testCase "'eval-with-env' has access to variable definitions" $ do
-        let prog = [s|(head (eval-with-env
-                                't
-                                (dict :env (dict 'eval 'base-eval 't #t)
-                                      :refs (list))))
-                     |]
-        prog `succeedsWith` Boolean True
 
     , testCase "lambdas work" $ do
         let prog = [s|((lambda (x) x) #t)|]
@@ -615,23 +607,28 @@ test_repl =
 
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
-    [ testGroup "Env Value" $ testForType (Proxy :: Proxy (Env Value))
-    , testGroup "Bindings ()" $ testForType (Proxy :: Proxy (Bindings ()))
-    , testGroup "Scientific" $ testForType (Proxy :: Proxy Scientific)
-    , testGroup "Text" $ testForType (Proxy :: Proxy Text)
-    , testGroup "[Text]" $ testForType (Proxy :: Proxy [Text])
+    [ testGroup "Env Value"
+        [ testForType (Proxy :: Proxy (Env Value)) ]
+    , testGroup "Bindings ()"
+        [ testForType (Proxy :: Proxy (Bindings ())) ]
+    , testGroup "Scientific"
+        [ testForType (Proxy :: Proxy Scientific) ]
+    , testGroup "Text"
+        [ testForType (Proxy :: Proxy Text) ]
+    , testGroup "[Text]"
+        [ testForType (Proxy :: Proxy [Text]) ]
     ]
   where
-    testForType :: forall a. (Arbitrary a, Show a, ToRadicle a, FromRadicle a, Eq a) => Proxy a -> [TestTree]
+    testForType
+        :: forall a. (Arbitrary a, Show a, ToRadicle a, FromRadicle a, Eq a)
+        => Proxy a -> TestTree
     testForType _ =
-        [ testProperty "fromRadicle . toRadicle == id" $ \(v :: a ) -> do
+        testProperty "fromRadicle . toRadicle == id" $ \(v :: a ) -> do
             let expected = Right v
                 got = fromRadicle (toRadicle v)
                 info = "Expected\n\t" <> show expected
                     <> "\nGot\n\t" <> show got
             counterexample info $ got == expected
-        ]
-
 
 -- Tests all radicle files 'repl' dir. These should use the 'should-be'
 -- function to ensure they are in the proper format.

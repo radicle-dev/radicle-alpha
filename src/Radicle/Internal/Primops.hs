@@ -41,12 +41,12 @@ purePrimops = Primops $ fromList $ first Ident <$>
       )
     , ( "base-eval"
       , evalArgs $ \case
-          [expr, env] -> case (fromRadicle env :: Either Text (Bindings ())) of
+          [expr, st] -> case (fromRadicle st :: Either Text (Bindings ())) of
               Left e -> throwError $ OtherError e
-              Right env' -> withBindings (const $ fmap (const purePrimops) env') $ do
+              Right st' -> withBindings (const $ fmap (const purePrimops) st') $ do
                   val <- baseEval expr
-                  st <- get
-                  pure $ List [val, toRadicle st]
+                  st'' <- get
+                  pure $ List [val, toRadicle st'']
           xs -> throwError $ WrongNumberOfArgs "base-eval" 2 (length xs)
       )
     , ( "pure-env"
@@ -126,9 +126,7 @@ purePrimops = Primops $ fromList $ first Ident <$>
       , evalArgs $ \case
           [Number n, List xs] -> case floatingOrInteger n of
             Left (_ :: Double) -> throwError $ OtherError "nth: first argument was not an integer"
-            Right i -> do
-              let x_ = indexMay i xs
-              case x_ of
+            Right i -> case xs `atMay` i of
                 Just x  -> pure x
                 Nothing -> throwError $ OtherError "nth: index out of bounds"
           [_,_] -> throwError $ TypeError "nth: expects a integer and a list"
@@ -271,11 +269,6 @@ purePrimops = Primops $ fromList $ first Ident <$>
           then baseEval e
           else cond ps
 
-    indexMay :: Int -> [a] -> Maybe a
-    indexMay _ []     = Nothing
-    indexMay 0 (x:_)  = pure x
-    indexMay n (_:xs) = indexMay (n - 1) xs
-
     -- | Some forms/functions expect an even number or arguments.
     evenArgs name = \case
       [] -> pure []
@@ -322,13 +315,3 @@ readValue s = do
     case p of
       Right v -> pure v
       Left e  -> throwError $ ThrownError (Ident "parse-error") (String e)
-
-
-
--- | Throws an OtherError with the specified message if the Maybe is not a
--- Just.
-{-(??) :: MonadError (LangError Value) m => Maybe a -> Text -> m a-}
-{-a ?? msg = case a of-}
-    {-Nothing -> throwError $ OtherError msg-}
-    {-Just v  -> pure v-}
-

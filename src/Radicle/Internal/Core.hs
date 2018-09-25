@@ -22,6 +22,7 @@ import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Orphans ()
 
+
 -- * Value
 
 -- | An error throw during parsing or evaluating expressions in the language.
@@ -232,8 +233,8 @@ withBindings modifier action = do
 -- refs) are not affected.
 withEnv :: Monad m => (Env Value -> Env Value) -> Lang m a -> Lang m a
 withEnv modifier action =
-  let mod s = s { bindingsEnv = modifier $ bindingsEnv s}
-  in withBindings mod action
+  let mod' s = s { bindingsEnv = modifier $ bindingsEnv s}
+  in withBindings mod' action
 
 -- * Functions
 
@@ -270,8 +271,8 @@ eval val = do
             -- evaluated.
             res <- fn [quote val, quote st]
             updateEnvAndReturn res
-        Lambda [exprBnd, envBnd] body (Just closure) -> do
-              let mappings = GhcExts.fromList [(exprBnd, val), (envBnd, st)]
+        Lambda [exprBnd, stBnd] body closure -> do
+              let mappings = GhcExts.fromList [(exprBnd, val), (stBnd, st)]
                   modEnv = mappings <> closure
               res <- NonEmpty.last <$> withEnv (const modEnv) (traverse eval body)
               updateEnvAndReturn res
@@ -279,9 +280,11 @@ eval val = do
   where
     updateEnvAndReturn :: Monad m => Value -> Lang m Value
     updateEnvAndReturn v = case v of
-        List [val', newEnv] -> do
-            newEnv' <- either (throwError . OtherError) pure $ fromRadicle newEnv
-            modify $ \s -> s { bindingsEnv = newEnv' }
+        List [val', newSt] -> do
+            prims <- gets bindingsPrimops
+            newSt' <- either (throwError . OtherError) pure
+                      (fromRadicle newSt :: Either Text (Bindings ()))
+            put $ newSt' { bindingsPrimops = prims }
             return val'
         _ -> throwError $ OtherError "eval: should return list with value and new env"
 
@@ -330,13 +333,13 @@ instance FromRadicle (Bindings ()) where
         Dict d -> do
             env' <- kwLookup "env" d ?? "Expecting 'env' key"
             refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
-            (nextRef, refs) <- makeRefs refs'
+            refs <- makeRefs refs'
             env <- fromRadicle env'
-            pure $ Bindings env () refs nextRef
+            pure $ Bindings env () refs (length refs)
         _ -> throwError "Expecting dict"
       where
         makeRefs refs = case refs of
-            List ls -> pure (length ls, IntMap.fromList $ zip [0..] ls)
+            List ls -> pure (IntMap.fromList $ zip [0..] ls)
             _       -> throwError $ "Expecting dict"
 
 
