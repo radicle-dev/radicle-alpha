@@ -15,7 +15,6 @@ dependencies:
 - containers
 - deriving-compat
 - directory
-- errors
 - haskeline
 - megaparsec
 - mtl
