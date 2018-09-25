@@ -43,7 +43,9 @@ purePrimops = Primops $ fromList $ first Ident <$>
       , evalArgs $ \case
           [expr, st] -> case (fromRadicle st :: Either Text (Bindings ())) of
               Left e -> throwError $ OtherError e
-              Right st' -> withBindings (const $ fmap (const purePrimops) st') $ do
+              Right st' -> do
+                prims <- gets bindingsPrimops
+                withBindings (const $ fmap (const prims) st') $ do
                   val <- baseEval expr
                   st'' <- get
                   pure $ List [val, toRadicle st'']

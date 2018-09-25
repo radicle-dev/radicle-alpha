@@ -232,9 +232,12 @@ withBindings modifier action = do
 -- and then restore the original environment. Other bindings (i.e. primops and
 -- refs) are not affected.
 withEnv :: Monad m => (Env Value -> Env Value) -> Lang m a -> Lang m a
-withEnv modifier action =
-  let mod' s = s { bindingsEnv = modifier $ bindingsEnv s}
-  in withBindings mod' action
+withEnv modifier action = do
+    oldEnv <- gets bindingsEnv
+    modify $ \s -> s { bindingsEnv = modifier oldEnv }
+    res <- action
+    modify $ \s -> s { bindingsEnv = oldEnv }
+    pure res
 
 -- * Functions
 
