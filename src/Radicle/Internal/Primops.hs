@@ -40,7 +40,7 @@ purePrimops = fromList $ first Ident <$>
           List atoms_ : b : bs -> do
             atoms <- traverse isAtom atoms_ ?? "lambda: expecting a list of symbols"
             e <- gets bindingsEnv
-            pure (Lambda atoms (b :| bs) (Just e))
+            pure (Lambda atoms (b :| bs) e)
           xs -> throwError $ WrongNumberOfArgs "lambda" 2 (length xs) -- TODO: technically "at least 2"
       )
     , ("base-eval", evalOneArg "base-eval" baseEval)
@@ -86,8 +86,8 @@ purePrimops = fromList $ first Ident <$>
           [Atom name, val] -> do
             val' <- baseEval val
             case val' of
-                Lambda is b (Just e) -> do
-                    let v = Lambda is b (Just (Env . Map.insert name v . fromEnv $ e))
+                Lambda is b e -> do
+                    let v = Lambda is b (Env . Map.insert name v . fromEnv $ e)
                     defineAtom name v
                     pure nil
                 _ -> throwError $ OtherError "define-rec can only be used to define functions"
