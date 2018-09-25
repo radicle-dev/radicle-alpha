@@ -196,7 +196,7 @@ data Bindings prims = Bindings
     , bindingsPrimops :: prims
     , bindingsRefs    :: IntMap Value
     , bindingsNextRef :: Int
-    } deriving (Functor, Generic)
+    } deriving (Eq, Show, Functor, Generic)
 
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
@@ -262,16 +262,16 @@ defineAtom i v = modify $ addBinding i v
 eval :: Monad m => Value -> Lang m Value
 eval val = do
     e <- lookupAtom (toIdent "eval")
-    env <- gets (toRadicle . bindingsEnv)
+    st <- gets toRadicle
     case e of
         Primop i -> do
             fn <- lookupPrimop i
             -- Primops get to decide whether and how their args are
             -- evaluated.
-            res <- fn [quote val, quote env]
+            res <- fn [quote val, quote st]
             updateEnvAndReturn res
-        Lambda [exprBnd, envBnd] body closure -> do
-              let mappings = GhcExts.fromList [(exprBnd, val), (envBnd, env)]
+        Lambda [exprBnd, envBnd] body (Just closure) -> do
+              let mappings = GhcExts.fromList [(exprBnd, val), (envBnd, st)]
                   modEnv = mappings <> closure
               res <- NonEmpty.last <$> withEnv (const modEnv) (traverse eval body)
               updateEnvAndReturn res
@@ -297,14 +297,9 @@ baseEval val = case val of
                             2
                             (length xs)
     Dict mp -> do
-<<<<<<< HEAD
         let evalBoth (a,b) = (,) <$> baseEval a <*> baseEval b
         Dict . Map.fromList <$> traverse evalBoth (Map.toList mp)
     autoquote -> pure autoquote
-
-=======
-        let evalSnd (a,b) = (a ,) <$> baseEval b
-        Dict . Map.fromList <$> traverse evalSnd (Map.toList mp)
 
 -- * From/ToRadicle
 
@@ -328,7 +323,7 @@ instance FromRadicle (Env Value) where
         Dict d -> fmap (Env . Map.fromList)
                 $ forM (Map.toList d) $ \(k, v) -> case k of
             Atom i -> pure (i, v)
-            _      -> Left "Expecting atom keys"
+            k'     -> Left $ "Expecting atom keys. Got: " <> show k'
         _ -> Left "Expecting dict"
 instance FromRadicle (Bindings ()) where
     fromRadicle x = case x of
@@ -366,7 +361,6 @@ instance ToRadicle (Bindings m) where
         [ (Keyword $ Ident "env", toRadicle $ bindingsEnv x)
         , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs x))
         ]
->>>>>>> wip
 
 -- * Helpers
 

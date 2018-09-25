@@ -6,13 +6,15 @@ import           Protolude hiding (toList)
 import           Data.List (isInfixOf, isSuffixOf)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromJust)
+import           Data.Scientific (Scientific)
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
 import           GHC.Exts (fromList, toList)
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck (counterexample, testProperty, (==>))
+import           Test.Tasty.QuickCheck (Arbitrary, counterexample, testProperty,
+                                        (==>))
 
 import           Radicle
 import           Radicle.Internal.Arbitrary ()
@@ -610,6 +612,26 @@ test_repl =
                                  , "repl.rad" `T.isSuffixOf` name
                                  ]
         pure $ runTestWithFiles replBindings inp (Map.fromList srcMap) (fromJust replSrc)
+
+test_from_to_radicle :: [TestTree]
+test_from_to_radicle =
+    [ testGroup "Env Value" $ testForType (Proxy :: Proxy (Env Value))
+    , testGroup "Bindings ()" $ testForType (Proxy :: Proxy (Bindings ()))
+    , testGroup "Scientific" $ testForType (Proxy :: Proxy Scientific)
+    , testGroup "Text" $ testForType (Proxy :: Proxy Text)
+    , testGroup "[Text]" $ testForType (Proxy :: Proxy [Text])
+    ]
+  where
+    testForType :: forall a. (Arbitrary a, Show a, ToRadicle a, FromRadicle a, Eq a) => Proxy a -> [TestTree]
+    testForType _ =
+        [ testProperty "fromRadicle . toRadicle == id" $ \(v :: a ) -> do
+            let expected = Right v
+                got = fromRadicle (toRadicle v)
+                info = "Expected\n\t" <> show expected
+                    <> "\nGot\n\t" <> show got
+            counterexample info $ got == expected
+        ]
+
 
 -- Tests all radicle files 'repl' dir. These should use the 'should-be'
 -- function to ensure they are in the proper format.

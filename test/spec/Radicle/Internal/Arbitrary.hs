@@ -4,6 +4,7 @@ module Radicle.Internal.Arbitrary where
 import           Protolude
 
 import qualified Data.Map as Map
+import qualified Data.IntMap as IntMap
 import           Data.Scientific (Scientific)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
@@ -52,3 +53,10 @@ instance Arbitrary Ident where
         rest = sized $ \n -> do
           k <- choose (0, n)
           vectorOf k . elements $ filter isValidIdentRest allChars
+
+instance Arbitrary a => Arbitrary (Bindings a) where
+    arbitrary = do
+        refs <- arbitrary
+        env <- arbitrary
+        prims <- arbitrary
+        pure $ Bindings env prims (IntMap.fromList $ zip [0..] refs) (length refs)
