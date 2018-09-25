@@ -6,16 +6,22 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc (pretty)
 import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc)
-import           System.Console.Haskeline (CompletionFunc, InputT, completeWord,
-                                           defaultSettings, historyFile,
-                                           runInputT, setComplete,
-                                           simpleCompletion)
+import           System.Console.Haskeline
+                 ( CompletionFunc
+                 , InputT
+                 , completeWord
+                 , defaultSettings
+                 , historyFile
+                 , runInputT
+                 , setComplete
+                 , simpleCompletion
+                 )
 
 import           Radicle.Internal.Core
+import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.Primops
-import           Radicle.Internal.Effects.Capabilities
 
 
 

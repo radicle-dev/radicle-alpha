@@ -1,0 +1,46 @@
+timeout: 1800s # Cache misses are slow to rebuild
+steps:
+  - id: "Load cache"
+    name: gcr.io/cloud-builders/gsutil
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      source scripts/ci.sh
+      load-cache
+
+  - id: "Build deps"
+    name: 'haskell:8.4.3'
+    env: ['STACK_ROOT=/workspace/.stack']
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      stack config set system-ghc --global true
+      stack config set install-ghc --global false
+      stack install stylish-haskell hlint
+
+  - id: "Format"
+    name: 'haskell:8.4.3'
+    env: ['STACK_ROOT=/workspace/.stack']
+    args: ['./scripts/check-fmt.sh']
+
+  - id: "Lint"
+    name: 'haskell:8.4.3'
+    env: ['STACK_ROOT=/workspace/.stack']
+    args: ['stack', 'exec', '--', 'hlint', '.']
+
+  - id: "Test & Build"
+    name: 'haskell:8.4.3'
+    env: ['STACK_ROOT=/workspace/.stack']
+    args: ['stack', 'build', '--fast', '--test', '--no-terminal', '--pedantic']
+
+  - id: "Save cache"
+    name: gcr.io/cloud-builders/gsutil
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      source scripts/ci.sh
+      save-cache
+

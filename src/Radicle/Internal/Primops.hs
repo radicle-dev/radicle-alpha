@@ -12,11 +12,11 @@ module Radicle.Internal.Primops
 
 import           Protolude hiding (TypeError)
 
+import qualified Data.Aeson as Aeson
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
 import           GHC.Exts (IsList(..))
-import qualified Data.Aeson as Aeson
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Parse
