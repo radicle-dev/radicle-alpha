@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Effects where
 
 import           Protolude hiding (TypeError)
@@ -12,18 +13,24 @@ import           System.Console.Haskeline (CompletionFunc, InputT, completeWord,
                                            simpleCompletion)
 
 import           Radicle.Internal.Core
+import           Radicle.Internal.Crypto
+import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.Primops
-import           Radicle.Internal.Effects.Capabilities
-
 
 
 type ReplM m =
     ( Monad m, Stdout (Lang m), Stdin (Lang m)
+    , MonadRandom m
     , ReadFile (Lang m)
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
+
+instance (MonadRandom (InputT IO)) where
+  getRandomBytes = liftIO . getRandomBytes
+instance MonadRandom m => (MonadRandom (LangT (Bindings m) m)) where
+  getRandomBytes = lift . getRandomBytes
 
 repl :: Maybe FilePath -> Text -> Bindings (InputT IO) -> IO ()
 repl histFile preCode bindings = do
@@ -115,8 +122,27 @@ replPrimops = Map.fromList $ first toIdent <$>
           _ -> throwError $ TypeError "read-file: expects a string"
       )
     , ( "load!"
-      , evalOneArg "load" $ \case
+      , evalOneArg "load!" $ \case
           String filename -> readFileS filename >>= interpretMany "[load!]"
           _ -> throwError $ TypeError "load: expects a string"
+      )
+    , ( "gen-key-pair!"
+      , evalArgs $ \case
+          [] -> do
+            (pk, sk) <- generateKeyPair
+            pkv <- pubKeyToRad pk ?? "Generated invalid key"
+            skv <- privKeyToRad sk ?? "Generated invalid secret key"
+            pure . Dict . Map.fromList $
+              [ (Keyword (Ident "private-key"), skv)
+              , (Keyword (Ident "public-key"), pkv)
+              ]
+          xs -> throwError $ WrongNumberOfArgs "gen-key-pair!" 0 (length xs)
+      )
+    , ( "gen-signature!"
+      , evalArgs $ \case
+          [skv, String msg] -> do
+            sk <- radToPrivKey skv ?? "Value provided was not a valid private key"
+            signatureToRad <$> signText sk msg
+          _ -> throwError $ TypeError "gen-signature!: expects a string."
       )
     ]

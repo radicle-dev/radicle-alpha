@@ -8,46 +8,32 @@ module Radicle.Internal.Crypto
   , verifySignature
   , signText
   , generateKeyPair
+  , radToPubKey
+  , radToPrivKey
+  , pubKeyToRad
+  , privKeyToRad
+  , radToSignature
+  , signatureToRad
+  , MonadRandom(..)
   ) where
 
 import           Protolude
 
-import           Codec.Serialise
 import           Crypto.Hash.Algorithms
 import           Crypto.PubKey.ECC.ECDSA
 import           Crypto.PubKey.ECC.Generate (generate)
-import           Crypto.PubKey.ECC.Types (CurveName(SEC_p256k1), getCurveByName)
-import qualified Crypto.PubKey.ECC.Types as ECC
+import           Crypto.PubKey.ECC.Types
+import           Crypto.Random
 import           Crypto.Random.Types (MonadRandom)
+import qualified Data.Map.Strict as Map
+
+import           Radicle.Internal.Core
 
 hasher :: Blake2b_256
 hasher = Blake2b_256
 
-deriving instance Generic PublicKey
-instance Serialise PublicKey
-deriving instance Ord PublicKey
-
-deriving instance Generic ECC.Curve
-instance Serialise ECC.Curve
-deriving instance Ord ECC.Curve
-
-deriving instance Generic ECC.Point
-instance Serialise ECC.Point
-deriving instance Ord ECC.Point
-
-deriving instance Generic ECC.CurveBinary
-instance Serialise ECC.CurveBinary
-deriving instance Ord ECC.CurveBinary
-
-deriving instance Generic ECC.CurvePrime
-instance Serialise ECC.CurvePrime
-deriving instance Ord ECC.CurvePrime
-
-deriving instance Generic ECC.CurveCommon
-instance Serialise ECC.CurveCommon
-deriving instance Ord ECC.CurveCommon
-
-deriving instance Ord Signature
+curve :: Curve
+curve = getCurveByName SEC_p256k1
 
 generateKeyPair :: MonadRandom m => m (PublicKey, PrivateKey)
 generateKeyPair = generate (getCurveByName SEC_p256k1)
@@ -64,3 +50,53 @@ verifySignature key sig = verifyBytes . toS
   where
     verifyBytes :: ByteString -> Bool
     verifyBytes = verify hasher key sig
+
+-- To/From radicle
+
+-- TODO: use ToRadicle/FromRadicle typeclasses when they are available.
+
+-- Turns radicle values in public keys for curve SEC_p256
+radToPubKey :: Value -> Maybe PublicKey
+radToPubKey = \case
+  List [Keyword (Ident "PointO")] -> pure $
+    PublicKey curve PointO
+  List [Keyword (Ident "Point"), x, y] -> do
+    i <- isInt x
+    j <- isInt y
+    pure $ PublicKey curve (Point i j)
+  _ -> Nothing
+
+radToPrivKey :: Value -> Maybe PrivateKey
+radToPrivKey v = PrivateKey curve <$> isInt v
+
+pubKeyToRad :: PublicKey -> Maybe Value
+pubKeyToRad (PublicKey c p) =
+  if c == curve
+  then case p of
+    PointO -> pure $ List [Keyword (Ident "PointO")]
+    Point x y -> pure . List $
+      [ Keyword (Ident "Point")
+      , Number (fromIntegral x)
+      , Number (fromIntegral y)
+      ]
+  else Nothing
+
+privKeyToRad :: PrivateKey -> Maybe Value
+privKeyToRad (PrivateKey c d) =
+  if c == curve
+  then pure (Number (fromIntegral d))
+  else Nothing
+
+radToSignature :: Value -> Maybe Signature
+radToSignature = \case
+  Dict d -> do
+    r <- kwLookup "sign_r" d
+    s <- kwLookup "sign_s" d
+    Signature <$> isInt r <*> isInt s
+  _ -> Nothing
+
+signatureToRad :: Signature -> Value
+signatureToRad (Signature r s) = Dict . Map.fromList $
+  [ (Keyword (Ident "sign_r"), Number (fromIntegral r))
+  , (Keyword (Ident "sign_s"), Number (fromIntegral s))
+  ]

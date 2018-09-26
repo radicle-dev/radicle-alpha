@@ -19,6 +19,7 @@ import           Data.Scientific (Scientific, floatingOrInteger)
 import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
+import           Radicle.Internal.Crypto
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 
@@ -263,11 +264,15 @@ purePrimops = fromList $ first Ident <$>
       , evalOneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
           maybeJson v ?? "Could not serialise value to JSON"
       )
-    -- , ( "verify-signature"
-    --   , evalArgs $ \case
-    --       [hash, pubKey, sig, msg] -> pure . Boolean $
-    --         ECDSA.verify Hash.Blake2b_256 (ECDSA.PublicKey _ _) sig msg
-    --   )
+    , ( "verify-signature"
+      , evalArgs $ \case
+          [keyv, sigv, String msg] -> do
+            key <- radToPubKey keyv ?? "Invalid public key"
+            sig <- radToSignature sigv ?? "Invalid signature"
+            pure . Boolean $ verifySignature key sig msg
+          [_, _, _] -> throwError $ OtherError "verify-signature: message must be a string"
+          xs -> throwError $ WrongNumberOfArgs "verify-signature" 3 (length xs)
+      )
     ]
   where
 
@@ -356,10 +361,6 @@ makeBindings val = case val of
     makeRefs refs = case refs of
         List ls -> pure (length ls, IntMap.fromList $ zip [0..] ls)
         _       -> throwError $ TypeError "Expecting dict"
-
-
-kwLookup :: Text -> Map Value Value -> Maybe Value
-kwLookup key = Map.lookup (Keyword $ Ident key)
 
 -- | Throws an OtherError with the specified message if the Maybe is not a
 -- Just.

@@ -15,12 +15,11 @@ import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
-import           Data.Scientific (Scientific)
+import           Data.Scientific (Scientific, floatingOrInteger)
 import           Data.Semigroup ((<>))
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
 
-import qualified Radicle.Internal.Crypto as Crypto
 import           Radicle.Internal.Orphans ()
 
 -- * Value
@@ -112,8 +111,6 @@ data Value =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
     | Lambda [Ident] (NonEmpty Value) (Maybe (Env Value))
-    | PublicKey Crypto.PublicKey
-    | Signature Crypto.Signature
     deriving (Eq, Show, Ord, Read, Generic)
 
 -- Should just be a prism
@@ -337,6 +334,13 @@ mfn $$ vs = do
           callFn f vs'
         _ -> throwError $ TypeError "Trying to apply a non-function"
 
+kwLookup :: Text -> Map Value Value -> Maybe Value
+kwLookup key = Map.lookup (Keyword $ Ident key)
 
 nil :: Value
 nil = List []
+
+-- should be a prism
+isInt :: Value -> Maybe Integer
+isInt (Number s) = either (const Nothing :: Double -> Maybe Integer) pure (floatingOrInteger s)
+isInt _ = Nothing
