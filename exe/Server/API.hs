@@ -1,12 +1,12 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module API where
 
+import qualified Data.Aeson as A
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Text as T
 import           Protolude
 import           Radicle
 import           Servant.API
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text as T
-import qualified Data.Aeson as A
 
 instance Show a => MimeRender PlainText a where
     mimeRender _ x = show x

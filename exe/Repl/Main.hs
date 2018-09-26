@@ -1,7 +1,7 @@
 module Main (main) where
 
-import           Protolude
 import           Options.Applicative
+import           Protolude
 
 import           Radicle
 

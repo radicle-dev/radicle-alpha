@@ -7,9 +7,20 @@ import           Data.List.NonEmpty (NonEmpty((:|)))
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import           GHC.Exts (IsString(..))
-import           Text.Megaparsec (ParsecT, State(..), between, choice,
-                                  defaultTabWidth, eof, initialPos, manyTill,
-                                  runParserT', sepBy, try, (<?>))
+import           Text.Megaparsec
+                 ( ParsecT
+                 , State(..)
+                 , between
+                 , choice
+                 , defaultTabWidth
+                 , eof
+                 , initialPos
+                 , manyTill
+                 , runParserT'
+                 , sepBy
+                 , try
+                 , (<?>)
+                 )
 import qualified Text.Megaparsec as M
 import           Text.Megaparsec.Char (char, satisfy, space1)
 import qualified Text.Megaparsec.Char.Lexer as L

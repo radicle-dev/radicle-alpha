@@ -1,4 +1,4 @@
-module Radicle.Internal.CLI 
+module Radicle.Internal.CLI
     ( getConfig
     , getHistory
     )

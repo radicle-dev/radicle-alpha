@@ -4,8 +4,8 @@ module Radicle.Internal.Core where
 import           Protolude hiding (TypeError, (<>))
 
 import           Codec.Serialise (Serialise)
-import           Control.Monad.Except (ExceptT(..), MonadError, runExceptT,
-                                       throwError)
+import           Control.Monad.Except
+                 (ExceptT(..), MonadError, runExceptT, throwError)
 import           Control.Monad.State
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
@@ -70,7 +70,7 @@ errorToValue e = case e of
     Exit -> makeVal ("exit", [])
   where
     makeA = quote . Atom
-    makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Atom . Ident) . GhcExts.fromList $ v)
+    makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Keyword . Ident) . GhcExts.fromList $ v)
 
 newtype Reference = Reference { getReference :: Int }
     deriving (Show, Read, Ord, Eq, Generic, Serialise)
@@ -110,7 +110,7 @@ data Value =
     --
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
-    | Lambda [Ident] (NonEmpty Value) (Maybe (Env Value))
+    | Lambda [Ident] (NonEmpty Value) (Env Value)
     deriving (Eq, Show, Ord, Read, Generic)
 
 -- Should just be a prism
@@ -261,9 +261,7 @@ eval val = do
             -- Primops get to decide whether and how their args are
             -- evaluated.
             fn [quote val]
-        Lambda _ _ Nothing -> throwError $ Impossible
-            "lambda should already have an env"
-        Lambda [bnd] body (Just closure) -> do
+        Lambda [bnd] body closure -> do
               let mappings = GhcExts.fromList [(bnd, val)]
                   modEnv = mappings <> closure
               NonEmpty.last <$> withEnv (const modEnv)
@@ -290,18 +288,7 @@ baseEval val = case val of
 
 callFn :: Monad m => Value -> [Value] -> Lang m Value
 callFn f vs = case f of
-  -- This happens if a quoted lambda is explicitly evaled. We then
-  -- give it the current environment.
-  Lambda bnds body Nothing ->
-      if length bnds /= length vs
-          then throwError $ WrongNumberOfArgs "lambda" (length bnds)
-                                                       (length vs)
-          else do
-              let mappings = GhcExts.fromList (zip bnds vs)
-              NonEmpty.last <$> withEnv
-                  (mappings <>)
-                  (traverse baseEval body)
-  Lambda bnds body (Just closure) ->
+  Lambda bnds body closure ->
       if length bnds /= length vs
           then throwError $ WrongNumberOfArgs "lambda" (length bnds)
                                                        (length vs)
