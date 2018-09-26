@@ -274,11 +274,7 @@ eval val = do
             -- evaluated.
             res <- fn [quote val, quote st]
             updateEnvAndReturn res
-        Lambda [exprBnd, stBnd] body closure -> do
-              let mappings = GhcExts.fromList [(exprBnd, val), (stBnd, st)]
-                  modEnv = mappings <> closure
-              res <- NonEmpty.last <$> withEnv (const modEnv) (traverse eval body)
-              updateEnvAndReturn res
+        l@Lambda{} -> callFn l [val, st] >>= updateEnvAndReturn
         _ -> throwError $ TypeError "Trying to apply a non-function"
   where
     updateEnvAndReturn :: Monad m => Value -> Lang m Value
