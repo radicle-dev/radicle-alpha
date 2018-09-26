@@ -164,4 +164,3 @@ default-extensions:
 - TupleSections
 - TypeFamilies
 - TypeOperators
-- UndecidableInstances

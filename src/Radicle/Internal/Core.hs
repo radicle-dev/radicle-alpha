@@ -270,7 +270,7 @@ eval val = do
                                         (traverse eval body)
         _ -> throwError $ TypeError "Trying to apply a non-function"
 
--- | The built-in, original, eval.
+
 baseEval :: Monad m => Value -> Lang m Value
 baseEval val = case val of
     Atom i -> lookupAtom i
@@ -279,13 +279,10 @@ baseEval val = case val of
         $ WrongNumberOfArgs ("application: " <> show xs)
                             2
                             (length xs)
-    e@(Lambda _ _ (Just _)) -> pure e
-    Lambda args body Nothing -> gets $ Lambda args body . Just . bindingsEnv
     Dict mp -> do
-        let evalSnd (a,b) = (a ,) <$> baseEval b
-        Dict . Map.fromList <$> traverse evalSnd (Map.toList mp)
+        let evalBoth (a,b) = (,) <$> baseEval a <*> baseEval b
+        Dict . Map.fromList <$> traverse evalBoth (Map.toList mp)
     autoquote -> pure autoquote
-
 
 
 -- * Helpers
