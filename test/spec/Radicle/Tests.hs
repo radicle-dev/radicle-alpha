@@ -518,12 +518,12 @@ test_env =
         fromList (toList env') == env'
     ]
 
+
 test_repl_primops :: [TestTree]
 test_repl_primops =
-    [ testProperty "(read (get-line!)) returns the input line" $ \(v :: Value) ->
-        let prog = [i|(eq? (read (get-line!)) (quote #{renderPrettyDef v}))|]
-            res = run [renderPrettyDef v] $ toS prog
-        in counterexample prog $ res == Right (Boolean True)
+    [ testProperty "(read (get-line!)) returns the input line" read_getline_prop
+    , testProperty "(read (get-line!)) regression 68450" $ 
+        read_getline_prop (Atom (Ident "+7p"))
 
     , testCase "catch catches read-line errors" $ do
         let prog = [s|
@@ -548,6 +548,11 @@ test_repl_primops =
     run stdin' prog = fst $ runTestWith replBindings stdin' prog
     runFiles :: Map Text Text -> Text -> Either (LangError Value) Value
     runFiles files prog = fst $ runTestWithFiles replBindings [] files prog
+
+    read_getline_prop (v :: Value) = 
+        let prog = [i|(eq? (read (get-line!)) (quote #{renderPrettyDef v}))|]
+            res = run [renderPrettyDef v] $ toS prog
+        in counterexample prog $ res == Right (Boolean True)
 
 test_repl :: [TestTree]
 test_repl =
