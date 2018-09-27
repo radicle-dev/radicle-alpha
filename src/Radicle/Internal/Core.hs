@@ -285,7 +285,7 @@ eval val = do
             newSt' <- either (throwError . OtherError) pure
                       (fromRad newSt :: Either Text (Bindings ()))
             put $ newSt' { bindingsPrimops = prims }
-            return val'
+            pure val'
         _ -> throwError $ OtherError "eval: should return list with value and new env"
 
 
