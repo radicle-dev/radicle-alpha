@@ -9,3 +9,4 @@ radicle.cabal
 .cabal-sandbox/
 cabal.sandbox.config
 out/
+docs/build/
