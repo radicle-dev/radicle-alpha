@@ -1,7 +1,7 @@
 -- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
 
-import           Protolude hiding (TypeError, (<>), Constructor)
+import           Protolude hiding (TypeError, (<>), list, Constructor)
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
@@ -22,6 +22,7 @@ import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Orphans ()
+
 
 -- * Value
 
@@ -188,15 +189,16 @@ instance GhcExts.IsList (Env s) where
     toList = GhcExts.toList . fromEnv
 
 -- | Primop mappings. The parameter specifies the monad the primops run in.
-type Primops m = Map Ident ([Value ] -> Lang m Value)
+newtype Primops m = Primops { getPrimops :: Map Ident ([Value ] -> Lang m Value) }
+  deriving (Semigroup)
 
 -- | Bindings, either from the env or from the primops.
-data Bindings m = Bindings
+data Bindings prims = Bindings
     { bindingsEnv     :: Env Value
-    , bindingsPrimops :: Primops m
+    , bindingsPrimops :: prims
     , bindingsRefs    :: IntMap Value
     , bindingsNextRef :: Int
-    } deriving (Generic)
+    } deriving (Eq, Show, Functor, Generic)
 
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
@@ -207,15 +209,25 @@ instance MonadTrans (LangT r) where lift = LangT . lift . lift
 
 -- | A monad for language operations specialized to have as state the Bindings
 -- with appropriate underlying monad.
-type Lang m = LangT (Bindings m) m
+type Lang m = LangT (Bindings (Primops m)) m
 
 -- | Run a `Lang` computation with the provided bindings. Returns the result as
 -- well as the updated bindings.
 runLang
-    :: Bindings m
+    :: Bindings (Primops m)
     -> Lang m a
-    -> m (Either (LangError Value) a, Bindings m)
+    -> m (Either (LangError Value) a, Bindings (Primops m))
 runLang e l = runStateT (runExceptT $ fromLangT l) e
+
+-- | Like 'local' or 'withState'. Will run an action with a modified environment
+-- and then restore the original bindings.
+withBindings :: Monad m => (Bindings (Primops m) -> Bindings (Primops m)) -> Lang m a -> Lang m a
+withBindings modifier action = do
+    oldBnds <- get
+    modify modifier
+    res <- action
+    put oldBnds
+    pure res
 
 -- | Like 'local' or 'withState'. Will run an action with a modified environment
 -- and then restore the original environment. Other bindings (i.e. primops and
@@ -242,15 +254,12 @@ lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
 
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
-lookupPrimop i = get >>= \e -> case Map.lookup i $ bindingsPrimops e of
+lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimops $ bindingsPrimops e of
     Nothing -> throwError $ Impossible "Unknown primop"
     Just v  -> pure v
 
 defineAtom :: Monad m => Ident -> Value -> Lang m ()
 defineAtom i v = modify $ addBinding i v
-
-quote :: Value -> Value
-quote v = List [Primop (Ident "quote"), v]
 
 -- * Eval
 
@@ -258,18 +267,28 @@ quote v = List [Primop (Ident "quote"), v]
 eval :: Monad m => Value -> Lang m Value
 eval val = do
     e <- lookupAtom (toIdent "eval")
+    st <- gets toRad
     case e of
         Primop i -> do
             fn <- lookupPrimop i
             -- Primops get to decide whether and how their args are
             -- evaluated.
-            fn [quote val]
-        Lambda [bnd] body closure -> do
-              let mappings = GhcExts.fromList [(bnd, val)]
-                  modEnv = mappings <> closure
-              NonEmpty.last <$> withEnv (const modEnv)
-                                        (traverse eval body)
+            res <- fn [quote val, quote st]
+            updateEnvAndReturn res
+        l@Lambda{} -> callFn l [val, st] >>= updateEnvAndReturn
         _ -> throwError $ TypeError "Trying to apply a non-function"
+  where
+    updateEnvAndReturn :: Monad m => Value -> Lang m Value
+    updateEnvAndReturn v = case v of
+        List [val', newSt] -> do
+            prims <- gets bindingsPrimops
+            newSt' <- either (throwError . OtherError) pure
+                      (fromRad newSt :: Either Text (Bindings ()))
+            put $ newSt' { bindingsPrimops = prims }
+            return val'
+        _ -> throwError $ OtherError "eval: should return list with value and new env"
+
+
 
 -- | The built-in, original, eval.
 baseEval :: Monad m => Value -> Lang m Value
@@ -285,6 +304,69 @@ baseEval val = case val of
         Dict . Map.fromList <$> traverse evalBoth (Map.toList mp)
     autoquote -> pure autoquote
 
+-- * From/ToRadicle
+
+class FromRad a where
+  fromRad :: Value -> Either Text a
+  default fromRad :: (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
+  fromRad = fromRadG
+
+instance FromRad Scientific where
+    fromRad x = case x of
+        Number n -> pure n
+        _ -> Left "Expecting number"
+instance FromRad Text where
+    fromRad x = case x of
+        String n -> pure n
+        _ -> Left "Expecting string"
+instance FromRad a => FromRad [a] where
+    fromRad x = case x of
+        List xs -> traverse fromRad xs
+        _ -> Left "Expecting list"
+instance FromRad (Env Value) where
+    fromRad x = case x of
+        Dict d -> fmap (Env . Map.fromList)
+                $ forM (Map.toList d) $ \(k, v) -> case k of
+            Atom i -> pure (i, v)
+            k'     -> Left $ "Expecting atom keys. Got: " <> show k'
+        _ -> Left "Expecting dict"
+instance FromRad (Bindings ()) where
+    fromRad x = case x of
+        Dict d -> do
+            env' <- kwLookup "env" d ?? "Expecting 'env' key"
+            refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
+            refs <- makeRefs refs'
+            env <- fromRad env'
+            pure $ Bindings env () refs (length refs)
+        _ -> throwError "Expecting dict"
+      where
+        makeRefs refs = case refs of
+            List ls -> pure (IntMap.fromList $ zip [0..] ls)
+            _       -> throwError $ "Expecting dict"
+
+
+class ToRad a where
+  toRad :: a -> Value
+  default toRad :: (HasEot a, ToRadG (Eot a)) => a -> Value
+  toRad = toRadG
+
+instance ToRad Int where
+    toRad = Number . fromIntegral
+instance ToRad Scientific where
+    toRad = Number
+instance ToRad Text where
+    toRad = String
+instance ToRad a => ToRad [a] where
+    toRad xs = List $ toRad <$> xs
+instance ToRad a => ToRad (Map.Map Text a) where
+    toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
+instance ToRad (Env Value) where
+    toRad x = Dict . Map.mapKeys Atom $ fromEnv x
+instance ToRad (Bindings m) where
+    toRad x = Dict $ Map.fromList
+        [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
+        , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs x))
+        ]
 
 -- * Helpers
 
@@ -293,7 +375,8 @@ callFn :: Monad m => Value -> [Value] -> Lang m Value
 callFn f vs = case f of
   Lambda bnds body closure ->
       if length bnds /= length vs
-          then throwError $ WrongNumberOfArgs "lambda" (length bnds)
+          then throwError $ WrongNumberOfArgs
+               "lambda" (length bnds)
                                                        (length vs)
           else do
               let mappings = GhcExts.fromList (zip bnds vs)
@@ -325,18 +408,19 @@ mfn $$ vs = do
 nil :: Value
 nil = List []
 
--- Generic encoding of Haskell values into Radicle values.
+quote :: Value -> Value
+quote v = List [Primop (Ident "quote"), v]
 
-class ToRad a where
-  toRad :: a -> Value
-  default toRad :: (HasEot a, ToRadG (Eot a)) => a -> Value
-  toRad = toRadG
+list :: [Value] -> Value
+list vs = List (Primop (Ident "list") : vs)
 
-instance ToRad Scientific where
-  toRad = Number
+kwLookup :: Text -> Map Value Value -> Maybe Value
+kwLookup key = Map.lookup (Keyword $ Ident key)
 
-instance ToRad Text where
-  toRad = String
+(??) :: MonadError e m => Maybe a -> e -> m a
+a ?? n = n `note` a
+
+-- * Generic encoding/decoding of Radicle values.
 
 toRadG :: forall a. (HasEot a, ToRadG (Eot a)) => a -> Value
 toRadG x = toRadConss (constructors (datatype (Proxy :: Proxy a))) (toEot x)
@@ -372,21 +456,11 @@ instance ToRadFields () where
 
 -- Generic decoding of Radicle values to Haskell values
 
-class FromRad a where
-  fromRad :: Value -> Maybe a
-  default fromRad :: (HasEot a, FromRadG (Eot a)) => Value -> Maybe a
-  fromRad = fromRadG
-
-fromRadG :: forall a. (HasEot a, FromRadG (Eot a)) => Value -> Maybe a
-fromRadG x = fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) x
-
-instance FromRad Scientific where
-  fromRad (Number s) = pure s
-  fromRad _ = Nothing
-
-instance FromRad Text where
-  fromRad (String s) = pure s
-  fromRad _ = Nothing
+fromRadG :: forall a. (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
+fromRadG x =
+  maybeToRight
+    "Couldn't generically decode radicle value"
+    (fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) x)
 
 class FromRadG a where
   fromRadConss :: [Constructor] -> Value -> Maybe a
@@ -413,14 +487,14 @@ instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
   fromRadFields fields args = case fields of
     NoSelectors _ -> case args of
       v:vs -> do
-        x <- fromRad v
+        x <- rightToMaybe $ fromRad v
         xs <- fromRadFields fields vs
         pure (x, xs)
       _ -> Nothing
     Selectors (n:names) -> case args of
       [Dict d] -> do
-        xv <- Map.lookup (Keyword (Ident (toS n))) d -- TODO: use kwLookup after merge
-        x <- fromRad xv
+        xv <- kwLookup (toS n) d
+        x <- rightToMaybe $ fromRad xv
         xs <- fromRadFields (Selectors names) args
         pure (x, xs)
       _ -> Nothing
@@ -428,13 +502,3 @@ instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
 
 instance FromRadFields () where
   fromRadFields _ _ = pure ()
-
-data Foo
-  = FooB { b1 :: Scientific, b2 :: Text}
-  | FooA { a1 :: Text, a2 :: Scientific }
-  | FooC Text Scientific
-  | FooD
-  deriving (Show, Generic)
-
-instance FromRad Foo
-instance ToRad Foo

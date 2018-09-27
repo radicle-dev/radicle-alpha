@@ -31,7 +31,7 @@ type ReplM m =
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
 
-repl :: Maybe FilePath -> Text -> Bindings (InputT IO) -> IO ()
+repl :: Maybe FilePath -> Text -> Bindings (Primops (InputT IO)) -> IO ()
 repl histFile preCode bindings = do
     let settings = setComplete completion
                  $ defaultSettings { historyFile = histFile }
@@ -47,23 +47,23 @@ completion :: Monad m => CompletionFunc m
 completion = completeWord Nothing ['(', ')', ' ', '\n'] go
   where
     -- Any type for first param will do
-    bnds :: Bindings (InputT IO)
+    bnds :: Bindings (Primops (InputT IO))
     bnds = replBindings
 
     go s = pure $ fmap simpleCompletion
          $ filter (s `isPrefixOf`)
          $ fmap (T.unpack . fromIdent)
          $ (Map.keys . fromEnv $ bindingsEnv bnds)
-        <> Map.keys (bindingsPrimops bnds)
+        <> Map.keys (getPrimops $ bindingsPrimops bnds)
 
-replBindings :: forall m. ReplM m => Bindings m
+replBindings :: forall m. ReplM m => Bindings (Primops m)
 replBindings = e { bindingsPrimops = bindingsPrimops e <> replPrimops }
     where
-      e :: Bindings m
+      e :: Bindings (Primops m)
       e = pureEnv
 
 replPrimops :: forall m. ReplM m => Primops m
-replPrimops = Map.fromList $ first toIdent <$>
+replPrimops = Primops . Map.fromList $ first toIdent <$>
     [ ("print!", \args -> case args of
         [x] -> do
             v <- eval x
