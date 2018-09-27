@@ -335,6 +335,9 @@ class ToRad a where
 instance ToRad Scientific where
   toRad = Number
 
+instance ToRad Text where
+  toRad = String
+
 toRadG :: forall a. (HasEot a, ToRadG (Eot a)) => a -> Value
 toRadG x = toRadConss (constructors (datatype (Proxy :: Proxy a))) (toEot x)
 
@@ -367,9 +370,71 @@ instance (ToRad a, ToRadFields as) => ToRadFields (a, as) where
 instance ToRadFields () where
   toRadFields () = []
 
-data Foo = Foo
-  { foo :: Scientific
-  , bar :: Scientific
-  } deriving (Generic)
+-- Generic decoding of Radicle values to Haskell values
 
+class FromRad a where
+  fromRad :: Value -> Maybe a
+  default fromRad :: (HasEot a, FromRadG (Eot a)) => Value -> Maybe a
+  fromRad = fromRadG
+
+fromRadG :: forall a. (HasEot a, FromRadG (Eot a)) => Value -> Maybe a
+fromRadG x = fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) x
+
+instance FromRad Scientific where
+  fromRad (Number s) = pure s
+  fromRad _ = Nothing
+
+instance FromRad Text where
+  fromRad (String s) = pure s
+  fromRad _ = Nothing
+
+class FromRadG a where
+  fromRadConss :: [Constructor] -> Value -> Maybe a
+
+isRadCons :: Value -> Maybe (Text, [Value])
+isRadCons (List (Keyword (Ident name) : args)) = pure (name, args)
+isRadCons _ = Nothing
+
+instance (FromRadFields a, FromRadG b) => FromRadG (Either a b) where
+  fromRadConss (Constructor name fieldMeta : r) v = do
+    (name', args) <- isRadCons v
+    if toS name /= name'
+      then Right <$> fromRadConss r v
+      else Left <$> fromRadFields fieldMeta args
+  fromRadConss [] _ = Nothing
+
+instance FromRadG Void where
+  fromRadConss _ _ = Nothing
+
+class FromRadFields a where
+  fromRadFields :: Fields -> [Value] -> Maybe a
+
+instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
+  fromRadFields fields args = case fields of
+    NoSelectors _ -> case args of
+      v:vs -> do
+        x <- fromRad v
+        xs <- fromRadFields fields vs
+        pure (x, xs)
+      _ -> Nothing
+    Selectors (n:names) -> case args of
+      [Dict d] -> do
+        xv <- Map.lookup (Keyword (Ident (toS n))) d -- TODO: use kwLookup after merge
+        x <- fromRad xv
+        xs <- fromRadFields (Selectors names) args
+        pure (x, xs)
+      _ -> Nothing
+    _ -> Nothing
+
+instance FromRadFields () where
+  fromRadFields _ _ = pure ()
+
+data Foo
+  = FooB { b1 :: Scientific, b2 :: Text}
+  | FooA { a1 :: Text, a2 :: Scientific }
+  | FooC Text Scientific
+  | FooD
+  deriving (Show, Generic)
+
+instance FromRad Foo
 instance ToRad Foo
