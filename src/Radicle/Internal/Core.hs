@@ -1,7 +1,7 @@
 -- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
 
-import           Protolude hiding (TypeError, (<>), list)
+import           Protolude hiding (Constructor, TypeError, list, (<>))
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
@@ -17,6 +17,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
+import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
 
@@ -266,7 +267,7 @@ defineAtom i v = modify $ addBinding i v
 eval :: Monad m => Value -> Lang m Value
 eval val = do
     e <- lookupAtom (toIdent "eval")
-    st <- gets toRadicle
+    st <- gets toRad
     case e of
         Primop i -> do
             fn <- lookupPrimop i
@@ -282,9 +283,9 @@ eval val = do
         List [val', newSt] -> do
             prims <- gets bindingsPrimops
             newSt' <- either (throwError . OtherError) pure
-                      (fromRadicle newSt :: Either Text (Bindings ()))
+                      (fromRad newSt :: Either Text (Bindings ()))
             put $ newSt' { bindingsPrimops = prims }
-            return val'
+            pure val'
         _ -> throwError $ OtherError "eval: should return list with value and new env"
 
 
@@ -305,35 +306,37 @@ baseEval val = case val of
 
 -- * From/ToRadicle
 
-class FromRadicle a where
-    fromRadicle :: Value -> Either Text a
+class FromRad a where
+  fromRad :: Value -> Either Text a
+  default fromRad :: (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
+  fromRad = fromRadG
 
-instance FromRadicle Scientific where
-    fromRadicle x = case x of
+instance FromRad Scientific where
+    fromRad x = case x of
         Number n -> pure n
-        _ -> Left "Expecting number"
-instance FromRadicle Text where
-    fromRadicle x = case x of
+        _        -> Left "Expecting number"
+instance FromRad Text where
+    fromRad x = case x of
         String n -> pure n
-        _ -> Left "Expecting string"
-instance FromRadicle a => FromRadicle [a] where
-    fromRadicle x = case x of
-        List xs -> traverse fromRadicle xs
-        _ -> Left "Expecting list"
-instance FromRadicle (Env Value) where
-    fromRadicle x = case x of
+        _        -> Left "Expecting string"
+instance FromRad a => FromRad [a] where
+    fromRad x = case x of
+        List xs -> traverse fromRad xs
+        _       -> Left "Expecting list"
+instance FromRad (Env Value) where
+    fromRad x = case x of
         Dict d -> fmap (Env . Map.fromList)
                 $ forM (Map.toList d) $ \(k, v) -> case k of
             Atom i -> pure (i, v)
             k'     -> Left $ "Expecting atom keys. Got: " <> show k'
         _ -> Left "Expecting dict"
-instance FromRadicle (Bindings ()) where
-    fromRadicle x = case x of
+instance FromRad (Bindings ()) where
+    fromRad x = case x of
         Dict d -> do
             env' <- kwLookup "env" d ?? "Expecting 'env' key"
             refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
             refs <- makeRefs refs'
-            env <- fromRadicle env'
+            env <- fromRad env'
             pure $ Bindings env () refs (length refs)
         _ -> throwError "Expecting dict"
       where
@@ -342,25 +345,26 @@ instance FromRadicle (Bindings ()) where
             _       -> throwError $ "Expecting dict"
 
 
+class ToRad a where
+  toRad :: a -> Value
+  default toRad :: (HasEot a, ToRadG (Eot a)) => a -> Value
+  toRad = toRadG
 
-class ToRadicle a where
-    toRadicle :: a -> Value
-
-instance ToRadicle Int where
-    toRadicle = Number . fromIntegral
-instance ToRadicle Scientific where
-    toRadicle = Number
-instance ToRadicle Text where
-    toRadicle = String
-instance ToRadicle a => ToRadicle [a] where
-    toRadicle xs = List $ toRadicle <$> xs
-instance ToRadicle a => ToRadicle (Map.Map Text a) where
-    toRadicle xs = Dict $ Map.mapKeys String $ toRadicle <$> xs
-instance ToRadicle (Env Value) where
-    toRadicle x = Dict . Map.mapKeys Atom $ fromEnv x
-instance ToRadicle (Bindings m) where
-    toRadicle x = Dict $ Map.fromList
-        [ (Keyword $ Ident "env", toRadicle $ bindingsEnv x)
+instance ToRad Int where
+    toRad = Number . fromIntegral
+instance ToRad Scientific where
+    toRad = Number
+instance ToRad Text where
+    toRad = String
+instance ToRad a => ToRad [a] where
+    toRad xs = List $ toRad <$> xs
+instance ToRad a => ToRad (Map.Map Text a) where
+    toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
+instance ToRad (Env Value) where
+    toRad x = Dict . Map.mapKeys Atom $ fromEnv x
+instance ToRad (Bindings m) where
+    toRad x = Dict $ Map.fromList
+        [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
         , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs x))
         ]
 
@@ -414,3 +418,87 @@ kwLookup key = Map.lookup (Keyword $ Ident key)
 
 (??) :: MonadError e m => Maybe a -> e -> m a
 a ?? n = n `note` a
+
+-- * Generic encoding/decoding of Radicle values.
+
+toRadG :: forall a. (HasEot a, ToRadG (Eot a)) => a -> Value
+toRadG x = toRadConss (constructors (datatype (Proxy :: Proxy a))) (toEot x)
+
+class ToRadG a where
+  toRadConss :: [Constructor] -> a -> Value
+
+instance (ToRadFields a, ToRadG b) => ToRadG (Either a b) where
+  toRadConss (Constructor name fieldMeta : _) (Left fields) =
+    case fieldMeta of
+      Selectors names ->
+        radCons (toS name) . pure . Dict . Map.fromList $
+          zip (Keyword . Ident . toS <$> names) (toRadFields fields)
+      NoSelectors _ -> radCons (toS name) (toRadFields fields)
+      NoFields -> radCons (toS name) []
+  toRadConss (_ : r) (Right next) = toRadConss r next
+  toRadConss [] _ = panic "impossible"
+
+radCons :: Text -> [Value] -> Value
+radCons name args = List ( Keyword (Ident name) : args )
+
+instance ToRadG Void where
+  toRadConss _ = absurd
+
+class ToRadFields a where
+  toRadFields :: a -> [Value]
+
+instance (ToRad a, ToRadFields as) => ToRadFields (a, as) where
+  toRadFields (x, xs) = toRad x : toRadFields xs
+
+instance ToRadFields () where
+  toRadFields () = []
+
+-- Generic decoding of Radicle values to Haskell values
+
+fromRadG :: forall a. (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
+fromRadG v = do
+  (name, args) <- isRadCons v ?? gDecodeErr "expecting constructor"
+  fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) name args
+
+class FromRadG a where
+  fromRadConss :: [Constructor] -> Text -> [Value] -> Either Text a
+
+isRadCons :: Value -> Maybe (Text, [Value])
+isRadCons (List (Keyword (Ident name) : args)) = pure (name, args)
+isRadCons _                                    = Nothing
+
+gDecodeErr :: Text -> Text
+gDecodeErr e = "Couldn't generically decode radicle value: " <> e
+
+instance (FromRadFields a, FromRadG b) => FromRadG (Either a b) where
+  fromRadConss (Constructor name fieldMeta : r) name' args = do
+    if toS name /= name'
+      then Right <$> fromRadConss r name' args
+      else Left <$> fromRadFields fieldMeta args
+  fromRadConss [] _ _ = panic "impossible"
+
+instance FromRadG Void where
+  fromRadConss _ name _ = Left (gDecodeErr "unknown constructor '" <> name <> "'")
+
+class FromRadFields a where
+  fromRadFields :: Fields -> [Value] -> Either Text a
+
+instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
+  fromRadFields fields args = case fields of
+    NoSelectors _ -> case args of
+      v:vs -> do
+        x <- fromRad v
+        xs <- fromRadFields fields vs
+        pure (x, xs)
+      _ -> panic "impossible"
+    Selectors (n:names) -> case args of
+      [Dict d] -> do
+        xv <- kwLookup (toS n) d ?? gDecodeErr ("missing field '" <> toS n <> "'")
+        x <- fromRad xv
+        xs <- fromRadFields (Selectors names) args
+        pure (x, xs)
+      _ -> Left . gDecodeErr $ "expecting a dict"
+    _ -> panic "impossible"
+
+instance FromRadFields () where
+  fromRadFields _ _ = pure ()

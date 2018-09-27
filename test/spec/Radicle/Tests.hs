@@ -13,12 +13,13 @@ import qualified Data.Text as T
 import           GHC.Exts (fromList, toList)
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck (Arbitrary, counterexample, testProperty,
-                                        (==>))
+import           Test.Tasty.QuickCheck
+                 (Arbitrary, counterexample, testProperty, (==>))
 
 import           Radicle
 import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (toIdent)
+import           Radicle.Internal.Foo (Foo)
 import           Radicle.Internal.TestCapabilities
 
 test_eval :: [TestTree]
@@ -617,15 +618,17 @@ test_from_to_radicle =
         [ testForType (Proxy :: Proxy Text) ]
     , testGroup "[Text]"
         [ testForType (Proxy :: Proxy [Text]) ]
+    , testGroup "Generic a => a"
+        [ testForType (Proxy :: Proxy Foo) ]
     ]
   where
     testForType
-        :: forall a. (Arbitrary a, Show a, ToRadicle a, FromRadicle a, Eq a)
+        :: forall a. (Arbitrary a, Show a, ToRad a, FromRad a, Eq a)
         => Proxy a -> TestTree
     testForType _ =
         testProperty "fromRadicle . toRadicle == id" $ \(v :: a ) -> do
             let expected = Right v
-                got = fromRadicle (toRadicle v)
+                got = fromRad (toRad v)
                 info = "Expected\n\t" <> show expected
                     <> "\nGot\n\t" <> show got
             counterexample info $ got == expected

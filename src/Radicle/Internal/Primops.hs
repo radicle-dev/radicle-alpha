@@ -41,19 +41,19 @@ purePrimops = Primops $ fromList $ first Ident <$>
       )
     , ( "base-eval"
       , evalArgs $ \case
-          [expr, st] -> case (fromRadicle st :: Either Text (Bindings ())) of
+          [expr, st] -> case (fromRad st :: Either Text (Bindings ())) of
               Left e -> throwError $ OtherError e
               Right st' -> do
                 prims <- gets bindingsPrimops
                 withBindings (const $ fmap (const prims) st') $ do
                   val <- baseEval expr
                   st'' <- get
-                  pure $ List [val, toRadicle st'']
+                  pure $ List [val, toRad st'']
           xs -> throwError $ WrongNumberOfArgs "base-eval" 2 (length xs)
       )
     , ( "pure-env"
       , \case
-          [] -> pure $ toRadicle (pureEnv :: Bindings (Primops m))
+          [] -> pure $ toRad (pureEnv :: Bindings (Primops m))
           xs -> throwError $ WrongNumberOfArgs "pure-env" 0 (length xs)
       )
     , ("apply", evalArgs $ \case
@@ -66,7 +66,7 @@ purePrimops = Primops $ fromList $ first Ident <$>
           _ -> throwError $ TypeError "read: expects string"
       )
     , ("get-current-env", \case
-          [] -> toRadicle <$> get
+          [] -> toRad <$> get
           xs -> throwError $ WrongNumberOfArgs "get-current-env" 0 (length xs))
     , ("list", evalArgs $ \args -> pure $ List args)
     , ("dict", evalArgs $ (Dict . foldr (uncurry Map.insert) mempty <$>) . evenArgs "dict")

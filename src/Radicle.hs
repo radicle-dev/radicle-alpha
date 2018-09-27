@@ -33,8 +33,8 @@ module Radicle
     , Bindings(..)
     , replBindings
     -- ** To/FromRadicle
-    , ToRadicle(..)
-    , FromRadicle(..)
+    , ToRad(..)
+    , FromRad(..)
     -- ** Re-exports
     , runIdentity
 
