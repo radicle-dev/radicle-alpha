@@ -22,12 +22,12 @@ import           Radicle.Internal.Parse
 -- Left (TypeError "Trying to apply a non-function")
 interpret
     :: Monad m
-    => Text       -- ^ Name of source file (for error reporting)
-    -> Text       -- ^ Source code to be interpreted
-    -> Bindings m -- ^ Bindings to be used
+    => Text                 -- ^ Name of source file (for error reporting)
+    -> Text                 -- ^ Source code to be interpreted
+    -> Bindings (Primops m) -- ^ Bindings to be used
     -> m (Either (LangError Value) Value)
 interpret sourceName expr bnds = do
-    let primopNames = Map.keys (bindingsPrimops bnds)
+    let primopNames = Map.keys (getPrimops $ bindingsPrimops bnds)
         parsed = runReader (runParserT (spaceConsumer *> valueP <* eof) (toS sourceName) expr) primopNames
     case parsed of
         Left e  -> pure . Left $ ParseError e
@@ -49,7 +49,7 @@ interpretMany
     -> Text  -- ^ Source code to be interpreted
     -> Lang m Value
 interpretMany sourceName src = do
-    primopNames <- gets $ Map.keys . bindingsPrimops
+    primopNames <- gets $ Map.keys . getPrimops . bindingsPrimops
     let parsed = parseValues sourceName src primopNames
     case partitionEithers parsed of
         ([], vs) -> do
