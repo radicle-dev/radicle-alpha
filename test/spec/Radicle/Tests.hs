@@ -13,8 +13,8 @@ import qualified Data.Text as T
 import           GHC.Exts (fromList, toList)
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck (Arbitrary, counterexample, testProperty,
-                                        (==>))
+import           Test.Tasty.QuickCheck
+                 (Arbitrary, counterexample, testProperty, (==>))
 
 import           Radicle
 import           Radicle.Internal.Arbitrary (Foo)

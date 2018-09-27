@@ -1,7 +1,7 @@
 -- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
 
-import           Protolude hiding (TypeError, (<>), list, Constructor)
+import           Protolude hiding (Constructor, TypeError, list, (<>))
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
@@ -314,15 +314,15 @@ class FromRad a where
 instance FromRad Scientific where
     fromRad x = case x of
         Number n -> pure n
-        _ -> Left "Expecting number"
+        _        -> Left "Expecting number"
 instance FromRad Text where
     fromRad x = case x of
         String n -> pure n
-        _ -> Left "Expecting string"
+        _        -> Left "Expecting string"
 instance FromRad a => FromRad [a] where
     fromRad x = case x of
         List xs -> traverse fromRad xs
-        _ -> Left "Expecting list"
+        _       -> Left "Expecting list"
 instance FromRad (Env Value) where
     fromRad x = case x of
         Dict d -> fmap (Env . Map.fromList)
@@ -465,7 +465,7 @@ class FromRadG a where
 
 isRadCons :: Value -> Maybe (Text, [Value])
 isRadCons (List (Keyword (Ident name) : args)) = pure (name, args)
-isRadCons _ = Nothing
+isRadCons _                                    = Nothing
 
 gDecodeErr :: Text -> Text
 gDecodeErr e = "Couldn't generically decode radicle value: " <> e

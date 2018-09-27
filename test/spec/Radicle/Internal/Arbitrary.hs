@@ -3,8 +3,8 @@ module Radicle.Internal.Arbitrary where
 
 import           Protolude
 
-import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
+import qualified Data.Map as Map
 import           Data.Scientific (Scientific)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
