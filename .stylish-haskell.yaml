@@ -180,6 +180,7 @@ language_extensions:
   - AutoDeriveTypeable
   - ConstraintKinds
   - DataKinds
+  - DefaultSignatures
   - DeriveDataTypeable
   - DeriveFoldable
   - DeriveFunctor

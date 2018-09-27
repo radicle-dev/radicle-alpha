@@ -62,14 +62,14 @@ opts = Opts
 
 -- * Primops
 
-bindings :: ClientEnv -> Bindings (InputT IO)
+bindings :: ClientEnv -> Bindings (Primops (InputT IO))
 bindings cEnv = e { bindingsPrimops = bindingsPrimops e <> primops cEnv }
     where
-      e :: Bindings (InputT IO)
+      e :: Bindings (Primops (InputT IO))
       e = pureEnv
 
 primops :: ClientEnv -> Primops (InputT IO)
-primops cEnv = fromList [sendPrimop, receivePrimop] <> replPrimops
+primops cEnv = Primops (fromList [sendPrimop, receivePrimop]) <> replPrimops
   where
     sendPrimop =
       ( Ident "send!"

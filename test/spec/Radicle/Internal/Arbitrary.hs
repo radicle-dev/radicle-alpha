@@ -3,6 +3,7 @@ module Radicle.Internal.Arbitrary where
 
 import           Protolude
 
+import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific)
 import           Test.QuickCheck
@@ -28,7 +29,7 @@ instance Arbitrary Value where
                 , (3, Boolean <$> arbitrary)
                 , (3, Number <$> arbitrary)
                 , (1, List <$> sizedList)
-                , (6, Primop <$> elements (Map.keys prims))
+                , (6, Primop <$> elements (Map.keys $ getPrimops prims))
                 , (1, Lambda <$> sizedList
                              <*> scale (`div` 3) arbitrary
                              <*> scale (`div` 3) arbitrary)
@@ -39,9 +40,9 @@ instance Arbitrary Value where
         sizedList = sized $ \n -> do
             k <- choose (0, n)
             scale (`div` (k + 1)) $ vectorOf k arbitrary
-        prims :: Map.Map Ident ([Value] -> Lang Identity Value)
+        prims :: Primops Identity
         prims = purePrimops
-        isPrimop x = x `elem` Map.keys prims
+        isPrimop x = x `elem` Map.keys (getPrimops prims)
         isNum x = isJust (readMaybe (toS $ fromIdent x) :: Maybe Scientific)
 
 instance Arbitrary Ident where
@@ -52,3 +53,10 @@ instance Arbitrary Ident where
         rest = sized $ \n -> do
           k <- choose (0, n)
           vectorOf k . elements $ filter isValidIdentRest allChars
+
+instance Arbitrary a => Arbitrary (Bindings a) where
+    arbitrary = do
+        refs <- arbitrary
+        env <- arbitrary
+        prims <- arbitrary
+        pure $ Bindings env prims (IntMap.fromList $ zip [0..] refs) (length refs)

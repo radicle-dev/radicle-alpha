@@ -26,6 +26,7 @@ dependencies:
 - text
 - unordered-containers
 - cryptonite
+- generics-eot
 when:
  - condition: impl(ghcjs)
    dependencies: ghcjs-dom
@@ -144,6 +145,7 @@ default-extensions:
 - AutoDeriveTypeable
 - ConstraintKinds
 - DataKinds
+- DefaultSignatures
 - DeriveDataTypeable
 - DeriveFoldable
 - DeriveFunctor

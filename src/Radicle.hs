@@ -32,6 +32,9 @@ module Radicle
     , runLang
     , Bindings(..)
     , replBindings
+    -- ** To/FromRadicle
+    , ToRad(..)
+    , FromRad(..)
     -- ** Re-exports
     , runIdentity
 
@@ -50,7 +53,7 @@ module Radicle
     , repl
 
     -- * Primops
-    , Primops
+    , Primops(..)
     , purePrimops
     , replPrimops
     , ReplM
@@ -65,8 +68,6 @@ module Radicle
     , quote
     , ($$)
     , kwLookup
-    , makeBindings
-    , unmakeBindings
     , (??)
 
     ) where
