@@ -15,7 +15,7 @@ import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
-import           Data.Scientific (Scientific)
+import           Data.Scientific (Scientific, floatingOrInteger)
 import           Data.Semigroup ((<>))
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
@@ -115,12 +115,15 @@ data Value =
     | Lambda [Ident] (NonEmpty Value) (Env Value)
     deriving (Eq, Show, Ord, Read, Generic)
 
-instance Serialise Value
-
 -- Should just be a prism
 isAtom :: Value -> Maybe Ident
 isAtom (Atom i) = pure i
 isAtom _        = Nothing
+
+-- should be a prism
+isInt :: Value -> Maybe Integer
+isInt (Number s) = either (const Nothing :: Double -> Maybe Integer) pure (floatingOrInteger s)
+isInt _ = Nothing
 
 instance A.FromJSON Value where
   parseJSON = \case
@@ -289,7 +292,6 @@ eval val = do
         _ -> throwError $ OtherError "eval: should return list with value and new env"
 
 
-
 -- | The built-in, original, eval.
 baseEval :: Monad m => Value -> Lang m Value
 baseEval val = case val of
@@ -315,6 +317,12 @@ instance FromRad Scientific where
     fromRad x = case x of
         Number n -> pure n
         _        -> Left "Expecting number"
+instance FromRad Integer where
+    fromRad = \case
+      Number s -> case floatingOrInteger s of
+        Left (_ :: Double) -> Left "Expecting whole number"
+        Right i            -> pure i
+      _ -> Left "Expecting number"
 instance FromRad Text where
     fromRad x = case x of
         String n -> pure n
@@ -351,6 +359,8 @@ class ToRad a where
   toRad = toRadG
 
 instance ToRad Int where
+    toRad = Number . fromIntegral
+instance ToRad Integer where
     toRad = Number . fromIntegral
 instance ToRad Scientific where
     toRad = Number
@@ -403,7 +413,6 @@ mfn $$ vs = do
           callFn f vs'
         _ -> throwError $ TypeError "Trying to apply a non-function"
 
-
 nil :: Value
 nil = List []
 
@@ -418,6 +427,10 @@ kwLookup key = Map.lookup (Keyword $ Ident key)
 
 (??) :: MonadError e m => Maybe a -> e -> m a
 a ?? n = n `note` a
+
+hoistEither :: MonadError e m => Either e a -> m a
+hoistEither (Left e)  = throwError e
+hoistEither (Right x) = pure x
 
 -- * Generic encoding/decoding of Radicle values.
 

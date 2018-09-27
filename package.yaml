@@ -25,6 +25,7 @@ dependencies:
 - serialise
 - text
 - unordered-containers
+- cryptonite
 - generics-eot
 when:
  - condition: impl(ghcjs)

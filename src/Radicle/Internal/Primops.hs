@@ -15,6 +15,7 @@ import           Data.Scientific (Scientific, floatingOrInteger)
 import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
+import           Radicle.Internal.Crypto
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 
@@ -259,6 +260,20 @@ purePrimops = Primops $ fromList $ first Ident <$>
     , ( "to-json"
       , evalOneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
           maybeJson v ?? OtherError "Could not serialise value to JSON"
+      )
+    , ( "default-ecc-curve",
+        evalArgs $ \case
+          [] -> pure $ toRad defaultCurve
+          xs -> throwError $ WrongNumberOfArgs "default-ecc-curve" 0 (length xs)
+      )
+    , ( "verify-signature"
+      , evalArgs $ \case
+          [keyv, sigv, String msg] -> do
+            key <- hoistEither . first OtherError $ fromRad keyv
+            sig <- hoistEither . first OtherError $ fromRad sigv
+            pure . Boolean $ verifySignature key sig msg
+          [_, _, _] -> throwError $ OtherError "verify-signature: message must be a string"
+          xs -> throwError $ WrongNumberOfArgs "verify-signature" 3 (length xs)
       )
     ]
   where

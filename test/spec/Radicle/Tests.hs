@@ -546,6 +546,16 @@ test_repl_primops =
                    |]
             files = Map.singleton "foo.rad" "(define foo 42) (define bar 8)"
         runFiles files prog @?= Right (Number 50)
+    , testCase "generating and verifying cryptographic signatures works" $
+        let prog = [s|
+                   (define my-keys (gen-key-pair! (default-ecc-curve)))
+                   (define not-my-keys (gen-key-pair! (default-ecc-curve)))
+                   (define sig (gen-signature! (lookup :private-key my-keys) "hello"))
+                   (define tt (verify-signature (lookup :public-key my-keys) sig "hello"))
+                   (define ff (verify-signature (lookup :public-key not-my-keys) sig "hello"))
+                   (list tt ff)
+                   |]
+        in run [] prog @?= Right (List [Boolean True, Boolean False])
     ]
   where
     run stdin' prog = fst $ runTestWith replBindings stdin' prog

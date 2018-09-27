@@ -4,10 +4,12 @@ module Radicle.Internal.TestCapabilities where
 
 import           Protolude
 
+import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
 import qualified System.FilePath.Find as FP
 
 import           Radicle
+import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
 
 import           Paths_radicle
@@ -17,6 +19,7 @@ data WorldState = WorldState
     , worldStateStdout :: [Text]
     , worldStateEnv    :: Env Value
     , worldStateFiles  :: Map Text Text
+    , worldDRG         :: CryptoRand.ChaChaDRG
     }
 
 
@@ -35,6 +38,7 @@ runTestWithFiles bindings inputs files action =
             , worldStateStdout = []
             , worldStateEnv = bindingsEnv bindings
             , worldStateFiles = files
+            , worldDRG = CryptoRand.drgNewSeed (CryptoRand.seedFromInteger 4) -- chosen by fair dice roll
             }
     in case runState (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws of
         (val, st) -> (val, reverse $ worldStateStdout st)
@@ -90,3 +94,10 @@ instance {-# OVERLAPPING #-} ReadFile TestLang where
     case Map.lookup fn fs of
       Just f  -> pure f
       Nothing -> throwError . OtherError $ "File not found: " <> fn
+
+instance MonadRandom (State WorldState) where
+    getRandomBytes i = do
+      drg <- gets worldDRG
+      let (a, drg') = CryptoRand.randomBytesGenerate i drg
+      modify $ \ws -> ws { worldDRG = drg' }
+      pure a
