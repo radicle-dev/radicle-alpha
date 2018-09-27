@@ -17,8 +17,9 @@ import           Test.Tasty.QuickCheck
                  (Arbitrary, counterexample, testProperty, (==>))
 
 import           Radicle
-import           Radicle.Internal.Arbitrary (Foo)
+import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (toIdent)
+import           Radicle.Internal.Foo (Foo)
 import           Radicle.Internal.TestCapabilities
 
 test_eval :: [TestTree]

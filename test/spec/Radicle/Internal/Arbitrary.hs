@@ -60,20 +60,3 @@ instance Arbitrary a => Arbitrary (Bindings a) where
         env <- arbitrary
         prims <- arbitrary
         pure $ Bindings env prims (IntMap.fromList $ zip [0..] refs) (length refs)
-
-data Foo
-  = FooA { a1 :: Text, a2 :: Scientific }
-  | FooB { b1 :: Scientific, b2 :: Text}
-  | FooC Text Scientific
-  | FooD
-  deriving (Eq, Show, Generic)
-
-instance FromRad Foo
-instance ToRad Foo
-instance Arbitrary Foo where
-  arbitrary = oneof
-    [ FooA <$> arbitrary <*> arbitrary
-    , FooB <$> arbitrary <*> arbitrary
-    , FooC <$> arbitrary <*> arbitrary
-    , pure FooD
-    ]
