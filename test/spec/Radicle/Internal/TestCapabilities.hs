@@ -81,7 +81,7 @@ instance {-# OVERLAPPING #-} Stdin TestLang where
     getLineS = do
         ws <- lift get
         case worldStateStdin ws of
-            []   -> throwError Exit
+            []   -> throwErrorHere Exit
             h:hs -> lift (put $ ws { worldStateStdin = hs }) >> pure h
 
 instance {-# OVERLAPPING #-} Stdout TestLang where
@@ -93,7 +93,7 @@ instance {-# OVERLAPPING #-} ReadFile TestLang where
     fs <- lift $ gets worldStateFiles
     case Map.lookup fn fs of
       Just f  -> pure f
-      Nothing -> throwError . OtherError $ "File not found: " <> fn
+      Nothing -> throwErrorHere . OtherError $ "File not found: " <> fn
 
 instance MonadRandom (State WorldState) where
     getRandomBytes i = do

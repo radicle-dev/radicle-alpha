@@ -1,3 +1,6 @@
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns    #-}
+
 -- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
 
@@ -9,6 +12,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
+import           Data.Copointed (Copointed(..))
 import           Data.Data (Data)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.IntMap as IntMap
@@ -21,13 +25,18 @@ import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
 
+import           Radicle.Internal.Annotation (Annotated)
+import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Orphans ()
 
 
 -- * Value
 
+data LangError r = LangError [Ann.SrcPos] (LangErrorData r)
+    deriving (Eq, Show, Read, Generic, Functor)
+
 -- | An error throw during parsing or evaluating expressions in the language.
-data LangError r =
+data LangErrorData r =
       UnknownIdentifier Ident
     | Impossible Text
     | TypeError Text
@@ -40,19 +49,30 @@ data LangError r =
     | Exit
     deriving (Eq, Show, Read, Generic, Functor)
 
+throwErrorHere :: (MonadError (LangError Value) m, HasCallStack) => LangErrorData Value -> m a
+throwErrorHere = withFrozenCallStack (throwError . LangError [Ann.thisPos])
+
+toLangError :: (HasCallStack) => LangErrorData Value -> LangError Value
+toLangError = LangError [Ann.thisPos]
+
+-- | Remove callstack information.
+noStack :: Either (LangError Value) a -> Either (LangErrorData Value) a
+noStack (Left (LangError _ err)) = Left err
+noStack (Right v)                = Right v
+
 -- | Convert an error to a radicle value, and the label for it. Used for
 -- catching exceptions.
-errorToValue
+errorDataToValue
     :: Monad m
-    => LangError Value
+    => LangErrorData Value
     -> Lang m (Ident, Value)
-errorToValue e = case e of
+errorDataToValue e = case e of
     UnknownIdentifier i -> makeVal
         ( "unknown-identifier"
         , [("identifier", makeA i)]
         )
     -- "Now more than ever seems it rich to die"
-    Impossible _ -> throwError e
+    Impossible _ -> throwErrorHere e
     TypeError i -> makeVal
         ( "type-error"
         , [("info", String i)]
@@ -92,28 +112,91 @@ readRef :: Monad m => Reference -> Lang m Value
 readRef (Reference r) = do
     refs <- gets bindingsRefs
     case IntMap.lookup r refs of
-        Nothing -> throwError $ Impossible "undefined reference"
+        Nothing -> throwErrorHere $ Impossible "undefined reference"
         Just v  -> pure v
 
 -- | An expression or value in the language.
-data Value =
+data ValueF r =
     -- | A regular (hyperstatic) variable.
-      Atom Ident
+      AtomF Ident
     -- | Symbolic identifiers that evaluate to themselves.
-    | Keyword Ident
-    | String Text
-    | Number Scientific
-    | Boolean Bool
-    | List [Value]
-    | Primop Ident
-    | Dict (Map.Map Value Value)
-    | Ref Reference
+    | KeywordF Ident
+    | StringF Text
+    | NumberF Scientific
+    | BooleanF Bool
+    | ListF [r]
+    | PrimopF Ident
+    -- | Map from *pure* Values -- annotations shouldn't change lookup semantics.
+    | DictF (Map.Map Value r)
+    | RefF Reference
     -- | Takes the arguments/parameters, a body, and possibly a closure.
     --
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
-    | Lambda [Ident] (NonEmpty Value) (Env Value)
-    deriving (Eq, Show, Ord, Read, Generic)
+    | LambdaF [Ident] (NonEmpty r) (Env r)
+    deriving (Eq, Ord, Read, Show, Generic, Functor)
+
+{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Primop, Dict, Ref, Lambda #-}
+
+type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
+
+pattern Atom :: ValueConC t => Ident -> Annotated t ValueF
+pattern Atom i <- (Ann.match -> AtomF i)
+    where
+    Atom = Ann.annotate . AtomF
+
+pattern Keyword :: ValueConC t => Ident -> Annotated t ValueF
+pattern Keyword i <- (Ann.match -> KeywordF i)
+    where
+    Keyword = Ann.annotate . KeywordF
+
+pattern String :: ValueConC t => Text -> Annotated t ValueF
+pattern String i <- (Ann.match -> StringF i)
+    where
+    String = Ann.annotate . StringF
+
+pattern Number :: ValueConC t => Scientific -> Annotated t ValueF
+pattern Number i <- (Ann.match -> NumberF i)
+    where
+    Number = Ann.annotate . NumberF
+
+pattern Boolean :: ValueConC t => Bool -> Annotated t ValueF
+pattern Boolean i <- (Ann.match -> BooleanF i)
+    where
+    Boolean = Ann.annotate . BooleanF
+
+pattern List :: ValueConC t => [Annotated t ValueF] -> Annotated t ValueF
+pattern List vs <- (Ann.match -> ListF vs)
+    where
+    List = Ann.annotate . ListF
+
+pattern Primop :: ValueConC t => Ident -> Annotated t ValueF
+pattern Primop i <- (Ann.match -> PrimopF i)
+    where
+    Primop = Ann.annotate . PrimopF
+
+pattern Dict :: ValueConC t => Map.Map Value (Annotated t ValueF) -> Annotated t ValueF
+pattern Dict vs <- (Ann.match -> DictF vs)
+    where
+    Dict = Ann.annotate . DictF
+
+pattern Ref :: ValueConC t => Reference -> Annotated t ValueF
+pattern Ref i <- (Ann.match -> RefF i)
+    where
+    Ref = Ann.annotate . RefF
+
+pattern Lambda :: ValueConC t => [Ident] -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
+pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
+    where
+    Lambda vs exps env = Ann.annotate $ LambdaF vs exps env
+
+
+type UntaggedValue = Annotated Identity ValueF
+type Value = Annotated Ann.WithPos ValueF
+
+-- Remove polymorphism
+asValue :: Value -> Value
+asValue x = x
 
 -- Should just be a prism
 isAtom :: Value -> Maybe Ident
@@ -208,6 +291,16 @@ newtype LangT r m a = LangT
     { fromLangT :: ExceptT (LangError Value) (StateT r m) a }
     deriving (Functor, Applicative, Monad, MonadError (LangError Value), MonadIO, MonadState r)
 
+mapError :: (Functor m) => (LangError Value -> LangError Value) -> LangT r m a -> LangT r m a
+mapError f = LangT . withExceptT f . fromLangT
+
+logPos :: (Functor m) => Ann.SrcPos -> LangT r m a -> LangT r m a
+logPos loc = mapError (\(LangError stack err) -> LangError (loc:stack) err)
+
+-- | Log the source location associated with a value.
+logValPos :: (Functor m) => Value -> LangT r m a -> LangT r m a
+logValPos (Ann.Annotated (Ann.WithPos pos _)) = logPos pos
+
 instance MonadTrans (LangT r) where lift = LangT . lift . lift
 
 -- | A monad for language operations specialized to have as state the Bindings
@@ -252,13 +345,13 @@ addBinding i v b = b
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
 lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
-    Nothing -> throwError $ UnknownIdentifier i
+    Nothing -> throwErrorHere $ UnknownIdentifier i
     Just v  -> pure v
 
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
 lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimops $ bindingsPrimops e of
-    Nothing -> throwError $ Impossible "Unknown primop"
+    Nothing -> throwErrorHere $ Impossible "Unknown primop"
     Just v  -> pure v
 
 defineAtom :: Monad m => Ident -> Value -> Lang m ()
@@ -271,7 +364,7 @@ eval :: Monad m => Value -> Lang m Value
 eval val = do
     e <- lookupAtom (toIdent "eval")
     st <- gets toRad
-    case e of
+    logValPos e $ case e of
         Primop i -> do
             fn <- lookupPrimop i
             -- Primops get to decide whether and how their args are
@@ -279,25 +372,25 @@ eval val = do
             res <- fn [quote val, quote st]
             updateEnvAndReturn res
         l@Lambda{} -> callFn l [val, st] >>= updateEnvAndReturn
-        _ -> throwError $ TypeError "Trying to apply a non-function"
+        _ -> throwErrorHere $ TypeError "Trying to apply a non-function"
   where
     updateEnvAndReturn :: Monad m => Value -> Lang m Value
     updateEnvAndReturn v = case v of
         List [val', newSt] -> do
             prims <- gets bindingsPrimops
-            newSt' <- either (throwError . OtherError) pure
+            newSt' <- either (throwErrorHere . OtherError) pure
                       (fromRad newSt :: Either Text (Bindings ()))
             put $ newSt' { bindingsPrimops = prims }
             pure val'
-        _ -> throwError $ OtherError "eval: should return list with value and new env"
+        _ -> throwErrorHere $ OtherError "eval: should return list with value and new env"
 
 
 -- | The built-in, original, eval.
 baseEval :: Monad m => Value -> Lang m Value
-baseEval val = case val of
+baseEval val = logValPos val $ case val of
     Atom i -> lookupAtom i
     List (f:vs) -> f $$ vs
-    List xs -> throwError
+    List xs -> throwErrorHere
         $ WrongNumberOfArgs ("application: " <> show xs)
                             2
                             (length xs)
@@ -380,22 +473,22 @@ instance ToRad (Bindings m) where
 
 -- * Helpers
 
-
+-- Loc is the source location of the application.
 callFn :: Monad m => Value -> [Value] -> Lang m Value
 callFn f vs = case f of
   Lambda bnds body closure ->
       if length bnds /= length vs
-          then throwError $ WrongNumberOfArgs "lambda" (length bnds)
-                                                       (length vs)
+          then throwErrorHere $ WrongNumberOfArgs "lambda" (length bnds)
+                                                           (length vs)
           else do
               let mappings = GhcExts.fromList (zip bnds vs)
                   modEnv = mappings <> closure
               NonEmpty.last <$> withEnv (const modEnv)
                                         (traverse baseEval body)
-  Primop i -> throwError . TypeError
+  Primop i -> throwErrorHere . TypeError
     $ "Trying to call a non-function: the primop '" <> show i
     <> "' cannot be used as a function."
-  _ -> throwError . TypeError $ "Trying to call a non-function."
+  _ -> throwErrorHere . TypeError $ "Trying to call a non-function."
 
 -- | Infix evaluation of application (of functions or primops)
 infixr 1 $$
@@ -411,7 +504,7 @@ mfn $$ vs = do
         f@Lambda{} -> do
           vs' <- traverse baseEval vs
           callFn f vs'
-        _ -> throwError $ TypeError "Trying to apply a non-function"
+        _ -> throwErrorHere $ TypeError "Trying to apply a non-function"
 
 nil :: Value
 nil = List []

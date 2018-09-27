@@ -36,19 +36,19 @@ type ReplM m =
 instance MonadRandom (InputT IO) where
     getRandomBytes = liftIO . getRandomBytes
 instance MonadRandom m => MonadRandom (LangT (Bindings (Primops m)) m) where
-  getRandomBytes = lift . getRandomBytes
+    getRandomBytes = lift . getRandomBytes
 
-repl :: Maybe FilePath -> Text -> Bindings (Primops (InputT IO)) -> IO ()
-repl histFile preCode bindings = do
+repl :: Maybe FilePath -> Text -> Text -> Bindings (Primops (InputT IO)) -> IO ()
+repl histFile preFileName preCode bindings = do
     let settings = setComplete completion
                  $ defaultSettings { historyFile = histFile }
     r <- runInputT settings
         $ fmap fst $ runLang bindings
-        $ void $ interpretMany "[pre]" preCode
+        $ void $ interpretMany preFileName preCode
     case r of
-        Left Exit -> pure ()
-        Left e    -> putDoc $ pretty e
-        Right ()  -> pure ()
+        Left (LangError _ Exit) -> pure ()
+        Left e                  -> putDoc $ pretty e
+        Right ()                -> pure ()
 
 completion :: Monad m => CompletionFunc m
 completion = completeWord Nothing ['(', ')', ' ', '\n'] go
@@ -76,19 +76,19 @@ replPrimops = Primops . Map.fromList $ first toIdent <$>
             v <- eval x
             putStrS (renderPrettyDef v)
             pure nil
-        xs  -> throwError $ WrongNumberOfArgs "print!" 1 (length xs))
+        xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
     , ("set-env!", \args -> case args of
         [Atom x, v] -> do
             v' <- eval v
             defineAtom x v'
             pure nil
-        [_, _] -> throwError $ TypeError "Expected atom as first arg"
-        xs  -> throwError $ WrongNumberOfArgs "set-env!" 2 (length xs))
+        [_, _] -> throwErrorHere $ TypeError "Expected atom as first arg"
+        xs  -> throwErrorHere $ WrongNumberOfArgs "set-env!" 2 (length xs))
 
     , ("get-line!", \args -> case args of
         [] -> String <$> getLineS
-        xs -> throwError $ WrongNumberOfArgs "get-line!" 0 (length xs))
+        xs -> throwErrorHere $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
     , ("subscribe-to!", \args -> case args of
         [x, v] -> do
@@ -97,7 +97,7 @@ replPrimops = Primops . Map.fromList $ first toIdent <$>
             e <- gets bindingsEnv
             case (x', v') of
                 (Dict m, fn) -> case Map.lookup (Atom $ toIdent "getter") m of
-                    Nothing -> throwError
+                    Nothing -> throwErrorHere
                         $ OtherError "subscribe-to!: Expected 'getter' key"
                     Just g -> forever (protect go)
                       where
@@ -105,8 +105,8 @@ replPrimops = Primops . Map.fromList $ first toIdent <$>
                             st <- get
                             action `catchError`
                                 (\err -> case err of
-                                   Exit -> throwError err
-                                   Impossible _ -> do
+                                   LangError _ Exit -> throwError err
+                                   LangError _ (Impossible _) -> do
                                        putStrS (renderPrettyDef err)
                                        throwError err
                                    _ -> putStrS (renderPrettyDef err) >> put st)
@@ -120,22 +120,22 @@ replPrimops = Primops . Map.fromList $ first toIdent <$>
                             -- function is evaluated in the original
                             -- environment.
                             void $ withEnv (const e) (fn $$ [quote line])
-                _  -> throwError $ TypeError "subscribe-to!: Expected dict"
-        xs  -> throwError $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
+                _  -> throwErrorHere $ TypeError "subscribe-to!: Expected dict"
+        xs  -> throwErrorHere $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
     , ( "read-file!"
       , evalOneArg "read-file" $ \case
           String filename -> String <$> readFileS filename
-          _ -> throwError $ TypeError "read-file: expects a string"
+          _ -> throwErrorHere $ TypeError "read-file: expects a string"
       )
     , ( "load!"
       , evalOneArg "load!" $ \case
           String filename -> readFileS filename >>= interpretMany "[load!]"
-          _ -> throwError $ TypeError "load: expects a string"
+          _ -> throwErrorHere $ TypeError "load: expects a string"
       )
     , ( "gen-key-pair!"
       , evalArgs $ \case
           [curvev] -> do
-            curve <- hoistEither . first OtherError $ fromRad curvev
+            curve <- hoistEither . first (toLangError . OtherError) $ fromRad curvev
             (pk, sk) <- generateKeyPair curve
             let pkv = toRad pk
             let skv = toRad sk
@@ -143,13 +143,13 @@ replPrimops = Primops . Map.fromList $ first toIdent <$>
               [ (Keyword (Ident "private-key"), skv)
               , (Keyword (Ident "public-key"), pkv)
               ]
-          xs -> throwError $ WrongNumberOfArgs "gen-key-pair!" 0 (length xs)
+          xs -> throwErrorHere $ WrongNumberOfArgs "gen-key-pair!" 0 (length xs)
       )
     , ( "gen-signature!"
       , evalArgs $ \case
           [skv, String msg] -> do
-            sk <- hoistEither . first OtherError $ fromRad skv
+            sk <- hoistEither . first (toLangError . OtherError) $ fromRad skv
             toRad <$> signText sk msg
-          _ -> throwError $ TypeError "gen-signature!: expects a string."
+          _ -> throwErrorHere $ TypeError "gen-signature!: expects a string."
       )
     ]

@@ -18,6 +18,7 @@ dependencies:
 - haskeline
 - megaparsec
 - mtl
+- pointed
 - prettyprinter
 - prettyprinter-ansi-terminal
 - recursion-schemes
