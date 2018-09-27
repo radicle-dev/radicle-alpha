@@ -292,8 +292,7 @@ eval val = do
         _ -> throwError $ OtherError "eval: should return list with value and new env"
 
 
-
-
+-- | The built-in, original, eval.
 baseEval :: Monad m => Value -> Lang m Value
 baseEval val = case val of
     Atom i -> lookupAtom i
@@ -318,6 +317,12 @@ instance FromRad Scientific where
     fromRad x = case x of
         Number n -> pure n
         _        -> Left "Expecting number"
+instance FromRad Integer where
+    fromRad = \case
+      Number s -> case floatingOrInteger s of
+        Left (_ :: Double) -> Left "Expecting whole number"
+        Right i            -> pure i
+      _ -> Left "Expecting number"
 instance FromRad Text where
     fromRad x = case x of
         String n -> pure n
@@ -354,6 +359,8 @@ class ToRad a where
   toRad = toRadG
 
 instance ToRad Int where
+    toRad = Number . fromIntegral
+instance ToRad Integer where
     toRad = Number . fromIntegral
 instance ToRad Scientific where
     toRad = Number
@@ -420,6 +427,10 @@ kwLookup key = Map.lookup (Keyword $ Ident key)
 
 (??) :: MonadError e m => Maybe a -> e -> m a
 a ?? n = n `note` a
+
+hoistEither :: MonadError e m => Either e a -> m a
+hoistEither (Left e)  = throwError e
+hoistEither (Right x) = pure x
 
 -- * Generic encoding/decoding of Radicle values.
 

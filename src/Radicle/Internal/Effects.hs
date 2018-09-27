@@ -134,10 +134,11 @@ replPrimops = Primops . Map.fromList $ first toIdent <$>
       )
     , ( "gen-key-pair!"
       , evalArgs $ \case
-          [] -> do
-            (pk, sk) <- generateKeyPair
-            pkv <- pubKeyToRad pk ?? OtherError "Generated invalid key"
-            skv <- privKeyToRad sk ?? OtherError "Generated invalid secret key"
+          [curvev] -> do
+            curve <- hoistEither . first OtherError $ fromRad curvev
+            (pk, sk) <- generateKeyPair curve
+            let pkv = toRad pk
+            let skv = toRad sk
             pure . Dict . Map.fromList $
               [ (Keyword (Ident "private-key"), skv)
               , (Keyword (Ident "public-key"), pkv)
@@ -147,8 +148,8 @@ replPrimops = Primops . Map.fromList $ first toIdent <$>
     , ( "gen-signature!"
       , evalArgs $ \case
           [skv, String msg] -> do
-            sk <- radToPrivKey skv ?? OtherError "Value provided was not a valid private key"
-            signatureToRad <$> signText sk msg
+            sk <- hoistEither . first OtherError $ fromRad skv
+            toRad <$> signText sk msg
           _ -> throwError $ TypeError "gen-signature!: expects a string."
       )
     ]

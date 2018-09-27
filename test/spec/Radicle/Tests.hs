@@ -548,8 +548,8 @@ test_repl_primops =
         runFiles files prog @?= Right (Number 50)
     , testCase "generating and verifying cryptographic signatures works" $
         let prog = [s|
-                   (define my-keys (gen-key-pair!))
-                   (define not-my-keys (gen-key-pair!))
+                   (define my-keys (gen-key-pair! (default-ecc-curve)))
+                   (define not-my-keys (gen-key-pair! (default-ecc-curve)))
                    (define sig (gen-signature! (lookup :private-key my-keys) "hello"))
                    (define tt (verify-signature (lookup :public-key my-keys) sig "hello"))
                    (define ff (verify-signature (lookup :public-key not-my-keys) sig "hello"))

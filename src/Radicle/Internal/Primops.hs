@@ -261,11 +261,16 @@ purePrimops = Primops $ fromList $ first Ident <$>
       , evalOneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
           maybeJson v ?? OtherError "Could not serialise value to JSON"
       )
+    , ( "default-ecc-curve",
+        evalArgs $ \case
+          [] -> pure $ toRad defaultCurve
+          xs -> throwError $ WrongNumberOfArgs "default-ecc-curve" 0 (length xs)
+      )
     , ( "verify-signature"
       , evalArgs $ \case
           [keyv, sigv, String msg] -> do
-            key <- radToPubKey keyv ?? OtherError "Invalid public key"
-            sig <- radToSignature sigv ?? OtherError "Invalid signature"
+            key <- hoistEither . first OtherError $ fromRad keyv
+            sig <- hoistEither . first OtherError $ fromRad sigv
             pure . Boolean $ verifySignature key sig msg
           [_, _, _] -> throwError $ OtherError "verify-signature: message must be a string"
           xs -> throwError $ WrongNumberOfArgs "verify-signature" 3 (length xs)
