@@ -375,8 +375,7 @@ callFn :: Monad m => Value -> [Value] -> Lang m Value
 callFn f vs = case f of
   Lambda bnds body closure ->
       if length bnds /= length vs
-          then throwError $ WrongNumberOfArgs
-               "lambda" (length bnds)
+          then throwError $ WrongNumberOfArgs "lambda" (length bnds)
                                                        (length vs)
           else do
               let mappings = GhcExts.fromList (zip bnds vs)
@@ -457,48 +456,48 @@ instance ToRadFields () where
 -- Generic decoding of Radicle values to Haskell values
 
 fromRadG :: forall a. (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
-fromRadG x =
-  maybeToRight
-    "Couldn't generically decode radicle value"
-    (fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) x)
+fromRadG x = fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) x
 
 class FromRadG a where
-  fromRadConss :: [Constructor] -> Value -> Maybe a
+  fromRadConss :: [Constructor] -> Value -> Either Text a
 
 isRadCons :: Value -> Maybe (Text, [Value])
 isRadCons (List (Keyword (Ident name) : args)) = pure (name, args)
 isRadCons _ = Nothing
 
+gDecodeErr :: Text -> Text
+gDecodeErr e = "Couldn't generically decode radicle value: " <> e
+
 instance (FromRadFields a, FromRadG b) => FromRadG (Either a b) where
   fromRadConss (Constructor name fieldMeta : r) v = do
-    (name', args) <- isRadCons v
+    (name', args) <- isRadCons v ?? gDecodeErr "expecting constructor"
     if toS name /= name'
       then Right <$> fromRadConss r v
       else Left <$> fromRadFields fieldMeta args
-  fromRadConss [] _ = Nothing
+  fromRadConss [] _ = panic "impossible"
 
 instance FromRadG Void where
-  fromRadConss _ _ = Nothing
+  fromRadConss _ _ = panic "impossible"
 
 class FromRadFields a where
-  fromRadFields :: Fields -> [Value] -> Maybe a
+  fromRadFields :: Fields -> [Value] -> Either Text a
 
 instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
   fromRadFields fields args = case fields of
     NoSelectors _ -> case args of
       v:vs -> do
-        x <- rightToMaybe $ fromRad v
+        x <- fromRad v
         xs <- fromRadFields fields vs
         pure (x, xs)
-      _ -> Nothing
+      _ -> panic "impossible"
     Selectors (n:names) -> case args of
       [Dict d] -> do
-        xv <- kwLookup (toS n) d
-        x <- rightToMaybe $ fromRad xv
+        xv <- kwLookup (toS n) d ?? ""
+        x <- fromRad xv
         xs <- fromRadFields (Selectors names) args
         pure (x, xs)
-      _ -> Nothing
-    _ -> Nothing
+      _ -> panic "impossible"
+    _ -> panic "impossible"
 
 instance FromRadFields () where
   fromRadFields _ _ = pure ()
