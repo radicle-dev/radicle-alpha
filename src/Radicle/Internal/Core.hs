@@ -1,7 +1,7 @@
 -- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
 
-import           Protolude hiding (TypeError, (<>))
+import           Protolude hiding (TypeError, (<>), Constructor)
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
@@ -17,6 +17,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
+import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
 
@@ -323,3 +324,52 @@ mfn $$ vs = do
 
 nil :: Value
 nil = List []
+
+-- Generic encoding of Haskell values into Radicle values.
+
+class ToRad a where
+  toRad :: a -> Value
+  default toRad :: (HasEot a, ToRadG (Eot a)) => a -> Value
+  toRad = toRadG
+
+instance ToRad Scientific where
+  toRad = Number
+
+toRadG :: forall a. (HasEot a, ToRadG (Eot a)) => a -> Value
+toRadG x = toRadConss (constructors (datatype (Proxy :: Proxy a))) (toEot x)
+
+class ToRadG a where
+  toRadConss :: [Constructor] -> a -> Value
+
+instance (ToRadFields a, ToRadG b) => ToRadG (Either a b) where
+  toRadConss (Constructor name fieldMeta : _) (Left fields) =
+    case fieldMeta of
+      Selectors names ->
+        radCons (toS name) . pure . Dict . Map.fromList $
+          zip (Keyword . Ident . toS <$> names) (toRadFields fields)
+      NoSelectors _ -> radCons (toS name) (toRadFields fields)
+      NoFields -> radCons (toS name) []
+  toRadConss (_ : r) (Right next) = toRadConss r next
+  toRadConss [] _ = panic "impossible"
+
+radCons :: Text -> [Value] -> Value
+radCons name args = List ( Keyword (Ident name) : args )
+
+instance ToRadG Void where
+  toRadConss _ = absurd
+
+class ToRadFields a where
+  toRadFields :: a -> [Value]
+
+instance (ToRad a, ToRadFields as) => ToRadFields (a, as) where
+  toRadFields (x, xs) = toRad x : toRadFields xs
+
+instance ToRadFields () where
+  toRadFields () = []
+
+data Foo = Foo
+  { foo :: Scientific
+  , bar :: Scientific
+  } deriving (Generic)
+
+instance ToRad Foo
