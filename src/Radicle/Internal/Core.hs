@@ -456,10 +456,12 @@ instance ToRadFields () where
 -- Generic decoding of Radicle values to Haskell values
 
 fromRadG :: forall a. (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
-fromRadG x = fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) x
+fromRadG v = do
+  (name, args) <- isRadCons v ?? gDecodeErr "expecting constructor"
+  fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) name args
 
 class FromRadG a where
-  fromRadConss :: [Constructor] -> Value -> Either Text a
+  fromRadConss :: [Constructor] -> Text -> [Value] -> Either Text a
 
 isRadCons :: Value -> Maybe (Text, [Value])
 isRadCons (List (Keyword (Ident name) : args)) = pure (name, args)
@@ -469,15 +471,14 @@ gDecodeErr :: Text -> Text
 gDecodeErr e = "Couldn't generically decode radicle value: " <> e
 
 instance (FromRadFields a, FromRadG b) => FromRadG (Either a b) where
-  fromRadConss (Constructor name fieldMeta : r) v = do
-    (name', args) <- isRadCons v ?? gDecodeErr "expecting constructor"
+  fromRadConss (Constructor name fieldMeta : r) name' args = do
     if toS name /= name'
-      then Right <$> fromRadConss r v
+      then Right <$> fromRadConss r name' args
       else Left <$> fromRadFields fieldMeta args
-  fromRadConss [] _ = panic "impossible"
+  fromRadConss [] _ _ = panic "impossible"
 
 instance FromRadG Void where
-  fromRadConss _ _ = panic "impossible"
+  fromRadConss _ name _ = Left (gDecodeErr "unknown constructor '" <> name <> "'")
 
 class FromRadFields a where
   fromRadFields :: Fields -> [Value] -> Either Text a
@@ -492,11 +493,11 @@ instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
       _ -> panic "impossible"
     Selectors (n:names) -> case args of
       [Dict d] -> do
-        xv <- kwLookup (toS n) d ?? ""
+        xv <- kwLookup (toS n) d ?? gDecodeErr ("missing field '" <> toS n <> "'")
         x <- fromRad xv
         xs <- fromRadFields (Selectors names) args
         pure (x, xs)
-      _ -> panic "impossible"
+      _ -> Left . gDecodeErr $ "expecting a dict"
     _ -> panic "impossible"
 
 instance FromRadFields () where
