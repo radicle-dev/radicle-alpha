@@ -3,9 +3,9 @@ module Radicle.Internal.Pretty where
 
 import           Protolude hiding (TypeError, (<>))
 
-import Data.Sequence (Seq(..))
 import           Data.Copointed (Copointed(..))
 import qualified Data.Map as Map
+import           Data.Sequence (Seq(..))
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text

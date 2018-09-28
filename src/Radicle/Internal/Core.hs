@@ -414,6 +414,8 @@ class FromRad a where
   default fromRad :: (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
   fromRad = fromRadG
 
+instance FromRad Value where
+  fromRad = pure
 instance FromRad Scientific where
     fromRad x = case x of
         Number n -> pure n
@@ -431,6 +433,7 @@ instance FromRad Text where
 instance FromRad a => FromRad [a] where
     fromRad x = case x of
         List xs -> traverse fromRad xs
+        Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
 instance FromRad (Env Value) where
     fromRad x = case x of
@@ -530,8 +533,11 @@ kwLookup key = Map.lookup (Keyword $ Ident key)
 a ?? n = n `note` a
 
 hoistEither :: MonadError e m => Either e a -> m a
-hoistEither (Left e)  = throwError e
-hoistEither (Right x) = pure x
+hoistEither = hoistEitherWith identity
+
+hoistEitherWith :: MonadError e' m => (e -> e') -> Either e a -> m a
+hoistEitherWith f (Left e)  = throwError (f e)
+hoistEitherWith _ (Right x) = pure x
 
 -- * Generic encoding/decoding of Radicle values.
 

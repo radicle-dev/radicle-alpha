@@ -129,9 +129,11 @@ purePrimops = Primops $ fromList $ first Ident <$>
           _           -> throwErrorHere $ TypeError "tail: expects list argument")
     , ( "nth"
       , evalArgs $ \case
-          [Number n, List xs] -> case floatingOrInteger n of
+          [Number n, vs] -> case floatingOrInteger n of
             Left (_ :: Double) -> throwErrorHere $ OtherError "nth: first argument was not an integer"
-            Right i -> case xs `atMay` i of
+            Right i -> do
+              xs <- hoistEitherWith (const (toLangError . OtherError $ "nth: first argument must be sequential")) $ fromRad vs
+              case xs `atMay` i of
                 Just x  -> pure x
                 Nothing -> throwErrorHere $ OtherError "nth: index out of bounds"
           [_,_] -> throwErrorHere $ TypeError "nth: expects a integer and a list"
@@ -256,8 +258,9 @@ purePrimops = Primops $ fromList $ first Ident <$>
       , evalOneArg "seq" $
           \case
             x@(List _) -> pure x
+            x@(Vec _) -> pure x
             Dict kvs -> pure $ List [List [k, v] | (k,v) <- Map.toList kvs ]
-            _ -> throwErrorHere $ TypeError "seq: can only create a list from a list or a dict"
+            _ -> throwErrorHere $ TypeError "seq: can only be used on a list, vector or dictionary"
       )
     , ( "to-json"
       , evalOneArg "to-json" $ \v -> String . toS . Aeson.encode <$>

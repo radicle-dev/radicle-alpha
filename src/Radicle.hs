@@ -29,6 +29,7 @@ module Radicle
     , pattern Number
     , pattern Boolean
     , pattern List
+    , pattern Vec
     , pattern Primop
     , pattern Dict
     , pattern Ref

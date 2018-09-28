@@ -2,10 +2,10 @@ module Radicle.Internal.Parse where
 
 import           Protolude hiding (SrcLoc, try)
 
-import qualified Data.Sequence as Seq
 import           Data.Char (isAlphaNum, isLetter)
 import           Data.List.NonEmpty (NonEmpty((:|)))
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import           GHC.Exts (IsString(..))
 import           Text.Megaparsec
