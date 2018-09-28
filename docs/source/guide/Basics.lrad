@@ -1,0 +1,17 @@
+
+## Built-in datatypes
+
+`radicle` supports the following datatypes:
+
+### Booleans
+
+The literal syntax for booleans is `#t` for true, and `#f` for false.
+
+### Strings
+
+### Lists
+
+### Dictionaries
+
+Dictionaries are mappings between keys and values. (You may know them as maps,
+associative arrays, or symbol tables.)
