@@ -21,6 +21,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
 import           Data.Semigroup ((<>))
+import qualified Data.Sequence as Seq
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
@@ -125,6 +126,7 @@ data ValueF r =
     | NumberF Scientific
     | BooleanF Bool
     | ListF [r]
+    | VecF (Seq.Seq r)
     | PrimopF Ident
     -- | Map from *pure* Values -- annotations shouldn't change lookup semantics.
     | DictF (Map.Map Value r)
@@ -169,6 +171,11 @@ pattern List :: ValueConC t => [Annotated t ValueF] -> Annotated t ValueF
 pattern List vs <- (Ann.match -> ListF vs)
     where
     List = Ann.annotate . ListF
+
+pattern Vec :: ValueConC t => Seq.Seq (Annotated t ValueF) -> Annotated t ValueF
+pattern Vec vs <- (Ann.match -> VecF vs)
+    where
+    Vec = Ann.annotate . VecF
 
 pattern Primop :: ValueConC t => Ident -> Annotated t ValueF
 pattern Primop i <- (Ann.match -> PrimopF i)
@@ -394,6 +401,7 @@ baseEval val = logValPos val $ case val of
         $ WrongNumberOfArgs ("application: " <> show xs)
                             2
                             (length xs)
+    Vec xs -> Vec <$> traverse baseEval xs
     Dict mp -> do
         let evalBoth (a,b) = (,) <$> baseEval a <*> baseEval b
         Dict . Map.fromList <$> traverse evalBoth (Map.toList mp)
@@ -406,6 +414,8 @@ class FromRad a where
   default fromRad :: (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
   fromRad = fromRadG
 
+instance FromRad Value where
+  fromRad = pure
 instance FromRad Scientific where
     fromRad x = case x of
         Number n -> pure n
@@ -423,6 +433,7 @@ instance FromRad Text where
 instance FromRad a => FromRad [a] where
     fromRad x = case x of
         List xs -> traverse fromRad xs
+        Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
 instance FromRad (Env Value) where
     fromRad x = case x of
@@ -522,8 +533,11 @@ kwLookup key = Map.lookup (Keyword $ Ident key)
 a ?? n = n `note` a
 
 hoistEither :: MonadError e m => Either e a -> m a
-hoistEither (Left e)  = throwError e
-hoistEither (Right x) = pure x
+hoistEither = hoistEitherWith identity
+
+hoistEitherWith :: MonadError e' m => (e -> e') -> Either e a -> m a
+hoistEitherWith f (Left e)  = throwError (f e)
+hoistEitherWith _ (Right x) = pure x
 
 -- * Generic encoding/decoding of Radicle values.
 

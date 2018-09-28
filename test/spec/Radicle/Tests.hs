@@ -7,6 +7,7 @@ import           Data.List (isInfixOf, isSuffixOf)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromJust)
 import           Data.Scientific (Scientific)
+import           Data.Sequence (Seq(..))
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
@@ -39,6 +40,14 @@ test_eval =
               |]
         prog `succeedsWith` String "Steve Wozniak"
 
+    , testCase "vector syntax creates vectors" $ do
+        "[]" `succeedsWith` Vec Empty
+        "[1 2]" `succeedsWith` Vec (fromList [Number 1, Number 2])
+        "[1 :a [:b 2]]" `succeedsWith` Vec (fromList [Number 1, kw "a", Vec (fromList [kw "b", Number 2])])
+
+    , testCase "vectors evaluate their elements" $
+        "[(+ 1 2) (* 3 4)]" `succeedsWith` Vec (fromList [Number 3, Number 12])
+
     , testCase "'dict' creates a Dict with given key/vals" $ do
         let prog1 = [s|(dict 'why "not")|]
         prog1 `succeedsWith` Dict (fromList [(Atom $ toIdent "why", String "not")])
@@ -60,6 +69,12 @@ test_eval =
     , testCase "'tail' returns the tail of a list" $ do
         let prog = [s|(tail (list #t #f #t))|]
         prog `succeedsWith` List [Boolean False, Boolean True]
+
+    , testCase "'nth' extracts elements from lists and vectors" $ do
+        "(nth 0 [0 1 2])" `succeedsWith` Number 0
+        "(nth 1 [0 1 2])" `succeedsWith` Number 1
+        "(nth 0 '(0 1 2))" `succeedsWith` Number 0
+        "(nth 1 '(0 1 2))" `succeedsWith` Number 1
 
     , testProperty "'eq?' considers equal values equal" $ \(val :: Value) -> do
         let prog = [i|(eq? #{renderPrettyDef val} #{renderPrettyDef val})|]
