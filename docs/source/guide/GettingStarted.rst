@@ -37,7 +37,7 @@ You can test that `radicle` was properly installed by running:
     radicle --help
 
 Note that the `radicle` executable always takes a file as an argument. If you
-want to run it interactive (i.e., as a REPL), you'll need to pass it the REPL
+want to run it interactively (i.e., as a REPL), you'll need to pass it the REPL
 file (included in the repository):
 
 
