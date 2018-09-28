@@ -15,3 +15,22 @@ The literal syntax for booleans is `#t` for true, and `#f` for false.
 
 Dictionaries are mappings between keys and values. (You may know them as maps,
 associative arrays, or symbol tables.)
+
+```radicle
+{ :key1 1
+  :key2 "foo"
+}
+```
+
+Keys may be any value, including other dictionaries:
+
+```radicle
+{ :key1 1
+  { :nested "foo" } "bar"
+}
+```
+
+### Primops
+
+Primitive operations (primops) are functions that are not defined in `radicle`
+itself.
