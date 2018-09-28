@@ -35,3 +35,12 @@ You can test that `radicle` was properly installed by running:
 .. code-block:: bash
 
     radicle --help
+
+Note that the `radicle` executable always takes a file as an argument. If you
+want to run it interactive (i.e., as a REPL), you'll need to pass it the REPL
+file (included in the repository):
+
+
+.. code-block:: bash
+
+    radicle --config rad/repl.rad

@@ -13,6 +13,12 @@ The literal syntax for booleans is `#t` for true, and `#f` for false.
 
 ### Strings
 
+Strings are enclosed in double quotes:
+
+```radicle
+"this is a string"
+```
+
 ### Lists
 
 ### Dictionaries
@@ -44,6 +50,15 @@ itself.
 
 
 ## Simple expressions
+
+### Function application
+
+A function call takes prefixed, parenthesized form. That is, the call appears
+within parenthesis, with the function at the head, followed by its arguments:
+
+```radicle
+(+ 3 2) ;; => 5
+```
 
 ### Definitions
 
