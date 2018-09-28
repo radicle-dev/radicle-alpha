@@ -1,3 +1,7 @@
+# Basics
+
+This chapter covers the basics of `radicle`. It should be enough to get you
+started with the language.
 
 ## Built-in datatypes
 
@@ -14,13 +18,16 @@ The literal syntax for booleans is `#t` for true, and `#f` for false.
 ### Dictionaries
 
 Dictionaries are mappings between keys and values. (You may know them as maps,
-associative arrays, or symbol tables.)
+associative arrays, or symbol tables.) Literal syntax for dictionaries is
+formed by including the keys and values inside curly braces:
 
 ```radicle
 { :key1 1
   :key2 "foo"
 }
 ```
+
+It is an error to have an odd number of elements inside the braces.
 
 Keys may be any value, including other dictionaries:
 
@@ -34,3 +41,28 @@ Keys may be any value, including other dictionaries:
 
 Primitive operations (primops) are functions that are not defined in `radicle`
 itself.
+
+
+## Simple expressions
+
+### Definitions
+
+Definitions bind values to an identifier.
+
+```radicle
+(define five 5)
+five ;; ==> 5
+```
+
+Definitions are not by default recursive. If you want to define a recursive
+function, use the `define-rec` form:
+
+```radicle
+(define-rec range
+ (lambda (from to)
+  (if (<= to from)
+    (list)
+    (cons from (range (+ 1 from) to)))))
+```
+
+Note that `define-rec` may only be used to define functions.
