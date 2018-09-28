@@ -16,6 +16,8 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+from recommonmark.parser import CommonMarkParser
+
 # -- Project information -----------------------------------------------------
 
 project = u'radicle'
@@ -53,7 +55,7 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = ['.rst', '.lhs']
+source_suffix = ['.rst', '.lrad']
 
 # The master toctree document.
 master_doc = 'index'
@@ -189,3 +191,8 @@ intersphinx_mapping = {'https://docs.python.org/': None}
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
+
+source_parsers = {
+    '.md': CommonMarkParser,
+    '.lrad': CommonMarkParser,
+}
