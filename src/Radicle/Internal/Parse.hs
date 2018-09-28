@@ -2,6 +2,7 @@ module Radicle.Internal.Parse where
 
 import           Protolude hiding (SrcLoc, try)
 
+import qualified Data.Sequence as Seq
 import           Data.Char (isAlphaNum, isLetter)
 import           Data.List.NonEmpty (NonEmpty((:|)))
 import qualified Data.Map as Map
@@ -62,6 +63,9 @@ parensP = inside "(" ")"
 bracesP :: Parser a -> Parser a
 bracesP = inside "{" "}"
 
+sqBracketsP :: Parser a -> Parser a
+sqBracketsP = inside "[" "]"
+
 stringLiteralP :: VParser
 stringLiteralP = lexeme $
     tag =<< StringF . toS <$> (char '"' >> manyTill L.charLiteral (char '"'))
@@ -98,6 +102,9 @@ keywordP = do
 listP :: VParser
 listP = parensP (tag =<< (ListF <$> valueP `sepBy` spaceConsumer))
 
+vecP :: VParser
+vecP = sqBracketsP (tag =<< (VecF . Seq.fromList <$> valueP `sepBy` spaceConsumer))
+
 dictP :: VParser
 dictP = bracesP (tag =<< (DictF . Map.fromList <$> evenItems))
   where
@@ -124,6 +131,7 @@ valueP = do
       , atomOrPrimP <?> "identifier"
       , quoteP <?> "quote"
       , listP <?> "list"
+      , vecP <?> "vector"
       , dictP <?> "dict"
       ]
   spaceConsumer

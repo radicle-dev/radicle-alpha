@@ -3,6 +3,7 @@ module Radicle.Internal.Pretty where
 
 import           Protolude hiding (TypeError, (<>))
 
+import Data.Sequence (Seq(..))
 import           Data.Copointed (Copointed(..))
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -35,6 +36,10 @@ instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) wher
           []   -> "()"
           [v'] -> parens $ pretty v'
           _    -> parens $ hang 1 (sep $ pretty <$> vs)
+        Vec vs -> case vs of
+          Empty        -> "[]"
+          v' :<| Empty -> brackets $ pretty v'
+          _            -> brackets . sep $ pretty <$> toList vs
         Primop i -> pretty i
         Dict mp -> braces . align $
             sep [ pretty k <+> pretty val

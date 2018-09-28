@@ -21,6 +21,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
 import           Data.Semigroup ((<>))
+import qualified Data.Sequence as Seq
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
@@ -125,6 +126,7 @@ data ValueF r =
     | NumberF Scientific
     | BooleanF Bool
     | ListF [r]
+    | VecF (Seq.Seq r)
     | PrimopF Ident
     -- | Map from *pure* Values -- annotations shouldn't change lookup semantics.
     | DictF (Map.Map Value r)
@@ -169,6 +171,11 @@ pattern List :: ValueConC t => [Annotated t ValueF] -> Annotated t ValueF
 pattern List vs <- (Ann.match -> ListF vs)
     where
     List = Ann.annotate . ListF
+
+pattern Vec :: ValueConC t => Seq.Seq (Annotated t ValueF) -> Annotated t ValueF
+pattern Vec vs <- (Ann.match -> VecF vs)
+    where
+    Vec = Ann.annotate . VecF
 
 pattern Primop :: ValueConC t => Ident -> Annotated t ValueF
 pattern Primop i <- (Ann.match -> PrimopF i)
@@ -394,6 +401,7 @@ baseEval val = logValPos val $ case val of
         $ WrongNumberOfArgs ("application: " <> show xs)
                             2
                             (length xs)
+    Vec xs -> Vec <$> traverse baseEval xs
     Dict mp -> do
         let evalBoth (a,b) = (,) <$> baseEval a <*> baseEval b
         Dict . Map.fromList <$> traverse evalBoth (Map.toList mp)
