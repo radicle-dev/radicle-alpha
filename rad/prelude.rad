@@ -2,15 +2,15 @@
 (load! "rad/prelude/should-be.rad")
 (load! "rad/prelude/io.rad")
 (load! "rad/prelude/bool.rad")
-(load! "rad/prelude/recursion.rad")
-(load! "rad/prelude/list.rad")
-(load! "rad/prelude/dict.rad")
-(load! "rad/prelude/ref.rad")
-(load! "rad/prelude/lens.rad")
-(load! "rad/chain.rad")
-(load! "rad/state-machine.rad")
+;; (load! "rad/prelude/recursion.rad")
+;; (load! "rad/prelude/list.rad")
+;; (load! "rad/prelude/dict.rad")
+;; (load! "rad/prelude/ref.rad")
+;; (load! "rad/prelude/lens.rad")
+;; (load! "rad/chain.rad")
+;; (load! "rad/state-machine.rad")
 
-(define pure-prelude-files
+(def pure-prelude-files
   (list
    "rad/prelude/doc.rad"
    "rad/prelude/pure-should-be.rad"
@@ -27,20 +27,20 @@
           '()
           "List of files which together define the pure prelude.")
 
-(define pure-prelude-code
+(def pure-prelude-code
   (read
    (string-append
     "(do "
     (apply string-append
-           (map (lambda (f) (read-file! f)) pure-prelude-files))
+           (map (fn [f] (read-file! f)) pure-prelude-files))
     ")")))
 
 (document 'pure-prelude-code
           '()
           "The pure prelude.")
 
-(define send-prelude!
-  (lambda (chain-id)
+(def send-prelude!
+  (fn [chain-id]
     (send! chain-id pure-prelude-code)))
 
 (document 'send-prelude!

@@ -6,7 +6,7 @@ module Radicle.Internal.Primops
   , readValue
   ) where
 
-import           Protolude hiding (TypeError)
+import           Protolude hiding (TypeError, toList)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.IntMap as IntMap
@@ -32,13 +32,15 @@ pureEnv = Bindings e purePrimops r 1
 -- not shadowable via 'define'.
 purePrimops :: forall m. (Monad m) => Primops m
 purePrimops = Primops $ fromList $ first Ident <$>
-    [ ( "lambda"
+    [ ( "fn"
       , \case
-          List atoms_ : b : bs -> do
-            atoms <- traverse isAtom atoms_ ?? toLangError (TypeError "lambda: expecting a list of symbols")
+          Vec atoms_ : b : bs -> do
+            -- let Vec atoms_ = args -- FIXME
+            atoms <- traverse isAtom (toList atoms_) ?? toLangError (TypeError "fn: expecting a list of symbols")
             e <- gets bindingsEnv
             pure (Lambda atoms (b :| bs) e)
-          xs -> throwErrorHere $ WrongNumberOfArgs "lambda" 2 (length xs) -- TODO: technically "at least 2"
+          _ : _ : _ -> throwErrorHere $ OtherError "fn: first argument must be a vector of argument symbols, and then at least one form for the body"
+          xs -> throwErrorHere $ WrongNumberOfArgs "fn" 2 (length xs) -- TODO: technically "at least 2"
       )
     , ( "base-eval"
       , evalArgs $ \case
@@ -75,14 +77,14 @@ purePrimops = Primops $ fromList $ first Ident <$>
     , ("quote", \args -> case args of
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
-    , ("define", \args -> case args of
+    , ("def", \args -> case args of
           [Atom name, val] -> do
               val' <- baseEval val
               defineAtom name val'
               pure nil
-          [_, _]           -> throwErrorHere $ OtherError "define expects atom for first arg"
-          xs               -> throwErrorHere $ WrongNumberOfArgs "define" 2 (length xs))
-    , ( "define-rec"
+          [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
+          xs               -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
+    , ( "def-rec"
       , \case
           [Atom name, val] -> do
             val' <- baseEval val
@@ -91,9 +93,9 @@ purePrimops = Primops $ fromList $ first Ident <$>
                     let v = Lambda is b (Env . Map.insert name v . fromEnv $ e)
                     defineAtom name v
                     pure nil
-                _ -> throwErrorHere $ OtherError "define-rec can only be used to define functions"
-          [_, _]           -> throwErrorHere $ OtherError "define-rec expects atom for first arg"
-          xs               -> throwErrorHere $ WrongNumberOfArgs "define-rec" 2 (length xs)
+                _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
+          [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
+          xs               -> throwErrorHere $ WrongNumberOfArgs "def-rec" 2 (length xs)
       )
     , ("do", evalArgs $ pure . lastDef nil)
     , ("catch", \args -> case args of
@@ -216,7 +218,7 @@ purePrimops = Primops $ fromList $ first Ident <$>
              Primop _ -> kw "primop"
              Dict _ -> kw "dict"
              Ref _ -> kw "ref"
-             Lambda{} -> kw "lambda"
+             Lambda{} -> kw "function"
       )
     , ("string?", evalOneArg "string?" $ \case
           String _ -> pure tt

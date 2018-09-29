@@ -1,8 +1,8 @@
 ;; ref functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; modify-ref
-(define modify-ref
-  (lambda (r fn)
+(def modify-ref
+  (fn (r fn)
     (write-ref r (fn (read-ref r)))))
 
 (document 'modify-ref

@@ -2,11 +2,11 @@
 
 ;; nil
 
-(define nil (list))
+(def nil (list))
 
 ;; empty?
 
-(define empty? (lambda (ls) (eq? ls nil)))
+(def empty? (fn (ls) (eq? ls nil)))
 
 (document 'empty?
   '(("list" list))
@@ -17,9 +17,9 @@
 
 ;; length
 
-(define length
-  (lambda (xs)
-    (foldr (lambda (x acc) (+ acc 1)) 0 xs)))
+(def length
+  (fn [xs]
+    (foldr (fn (x acc) (+ acc 1)) 0 xs)))
 
 (document 'length
   '(("list" list))
@@ -30,9 +30,9 @@
 
 ;; reverse
 
-(define reverse (lambda (ls)
-  (define go (Y2 (lambda (go)
-    (lambda (acc new)
+(def reverse (fn (ls)
+  (def go (Y2 (fn (go)
+    (fn (acc new)
       (if (empty? new)
           acc
           (go (cons (head new) acc) (tail new)))))))
@@ -46,7 +46,7 @@
 
 ;; range
 
-(define range (Y2 (lambda (range) (lambda (from to)
+(def range (Y2 (fn (range) (fn (from to)
   (if (eq? from to)
       (list to)
       (cons from (range (+ 1 from) to)))))))
@@ -59,8 +59,8 @@
 
 ;; concat
 
-(define concat (lambda (list1 list2)
-  (foldr (lambda (a b) (cons a b)) list2 list1)))
+(def concat (fn (list1 list2)
+  (foldr (fn (a b) (cons a b)) list2 list1)))
 
 (document 'concat
   '(("list1" list) ("list2" list))
@@ -71,7 +71,7 @@
 
 ;; filter
 
-(define filter (Y2 (lambda (filter) (lambda (pred ls)
+(def filter (Y2 (fn (filter) (fn (pred ls)
   (if (empty? ls)
       ls
   (if (pred (head ls))
@@ -83,5 +83,5 @@
   "Returns 'list' with only the elements that satisfy 'filter-cond'.")
 
 (should-be "filter"
-  (filter (lambda (x) (< x 10)) (list 3 10 11))
+  (filter (fn [x] (< x 10)) (list 3 10 11))
   (list 3))

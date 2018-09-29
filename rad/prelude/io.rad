@@ -1,17 +1,17 @@
 ;; read-line
-(define read-line!
-  (lambda () (read (get-line!))))
+(def read-line!
+  (fn [] (read (get-line!))))
 
-(define read-code!
-  (lambda (filename)
+(def read-code!
+  (fn [filename]
     (read (string-append "(do " (read-file! filename) ")"))))
 
 (document 'read-code!
           '("filename" string)
           "Read code (as data) from a file.")
 
-(define send-code!
-  (lambda (chain-id filename)
+(def send-code!
+  (fn [chain-id filename]
     (send! chain-id (read-code! filename))))
 
 (document 'send-code!

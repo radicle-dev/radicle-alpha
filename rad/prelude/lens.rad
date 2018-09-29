@@ -2,8 +2,8 @@
 
 ;; make-lens
 
-(define make-lens
-  (lambda (g s)
+(def make-lens
+  (fn (g s)
     (dict 'getter g 'setter s)))
 
 (document 'make-lens
@@ -12,8 +12,8 @@
 
 ;; view
 
-(define view
-  (lambda (lens target)
+(def view
+  (fn (lens target)
     ((lookup 'getter lens) target)))
 
 (document 'view
@@ -22,8 +22,8 @@
 
 ;; set
 
-(define set
-  (lambda (lens new-view target)
+(def set
+  (fn (lens new-view target)
     ((lookup 'setter lens) new-view target)))
 
 (document 'set
@@ -32,10 +32,10 @@
 
 ;; id-lens
 
-(define id-lens
+(def id-lens
   (make-lens
-   (lambda (target) target)
-   (lambda (new-view target) new-view)))
+   (fn (target) target)
+   (fn (new-view target) new-view)))
 
 (document 'id-lens
   '()
@@ -43,11 +43,11 @@
 
 ;; ..
 
-(define ..
-  (lambda (lens1 lens2)
+(def ..
+  (fn (lens1 lens2)
     (make-lens
-     (lambda (target) (view lens2 (view lens1 target)))
-     (lambda (new-view target) (set lens1 (set lens2 new-view (view lens1 target)) target)))))
+     (fn (target) (view lens2 (view lens1 target)))
+     (fn (new-view target) (set lens1 (set lens2 new-view (view lens1 target)) target)))))
 
 (document '..
   '(("lens1" dict) ("lens2" dict))
@@ -55,15 +55,15 @@
 
 ;; ...
 
-(define ... (lambda (lenses) (foldr .. id-lens lenses)))
+(def ... (fn (lenses) (foldr .. id-lens lenses)))
 
 (document '...
   '(("lenses" list))
   "Compose multiple lenses.")
 
 ;; over
-(define over
-  (lambda (lens f target)
+(def over
+  (fn (lens f target)
     (set lens (f (view lens target)) target)))
 
 (document 'over
@@ -72,10 +72,10 @@
 
 ;; @
 
-(define @
-  (lambda (k)
-    (make-lens (lambda (mp) (lookup k mp))
-               (lambda (v mp) (insert k v mp)))))
+(def @
+  (fn (k)
+    (make-lens (fn (mp) (lookup k mp))
+               (fn (v mp) (insert k v mp)))))
 
 (document '@
   '(("key" any))
@@ -90,28 +90,28 @@
            (dict :one 1 :two 42))
 
 (should-be "over lens"
-           (over (@ :one) (lambda (x) (+ x 1)) (dict :one 1 :two 2))
+           (over (@ :one) (fn [x] (+ x 1)) (dict :one 1 :two 2))
            (dict :one 2 :two 2))
 
 (should-be "lens composition"
            (over (.. (@ :a) (@ :b))
-                 (lambda (x) (+ x 1))
+                 (fn [x] (+ x 1))
                  (dict :a (dict :b 2)))
            (dict :a (dict :b 3)))
 
-(do (define d
-      (lambda (x) (dict :a (dict :b (dict :c x)))))
+(do (def d
+      (fn [x] (dict :a (dict :b (dict :c x)))))
     (should-be "deep lenses"
                (over (... (list (@ :a) (@ :b) (@ :c)))
-                     (lambda (x) (+ x 1))
+                     (fn [x] (+ x 1))
                      (d 0))
                (d 1)))
 
 ;; Lens access to refs
 
 ;; view-ref
-(define view-ref
-  (lambda (r lens)
+(def view-ref
+  (fn (r lens)
     (view lens (read-ref r))))
 
 (document 'view-ref
@@ -124,35 +124,35 @@
 
 ;; set-ref
 
-(define set-ref
-  (lambda (r lens v)
-    (modify-ref r (lambda (x) (set lens v x)))))
+(def set-ref
+  (fn (r lens v)
+    (modify-ref r (fn [x] (set lens v x)))))
 
 (document 'set-ref
   '(("ref" ref) ("lens" dict) ("new-value" any))
   "Like 'set', but for refs.")
 
 (should-be "set-ref"
-           ((lambda (r)
-              (define r (ref (dict :a 1)))
+           ((fn (r)
+              (def r (ref (dict :a 1)))
               (set-ref r (@ :a) 2)
               (view-ref r (@ :a)))
             (ref (dict :a 1)))
            2)
 ;; set-ref
 
-(define over-ref
-  (lambda (r lens f)
-    (modify-ref r (lambda (x) (over lens f x)))))
+(def over-ref
+  (fn (r lens f)
+    (modify-ref r (fn [x] (over lens f x)))))
 
 (document 'over-ref
   '(("ref" ref) ("lens" dict) ("fn" function))
   "Like 'over', but for refs.")
 
 (should-be "over-ref"
-           ((lambda (r)
-              (define r (ref (dict :a 2)))
-              (over-ref r (@ :a) (lambda (x) (* x 2)))
+           ((fn (r)
+              (def r (ref (dict :a 2)))
+              (over-ref r (@ :a) (fn [x] (* x 2)))
               (view-ref r (@ :a)))
             (ref (dict :a 2)))
            4)

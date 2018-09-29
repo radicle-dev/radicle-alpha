@@ -2,9 +2,9 @@
 
 ;; dict-from-list
 
-(define dict-from-list
-  (lambda (xs)
-    (foldr (lambda (kv acc) (insert (head kv) (head (tail kv)) acc)) (dict) xs)))
+(def dict-from-list
+  (fn [xs]
+    (foldr (fn [kv acc] (insert (head kv) (head (tail kv)) acc)) (dict) xs)))
 
 (document 'dict-from-list
   '(("list" list))
@@ -16,8 +16,8 @@
 
 ;; keys
 
-(define keys
-  (lambda (d)
+(def keys
+  (fn [d]
     (map head (seq d))))
 
 (document 'keys
@@ -31,9 +31,9 @@
 
 
 ;; modify-map
-(define modify-map (lambda (key fn mp)
+(def modify-map (fn [key fn mp]
   (insert key (fn (lookup key mp)) mp)))
 
 (should-be "modify-map"
-  (modify-map 'a (lambda (x) (+ x 1)) (dict 'a 5))
+  (modify-map 'a (fn [x] (+ x 1)) (dict 'a 5))
   (dict 'a 6))
