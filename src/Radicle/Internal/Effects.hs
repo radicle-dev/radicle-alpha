@@ -23,7 +23,7 @@ import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
-import           Radicle.Internal.Primops
+import           Radicle.Internal.PrimFns
 
 
 type ReplM m =

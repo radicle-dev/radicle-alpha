@@ -1,4 +1,4 @@
-module Radicle.Internal.Primops
+module Radicle.Internal.PrimFns
   ( pureEnv
   , purePrimFns
   , oneArg

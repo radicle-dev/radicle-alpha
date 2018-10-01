@@ -13,7 +13,7 @@ import           Radicle.Internal.Parse
 -- Examples:
 --
 -- >>> import Control.Monad.Identity
--- >>> import Radicle.Internal.Primops
+-- >>> import Radicle.Internal.PrimFns
 -- >>> fmap Ann.untag . runIdentity $ interpret "test" "((fn [x] x) #t)" pureEnv
 -- Right (Annotated (Identity (BooleanF True)))
 --
@@ -39,7 +39,7 @@ interpret sourceName expr bnds = do
 --
 -- Examples:
 --
--- >>> import Radicle.Internal.Primops
+-- >>> import Radicle.Internal.PrimFns
 -- >>> fmap (fmap Ann.untag . fst) <$> runLang pureEnv $ interpretMany "test" "(def id (fn [x] x))\n(id #t)"
 -- Right (Annotated (Identity (BooleanF True)))
 interpretMany

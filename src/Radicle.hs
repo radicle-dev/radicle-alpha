@@ -72,7 +72,7 @@ module Radicle
     -- * Repl
     , repl
 
-    -- * Primops
+    -- * PrimFns
     , PrimFns(..)
     , purePrimFns
     , replPrimFns

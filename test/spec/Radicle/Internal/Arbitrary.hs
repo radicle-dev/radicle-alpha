@@ -11,7 +11,7 @@ import           Test.QuickCheck.Instances ()
 
 import           Radicle
 import           Radicle.Internal.Parse (isValidIdentFirst, isValidIdentRest)
-import           Radicle.Internal.Primops (purePrimFns)
+import           Radicle.Internal.PrimFns (purePrimFns)
 
 instance Arbitrary r => Arbitrary (Env r) where
     arbitrary = Env <$> arbitrary
