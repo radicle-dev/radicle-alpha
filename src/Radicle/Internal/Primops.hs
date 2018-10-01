@@ -23,8 +23,8 @@ import           Radicle.Internal.Pretty
 pureEnv :: (Monad m) => Bindings (Primops m)
 pureEnv = Bindings e purePrimops r 1
   where
-    e = fromList [ (toIdent "eval", Primop $ toIdent "base-eval")
-                 , (toIdent "_doc-ref", Ref $ Reference 0)
+    e = fromList [ (unsafeToIdent "eval", Primop $ unsafeToIdent "base-eval")
+                 , (unsafeToIdent "_doc-ref", Ref $ Reference 0)
                  ]
     r = fromList [ (0, Dict mempty) ]
 

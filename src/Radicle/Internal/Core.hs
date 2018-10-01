@@ -221,7 +221,7 @@ instance A.FromJSON Value where
     A.String s -> pure $ String s
     A.Array ls -> List . toList <$> traverse parseJSON ls
     A.Bool b -> pure $ Boolean b
-    A.Null -> pure $ Keyword (toIdent "null")
+    A.Null -> pure $ Keyword (Ident "null")
     A.Object hm -> do
       let kvs = HashMap.toList hm
       vs <- traverse parseJSON (snd <$> kvs)
@@ -267,10 +267,15 @@ maybeJson = \case
 newtype Ident = Ident { fromIdent :: Text }
     deriving (Eq, Show, Read, Ord, Generic, Data, Serialise)
 
+pattern Identifier :: Text -> Ident
+pattern Identifier t <- Ident t
+
+-- | Convert a text to an identifier.
+--
 -- Unsafe! Only use this if you know the string at compile-time and know it's a
--- valid identifier
-toIdent :: Text -> Ident
-toIdent = Ident
+-- valid identifier. Otherwise, use 'mkIdent'.
+unsafeToIdent :: Text -> Ident
+unsafeToIdent = Ident
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident s }
@@ -369,7 +374,7 @@ defineAtom i v = modify $ addBinding i v
 -- | The buck-passing eval. Uses whatever 'eval' is in scope.
 eval :: Monad m => Value -> Lang m Value
 eval val = do
-    e <- lookupAtom (toIdent "eval")
+    e <- lookupAtom (Ident "eval")
     st <- gets toRad
     logValPos e $ case e of
         Primop i -> do

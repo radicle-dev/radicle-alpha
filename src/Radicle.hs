@@ -39,9 +39,13 @@ module Radicle
     , LangError(..)
     , LangErrorData(..)
     , throwErrorHere
-    , Ident(..)
     , Reference(..)
+    , Ident
+    , ident
     , mkIdent
+    , unsafeToIdent
+    , fromIdent
+    , pattern Identifier
     , Env(..)
     , pureEnv
     , Lang

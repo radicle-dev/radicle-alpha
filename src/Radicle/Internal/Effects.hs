@@ -70,7 +70,7 @@ replBindings = e { bindingsPrimops = bindingsPrimops e <> replPrimops }
       e = pureEnv
 
 replPrimops :: forall m. ReplM m => Primops m
-replPrimops = Primops . Map.fromList $ first toIdent <$>
+replPrimops = Primops . Map.fromList $ first unsafeToIdent <$>
     [ ("print!", \args -> case args of
         [x] -> do
             v <- eval x
@@ -96,7 +96,7 @@ replPrimops = Primops . Map.fromList $ first toIdent <$>
             v' <- eval v
             e <- gets bindingsEnv
             case (x', v') of
-                (Dict m, fn) -> case Map.lookup (Atom $ toIdent "getter") m of
+                (Dict m, fn) -> case Map.lookup (Atom $ unsafeToIdent "getter") m of
                     Nothing -> throwErrorHere
                         $ OtherError "subscribe-to!: Expected 'getter' key"
                     Just g -> forever (protect go)

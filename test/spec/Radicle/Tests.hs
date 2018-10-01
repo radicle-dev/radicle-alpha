@@ -21,17 +21,17 @@ import qualified Text.Megaparsec.Pos as Par
 import           Radicle
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary ()
-import           Radicle.Internal.Core (asValue, noStack, toIdent)
+import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Foo)
 import           Radicle.Internal.TestCapabilities
 
 test_eval :: [TestTree]
 test_eval =
     [ testCase "Fails for undefined atoms" $
-        [s|blah|] `failsWith` UnknownIdentifier (toIdent "blah")
+        [s|blah|] `failsWith` UnknownIdentifier [ident|blah|]
 
     , testCase "Keywords eval to themselves" $
-        [s|:blah|] `succeedsWith` Keyword (toIdent "blah")
+        [s|:blah|] `succeedsWith` Keyword [ident|blah|]
 
     , testCase "Succeeds for defined atoms" $ do
         let prog = [s|
@@ -50,7 +50,7 @@ test_eval =
 
     , testCase "'dict' creates a Dict with given key/vals" $ do
         let prog1 = [s|(dict 'why "not")|]
-        prog1 `succeedsWith` Dict (fromList [(Atom $ toIdent "why", String "not")])
+        prog1 `succeedsWith` Dict (fromList [(Atom $ [ident|why|], String "not")])
         let prog2 = [s|(dict 3 1)|]
         prog2 `succeedsWith` Dict (fromList [(Number 3, Number 1)])
 
@@ -274,7 +274,7 @@ test_eval =
         "(dict? :foo)" `succeedsWith` Boolean False
 
     , testCase "'type' returns the type, as a keyword" $ do
-        let hasTy prog ty = prog `succeedsWith` Keyword (Ident ty)
+        let hasTy prog ty = prog `succeedsWith` kw ty
         "(type :keyword)" `hasTy` "keyword"
         "(type \"string\")" `hasTy` "string"
         "(type 'a)" `hasTy` "atom"
@@ -419,12 +419,12 @@ test_eval =
         runTest' "(show #t)" @?= Right (String "#t")
         runTest' "(show #f)" @?= Right (String "#f")
         runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1.0 \"foo\" (b (quote x) 2.0 \"bar\"))")
-        runTest' "eval" @?= Right (Primop (toIdent "base-eval"))
+        runTest' "eval" @?= Right (Primop [ident|base-eval|])
         runTest' "(show (dict 'a 1))" @?= Right (String "{a 1.0}")
         runTest' "(show (lambda (x) x))" @?= Right (String "(lambda (x) x)")
 
     , testCase "'read' works" $
-        runTest' "(read \"(:hello 42)\")" @?= Right (List [Keyword (toIdent "hello"), Number 42])
+        runTest' "(read \"(:hello 42)\")" @?= Right (List [Keyword [ident|hello|], Number 42])
 
     , testCase "'to-json' works" $ do
         runTest' "(to-json (dict \"foo\" #t))" @?= Right (String "{\"foo\":true}")
@@ -452,7 +452,7 @@ test_eval =
             (outer)
             |]
         case runTest' prog of
-            Left (LangError stack (UnknownIdentifier (Ident "notdefined"))) ->
+            Left (LangError stack (UnknownIdentifier (Identifier "notdefined"))) ->
                 assertEqual "correct line numbers" [3,2,1,1] (stackTraceLines stack)
             r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
 
@@ -463,7 +463,7 @@ test_eval =
             (callit inner)
             |]
         case runTest' prog of
-            Left (LangError stack (UnknownIdentifier (Ident "notdefined"))) ->
+            Left (LangError stack (UnknownIdentifier (Identifier "notdefined"))) ->
                 assertEqual "correct line numbers" [3,1,2,2] (stackTraceLines stack)
             r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
     ]
@@ -487,8 +487,8 @@ test_parser =
         "#f" ~~> Boolean False
 
     , testCase "parses primops" $ do
-        "boolean?" ~~> Primop (toIdent "boolean?")
-        "base-eval" ~~> Primop (toIdent "base-eval")
+        "boolean?" ~~> Primop [ident|boolean?|]
+        "base-eval" ~~> Primop [ident|base-eval|]
 
     , testCase "parses keywords" $ do
         ":foo" ~~> kw "foo"
@@ -498,29 +498,29 @@ test_parser =
         ":456" ~~> kw "456"
 
     , testCase "parses identifiers" $ do
-        "++" ~~> Atom (toIdent "++")
-        "what?crazy!" ~~> Atom (toIdent "what?crazy!")
+        "++" ~~> Atom [ident|++|]
+        "what?crazy!" ~~> Atom [ident|what?crazy!|]
 
     , testCase "parses identifiers that have a primop as prefix" $ do
-        "evaluate" ~~> Atom (toIdent "evaluate")
+        "evaluate" ~~> Atom [ident|evaluate|]
 
     , testCase "parses function application" $ do
-        "(++)" ~~> List [Atom (toIdent "++")]
-        "(++ \"merge\" \"d\")" ~~> List [Atom (toIdent "++"), String "merge", String "d"]
+        "(++)" ~~> List [Atom [ident|++|]]
+        "(++ \"merge\" \"d\")" ~~> List [Atom [ident|++|], String "merge", String "d"]
 
     , testCase "parses numbers" $ do
         "0.15" ~~> Number 0.15
         "2000" ~~> Number 2000
 
     , testCase "parses identifiers" $ do
-        "++" ~~> Atom (toIdent "++")
-        "what?crazy!" ~~> Atom (toIdent "what?crazy!")
+        "++" ~~> Atom [ident|++|]
+        "what?crazy!" ~~> Atom [ident|what?crazy!|]
 
     , testCase "parses identifiers that have a primop as prefix" $ do
-        "evaluate" ~~> Atom (toIdent "evaluate")
+        "evaluate" ~~> Atom [ident|evaluate|]
 
     , testCase "parses dicts" $ do
-        "{:foo 3}" ~~> Dict (Map.singleton (Keyword (toIdent "foo")) (Number 3))
+        "{:foo 3}" ~~> Dict (Map.singleton (Keyword [ident|foo|]) (Number 3))
 
     , testCase "a dict litteral with an odd number of forms is a syntax error" $
         assertBool "succesfully parsed a dict with 3 forms" (isLeft $ parseTest "{:foo 3 4}")
@@ -708,10 +708,10 @@ test_source_files = testGroup "Radicle source file tests" <$> do
 -- * Utils
 
 kw :: Text -> Value
-kw = Keyword . toIdent
+kw = Keyword . unsafeToIdent
 
 atom :: Text -> Value
-atom = Atom . toIdent
+atom = Atom . unsafeToIdent
 
 -- -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- -- primops.
