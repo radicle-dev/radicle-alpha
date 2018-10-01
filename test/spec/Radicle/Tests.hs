@@ -280,7 +280,7 @@ test_eval =
         "(type 'a)" `hasTy` "atom"
         "(type 1)" `hasTy` "number"
         "(type #t)" `hasTy` "boolean"
-        "(type list?)" `hasTy` "primop"
+        "(type list?)" `hasTy` "function"
         "(type (list 1 2 3))" `hasTy` "list"
         "(type (dict 1 2))" `hasTy` "dict"
         "(type (ref 0))" `hasTy` "ref"
@@ -486,10 +486,6 @@ test_parser =
         "#t" ~~> Boolean True
         "#f" ~~> Boolean False
 
-    , testCase "parses primops" $ do
-        "boolean?" ~~> PrimFn [ident|boolean?|]
-        "base-eval" ~~> PrimFn [ident|base-eval|]
-
     , testCase "parses keywords" $ do
         ":foo" ~~> kw "foo"
         ":what?crazy!" ~~> kw "what?crazy!"
@@ -636,8 +632,8 @@ test_repl =
         (_, result) <- runInRepl input
         result @==> output
 
-    , testCase "(def eval (quote base-eval)) doesn't change things" $ do
-        let input = [ "(def eval (quote base-eval))"
+    , testCase "(def eval base-eval) doesn't change things" $ do
+        let input = [ "(def eval base-eval)"
                     , "(def id (fn [x] x))"
                     , "(id #t)"
                     ]

@@ -19,7 +19,7 @@ import           Radicle.Internal.Parse
 --
 -- >>> import Control.Monad.Identity
 -- >>> noStack . runIdentity $ interpret "test" "(#t #f)" pureEnv
--- Left (TypeError "Trying to apply a non-function")
+-- Left (TypeError "Trying to call a non-function")
 interpret
     :: Monad m
     => Text                 -- ^ Name of source file (for error reporting)

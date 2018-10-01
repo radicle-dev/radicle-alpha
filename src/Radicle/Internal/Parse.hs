@@ -161,13 +161,10 @@ parseValues sourceName srcCode = withoutLeadingSpaces
 --
 -- Examples:
 --
--- >>> untag <$> parse "test" "#t" [] :: Either Text UntaggedValue
+-- >>> untag <$> parse "test" "#t" :: Either Text UntaggedValue
 -- Right (Annotated (Identity (BooleanF True)))
 --
--- >>> untag <$> parse "test" "hi" [unsafeToIdent "hi"] :: Either Text UntaggedValue
--- Right (Annotated (Identity (PrimopF (Ident {fromIdent = "hi"}))))
---
--- >>> untag <$> parse "test" "hi" [] :: Either Text UntaggedValue
+-- >>> untag <$> parse "test" "hi" :: Either Text UntaggedValue
 -- Right (Annotated (Identity (AtomF (Ident {fromIdent = "hi"}))))
 parse :: MonadError Text m
     => Text    -- ^ Name of source file (for error reporting)

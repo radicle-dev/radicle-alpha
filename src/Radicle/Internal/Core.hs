@@ -443,7 +443,7 @@ specialForms = Map.fromList $ first Ident <$>
           [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
           xs               -> throwErrorHere $ WrongNumberOfArgs "def-rec" 2 (length xs)
       )
-    , ("do", pure . lastDef nil)
+    , ("do", (lastDef nil <$>) . traverse baseEval)
     , ("catch", \args -> case args of
           [l, form, handler] -> do
               mlabel <- baseEval l
@@ -566,7 +566,7 @@ callFn f vs = case f of
   PrimFn i -> do
     fn <- lookupPrimop i
     fn vs
-  _ -> throwErrorHere . TypeError $ "Trying to call a non-function: " <> show f
+  _ -> throwErrorHere . TypeError $ "Trying to call a non-function"
 
 -- | Infix evaluation of application (of functions or primops)
 infixr 1 $$
