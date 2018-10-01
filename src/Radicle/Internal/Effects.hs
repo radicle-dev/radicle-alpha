@@ -129,7 +129,7 @@ replPrimops = Primops . Map.fromList $ first unsafeToIdent <$>
       )
     , ( "load!"
       , evalOneArg "load!" $ \case
-          String filename -> readFileS filename >>= interpretMany "[load!]"
+          String filename -> readFileS filename >>= interpretMany ("[load! " <> filename <> "]")
           _ -> throwErrorHere $ TypeError "load: expects a string"
       )
     , ( "gen-key-pair!"
