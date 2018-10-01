@@ -9,3 +9,6 @@ radicle.cabal
 .cabal-sandbox/
 cabal.sandbox.config
 out/
+result/
+result
+.stack-work/
