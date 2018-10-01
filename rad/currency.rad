@@ -6,16 +6,16 @@
   (def accounts (ref (dict)))
 
   ;; Create an account with 10 coins.
-  (def new-account (fn (name)
-    (modify-ref accounts (fn (acc)
+  (def new-account (fn [name]
+    (modify-ref accounts (fn [acc]
       (insert name 10 acc)))))
 
   ;; Get an account's balance
-  (def account-balance (fn (name)
+  (def account-balance (fn [name]
     (lookup name (read-ref accounts))))
 
   ;; Transfer money
-  (def transfer (fn (from to amount)
+  (def transfer (fn [from to amount]
     (def acc (read-ref accounts))
     (write-ref accounts
        (if (> amount (lookup from acc))
@@ -25,7 +25,7 @@
              (fn [x] (+ x amount))
              (modify-map from (fn [x] (- x amount)) acc))))))
 
-  (def dispatch (fn (m)
+  (def dispatch (fn [m]
     (cond
       (eq? m 'new-account)     new-account
       (eq? m 'account-balance) account-balance
@@ -33,10 +33,11 @@
       :else                    (print! "error: currency- unknown message"))))
   dispatch))
 
+
 (def currency (create-currency))
 
 
-(def new-eval (fn (expr)
+(def new-eval (fn [expr]
   (cond
     (eq? (head expr) 'new-account)     ((currency 'new-account) (nth 1 expr))
     (eq? (head expr) 'account-balance) ((currency 'account-balance) (nth 2 expr))

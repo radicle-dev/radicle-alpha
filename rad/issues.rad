@@ -2,17 +2,17 @@
 
 (def create-rad-issue-chain (fn []
   (def issues (ref nil))
-  (def should-be (fn (name x y) (eq? x y)))
+  (def should-be (fn [name x y] (eq? x y)))
   (def current-prelude (ref (dict :env (dict 'should-be should-be 'eval eval) :refs nil)))
 
 
-  (def failing? (fn (expr)
+  (def failing? (fn [expr]
     (def res (catch 'any
                        (head (eval-with-env expr (read-ref current-prelude)))
                        (fn [x] #f)))
     (eq? res #f)))
 
-  (def new-issue (fn (creator title desc failing-test)
+  (def new-issue (fn [creator title desc failing-test]
     (if (failing? failing-test)
         (modify-ref
           issues
@@ -26,7 +26,7 @@
 
   (def list-issues (fn [] (read-ref issues)))
 
-  (def dispatch (fn (m)
+  (def dispatch (fn [m]
     (cond
       (eq? m 'new-issue)   new-issue
       (eq? m 'list-issues) list-issues
@@ -36,7 +36,7 @@
 
 (def rad-issue-chain (create-rad-issue-chain))
 
-(def rad-issue-chain-eval (fn (expr)
+(def rad-issue-chain-eval (fn [expr]
      (if (eq? (head expr) 'new-issue)
          (apply (rad-issue-chain 'new-issue) (tail expr))
      (if (eq? (head expr) 'list-issues)

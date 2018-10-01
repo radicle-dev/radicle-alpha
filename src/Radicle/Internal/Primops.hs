@@ -35,7 +35,6 @@ purePrimops = Primops $ fromList $ first Ident <$>
     [ ( "fn"
       , \case
           Vec atoms_ : b : bs -> do
-            -- let Vec atoms_ = args -- FIXME
             atoms <- traverse isAtom (toList atoms_) ?? toLangError (TypeError "fn: expecting a list of symbols")
             e <- gets bindingsEnv
             pure (Lambda atoms (b :| bs) e)

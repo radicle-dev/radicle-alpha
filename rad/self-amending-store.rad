@@ -4,11 +4,11 @@
 
 ;; self-amending key-val store
 (def sas-starting-eval
-  (fn (expr)
+  (fn [expr]
     (def command (head expr))
     (cond
      (eq? command 'get) (lookup (nth 1 expr) (read-ref sas-store))
-     (eq? command 'set) (modify-ref sas-store (fn (s) (insert (nth 1 expr) (nth 2 expr) s)))
+     (eq? command 'set) (modify-ref sas-store (fn [s] (insert (nth 1 expr) (nth 2 expr) s)))
      (and (eq? command 'update)
           (eq? (nth 1 expr)
                sas-password))
