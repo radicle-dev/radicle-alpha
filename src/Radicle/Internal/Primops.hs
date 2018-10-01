@@ -34,11 +34,13 @@ purePrimops :: forall m. (Monad m) => Primops m
 purePrimops = Primops $ fromList $ first Ident <$>
     [ ( "fn"
       , \case
-          Vec atoms_ : b : bs -> do
-            atoms <- traverse isAtom (toList atoms_) ?? toLangError (TypeError "fn: expecting a list of symbols")
-            e <- gets bindingsEnv
-            pure (Lambda atoms (b :| bs) e)
-          _ : _ : _ -> throwErrorHere $ OtherError "fn: first argument must be a vector of argument symbols, and then at least one form for the body"
+          args : b : bs ->
+            case args of
+              Vec atoms_ -> do
+                atoms <- traverse isAtom (toList atoms_) ?? toLangError (TypeError "fn: expecting a list of symbols")
+                e <- gets bindingsEnv
+                pure (Lambda atoms (b :| bs) e)
+              _ -> throwErrorHere $ OtherError "fn: first argument must be a vector of argument symbols, and then at least one form for the body"
           xs -> throwErrorHere $ WrongNumberOfArgs "fn" 2 (length xs) -- TODO: technically "at least 2"
       )
     , ( "base-eval"
