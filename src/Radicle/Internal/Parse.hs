@@ -33,7 +33,7 @@ import           Radicle.Internal.Core
 
 -- * The parser
 
-type Parser a = ParsecT Void Text (Reader [Ident]) a
+type Parser a = ParsecT Void Text Identity a
 type VParser = Parser Value
 
 spaceConsumer :: Parser ()
@@ -87,11 +87,8 @@ identP = lexeme $ do
     r <- many (satisfy isValidIdentRest)
     pure . Ident $ fromString (l:r)
 
-atomOrPrimP :: VParser
-atomOrPrimP = do
-    i <- identP
-    prims <- ask
-    tag $ if i `elem` prims then PrimopF i else AtomF i
+atomP :: VParser
+atomP = tag . AtomF =<< identP
 
 keywordP :: VParser
 keywordP = do
@@ -118,7 +115,7 @@ dictP = bracesP (tag =<< (DictF . Map.fromList <$> evenItems))
 quoteP :: VParser
 quoteP = do
     val <- char '\'' >> valueP
-    q <- tag $ PrimopF (unsafeToIdent "quote")
+    q <- tag $ AtomF (unsafeToIdent "quote")
     pure $ List [q, val]
 
 valueP :: VParser
@@ -128,7 +125,7 @@ valueP = do
       , boolLiteralP <?> "boolean"
       , keywordP <?> "keyword"
       , try numLiteralP <?> "number"
-      , atomOrPrimP <?> "identifier"
+      , atomP <?> "identifier"
       , quoteP <?> "quote"
       , listP <?> "list"
       , vecP <?> "vector"
@@ -145,9 +142,8 @@ valueP = do
 parseValues
     :: Text    -- ^ Name of source file (for error reporting)
     -> Text    -- ^ Source code to be parsed
-    -> [Ident] -- ^ Primop identifiers
     -> [Either (Par.ParseError Char Void) Value]
-parseValues sourceName srcCode prims = withoutLeadingSpaces
+parseValues sourceName srcCode = withoutLeadingSpaces
   where
     initial = State
         { stateInput = srcCode
@@ -156,9 +152,9 @@ parseValues sourceName srcCode prims = withoutLeadingSpaces
         , stateTabWidth = defaultTabWidth
         }
     withoutLeadingSpaces =
-      let (s', _) = runReader (runParserT' spaceConsumer initial) prims
+      let (s', _) = runIdentity (runParserT' spaceConsumer initial)
       in if T.null (stateInput s') then [] else go s'
-    go s = let (s', v) = runReader (runParserT' valueP s) prims
+    go s = let (s', v) = runIdentity (runParserT' valueP s)
            in if T.null (stateInput s') then [v] else v:go s'
 
 -- | Parse a single value.
@@ -176,10 +172,9 @@ parseValues sourceName srcCode prims = withoutLeadingSpaces
 parse :: MonadError Text m
     => Text    -- ^ Name of source file (for error reporting)
     -> Text    -- ^ Source code to be parsed
-    -> [Ident] -- ^ Primop identifiers
     -> m Value
-parse file src ids = do
-  let res = runReader (M.runParserT (spaceConsumer *> valueP <* eof) (toS file) src) ids
+parse file src = do
+  let res = runIdentity (M.runParserT (spaceConsumer *> valueP <* eof) (toS file) src)
   case res of
     Left err -> throwError . toS $ M.parseErrorPretty' src err
     Right v  -> pure v

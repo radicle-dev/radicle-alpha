@@ -21,7 +21,7 @@ import qualified Text.Megaparsec as M
 
 -- | Smart constructor for Ident.
 mkIdent :: Text -> Maybe Ident
-mkIdent t = case runReader (M.runParserT identP "" t) [] of
+mkIdent t = case runIdentity (M.runParserT identP "" t) of
     Left _  -> Nothing
     Right v -> pure v
 

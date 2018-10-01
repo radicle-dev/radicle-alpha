@@ -30,7 +30,7 @@ module Radicle
     , pattern Boolean
     , pattern List
     , pattern Vec
-    , pattern Primop
+    , pattern PrimFn
     , pattern Dict
     , pattern Ref
     , pattern Lambda
@@ -73,12 +73,10 @@ module Radicle
     , repl
 
     -- * Primops
-    , Primops(..)
-    , purePrimops
-    , replPrimops
+    , PrimFns(..)
+    , purePrimFns
+    , replPrimFns
     , ReplM
-    -- ** Primop helpers
-    , evalArgs
 
     -- * CLI
     , getConfig

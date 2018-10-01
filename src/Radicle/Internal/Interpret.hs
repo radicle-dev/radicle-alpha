@@ -2,7 +2,6 @@ module Radicle.Internal.Interpret where
 
 import           Protolude
 
-import qualified Data.Map.Strict as Map
 import           Text.Megaparsec (eof, runParserT)
 
 import qualified Radicle.Internal.Annotation as Ann
@@ -25,11 +24,10 @@ interpret
     :: Monad m
     => Text                 -- ^ Name of source file (for error reporting)
     -> Text                 -- ^ Source code to be interpreted
-    -> Bindings (Primops m) -- ^ Bindings to be used
+    -> Bindings (PrimFns m) -- ^ Bindings to be used
     -> m (Either (LangError Value) Value)
 interpret sourceName expr bnds = do
-    let primopNames = Map.keys (getPrimops $ bindingsPrimops bnds)
-        parsed = runReader (runParserT (spaceConsumer *> valueP <* eof) (toS sourceName) expr) primopNames
+    let parsed = runIdentity (runParserT (spaceConsumer *> valueP <* eof) (toS sourceName) expr)
     case parsed of
         Left e  -> pure . Left $ LangError [Ann.thisPos] (ParseError e)
         Right v -> fst <$> runLang bnds (eval v)
@@ -50,8 +48,7 @@ interpretMany
     -> Text  -- ^ Source code to be interpreted
     -> Lang m Value
 interpretMany sourceName src = do
-    primopNames <- gets $ Map.keys . getPrimops . bindingsPrimops
-    let parsed = parseValues sourceName src primopNames
+    let parsed = parseValues sourceName src
     case partitionEithers parsed of
         ([], vs) -> do
           es <- mapM eval vs
