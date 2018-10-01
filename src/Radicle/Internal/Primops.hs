@@ -63,7 +63,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ("get-current-env", \case
           [] -> toRad <$> get
           xs -> throwErrorHere $ WrongNumberOfArgs "get-current-env" 0 (length xs))
-    , ("list", \args -> pure $ List args)
+    , ("list", pure . List)
     , ("dict", (Dict . foldr (uncurry Map.insert) mempty <$>)
                         . evenArgs "dict")
     , ("throw", \args -> case args of

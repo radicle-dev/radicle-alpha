@@ -80,7 +80,7 @@ replPrimFns = PrimFns . Map.fromList $ first unsafeToIdent <$>
             pure nil
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
-    
+
     , ("set-env!", \args -> case args of
         [Atom x, v] -> do
             defineAtom x v

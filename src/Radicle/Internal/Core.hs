@@ -395,7 +395,7 @@ baseEval val = logValPos val $ case val of
     Atom i -> lookupAtom i
     List (f@(Atom i) : vs) -> case Map.lookup i specialForms of
       Just form -> form vs
-      Nothing -> f $$ vs
+      Nothing   -> f $$ vs
     List (f:vs) -> f $$ vs
     List xs -> throwErrorHere
         $ WrongNumberOfArgs ("application: " <> show xs)
