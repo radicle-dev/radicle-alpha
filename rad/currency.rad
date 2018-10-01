@@ -1,6 +1,6 @@
 ;; Account stuff. Should be moved elsewhere when we have an import mechanism
 
-(def create-currency (fn ()
+(def create-currency (fn []
 
   ;; The map of all accounts
   (def accounts (ref (dict)))

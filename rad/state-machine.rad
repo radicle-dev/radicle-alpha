@@ -14,27 +14,27 @@
         y)))
 
 (def pr-trans
-  (fn (state inp)
+  (fn [state inp]
     (def c (dict "key" (show (view (@ :next-id) state))
                     "username" (nth 0 inp)
                     "comment" (nth 1 inp)
                     "profile_pic_url" (get-head-shot (nth 0 inp))))
     (dict :state (over (@ :comments)
-                       (fn (cs) (cons c cs))
+                       (fn [cs] (cons c cs))
                        (over (@ :next-id)
                              (fn [x] (+ x 1))
                              state))
           :output c)))
 
 (def kim-trans
-  (fn (state i)
+  (fn [state i]
     (if (eq? (nth 0 i) "kim")
         (pr-trans state (list "kim" "LGTM"))
         (pr-trans state i))))
 
 ;; Handle an input in the morphing state-machine.
 (def state-machine-input
-  (fn (state i)
+  (fn [state i]
     (def trans-fn (view-ref state (@ :transition-fn)))
     (def current-state (view-ref state (@ :machine-state)))
     (def next (trans-fn current-state i))
@@ -43,7 +43,7 @@
 
 ;; Trigger a new vote
 (def state-machine-new-trans
-  (fn (state func)
+  (fn [state func]
     (if (eq? (view-ref state (@ :voting)) :nothing)
         (do (set-ref state (@ :voting) (dict :votes (dict)
                                              :proposed-function func))
@@ -51,7 +51,7 @@
       (throw 'invalid-input "Can't propose new transition function while vote is ongoing."))))
 
 (def state-machine-agree
-  (fn (state voters userid)
+  (fn [state voters userid]
     (if (member? userid voters)
         (do (set-ref state (... (list (@ :voting) (@ :votes) (@ userid))) #t)
             (if (eq? (length (seq (view-ref state (.. (@ :voting) (@ :votes))))) (length voters))
@@ -62,7 +62,7 @@
         (throw 'invalid-input "Not allowed to vote."))))
 
 (def state-machine-disagree
-  (fn (state voters userid)
+  (fn [state voters userid]
     (if (member? userid voters)
         (do (set-ref state (@ :voting) :nothing)
             "Voting has ended; someone disagreed.")
@@ -71,11 +71,11 @@
 ;; Returns an eval which operates a state machine whose transition function may
 ;; be updated. To update the transition function all voters must agree on it.
 (def state-machine-eval
-  (fn (voters init-state init-transition)
+  (fn [voters init-state init-transition]
     (def state (ref (dict :machine-state init-state
                              :transition-fn init-transition
                              :voting :nothing)))
-    (fn (expr)
+    (fn [expr]
       (def verb (nth 0 expr))
       (def input (nth 1 expr))
       (cond
@@ -86,8 +86,8 @@
        :else                      (throw 'invalid-input (string-append "The only valid commands are 'input', 'new-trans-func', 'agree' and 'disagree': " (show expr)))))))
 
 (def simple-trans
-  (fn (f)
-    (fn (s i)
+  (fn [f]
+    (fn [s i]
       (def y (f s i))
       (dict :state y
             :output y))))

@@ -2,8 +2,8 @@
 
 ;; modify-ref
 (def modify-ref
-  (fn (r fn)
-    (write-ref r (fn (read-ref r)))))
+  (fn [r f]
+    (write-ref r (f (read-ref r)))))
 
 (document 'modify-ref
   '(("ref" ref) ("fn" function))

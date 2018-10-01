@@ -1,6 +1,6 @@
 ;; Issues for rad prelude
 
-(def create-rad-issue-chain (fn ()
+(def create-rad-issue-chain (fn []
   (def issues (ref nil))
   (def should-be (fn (name x y) (eq? x y)))
   (def current-prelude (ref (dict :env (dict 'should-be should-be 'eval eval) :refs nil)))
@@ -24,7 +24,7 @@
               :failing-test failing-test) x)))
         "Test is not failing")))
 
-  (def list-issues (fn () (read-ref issues)))
+  (def list-issues (fn [] (read-ref issues)))
 
   (def dispatch (fn (m)
     (cond

@@ -2,13 +2,13 @@
 (load! "rad/prelude/should-be.rad")
 (load! "rad/prelude/io.rad")
 (load! "rad/prelude/bool.rad")
-;; (load! "rad/prelude/recursion.rad")
-;; (load! "rad/prelude/list.rad")
-;; (load! "rad/prelude/dict.rad")
-;; (load! "rad/prelude/ref.rad")
-;; (load! "rad/prelude/lens.rad")
-;; (load! "rad/chain.rad")
-;; (load! "rad/state-machine.rad")
+(load! "rad/prelude/recursion.rad")
+(load! "rad/prelude/list.rad")
+(load! "rad/prelude/dict.rad")
+(load! "rad/prelude/ref.rad")
+(load! "rad/prelude/lens.rad")
+(load! "rad/chain.rad")
+(load! "rad/state-machine.rad")
 
 (def pure-prelude-files
   (list

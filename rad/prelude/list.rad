@@ -6,7 +6,7 @@
 
 ;; empty?
 
-(def empty? (fn (ls) (eq? ls nil)))
+(def empty? (fn [ls] (eq? ls nil)))
 
 (document 'empty?
   '(("list" list))
@@ -19,7 +19,7 @@
 
 (def length
   (fn [xs]
-    (foldr (fn (x acc) (+ acc 1)) 0 xs)))
+    (foldr (fn [x acc] (+ acc 1)) 0 xs)))
 
 (document 'length
   '(("list" list))
@@ -30,9 +30,9 @@
 
 ;; reverse
 
-(def reverse (fn (ls)
-  (def go (Y2 (fn (go)
-    (fn (acc new)
+(def reverse (fn [ls]
+  (def go (Y2 (fn [go]
+    (fn [acc new]
       (if (empty? new)
           acc
           (go (cons (head new) acc) (tail new)))))))
@@ -46,7 +46,7 @@
 
 ;; range
 
-(def range (Y2 (fn (range) (fn (from to)
+(def range (Y2 (fn [range] (fn [from to]
   (if (eq? from to)
       (list to)
       (cons from (range (+ 1 from) to)))))))
@@ -59,8 +59,8 @@
 
 ;; concat
 
-(def concat (fn (list1 list2)
-  (foldr (fn (a b) (cons a b)) list2 list1)))
+(def concat (fn [list1 list2]
+  (foldr (fn [a b] (cons a b)) list2 list1)))
 
 (document 'concat
   '(("list1" list) ("list2" list))
@@ -71,7 +71,7 @@
 
 ;; filter
 
-(def filter (Y2 (fn (filter) (fn (pred ls)
+(def filter (Y2 (fn [filter] (fn [pred ls]
   (if (empty? ls)
       ls
   (if (pred (head ls))

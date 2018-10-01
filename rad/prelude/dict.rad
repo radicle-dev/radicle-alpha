@@ -31,8 +31,8 @@
 
 
 ;; modify-map
-(def modify-map (fn [key fn mp]
-  (insert key (fn (lookup key mp)) mp)))
+(def modify-map (fn [key f mp]
+  (insert key (f (lookup key mp)) mp)))
 
 (should-be "modify-map"
   (modify-map 'a (fn [x] (+ x 1)) (dict 'a 5))

@@ -3,7 +3,7 @@
 ;; make-lens
 
 (def make-lens
-  (fn (g s)
+   (fn [g s]
     (dict 'getter g 'setter s)))
 
 (document 'make-lens
@@ -13,7 +13,7 @@
 ;; view
 
 (def view
-  (fn (lens target)
+  (fn [lens target]
     ((lookup 'getter lens) target)))
 
 (document 'view
@@ -23,7 +23,7 @@
 ;; set
 
 (def set
-  (fn (lens new-view target)
+  (fn [lens new-view target]
     ((lookup 'setter lens) new-view target)))
 
 (document 'set
@@ -34,8 +34,8 @@
 
 (def id-lens
   (make-lens
-   (fn (target) target)
-   (fn (new-view target) new-view)))
+   (fn [target] target)
+   (fn [new-view target] new-view)))
 
 (document 'id-lens
   '()
@@ -44,10 +44,10 @@
 ;; ..
 
 (def ..
-  (fn (lens1 lens2)
+  (fn [lens1 lens2]
     (make-lens
-     (fn (target) (view lens2 (view lens1 target)))
-     (fn (new-view target) (set lens1 (set lens2 new-view (view lens1 target)) target)))))
+     (fn [target] (view lens2 (view lens1 target)))
+     (fn [new-view target] (set lens1 (set lens2 new-view (view lens1 target)) target)))))
 
 (document '..
   '(("lens1" dict) ("lens2" dict))
@@ -55,7 +55,7 @@
 
 ;; ...
 
-(def ... (fn (lenses) (foldr .. id-lens lenses)))
+(def ... (fn [lenses] (foldr .. id-lens lenses)))
 
 (document '...
   '(("lenses" list))
@@ -63,7 +63,7 @@
 
 ;; over
 (def over
-  (fn (lens f target)
+  (fn [lens f target]
     (set lens (f (view lens target)) target)))
 
 (document 'over
@@ -73,9 +73,9 @@
 ;; @
 
 (def @
-  (fn (k)
-    (make-lens (fn (mp) (lookup k mp))
-               (fn (v mp) (insert k v mp)))))
+  (fn [k]
+    (make-lens (fn [mp] (lookup k mp))
+               (fn [v mp] (insert k v mp)))))
 
 (document '@
   '(("key" any))
@@ -111,7 +111,7 @@
 
 ;; view-ref
 (def view-ref
-  (fn (r lens)
+  (fn [r lens]
     (view lens (read-ref r))))
 
 (document 'view-ref
@@ -125,7 +125,7 @@
 ;; set-ref
 
 (def set-ref
-  (fn (r lens v)
+  (fn [r lens v]
     (modify-ref r (fn [x] (set lens v x)))))
 
 (document 'set-ref
@@ -133,7 +133,7 @@
   "Like 'set', but for refs.")
 
 (should-be "set-ref"
-           ((fn (r)
+           ((fn [r]
               (def r (ref (dict :a 1)))
               (set-ref r (@ :a) 2)
               (view-ref r (@ :a)))
@@ -142,7 +142,7 @@
 ;; set-ref
 
 (def over-ref
-  (fn (r lens f)
+  (fn [r lens f]
     (modify-ref r (fn [x] (over lens f x)))))
 
 (document 'over-ref
@@ -150,7 +150,7 @@
   "Like 'over', but for refs.")
 
 (should-be "over-ref"
-           ((fn (r)
+           ((fn [r]
               (def r (ref (dict :a 2)))
               (over-ref r (@ :a) (fn [x] (* x 2)))
               (view-ref r (@ :a)))
