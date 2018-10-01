@@ -1,8 +1,8 @@
 ;; doc-related functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define document
-  (lambda (name args description)
-    (define old (read-ref _doc-ref))
+(def document
+  (fn [name args description]
+    (def old (read-ref _doc-ref))
     (write-ref
        _doc-ref
        (insert name (dict :args args :desc description) old))))
@@ -13,9 +13,9 @@
 
 ;; doc
 
-(define doc
-  (lambda (name)
-    (define the-doc (lookup name (read-ref _doc-ref)))
+(def doc
+  (fn [name]
+    (def the-doc (lookup name (read-ref _doc-ref)))
     (string-append
        (lookup :desc the-doc)
        "\nArguments:\n\t"

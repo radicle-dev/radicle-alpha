@@ -1,7 +1,7 @@
 ;; should-be - testing functions
 
-(define should-be
-  (lambda (name x y)
+(def should-be
+  (fn [name x y]
     (if (eq? x y)
         (print! (string-append "Test '" name "' succeeded"))
       (print! (string-append "Test '" name "' failed")))))

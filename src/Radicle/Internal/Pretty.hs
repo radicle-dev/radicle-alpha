@@ -45,10 +45,10 @@ instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) wher
             sep [ pretty k <+> pretty val
                 | (k, val) <- Map.toList mp ]
         Lambda ids vals _ -> parens $
-            "lambda" <+> align (sep
-                            [ parens . sep $ pretty <$> ids
-                            , sep $ pretty <$> toList vals
-                            ])
+            "fn" <+> align (sep
+                        [ brackets . sep $ pretty <$> ids
+                        , sep $ pretty <$> toList vals
+                        ])
       where
         escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
 

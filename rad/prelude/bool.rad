@@ -2,7 +2,7 @@
 
 ;; not
 
-(define not (lambda (x) (if x #f #t)))
+(def not (fn [x] (if x #f #t)))
 
 (document 'not
   '(("arg" any))
@@ -10,8 +10,8 @@
 
 ;; and
 
-(define and
-  (lambda (x y)
+(def and
+  (fn [x y]
     (if x y x)))
 
 (document 'and
@@ -25,8 +25,8 @@
 
 ;; or
 
-(define or
-  (lambda (x y)
+(def or
+  (fn [x y]
     (if x x y)))
 
 (document 'or
@@ -40,8 +40,8 @@
 
 ;; all
 
-(define all
-  (lambda (xs) (foldr and #t xs)))
+(def all
+  (fn [xs] (foldr and #t xs)))
 
 (should-be "all" (all '()) #t)
 (should-be "all" (all '(#t)) #t)
@@ -51,8 +51,8 @@
 
 ;; some
 
-(define some
-  (lambda (xs) (foldr or #f xs)))
+(def some
+  (fn [xs] (foldr or #f xs)))
 
 (should-be "some" (some '()) #f)
 (should-be "some" (some '(#t)) #t)

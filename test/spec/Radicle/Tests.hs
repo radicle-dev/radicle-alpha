@@ -35,7 +35,7 @@ test_eval =
 
     , testCase "Succeeds for defined atoms" $ do
         let prog = [s|
-              (define rocky-clark "Steve Wozniak")
+              (def rocky-clark "Steve Wozniak")
               rocky-clark
               |]
         prog `succeedsWith` String "Steve Wozniak"
@@ -137,19 +137,19 @@ test_eval =
         counterexample (toS info) $ res == expected
 
     , testCase "'foldl' foldls the list" $ do
-        let prog = [s|(foldl (lambda (x y) (- x y)) 0 (list 1 2 3))|]
+        let prog = [s|(foldl (fn [x y] (- x y)) 0 (list 1 2 3))|]
         prog `succeedsWith` Number (-6)
 
     , testCase "'foldr' foldrs the list" $ do
-        let prog = [s|(foldr (lambda (x y) (- x y)) 0 (list 1 2 3))|]
+        let prog = [s|(foldr (fn [x y] (- x y)) 0 (list 1 2 3))|]
         prog `succeedsWith` Number 2
 
     , testCase "'map' maps over the list" $ do
-        let prog = [s|(map (lambda (x) (+ x 1)) (list 1 2))|]
+        let prog = [s|(map (fn [x] (+ x 1)) (list 1 2))|]
         prog `succeedsWith` List [Number 2, Number 3]
 
     , testCase "'map' (and co.) don't over-eval elements of argument list" $ do
-        let prog = [s|(map (lambda (x) (cons 1 x)) (list (list 1)))
+        let prog = [s|(map (fn [x] (cons 1 x)) (list (list 1)))
                    |]
         prog `succeedsWith` List [List [Number 1, Number 1]]
 
@@ -165,8 +165,8 @@ test_eval =
         res1 @?= res2
 
     , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
-        let prog1 = [i| (head (eval (lambda () #{renderPrettyDef _v}) (get-current-env))) |]
-            prog2 = [i| (lambda () #{renderPrettyDef _v}) |]
+        let prog1 = [i| (head (eval (fn [] #{renderPrettyDef _v}) (get-current-env))) |]
+            prog2 = [i| (fn [] #{renderPrettyDef _v}) |]
             res1 = runTest' $ toS prog1
             res2 = runTest' $ toS prog2
             info = "Expected:\n" <> prettyEither res2
@@ -174,33 +174,33 @@ test_eval =
         counterexample (toS info) $ res1 == res2
 
     , testCase "lambdas work" $ do
-        let prog = [s|((lambda (x) x) #t)|]
+        let prog = [s|((fn [x] x) #t)|]
         prog `succeedsWith` Boolean True
 
     , testCase "lambda does not have access to future definitions (hyper static)" $ do
         let prog = [s|
-              (define y "a")
-              (define lam (lambda () y))
-              (define y "b")
+              (def y "a")
+              (def lam (fn [] y))
+              (def y "b")
               (lam)
               |]
         prog `succeedsWith` String "a"
 
     , testCase "lambdas allow local definitions" $ do
         let prog = [s|
-              ((lambda ()
-                  (define y 3)
+              ((fn []
+                  (def y 3)
                   y))
               |]
         prog `succeedsWith` Number 3
 
     , testCase "lambdas throw WrongNumberOfArgs if given wrong number of args" $ do
-        let prog = [s| ((lambda (x) 3)) |]
+        let prog = [s| ((fn [x] 3)) |]
         prog `failsWith` WrongNumberOfArgs "lambda" 1 0
 
     , testCase "'quote' gets evaluated the right number of times" $ do
         let prog = [s|
-              (define test (lambda (x) (eq? x 'hi)))
+              (def test (fn [x] (eq? x 'hi)))
               (test 'hi)
               |]
         prog `succeedsWith` Boolean True
@@ -232,7 +232,7 @@ test_eval =
 
     , testCase "'do' runs effects in order" $ do
         let prog = [s|
-                   (define r (ref 0))
+                   (def r (ref 0))
                    (do (write-ref r 1)
                        (write-ref r 2))
                    (read-ref r)
@@ -284,7 +284,7 @@ test_eval =
         "(type (list 1 2 3))" `hasTy` "list"
         "(type (dict 1 2))" `hasTy` "dict"
         "(type (ref 0))" `hasTy` "ref"
-        "(type (lambda (x) x))" `hasTy` "lambda"
+        "(type (fn [x] x))" `hasTy` "function"
 
     , testCase "'+' sums the list of numbers" $ do
         let prog1 = [s|(+ 2 (+ 2 3))|]
@@ -312,48 +312,48 @@ test_eval =
             res  = runTest' $ toS prog
         counterexample prog $ res == Right (Boolean (x < y))
 
-    , testCase "'define' fails when first arg is not an atom" $ do
-        let prog = [s|(define "hi" "there")|]
-        prog `failsWith` OtherError "define expects atom for first arg"
+    , testCase "'def' fails when first arg is not an atom" $ do
+        let prog = [s|(def "hi" "there")|]
+        prog `failsWith` OtherError "def expects atom for first arg"
 
     , testCase "'catch' catches thrown exceptions" $ do
         let prog = [s|
-            (catch (quote exc) (throw (quote exc) #t) (lambda (y) y))
+            (catch (quote exc) (throw (quote exc) #t) (fn [y] y))
             |]
         prog `succeedsWith` Boolean True
 
     , testCase "'catch' has the correct environment" $ do
         let prog = [s|
-            (define t #t)
-            (define f #f)
-            (catch (quote exc) (throw (quote exc) f) (lambda (y) t))
+            (def t #t)
+            (def f #f)
+            (catch (quote exc) (throw (quote exc) f) (fn [y] t))
             |]
         prog `succeedsWith` Boolean True
 
     , testCase "'catch 'any' catches any exception" $ do
         let prog = [s|
-            (catch 'any (throw (quote exc) #f) (lambda (y) #t))
+            (catch 'any (throw (quote exc) #f) (fn [y] #t))
             |]
         prog `succeedsWith` Boolean True
 
     , testCase "evaluation can be redefined" $ do
         let prog = [s|
-            (define eval (lambda (expr env) (list #f env)))
+            (def eval (fn [expr env] (list #f env)))
             #t
             |]
         prog `succeedsWith` Boolean False
 
     , testCase "redefining eval keeps access to future definitions" $ do
         let prog = [s|
-            (define eval (lambda (expr env) (eval expr env)))
-            (define t #t)
+            (def eval (fn [expr env] (eval expr env)))
+            (def t #t)
             t
             |]
         prog `succeedsWith` Boolean True
 
     , testCase "'read-ref' returns the most recent value" $ do
         let prog = [s|
-                (define x (ref 5))
+                (def x (ref 5))
                 (write-ref x 6)
                 (read-ref x)
                 |]
@@ -362,23 +362,23 @@ test_eval =
 
     , testCase "mutations to refs are persisted beyond a lambda's scope" $ do
         let prog = [s|
-            (define inc-ref
-              (lambda (r)
-                (define temp (read-ref r))
+            (def inc-ref
+              (fn [r]
+                (def temp (read-ref r))
                 (write-ref r (+ temp 1))
                 ))
-            (define a (ref 0))
+            (def a (ref 0))
             (inc-ref a)
             (read-ref a)
             |]
         let prog2 = [s|
-            (define ref-mapper
-              (lambda (f)
-                (lambda (r)
-                  (define temp (read-ref r))
+            (def ref-mapper
+              (fn [f]
+                (fn [r]
+                  (def temp (read-ref r))
                   (write-ref r (f temp)))))
-            (define ref-incer (ref-mapper (lambda (x) (+ x 1))))
-            (define foo (ref 0))
+            (def ref-incer (ref-mapper (fn [x] (+ x 1))))
+            (def foo (ref 0))
             (ref-incer foo)
             (read-ref foo)
             |]
@@ -387,17 +387,17 @@ test_eval =
 
     , testCase "muliple refs mutated in multiple lambdas" $ do
         let prog = [s|
-            (define make-counter
-              (lambda ()
-                (define current (ref 0))
-                (lambda ()
-                  (define temp (read-ref current))
+            (def make-counter
+              (fn []
+                (def current (ref 0))
+                (fn []
+                  (def temp (read-ref current))
                   (write-ref current (+ temp 1))
                   temp)))
-            (define c1 (make-counter))
+            (def c1 (make-counter))
             (c1)
             (c1)
-            (define c2 (make-counter))
+            (def c2 (make-counter))
             (c2)
             (c1)
             (list (c1) (c2))
@@ -421,7 +421,7 @@ test_eval =
         runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1.0 \"foo\" (b (quote x) 2.0 \"bar\"))")
         runTest' "eval" @?= Right (Primop [ident|base-eval|])
         runTest' "(show (dict 'a 1))" @?= Right (String "{a 1.0}")
-        runTest' "(show (lambda (x) x))" @?= Right (String "(lambda (x) x)")
+        runTest' "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
     , testCase "'read' works" $
         runTest' "(read \"(:hello 42)\")" @?= Right (List [Keyword [ident|hello|], Number 42])
@@ -431,10 +431,10 @@ test_eval =
         runTest' "(to-json (dict \"key\" (list 1 \"value\")))" @?= Right (String "{\"key\":[1,\"value\"]}")
         noStack (runTest' "(to-json (dict 1 2))") @?= Left (OtherError "Could not serialise value to JSON")
 
-    , testCase "define-rec can define recursive functions" $ do
+    , testCase "def-rec can define recursive functions" $ do
         let prog = [s|
-            (define-rec triangular
-              (lambda (n)
+            (def-rec triangular
+              (fn [n]
                 (if (eq? n 0)
                     0
                     (+ n (triangular (- n 1))))))
@@ -442,13 +442,13 @@ test_eval =
             |]
         runTest' prog @?= Right (Number 55)
 
-    , testCase "define-rec errors when defining a non-function" $
-        failsWith "(define-rec x 42)" (OtherError "define-rec can only be used to define functions")
+    , testCase "def-rec errors when defining a non-function" $
+        failsWith "(def-rec x 42)" (OtherError "def-rec can only be used to define functions")
 
     , testCase "stack traces work" $ do
         let prog = [s|
-            (define inner (lambda () (notdefined)))
-            (define outer (lambda () (inner)))
+            (def inner (fn [] (notdefined)))
+            (def outer (fn [] (inner)))
             (outer)
             |]
         case runTest' prog of
@@ -458,8 +458,8 @@ test_eval =
 
     , testCase "stack traces work with HOFs" $ do
         let prog = [s|
-            (define callit (lambda (f) (f)))
-            (define inner (lambda () (notdefined)))
+            (def callit (fn [f] (f)))
+            (def inner (fn [] (notdefined)))
             (callit inner)
             |]
         case runTest' prog of
@@ -531,7 +531,7 @@ test_parser =
 test_binding :: [TestTree]
 test_binding =
     [ testCase "handles shadowing correctly" $ do
-        [s|(((lambda (x) (lambda (x) x)) "inner") "outer")|] ~~> String "outer"
+        [s|(((fn [x] (fn [x] x)) "inner") "outer")|] ~~> String "outer"
     ]
   where
     x ~~> y = runIdentity (interpret "test" x pureEnv) @?= Right y
@@ -576,7 +576,7 @@ test_repl_primops =
 
     , testCase "catch catches read-line errors" $ do
         let prog = [s|
-                 (catch 'any (read-line!) (lambda (x) "caught"))
+                 (catch 'any (read-line!) (fn [x] "caught"))
                  |]
             input = ["\"blah"]
             res = run input prog
@@ -590,15 +590,15 @@ test_repl_primops =
                    (load! "foo.rad")
                    (+ foo bar)
                    |]
-            files = Map.singleton "foo.rad" "(define foo 42) (define bar 8)"
+            files = Map.singleton "foo.rad" "(def foo 42) (def bar 8)"
         runFiles files prog @?= Right (Number 50)
     , testCase "generating and verifying cryptographic signatures works" $
         let prog = [s|
-                   (define my-keys (gen-key-pair! (default-ecc-curve)))
-                   (define not-my-keys (gen-key-pair! (default-ecc-curve)))
-                   (define sig (gen-signature! (lookup :private-key my-keys) "hello"))
-                   (define tt (verify-signature (lookup :public-key my-keys) sig "hello"))
-                   (define ff (verify-signature (lookup :public-key not-my-keys) sig "hello"))
+                   (def my-keys (gen-key-pair! (default-ecc-curve)))
+                   (def not-my-keys (gen-key-pair! (default-ecc-curve)))
+                   (def sig (gen-signature! (lookup :private-key my-keys) "hello"))
+                   (def tt (verify-signature (lookup :public-key my-keys) sig "hello"))
+                   (def ff (verify-signature (lookup :public-key not-my-keys) sig "hello"))
                    (list tt ff)
                    |]
         in run [] prog @?= Right (List [Boolean True, Boolean False])
@@ -611,13 +611,13 @@ test_repl_primops =
 test_repl :: [TestTree]
 test_repl =
     [ testCase "evaluates correctly" $ do
-        let input = [ "((lambda (x) x) #t)" ]
+        let input = [ "((fn [x] x) #t)" ]
             output = [ "#t" ]
         (_, result) <- runInRepl input
         result @==> output
 
     , testCase "handles env modifications" $ do
-        let input = [ "(define id (lambda (x) x))"
+        let input = [ "(def id (fn [x] x))"
                     , "(id #t)"
                     ]
             output = [ "()"
@@ -627,7 +627,7 @@ test_repl =
         result @==> output
 
     , testCase "handles 'eval' redefinition" $ do
-        let input = [ "(define eval (lambda (expr env) (list #t env)))"
+        let input = [ "(def eval (fn [expr env] (list #t env)))"
                     , "#f"
                     ]
             output = [ "()"
@@ -636,9 +636,9 @@ test_repl =
         (_, result) <- runInRepl input
         result @==> output
 
-    , testCase "(define eval (quote base-eval)) doesn't change things" $ do
-        let input = [ "(define eval (quote base-eval))"
-                    , "(define id (lambda (x) x))"
+    , testCase "(def eval (quote base-eval)) doesn't change things" $ do
+        let input = [ "(def eval (quote base-eval))"
+                    , "(def id (fn [x] x))"
                     , "(id #t)"
                     ]
             output = [ "()"
