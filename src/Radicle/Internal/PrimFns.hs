@@ -52,7 +52,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           xs -> throwErrorHere $ WrongNumberOfArgs "pure-env" 0 (length xs)
       )
     , ("apply", \case
-          [fn, List args] -> eval . List $ fn:args
+          [fn, List args] -> callFn fn args
           [_, _]          -> throwErrorHere $ TypeError "apply: expecting list as second arg"
           xs -> throwErrorHere $ WrongNumberOfArgs "apply" 2 (length xs))
     , ( "read"
