@@ -65,11 +65,10 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
 
 replBindings :: forall m. ReplM m => Bindings (PrimFns m)
 replBindings = e { bindingsPrimFns = bindingsPrimFns e <> replPrimFns
-                 , bindingsEnv = bindingsEnv e <> ps}
+                 , bindingsEnv = bindingsEnv e <> primFnsEnv pfs }
     where
       e :: Bindings (PrimFns m)
       e = pureEnv
-      ps = Env (Map.fromList [ (pf, PrimFn pf) | pf <- Map.keys (getPrimFns pfs)])
       pfs :: PrimFns m
       pfs = replPrimFns
 
@@ -81,6 +80,7 @@ replPrimFns = PrimFns . Map.fromList $ first unsafeToIdent <$>
             pure nil
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
+    
     , ("set-env!", \args -> case args of
         [Atom x, v] -> do
             defineAtom x v

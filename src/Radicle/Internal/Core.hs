@@ -466,15 +466,6 @@ specialForms = Map.fromList $ first Ident <$>
     , ( "cond", (cond =<<) . evenArgs "cond" )
   ]
   where
-
-    -- | Some forms/functions expect an even number or arguments.
-    evenArgs name = \case
-      [] -> pure []
-      [_] -> throwErrorHere . OtherError $ name <> ": expects an even number of arguments"
-      x:y:xs -> do
-        ps <- evenArgs name xs
-        pure ((x,y):ps)
-
     cond = \case
       [] -> pure nil
       (c,e):ps -> do
@@ -607,6 +598,15 @@ hoistEither = hoistEitherWith identity
 hoistEitherWith :: MonadError e' m => (e -> e') -> Either e a -> m a
 hoistEitherWith f (Left e)  = throwError (f e)
 hoistEitherWith _ (Right x) = pure x
+
+-- | Some forms/functions expect an even number or arguments.
+evenArgs :: MonadError (LangError Value) m => Text -> [b] -> m [(b, b)]
+evenArgs name = \case
+    [] -> pure []
+    [_] -> throwErrorHere . OtherError $ name <> ": expects an even number of arguments"
+    x:y:xs -> do
+        ps <- evenArgs name xs
+        pure ((x,y):ps)
 
 -- * Generic encoding/decoding of Radicle values.
 

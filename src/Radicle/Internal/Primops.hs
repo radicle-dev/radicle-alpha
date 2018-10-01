@@ -2,7 +2,9 @@ module Radicle.Internal.Primops
   ( pureEnv
   , purePrimFns
   , oneArg
+  , evenArgs
   , readValue
+  , primFnsEnv
   ) where
 
 import           Protolude hiding (TypeError, toList)
@@ -25,10 +27,8 @@ pureEnv = Bindings e purePrimFns r 1
     e = fromList [ (unsafeToIdent "eval", PrimFn $ unsafeToIdent "base-eval")
                  , (unsafeToIdent "_doc-ref", Ref $ Reference 0)
                  ]
-        <> Env (Map.fromList [ (pf, PrimFn pf) | pf <- Map.keys (getPrimFns ps)])
+        <> primFnsEnv (purePrimFns :: PrimFns m)
     r = fromList [ (0, Dict mempty) ]
-    ps :: PrimFns m
-    ps = purePrimFns
 
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
@@ -234,14 +234,6 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     ]
   where
 
-    -- | Some forms/functions expect an even number or arguments.
-    evenArgs name = \case
-      [] -> pure []
-      [_] -> throwErrorHere . OtherError $ name <> ": expects an even number of arguments"
-      x:y:xs -> do
-        ps <- evenArgs name xs
-        pure ((x,y):ps)
-
     tt = Boolean True
     ff = Boolean False
 
@@ -275,3 +267,6 @@ readValue s = do
     case p of
       Right v -> pure v
       Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String e)
+
+primFnsEnv :: PrimFns m -> Env Value
+primFnsEnv pfs = Env (Map.fromList [ (pf, PrimFn pf) | pf <- Map.keys (getPrimFns pfs)])
