@@ -36,6 +36,8 @@ import           Radicle.Internal.Orphans ()
 data LangError r = LangError [Ann.SrcPos] (LangErrorData r)
     deriving (Eq, Show, Read, Generic, Functor)
 
+instance Serialise r => Serialise (LangError r)
+
 -- | An error throw during parsing or evaluating expressions in the language.
 data LangErrorData r =
       UnknownIdentifier Ident
@@ -49,6 +51,8 @@ data LangErrorData r =
     | ThrownError Ident r
     | Exit
     deriving (Eq, Show, Read, Generic, Functor)
+
+instance Serialise r => Serialise (LangErrorData r)
 
 throwErrorHere :: (MonadError (LangError Value) m, HasCallStack) => LangErrorData Value -> m a
 throwErrorHere = withFrozenCallStack (throwError . LangError [Ann.thisPos])

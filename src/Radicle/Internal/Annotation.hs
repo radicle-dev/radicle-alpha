@@ -8,6 +8,8 @@ import           Data.Text (pack)
 import           Protolude
 import qualified Text.Megaparsec.Pos as Par
 
+import           Radicle.Internal.Orphans ()
+
 newtype Annotated t f = Annotated (t (f (Annotated t f)))
     deriving (Generic)
 
@@ -48,6 +50,8 @@ data SrcPos = SrcPos Par.SourcePos
             -- Read instance, and it's not worth it to make a parser.
             | InternalPos Text
     deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise SrcPos
 
 thisPos :: HasCallStack => SrcPos
 thisPos = InternalPos (pack (prettyCallStack callStack))
