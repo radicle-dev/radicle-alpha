@@ -393,9 +393,6 @@ eval val = do
 baseEval :: Monad m => Value -> Lang m Value
 baseEval val = logValPos val $ case val of
     Atom i -> lookupAtom i
-    List (f@(Atom i) : vs) -> case Map.lookup i specialForms of
-      Just form -> form vs
-      Nothing   -> f $$ vs
     List (f:vs) -> f $$ vs
     List xs -> throwErrorHere
         $ WrongNumberOfArgs ("application: " <> show xs)
@@ -568,13 +565,20 @@ callFn f vs = case f of
     fn vs
   _ -> throwErrorHere . TypeError $ "Trying to call a non-function"
 
--- | Infix evaluation of application (of functions or primops)
+-- | Infix evaluation of application (of functions or special forms)
 infixr 1 $$
 ($$) :: Monad m => Value -> [Value] -> Lang m Value
-mfn $$ vs = do
-    mfn' <- baseEval mfn
-    vs' <- traverse baseEval vs
-    callFn mfn' vs'
+f $$ vs = case f of
+    Atom i ->
+      case Map.lookup i specialForms of
+        Just form -> form vs
+        Nothing   -> fnApp
+    _ -> fnApp
+  where
+    fnApp = do
+      f' <- baseEval f
+      vs' <- traverse baseEval vs
+      callFn f' vs'
 
 nil :: Value
 nil = List []
