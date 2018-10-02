@@ -10,7 +10,8 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 import           Radicle
-import           Radicle.Internal.Parse (isValidIdentFirst, isValidIdentRest)
+import           Radicle.Internal.Identifier
+                 (isValidIdentFirst, isValidIdentRest)
 import           Radicle.Internal.PrimFns (purePrimFns)
 
 instance Arbitrary r => Arbitrary (Env r) where

@@ -29,6 +29,7 @@ import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
+import qualified Radicle.Internal.Identifier as Identifier
 import           Radicle.Internal.Orphans ()
 
 
@@ -647,7 +648,11 @@ instance (ToRadFields a, ToRadG b) => ToRadG (Either a b) where
   toRadConss [] _ = panic "impossible"
 
 radCons :: Text -> [Value] -> Value
-radCons name args = List ( Keyword (Ident name) : args )
+radCons name args = case args of
+    [] -> consKw
+    _  -> List ( consKw : args )
+  where
+    consKw = Keyword (Ident (Identifier.keywordWord name))
 
 instance ToRadG Void where
   toRadConss _ = absurd
@@ -661,8 +666,6 @@ instance (ToRad a, ToRadFields as) => ToRadFields (a, as) where
 instance ToRadFields () where
   toRadFields () = []
 
--- Generic decoding of Radicle values to Haskell values
-
 fromRadG :: forall a. (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
 fromRadG v = do
   (name, args) <- isRadCons v ?? gDecodeErr "expecting constructor"
@@ -672,6 +675,7 @@ class FromRadG a where
   fromRadConss :: [Constructor] -> Text -> [Value] -> Either Text a
 
 isRadCons :: Value -> Maybe (Text, [Value])
+isRadCons (Keyword (Ident name))               = pure (name, [])
 isRadCons (List (Keyword (Ident name) : args)) = pure (name, args)
 isRadCons _                                    = Nothing
 
@@ -680,7 +684,7 @@ gDecodeErr e = "Couldn't generically decode radicle value: " <> e
 
 instance (FromRadFields a, FromRadG b) => FromRadG (Either a b) where
   fromRadConss (Constructor name fieldMeta : r) name' args = do
-    if toS name /= name'
+    if Identifier.keywordWord (toS name) /= name'
       then Right <$> fromRadConss r name' args
       else Left <$> fromRadFields fieldMeta args
   fromRadConss [] _ _ = panic "impossible"
