@@ -665,7 +665,9 @@ test_repl =
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
     [ testGroup "()"
-        [ testForType (Proxy :: Proxy ())]
+        [ testForType (Proxy :: Proxy ()) ]
+    , testGroup "(Foo, Foo)"
+        [ testForType (Proxy :: Proxy (Foo, Foo)) ]
     , testGroup "Env Value"
         [ testForType (Proxy :: Proxy (Env Value)) ]
     , testGroup "Bindings ()"
