@@ -2,7 +2,6 @@ module Radicle.Internal.Interpret where
 
 import           Protolude
 
-import qualified Data.Map.Strict as Map
 import           Text.Megaparsec (eof, runParserT)
 
 import qualified Radicle.Internal.Annotation as Ann
@@ -14,22 +13,21 @@ import           Radicle.Internal.Parse
 -- Examples:
 --
 -- >>> import Control.Monad.Identity
--- >>> import Radicle.Internal.Primops
+-- >>> import Radicle.Internal.PrimFns
 -- >>> fmap Ann.untag . runIdentity $ interpret "test" "((fn [x] x) #t)" pureEnv
 -- Right (Annotated (Identity (BooleanF True)))
 --
 -- >>> import Control.Monad.Identity
 -- >>> noStack . runIdentity $ interpret "test" "(#t #f)" pureEnv
--- Left (TypeError "Trying to apply a non-function")
+-- Left (TypeError "Trying to call a non-function")
 interpret
     :: Monad m
     => Text                 -- ^ Name of source file (for error reporting)
     -> Text                 -- ^ Source code to be interpreted
-    -> Bindings (Primops m) -- ^ Bindings to be used
+    -> Bindings (PrimFns m) -- ^ Bindings to be used
     -> m (Either (LangError Value) Value)
 interpret sourceName expr bnds = do
-    let primopNames = Map.keys (getPrimops $ bindingsPrimops bnds)
-        parsed = runReader (runParserT (spaceConsumer *> valueP <* eof) (toS sourceName) expr) primopNames
+    let parsed = runIdentity (runParserT (spaceConsumer *> valueP <* eof) (toS sourceName) expr)
     case parsed of
         Left e  -> pure . Left $ LangError [Ann.thisPos] (ParseError e)
         Right v -> fst <$> runLang bnds (eval v)
@@ -41,7 +39,7 @@ interpret sourceName expr bnds = do
 --
 -- Examples:
 --
--- >>> import Radicle.Internal.Primops
+-- >>> import Radicle.Internal.PrimFns
 -- >>> fmap (fmap Ann.untag . fst) <$> runLang pureEnv $ interpretMany "test" "(def id (fn [x] x))\n(id #t)"
 -- Right (Annotated (Identity (BooleanF True)))
 interpretMany
@@ -50,8 +48,7 @@ interpretMany
     -> Text  -- ^ Source code to be interpreted
     -> Lang m Value
 interpretMany sourceName src = do
-    primopNames <- gets $ Map.keys . getPrimops . bindingsPrimops
-    let parsed = parseValues sourceName src primopNames
+    let parsed = parseValues sourceName src
     case partitionEithers parsed of
         ([], vs) -> do
           es <- mapM eval vs

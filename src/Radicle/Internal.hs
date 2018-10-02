@@ -15,13 +15,13 @@ import           Radicle.Internal.Effects as X
 import           Radicle.Internal.Interpret as X
 import           Radicle.Internal.Parse as X
 import           Radicle.Internal.Pretty as X
-import           Radicle.Internal.Primops as X
+import           Radicle.Internal.PrimFns as X
 
 import qualified Text.Megaparsec as M
 
 -- | Smart constructor for Ident.
 mkIdent :: Text -> Maybe Ident
-mkIdent t = case runReader (M.runParserT identP "" t) [] of
+mkIdent t = case runIdentity (M.runParserT identP "" t) of
     Left _  -> Nothing
     Right v -> pure v
 

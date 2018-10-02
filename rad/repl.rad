@@ -13,9 +13,8 @@
 
 
 (def repl
-  (dict
-     'name "repl"
-     ;; Parse errors are thrown here
-     'getter read-line!))
+  {:name "repl"
+   ;; Parse errors are thrown here
+   :getter read-line!})
 
 (subscribe-to! repl print!)
