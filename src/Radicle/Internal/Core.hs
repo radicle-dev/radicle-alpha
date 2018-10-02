@@ -142,6 +142,8 @@ data ValueF r =
     | LambdaF [Ident] (NonEmpty r) (Env r)
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
+instance Serialise r => Serialise (ValueF r)
+
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
