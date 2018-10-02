@@ -66,14 +66,14 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ("list", pure . List)
     , ("dict", (Dict . foldr (uncurry Map.insert) mempty <$>)
                         . evenArgs "dict")
-    , ("throw", \args -> case args of
+    , ("throw", \case
           [Atom label, exc] -> throwErrorHere $ ThrownError label exc
           [_, _]            -> throwErrorHere $ TypeError "throw: first argument must be atom"
           xs                -> throwErrorHere $ WrongNumberOfArgs "throw" 2 (length xs))
-    , ("eq?", \args -> case args of
+    , ("eq?", \case
           [a, b] -> pure $ Boolean (a == b)
           xs     -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
-    , ("cons", \args -> case args of
+    , ("cons", \case
           [x, List xs] -> pure $ List (x:xs)
           [_, _]       -> throwErrorHere $ TypeError "cons: second argument must be list"
           xs           -> throwErrorHere $ WrongNumberOfArgs "cons" 2 (length xs))
@@ -97,7 +97,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [_,_] -> throwErrorHere $ TypeError "nth: expects a integer and a list"
           xs -> throwErrorHere $ WrongNumberOfArgs "nth" 2 (length xs)
       )
-    , ("lookup", \args -> case args of
+    , ("lookup", \case
           [a, Dict m] -> pure $ case Map.lookup a m of
               Just v  -> v
               -- Probably an exception is better, but that seems cruel
@@ -112,7 +112,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           in if all isJust ss
               then pure . String . mconcat $ catMaybes ss
               else throwErrorHere $ TypeError "string-append: non-string argument")
-    , ("insert", \args -> case args of
+    , ("insert", \case
           [k, v, Dict m] -> pure . Dict $ Map.insert k v m
           [_, _, _]                -> throwErrorHere
                                     $ TypeError "insert: third argument must be a dict"
@@ -128,25 +128,25 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , numBinop (+) "+"
     , numBinop (*) "*"
     , numBinop (-) "-"
-    , ("<", \args -> case args of
+    , ("<", \case
           [Number x, Number y] -> pure $ Boolean (x < y)
           [_, _]               -> throwErrorHere $ TypeError "<: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs "<" 2 (length xs))
-    , (">", \args -> case args of
+    , (">", \case
           [Number x, Number y] -> pure $ Boolean (x > y)
           [_, _]               -> throwErrorHere $ TypeError ">: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs ">" 2 (length xs))
-    , ("foldl", \args -> case args of
+    , ("foldl", \case
           [fn, init', List ls] -> foldlM (\b a -> callFn fn [b, a]) init' ls
           [_, _, _]            -> throwErrorHere
                                 $ TypeError "foldl: third argument should be a list"
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldl" 3 (length xs))
-    , ("foldr", \args -> case args of
+    , ("foldr", \case
           [fn, init', List ls] -> foldrM (\b a -> callFn fn [b, a]) init' ls
           [_, _, _]            -> throwErrorHere
                                 $ TypeError "foldr: third argument should be a list"
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
-    , ("map", \args -> case args of
+    , ("map", \case
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
           [_, _]        -> throwErrorHere $ TypeError "map: second argument should be a list"
           xs            -> throwErrorHere $ WrongNumberOfArgs "map" 3 (length xs))
@@ -186,7 +186,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ("number?", oneArg "number?" $ \case
           Number _ -> pure tt
           _        -> pure ff)
-    , ("member?", \args -> case args of
+    , ("member?", \case
           [x, List xs] -> pure . Boolean $ elem x xs
           [_, _]       -> throwErrorHere
                         $ TypeError "member?: second argument must be list"
@@ -195,7 +195,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ("read-ref", oneArg "read-ref" $ \case
           Ref ref -> readRef ref
           _       -> throwErrorHere $ TypeError "read-ref: argument must be a ref")
-    , ("write-ref", \args -> case args of
+    , ("write-ref", \case
           [Ref (Reference x), v] -> do
               st <- get
               put $ st { bindingsRefs = IntMap.insert x v $ bindingsRefs st }
@@ -240,7 +240,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text
              -> (Text, [Value] -> Lang m Value)
-    numBinop fn name = (name, \args -> case args of
+    numBinop fn name = (name, \case
         Number x:x':xs -> foldM go (Number x) (x':xs)
           where
             go (Number a) (Number b) = pure . Number $ fn a b

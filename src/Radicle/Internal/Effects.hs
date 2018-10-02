@@ -74,31 +74,31 @@ replBindings = e { bindingsPrimFns = bindingsPrimFns e <> replPrimFns
 
 replPrimFns :: forall m. ReplM m => PrimFns m
 replPrimFns = PrimFns . Map.fromList $ first unsafeToIdent <$>
-    [ ("print!", \args -> case args of
+    [ ("print!", \case
         [x] -> do
             putStrS (renderPrettyDef x)
             pure nil
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
 
-    , ("set-env!", \args -> case args of
+    , ("set-env!", \case
         [Atom x, v] -> do
             defineAtom x v
             pure nil
         [_, _] -> throwErrorHere $ TypeError "Expected atom as first arg"
         xs  -> throwErrorHere $ WrongNumberOfArgs "set-env!" 2 (length xs))
 
-    , ("get-line!", \args -> case args of
+    , ("get-line!", \case
         [] -> String <$> getLineS
         xs -> throwErrorHere $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
-    , ("subscribe-to!", \args -> case args of
+    , ("subscribe-to!", \case
         [x, v] -> do
             e <- gets bindingsEnv
             case (x, v) of
                 (Dict m, fn) -> case Map.lookup (Keyword $ unsafeToIdent "getter") m of
                     Nothing -> throwErrorHere
-                        $ OtherError "subscribe-to!: Expected ':getter' keyword"
+                        $ OtherError "subscribe-to!: Expected ':getter' key"
                     Just g -> forever (protect go)
                       where
                         protect action = do
