@@ -40,7 +40,7 @@ instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) wher
           Empty        -> "[]"
           v' :<| Empty -> brackets $ pretty v'
           _            -> brackets . sep $ pretty <$> toList vs
-        Primop i -> pretty i
+        PrimFn i -> pretty i
         Dict mp -> braces . align $
             sep [ pretty k <+> pretty val
                 | (k, val) <- Map.toList mp ]

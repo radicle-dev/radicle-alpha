@@ -131,7 +131,7 @@ data ValueF r =
     | BooleanF Bool
     | ListF [r]
     | VecF (Seq.Seq r)
-    | PrimopF Ident
+    | PrimFnF Ident
     -- | Map from *pure* Values -- annotations shouldn't change lookup semantics.
     | DictF (Map.Map Value r)
     | RefF Reference
@@ -142,7 +142,7 @@ data ValueF r =
     | LambdaF [Ident] (NonEmpty r) (Env r)
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
-{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Primop, Dict, Ref, Lambda #-}
+{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -181,10 +181,10 @@ pattern Vec vs <- (Ann.match -> VecF vs)
     where
     Vec = Ann.annotate . VecF
 
-pattern Primop :: ValueConC t => Ident -> Annotated t ValueF
-pattern Primop i <- (Ann.match -> PrimopF i)
+pattern PrimFn :: ValueConC t => Ident -> Annotated t ValueF
+pattern PrimFn i <- (Ann.match -> PrimFnF i)
     where
-    Primop = Ann.annotate . PrimopF
+    PrimFn = Ann.annotate . PrimFnF
 
 pattern Dict :: ValueConC t => Map.Map Value (Annotated t ValueF) -> Annotated t ValueF
 pattern Dict vs <- (Ann.match -> DictF vs)
@@ -291,13 +291,13 @@ instance GhcExts.IsList (Env s) where
     toList = GhcExts.toList . fromEnv
 
 -- | Primop mappings. The parameter specifies the monad the primops run in.
-newtype Primops m = Primops { getPrimops :: Map Ident ([Value ] -> Lang m Value) }
+newtype PrimFns m = PrimFns { getPrimFns :: Map Ident ([Value] -> Lang m Value) }
   deriving (Semigroup)
 
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
     { bindingsEnv     :: Env Value
-    , bindingsPrimops :: prims
+    , bindingsPrimFns :: prims
     , bindingsRefs    :: IntMap Value
     , bindingsNextRef :: Int
     } deriving (Eq, Show, Functor, Generic)
@@ -321,19 +321,19 @@ instance MonadTrans (LangT r) where lift = LangT . lift . lift
 
 -- | A monad for language operations specialized to have as state the Bindings
 -- with appropriate underlying monad.
-type Lang m = LangT (Bindings (Primops m)) m
+type Lang m = LangT (Bindings (PrimFns m)) m
 
 -- | Run a `Lang` computation with the provided bindings. Returns the result as
 -- well as the updated bindings.
 runLang
-    :: Bindings (Primops m)
+    :: Bindings (PrimFns m)
     -> Lang m a
-    -> m (Either (LangError Value) a, Bindings (Primops m))
+    -> m (Either (LangError Value) a, Bindings (PrimFns m))
 runLang e l = runStateT (runExceptT $ fromLangT l) e
 
 -- | Like 'local' or 'withState'. Will run an action with a modified environment
 -- and then restore the original bindings.
-withBindings :: Monad m => (Bindings (Primops m) -> Bindings (Primops m)) -> Lang m a -> Lang m a
+withBindings :: Monad m => (Bindings (PrimFns m) -> Bindings (PrimFns m)) -> Lang m a -> Lang m a
 withBindings modifier action = do
     oldBnds <- get
     modify modifier
@@ -366,7 +366,7 @@ lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
 
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
-lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimops $ bindingsPrimops e of
+lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns e of
     Nothing -> throwErrorHere $ Impossible "Unknown primop"
     Just v  -> pure v
 
@@ -380,23 +380,15 @@ eval :: Monad m => Value -> Lang m Value
 eval val = do
     e <- lookupAtom (Ident "eval")
     st <- gets toRad
-    logValPos e $ case e of
-        Primop i -> do
-            fn <- lookupPrimop i
-            -- Primops get to decide whether and how their args are
-            -- evaluated.
-            res <- fn [quote val, quote st]
-            updateEnvAndReturn res
-        l@Lambda{} -> callFn l [val, st] >>= updateEnvAndReturn
-        _ -> throwErrorHere $ TypeError "Trying to apply a non-function"
+    logValPos e $ callFn e [val, st] >>= updateEnvAndReturn
   where
     updateEnvAndReturn :: Monad m => Value -> Lang m Value
     updateEnvAndReturn v = case v of
         List [val', newSt] -> do
-            prims <- gets bindingsPrimops
+            prims <- gets bindingsPrimFns
             newSt' <- either (throwErrorHere . OtherError) pure
                       (fromRad newSt :: Either Text (Bindings ()))
-            put $ newSt' { bindingsPrimops = prims }
+            put $ newSt' { bindingsPrimFns = prims }
             pure val'
         _ -> throwErrorHere $ OtherError "eval: should return list with value and new env"
 
@@ -415,6 +407,73 @@ baseEval val = logValPos val $ case val of
         let evalBoth (a,b) = (,) <$> baseEval a <*> baseEval b
         Dict . Map.fromList <$> traverse evalBoth (Map.toList mp)
     autoquote -> pure autoquote
+
+specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)
+specialForms = Map.fromList $ first Ident <$>
+  [ ( "fn"
+    , \case
+          args : b : bs ->
+            case args of
+              Vec atoms_ -> do
+                atoms <- traverse isAtom (toList atoms_) ?? toLangError (TypeError "fn: expecting a list of symbols")
+                e <- gets bindingsEnv
+                pure (Lambda atoms (b :| bs) e)
+              _ -> throwErrorHere $ OtherError "fn: first argument must be a vector of argument symbols, and then at least one form for the body"
+          xs -> throwErrorHere $ WrongNumberOfArgs "fn" 2 (length xs) -- TODO: technically "at least 2"
+      )
+  , ("quote", \case
+          [v] -> pure v
+          xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
+  , ("def", \case
+          [Atom name, val] -> do
+              val' <- baseEval val
+              defineAtom name val'
+              pure nil
+          [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
+          xs               -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
+    , ( "def-rec"
+      , \case
+          [Atom name, val] -> do
+            val' <- baseEval val
+            case val' of
+                Lambda is b e -> do
+                    let v = Lambda is b (Env . Map.insert name v . fromEnv $ e)
+                    defineAtom name v
+                    pure nil
+                _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
+          [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
+          xs               -> throwErrorHere $ WrongNumberOfArgs "def-rec" 2 (length xs)
+      )
+    , ("do", (lastDef nil <$>) . traverse baseEval)
+    , ("catch", \case
+          [l, form, handler] -> do
+              mlabel <- baseEval l
+              case mlabel of
+                  -- TODO reify stack
+                  Atom label -> baseEval form `catchError` \(LangError _stack e) -> do
+                     (thrownLabel, thrownValue) <- errorDataToValue e
+                     if thrownLabel == label || label == Ident "any"
+                         then handler $$ [thrownValue]
+                         else baseEval form
+                  _ -> throwErrorHere $ TypeError "catch: first argument must be atom"
+          xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
+    , ("if", \case
+          [condition, t, f] -> do
+            b <- baseEval condition
+            -- I hate this as much as everyone that might ever read Haskell, but
+            -- in Lisps a lot of things that one might object to are True...
+            if b == Boolean False then baseEval f else baseEval t
+          xs -> throwErrorHere $ WrongNumberOfArgs "if" 3 (length xs))
+    , ( "cond", (cond =<<) . evenArgs "cond" )
+  ]
+  where
+    cond = \case
+      [] -> pure nil
+      (c,e):ps -> do
+        b <- baseEval c
+        if b /= Boolean False
+          then baseEval e
+          else cond ps
 
 -- * From/ToRadicle
 
@@ -505,35 +564,35 @@ callFn f vs = case f of
                   modEnv = mappings <> closure
               NonEmpty.last <$> withEnv (const modEnv)
                                         (traverse baseEval body)
-  Primop i -> throwErrorHere . TypeError
-    $ "Trying to call a non-function: the primop '" <> show i
-    <> "' cannot be used as a function."
-  _ -> throwErrorHere . TypeError $ "Trying to call a non-function."
+  PrimFn i -> do
+    fn <- lookupPrimop i
+    fn vs
+  _ -> throwErrorHere . TypeError $ "Trying to call a non-function"
 
--- | Infix evaluation of application (of functions or primops)
+-- | Infix evaluation of application (of functions or special forms)
 infixr 1 $$
 ($$) :: Monad m => Value -> [Value] -> Lang m Value
-mfn $$ vs = do
-    mfn' <- baseEval mfn
-    case mfn' of
-        Primop i -> do
-            fn <- lookupPrimop i
-            -- Primops get to decide whether and how their args are
-            -- evaluated.
-            fn vs
-        f@Lambda{} -> do
-          vs' <- traverse baseEval vs
-          callFn f vs'
-        _ -> throwErrorHere $ TypeError "Trying to apply a non-function"
+f $$ vs = case f of
+    Atom i ->
+      case Map.lookup i specialForms of
+        Just form -> form vs
+        Nothing   -> fnApp
+    _ -> fnApp
+  where
+    fnApp = do
+      f' <- baseEval f
+      vs' <- traverse baseEval vs
+      callFn f' vs'
 
 nil :: Value
 nil = List []
 
 quote :: Value -> Value
-quote v = List [Primop (Ident "quote"), v]
+quote v = List [Atom (Ident "quote"), v]
+
 
 list :: [Value] -> Value
-list vs = List (Primop (Ident "list") : vs)
+list vs = List (Atom (Ident "list") : vs)
 
 kwLookup :: Text -> Map Value Value -> Maybe Value
 kwLookup key = Map.lookup (Keyword $ Ident key)
@@ -547,6 +606,15 @@ hoistEither = hoistEitherWith identity
 hoistEitherWith :: MonadError e' m => (e -> e') -> Either e a -> m a
 hoistEitherWith f (Left e)  = throwError (f e)
 hoistEitherWith _ (Right x) = pure x
+
+-- | Some forms/functions expect an even number or arguments.
+evenArgs :: MonadError (LangError Value) m => Text -> [b] -> m [(b, b)]
+evenArgs name = \case
+    [] -> pure []
+    [_] -> throwErrorHere . OtherError $ name <> ": expects an even number of arguments"
+    x:y:xs -> do
+        ps <- evenArgs name xs
+        pure ((x,y):ps)
 
 -- * Generic encoding/decoding of Radicle values.
 

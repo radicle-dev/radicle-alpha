@@ -280,7 +280,7 @@ test_eval =
         "(type 'a)" `hasTy` "atom"
         "(type 1)" `hasTy` "number"
         "(type #t)" `hasTy` "boolean"
-        "(type list?)" `hasTy` "primop"
+        "(type list?)" `hasTy` "function"
         "(type (list 1 2 3))" `hasTy` "list"
         "(type (dict 1 2))" `hasTy` "dict"
         "(type (ref 0))" `hasTy` "ref"
@@ -419,7 +419,7 @@ test_eval =
         runTest' "(show #t)" @?= Right (String "#t")
         runTest' "(show #f)" @?= Right (String "#f")
         runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1.0 \"foo\" (b (quote x) 2.0 \"bar\"))")
-        runTest' "eval" @?= Right (Primop [ident|base-eval|])
+        runTest' "eval" @?= Right (PrimFn [ident|base-eval|])
         runTest' "(show (dict 'a 1))" @?= Right (String "{a 1.0}")
         runTest' "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
@@ -485,10 +485,6 @@ test_parser =
     , testCase "parses booleans" $ do
         "#t" ~~> Boolean True
         "#f" ~~> Boolean False
-
-    , testCase "parses primops" $ do
-        "boolean?" ~~> Primop [ident|boolean?|]
-        "base-eval" ~~> Primop [ident|base-eval|]
 
     , testCase "parses keywords" $ do
         ":foo" ~~> kw "foo"
@@ -636,8 +632,8 @@ test_repl =
         (_, result) <- runInRepl input
         result @==> output
 
-    , testCase "(def eval (quote base-eval)) doesn't change things" $ do
-        let input = [ "(def eval (quote base-eval))"
+    , testCase "(def eval base-eval) doesn't change things" $ do
+        let input = [ "(def eval base-eval)"
                     , "(def id (fn [x] x))"
                     , "(id #t)"
                     ]
@@ -716,10 +712,7 @@ atom = Atom . unsafeToIdent
 -- -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- -- primops.
 parseTest :: MonadError Text m => Text -> m Value
-parseTest t = parse "(test)" t (Map.keys . getPrimops $ bindingsPrimops e)
-  where
-    e :: Bindings (Primops (Lang Identity))
-    e = pureEnv
+parseTest t = parse "(test)" t
 
 prettyEither :: Either (LangError Value) Value -> T.Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e
