@@ -3,6 +3,7 @@ module Radicle.Tests where
 
 import           Protolude hiding (toList)
 
+import           Codec.Serialise (Serialise, deserialise, serialise)
 import           Data.List (isInfixOf, isSuffixOf)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromJust)
@@ -684,6 +685,26 @@ test_from_to_radicle =
                 info = "Expected\n\t" <> show expected
                     <> "\nGot\n\t" <> show got
             counterexample info $ got == expected
+
+test_cbor :: [TestTree]
+test_cbor =
+    [ testGroup "UntaggedValue"
+        [ testForType (Proxy :: Proxy UntaggedValue) ]
+    , testGroup "Value"
+        [ testForType (Proxy :: Proxy Value) ]
+    ]
+  where
+    testForType
+        :: forall a. (Arbitrary a, Show a, Serialise a, Eq a)
+        => Proxy a -> TestTree
+    testForType _ =
+        testProperty "deserialise . serialise == id" $ \(v :: a) -> do
+            let expected = v
+                got = deserialise (serialise v)
+                info = "Expected\n\t" <> show expected
+                    <> "\nGot\n\t" <> show got
+            counterexample info $ got == expected
+
 
 -- Tests all radicle files 'repl' dir. These should use the 'should-be'
 -- function to ensure they are in the proper format.

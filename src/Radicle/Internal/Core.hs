@@ -142,6 +142,8 @@ data ValueF r =
     | LambdaF [Ident] (NonEmpty r) (Env r)
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
+instance Serialise r => Serialise (ValueF r)
+
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
@@ -621,81 +623,3 @@ evenArgs name = \case
 toRadG :: forall a. (HasEot a, ToRadG (Eot a)) => a -> Value
 toRadG x = toRadConss (constructors (datatype (Proxy :: Proxy a))) (toEot x)
 
-class ToRadG a where
-  toRadConss :: [Constructor] -> a -> Value
-
-instance (ToRadFields a, ToRadG b) => ToRadG (Either a b) where
-  toRadConss (Constructor name fieldMeta : _) (Left fields) =
-    case fieldMeta of
-      Selectors names ->
-        radCons (toS name) . pure . Dict . Map.fromList $
-          zip (Keyword . Ident . toS <$> names) (toRadFields fields)
-      NoSelectors _ -> radCons (toS name) (toRadFields fields)
-      NoFields -> radCons (toS name) []
-  toRadConss (_ : r) (Right next) = toRadConss r next
-  toRadConss [] _ = panic "impossible"
-
-radCons :: Text -> [Value] -> Value
-radCons name args = List ( Keyword (Ident name) : args )
-
-instance ToRadG Void where
-  toRadConss _ = absurd
-
-class ToRadFields a where
-  toRadFields :: a -> [Value]
-
-instance (ToRad a, ToRadFields as) => ToRadFields (a, as) where
-  toRadFields (x, xs) = toRad x : toRadFields xs
-
-instance ToRadFields () where
-  toRadFields () = []
-
--- Generic decoding of Radicle values to Haskell values
-
-fromRadG :: forall a. (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
-fromRadG v = do
-  (name, args) <- isRadCons v ?? gDecodeErr "expecting constructor"
-  fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) name args
-
-class FromRadG a where
-  fromRadConss :: [Constructor] -> Text -> [Value] -> Either Text a
-
-isRadCons :: Value -> Maybe (Text, [Value])
-isRadCons (List (Keyword (Ident name) : args)) = pure (name, args)
-isRadCons _                                    = Nothing
-
-gDecodeErr :: Text -> Text
-gDecodeErr e = "Couldn't generically decode radicle value: " <> e
-
-instance (FromRadFields a, FromRadG b) => FromRadG (Either a b) where
-  fromRadConss (Constructor name fieldMeta : r) name' args = do
-    if toS name /= name'
-      then Right <$> fromRadConss r name' args
-      else Left <$> fromRadFields fieldMeta args
-  fromRadConss [] _ _ = panic "impossible"
-
-instance FromRadG Void where
-  fromRadConss _ name _ = Left (gDecodeErr "unknown constructor '" <> name <> "'")
-
-class FromRadFields a where
-  fromRadFields :: Fields -> [Value] -> Either Text a
-
-instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
-  fromRadFields fields args = case fields of
-    NoSelectors _ -> case args of
-      v:vs -> do
-        x <- fromRad v
-        xs <- fromRadFields fields vs
-        pure (x, xs)
-      _ -> panic "impossible"
-    Selectors (n:names) -> case args of
-      [Dict d] -> do
-        xv <- kwLookup (toS n) d ?? gDecodeErr ("missing field '" <> toS n <> "'")
-        x <- fromRad xv
-        xs <- fromRadFields (Selectors names) args
-        pure (x, xs)
-      _ -> Left . gDecodeErr $ "expecting a dict"
-    _ -> panic "impossible"
-
-instance FromRadFields () where
-  fromRadFields _ _ = pure ()

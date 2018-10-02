@@ -59,6 +59,8 @@ thisPos = InternalPos (pack (prettyCallStack callStack))
 data WithPos a = WithPos SrcPos a
     deriving (Read, Show, Generic, Functor, Foldable, Traversable)
 
+instance Serialise a => Serialise (WithPos a)
+
 -- Ignore source locations when comparing.
 instance Eq a => Eq (WithPos a) where
     WithPos _ x == WithPos _ y = x == y
