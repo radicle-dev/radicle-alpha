@@ -420,10 +420,10 @@ specialForms = Map.fromList $ first Ident <$>
               _ -> throwErrorHere $ OtherError "fn: first argument must be a vector of argument symbols, and then at least one form for the body"
           xs -> throwErrorHere $ WrongNumberOfArgs "fn" 2 (length xs) -- TODO: technically "at least 2"
       )
-  , ("quote", \args -> case args of
+  , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
-  , ("def", \args -> case args of
+  , ("def", \case
           [Atom name, val] -> do
               val' <- baseEval val
               defineAtom name val'
@@ -444,7 +444,7 @@ specialForms = Map.fromList $ first Ident <$>
           xs               -> throwErrorHere $ WrongNumberOfArgs "def-rec" 2 (length xs)
       )
     , ("do", (lastDef nil <$>) . traverse baseEval)
-    , ("catch", \args -> case args of
+    , ("catch", \case
           [l, form, handler] -> do
               mlabel <- baseEval l
               case mlabel of
@@ -456,7 +456,7 @@ specialForms = Map.fromList $ first Ident <$>
                          else baseEval form
                   _ -> throwErrorHere $ TypeError "catch: first argument must be atom"
           xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
-    , ("if", \args -> case args of
+    , ("if", \case
           [condition, t, f] -> do
             b <- baseEval condition
             -- I hate this as much as everyone that might ever read Haskell, but
