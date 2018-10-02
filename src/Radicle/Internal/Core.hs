@@ -419,6 +419,9 @@ class FromRad a where
   default fromRad :: (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
   fromRad = fromRadG
 
+instance FromRad () where
+    fromRad (Keyword (Ident "unit")) = pure ()
+    fromRad _                        = Left "Expecting :unit"
 instance FromRad Value where
   fromRad = pure
 instance FromRad Scientific where
@@ -467,6 +470,8 @@ class ToRad a where
   default toRad :: (HasEot a, ToRadG (Eot a)) => a -> Value
   toRad = toRadG
 
+instance ToRad () where
+    toRad _ = Keyword (Ident "unit")
 instance ToRad Int where
     toRad = Number . fromIntegral
 instance ToRad Integer where
