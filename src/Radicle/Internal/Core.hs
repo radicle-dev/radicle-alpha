@@ -21,6 +21,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
 import           Data.Semigroup ((<>))
+import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
@@ -484,6 +485,12 @@ class FromRad a where
   default fromRad :: (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
   fromRad = fromRadG
 
+instance FromRad () where
+    fromRad (Vec Seq.Empty) = pure ()
+    fromRad _               = Left "Expecting an empty vector"
+instance (FromRad a, FromRad b) => FromRad (a,b) where
+    fromRad (Vec (x :<| y :<| Seq.Empty)) = (,) <$> fromRad x <*> fromRad y
+    fromRad _ = Left "Expecting a vector of length 2"
 instance FromRad Value where
   fromRad = pure
 instance FromRad Scientific where
@@ -532,6 +539,10 @@ class ToRad a where
   default toRad :: (HasEot a, ToRadG (Eot a)) => a -> Value
   toRad = toRadG
 
+instance ToRad () where
+    toRad _ = Vec Empty
+instance (ToRad a, ToRad b) => ToRad (a,b) where
+    toRad (x,y) = Vec $ toRad x :<| toRad y :<| Empty
 instance ToRad Int where
     toRad = Number . fromIntegral
 instance ToRad Integer where
