@@ -35,6 +35,8 @@ module Radicle
     , pattern Ref
     , pattern Lambda
     , maybeJson
+    , UntaggedValue
+    , untag
     -- *** LangError
     , LangError(..)
     , LangErrorData(..)

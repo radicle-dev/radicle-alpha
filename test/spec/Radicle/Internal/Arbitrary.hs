@@ -46,6 +46,9 @@ instance Arbitrary Value where
         isPrimop x = x `elem` Map.keys (getPrimFns prims)
         isNum x = isJust (readMaybe (toS $ fromIdent x) :: Maybe Scientific)
 
+instance Arbitrary UntaggedValue where
+    arbitrary = untag <$> (arbitrary :: Gen Value)
+
 instance Arbitrary Ident where
     arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (mkIdent . toS)
       where

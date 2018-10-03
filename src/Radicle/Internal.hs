@@ -9,6 +9,7 @@ import           Prelude (error)
 import           Protolude
 
 import           Language.Haskell.TH.Quote
+import           Radicle.Internal.Annotation as X
 import           Radicle.Internal.CLI as X
 import           Radicle.Internal.Core as X
 import           Radicle.Internal.Effects as X
