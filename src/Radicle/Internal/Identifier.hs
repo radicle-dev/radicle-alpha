@@ -30,8 +30,11 @@ keywordChar x = case x of
       _ | isValidIdentRest x -> toS [x]
       '{'                    -> "_lbrace_"
       '}'                    -> "_rbrace_"
+      '['                    -> "_lbrack_"
+      ']'                    -> "_rbrack_"
       '('                    -> "_lparen_"
       ')'                    -> "_rparen_"
+      '|'                    -> "_pipe_"
       ' '                    -> "_space_"
       '\''                   -> "_prime_"
       ','                    -> "_comma_"
@@ -40,5 +43,4 @@ keywordChar x = case x of
 
 -- | Makes a string safe to use in a keyword.
 keywordWord :: Text -> Text
-keywordWord "()" = "unit"
-keywordWord x    = T.concat $ keywordChar <$> T.unpack x
+keywordWord x = T.concat $ keywordChar <$> T.unpack x

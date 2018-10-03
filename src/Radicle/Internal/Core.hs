@@ -132,7 +132,7 @@ data ValueF r =
     | NumberF Scientific
     | BooleanF Bool
     | ListF [r]
-    | VecF (Seq.Seq r)
+    | VecF (Seq r)
     | PrimFnF Ident
     -- | Map from *pure* Values -- annotations shouldn't change lookup semantics.
     | DictF (Map.Map Value r)
@@ -178,7 +178,7 @@ pattern List vs <- (Ann.match -> ListF vs)
     where
     List = Ann.annotate . ListF
 
-pattern Vec :: ValueConC t => Seq.Seq (Annotated t ValueF) -> Annotated t ValueF
+pattern Vec :: ValueConC t => Seq (Annotated t ValueF) -> Annotated t ValueF
 pattern Vec vs <- (Ann.match -> VecF vs)
     where
     Vec = Ann.annotate . VecF
@@ -650,7 +650,7 @@ instance (ToRadFields a, ToRadG b) => ToRadG (Either a b) where
 radCons :: Text -> [Value] -> Value
 radCons name args = case args of
     [] -> consKw
-    _  -> List ( consKw : args )
+    _  -> Vec ( consKw :<| Seq.fromList args )
   where
     consKw = Keyword (Ident (Identifier.keywordWord name))
 
@@ -675,9 +675,9 @@ class FromRadG a where
   fromRadConss :: [Constructor] -> Text -> [Value] -> Either Text a
 
 isRadCons :: Value -> Maybe (Text, [Value])
-isRadCons (Keyword (Ident name))               = pure (name, [])
-isRadCons (List (Keyword (Ident name) : args)) = pure (name, args)
-isRadCons _                                    = Nothing
+isRadCons (Keyword (Ident name))                = pure (name, [])
+isRadCons (Vec (Keyword (Ident name) :<| args)) = pure (name, toList args)
+isRadCons _                                     = Nothing
 
 gDecodeErr :: Text -> Text
 gDecodeErr e = "Couldn't generically decode radicle value: " <> e
