@@ -2,7 +2,6 @@ module Radicle.Internal.Parse where
 
 import           Protolude hiding (SrcLoc, try)
 
-import           Data.Char (isAlphaNum, isLetter)
 import           Data.List.NonEmpty (NonEmpty((:|)))
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
@@ -30,6 +29,7 @@ import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
+import           Radicle.Internal.Identifier
 
 -- * The parser
 
@@ -175,22 +175,3 @@ parse file src = do
   case res of
     Left err -> throwError . toS $ M.parseErrorPretty' src err
     Right v  -> pure v
-
--- ** Valid identifiers
--- These are made top-level so construction of arbitrary instances that matches
--- parsing is easier. Note that additionally an identifier must not be a valid
--- number (in parsing numbers are parsed first).
-
--- | A predicate which returns true if the character is valid as the first
--- character of an identifier.
-isValidIdentFirst :: Char -> Bool
-isValidIdentFirst x = x /= ':' && (isLetter x || x `elem` extendedChar)
-
--- | A predicate which returns true if the character is valid as the second or
--- later character of an identifier.
-isValidIdentRest :: Char -> Bool
-isValidIdentRest x = isAlphaNum x || x `elem` extendedChar
-
-extendedChar :: [Char]
-extendedChar = ['!', '$', '%', '&', '*', '+', '-', '.', '/', ':', '<' , '=', '>'
-  , '?', '@', '^', '_', '~']

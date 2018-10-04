@@ -680,12 +680,12 @@ test_from_to_radicle =
     ]
   where
     testForType
-        :: forall a. (Arbitrary a, Show a, ToRad a, FromRad a, Eq a)
+        :: forall a. (Arbitrary a, Show a, ToRad Ann.WithPos a, FromRad Ann.WithPos a, Eq a)
         => Proxy a -> TestTree
     testForType _ =
         testProperty "fromRadicle . toRadicle == id" $ \(v :: a ) -> do
             let expected = Right v
-                got = fromRad (toRad v)
+                got = fromRad (toRad v :: Value)
                 info = "Expected\n\t" <> show expected
                     <> "\nGot\n\t" <> show got
             counterexample info $ got == expected
