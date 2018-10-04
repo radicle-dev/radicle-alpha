@@ -22,37 +22,38 @@ import           Crypto.Random
 import           Crypto.Random.Types (MonadRandom)
 
 import           Radicle.Internal.Core
+import qualified Radicle.Internal.Annotation as Ann
 
 deriving instance Generic PublicKey
-instance FromRad PublicKey
+instance FromRad Ann.WithPos PublicKey
 instance ToRad PublicKey
 
 deriving instance Generic PrivateKey
-instance FromRad PrivateKey
+instance FromRad Ann.WithPos PrivateKey
 instance ToRad PrivateKey
 
 deriving instance Generic Curve
-instance FromRad Curve
+instance FromRad Ann.WithPos Curve
 instance ToRad Curve
 
 deriving instance Generic Point
-instance FromRad Point
+instance FromRad Ann.WithPos Point
 instance ToRad Point
 
 deriving instance Generic CurveBinary
-instance FromRad CurveBinary
+instance FromRad Ann.WithPos CurveBinary
 instance ToRad CurveBinary
 
 deriving instance Generic CurvePrime
-instance FromRad CurvePrime
+instance FromRad Ann.WithPos CurvePrime
 instance ToRad CurvePrime
 
 deriving instance Generic CurveCommon
-instance FromRad CurveCommon
+instance FromRad Ann.WithPos CurveCommon
 instance ToRad CurveCommon
 
 deriving instance Generic Signature
-instance FromRad Signature
+instance FromRad Ann.WithPos Signature
 instance ToRad Signature
 
 hasher :: Blake2b_256

@@ -481,46 +481,48 @@ specialForms = Map.fromList $ first Ident <$>
 
 -- * From/ToRadicle
 
-class FromRad a where
-  fromRad :: Value -> Either Text a
-  default fromRad :: (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
+type CPA t = (Ann.Annotation t, Copointed t)
+
+class FromRad t a where
+  fromRad :: Annotated t ValueF -> Either Text a
+  default fromRad :: (CPA t, HasEot a, FromRadG t (Eot a)) => Annotated t ValueF -> Either Text a
   fromRad = fromRadG
 
-instance FromRad () where
+instance CPA t => FromRad t () where
     fromRad (Vec Seq.Empty) = pure ()
     fromRad _               = Left "Expecting an empty vector"
-instance (FromRad a, FromRad b) => FromRad (a,b) where
+instance (CPA t, FromRad t a, FromRad t b) => FromRad t (a,b) where
     fromRad (Vec (x :<| y :<| Seq.Empty)) = (,) <$> fromRad x <*> fromRad y
     fromRad _ = Left "Expecting a vector of length 2"
-instance FromRad Value where
+instance FromRad Ann.WithPos Value where
   fromRad = pure
-instance FromRad Scientific where
+instance CPA t => FromRad t Scientific where
     fromRad x = case x of
         Number n -> pure n
         _        -> Left "Expecting number"
-instance FromRad Integer where
+instance CPA t => FromRad t Integer where
     fromRad = \case
       Number s -> case floatingOrInteger s of
         Left (_ :: Double) -> Left "Expecting whole number"
         Right i            -> pure i
       _ -> Left "Expecting number"
-instance FromRad Text where
+instance CPA t => FromRad t Text where
     fromRad x = case x of
         String n -> pure n
         _        -> Left "Expecting string"
-instance FromRad a => FromRad [a] where
+instance (CPA t, FromRad t a) => FromRad t [a] where
     fromRad x = case x of
         List xs -> traverse fromRad xs
         Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
-instance FromRad (Env Value) where
+instance FromRad Ann.WithPos (Env Value) where
     fromRad x = case x of
         Dict d -> fmap (Env . Map.fromList)
                 $ forM (Map.toList d) $ \(k, v) -> case k of
             Atom i -> pure (i, v)
             k'     -> Left $ "Expecting atom keys. Got: " <> show k'
         _ -> Left "Expecting dict"
-instance FromRad (Bindings ()) where
+instance FromRad Ann.WithPos (Bindings ()) where
     fromRad x = case x of
         Dict d -> do
             env' <- kwLookup "env" d ?? "Expecting 'env' key"
@@ -608,7 +610,7 @@ quote v = List [Atom (Ident "quote"), v]
 list :: [Value] -> Value
 list vs = List (Atom (Ident "list") : vs)
 
-kwLookup :: Text -> Map Value Value -> Maybe Value
+kwLookup :: Text -> Map Value (Annotated t ValueF) -> Maybe (Annotated t ValueF)
 kwLookup key = Map.lookup (Keyword $ Ident key)
 
 (??) :: MonadError e m => Maybe a -> e -> m a
@@ -668,15 +670,15 @@ instance (ToRad a, ToRadFields as) => ToRadFields (a, as) where
 instance ToRadFields () where
   toRadFields () = []
 
-fromRadG :: forall a. (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
+fromRadG :: forall a t. (CPA t, HasEot a, FromRadG t (Eot a)) => Annotated t ValueF -> Either Text a
 fromRadG v = do
   (name, args) <- isRadCons v ?? gDecodeErr "expecting constructor"
   fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) name args
 
-class FromRadG a where
-  fromRadConss :: [Constructor] -> Text -> [Value] -> Either Text a
+class FromRadG t a where
+  fromRadConss :: [Constructor] -> Text -> [Annotated t ValueF] -> Either Text a
 
-isRadCons :: Value -> Maybe (Text, [Value])
+isRadCons :: CPA t => Annotated t ValueF -> Maybe (Text, [Annotated t ValueF])
 isRadCons (Keyword (Ident name))                = pure (name, [])
 isRadCons (Vec (Keyword (Ident name) :<| args)) = pure (name, toList args)
 isRadCons _                                     = Nothing
@@ -684,20 +686,20 @@ isRadCons _                                     = Nothing
 gDecodeErr :: Text -> Text
 gDecodeErr e = "Couldn't generically decode radicle value: " <> e
 
-instance (FromRadFields a, FromRadG b) => FromRadG (Either a b) where
+instance (FromRadFields t a, FromRadG t b) => FromRadG t (Either a b) where
   fromRadConss (Constructor name fieldMeta : r) name' args = do
     if Identifier.keywordWord (toS name) /= name'
       then Right <$> fromRadConss r name' args
       else Left <$> fromRadFields fieldMeta args
   fromRadConss [] _ _ = panic "impossible"
 
-instance FromRadG Void where
+instance FromRadG t Void where
   fromRadConss _ name _ = Left (gDecodeErr "unknown constructor '" <> name <> "'")
 
-class FromRadFields a where
-  fromRadFields :: Fields -> [Value] -> Either Text a
+class FromRadFields t a where
+  fromRadFields :: Fields -> [Annotated t ValueF] -> Either Text a
 
-instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
+instance (CPA t, FromRad t a, FromRadFields t as) => FromRadFields t (a, as) where
   fromRadFields fields args = case fields of
     NoSelectors _ -> case args of
       v:vs -> do
@@ -714,5 +716,5 @@ instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
       _ -> Left . gDecodeErr $ "expecting a dict"
     _ -> panic "impossible"
 
-instance FromRadFields () where
+instance FromRadFields t () where
   fromRadFields _ _ = pure ()
