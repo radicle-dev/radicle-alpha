@@ -537,30 +537,30 @@ instance FromRad Ann.WithPos (Bindings ()) where
             _       -> throwError $ "Expecting dict"
 
 
-class ToRad a where
-  toRad :: a -> Value
-  default toRad :: (HasEot a, ToRadG (Eot a)) => a -> Value
+class ToRad t a where
+  toRad :: a -> Annotated t ValueF
+  default toRad :: (HasEot a, ToRadG t (Eot a)) => a -> Annotated t ValueF
   toRad = toRadG
 
-instance ToRad () where
+instance CPA t => ToRad t () where
     toRad _ = Vec Empty
-instance (ToRad a, ToRad b) => ToRad (a,b) where
+instance (CPA t, ToRad t a, ToRad t b) => ToRad t (a,b) where
     toRad (x,y) = Vec $ toRad x :<| toRad y :<| Empty
-instance ToRad Int where
+instance CPA t => ToRad t Int where
     toRad = Number . fromIntegral
-instance ToRad Integer where
+instance CPA t => ToRad t Integer where
     toRad = Number . fromIntegral
-instance ToRad Scientific where
+instance CPA t => ToRad t Scientific where
     toRad = Number
-instance ToRad Text where
+instance CPA t => ToRad t Text where
     toRad = String
-instance ToRad a => ToRad [a] where
+instance (CPA t, ToRad t a) => ToRad t [a] where
     toRad xs = List $ toRad <$> xs
-instance ToRad a => ToRad (Map.Map Text a) where
+instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
-instance ToRad (Env Value) where
+instance ToRad Ann.WithPos (Env Value) where
     toRad x = Dict . Map.mapKeys Atom $ fromEnv x
-instance ToRad (Bindings m) where
+instance ToRad Ann.WithPos (Bindings m) where
     toRad x = Dict $ Map.fromList
         [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
         , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs x))
@@ -634,13 +634,13 @@ evenArgs name = \case
 
 -- * Generic encoding/decoding of Radicle values.
 
-toRadG :: forall a. (HasEot a, ToRadG (Eot a)) => a -> Value
+toRadG :: forall a t. (HasEot a, ToRadG t (Eot a)) => a -> Annotated t ValueF
 toRadG x = toRadConss (constructors (datatype (Proxy :: Proxy a))) (toEot x)
 
-class ToRadG a where
-  toRadConss :: [Constructor] -> a -> Value
+class ToRadG t a where
+  toRadConss :: [Constructor] -> a -> Annotated t ValueF
 
-instance (ToRadFields a, ToRadG b) => ToRadG (Either a b) where
+instance (CPA t, ToRadFields t a, ToRadG t b) => ToRadG t (Either a b) where
   toRadConss (Constructor name fieldMeta : _) (Left fields) =
     case fieldMeta of
       Selectors names ->
@@ -651,23 +651,23 @@ instance (ToRadFields a, ToRadG b) => ToRadG (Either a b) where
   toRadConss (_ : r) (Right next) = toRadConss r next
   toRadConss [] _ = panic "impossible"
 
-radCons :: Text -> [Value] -> Value
+radCons :: CPA t => Text -> [Annotated t ValueF] -> Annotated t ValueF
 radCons name args = case args of
     [] -> consKw
     _  -> Vec ( consKw :<| Seq.fromList args )
   where
     consKw = Keyword (Ident (Identifier.keywordWord name))
 
-instance ToRadG Void where
+instance ToRadG t Void where
   toRadConss _ = absurd
 
-class ToRadFields a where
-  toRadFields :: a -> [Value]
+class ToRadFields t a where
+  toRadFields :: a -> [Annotated t ValueF]
 
-instance (ToRad a, ToRadFields as) => ToRadFields (a, as) where
+instance (ToRad t a, ToRadFields t as) => ToRadFields t (a, as) where
   toRadFields (x, xs) = toRad x : toRadFields xs
 
-instance ToRadFields () where
+instance ToRadFields t () where
   toRadFields () = []
 
 fromRadG :: forall a t. (CPA t, HasEot a, FromRadG t (Eot a)) => Annotated t ValueF -> Either Text a
