@@ -17,6 +17,7 @@ import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
+import qualified Radicle.Internal.Hash as Hash
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 
@@ -216,6 +217,9 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ( "to-json"
       , oneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
           maybeJson v ?? toLangError (OtherError "Could not serialise value to JSON")
+      )
+    , ( "hash"
+      , oneArg "hash" (pure . String . Hash.hashRad)
       )
     , ( "default-ecc-curve",
         \case
