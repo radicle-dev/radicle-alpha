@@ -4,6 +4,7 @@ import           Protolude hiding (hash)
 
 import           Crypto.Hash
 import           Data.Copointed (Copointed(..))
+import           Foreign.Storable
 
 import           Radicle.Internal.Annotation
 import           Radicle.Internal.Core
@@ -20,16 +21,23 @@ hashRad = hashText . renderCompactPretty
 
 -- Merkle trees
 
+class HasHash a where
+  hashed :: a -> BS
+
 type BS = ByteString
 
 combi :: [BS] -> BS
-combi = foldMap (\x -> "<" <> x <> ">")
-  --show . blake2b_256 . mconcat
+combi = show . blake2b_256 . mconcat
 
 data MerkleTree
   = Empty
-  | NonEmpty Tree
+  | NonEmpty Word32 Tree
   deriving (Show)
+
+merkleTreeHash :: MerkleTree -> Maybe BS
+merkleTreeHash = \case
+  Empty -> Nothing
+  NonEmpty _ t -> pure $ hashed t
 
 data Tree
   = TBranch Branch
@@ -41,121 +49,105 @@ data Leaf = Leaf BS
 
 data Branch = Branch
   { here  :: BS
-  , size  :: Word32
   , left  :: Tree
-  , right :: Tree
-  }
-  deriving (Show)
+  , right :: Maybe Tree
+  } deriving (Show)
 
-treeHash :: Tree -> BS
-treeHash (TLeaf (Leaf h)) = h
-treeHash (TBranch b)      = here b
+instance HasHash Tree where
+  hashed (TLeaf (Leaf h)) = h
+  hashed (TBranch b)      = here b
 
-treeSize :: Tree -> Word32
-treeSize (TBranch b) = size b
-treeSize (TLeaf _)   = 1
+instance HasHash (Maybe Tree) where
+  hashed Nothing  = "right-empty"
+  hashed (Just t) = hashed t
+
+hashLeaf :: BS -> BS
+hashLeaf x = combi ["leaf", x]
 
 mkLeaf :: BS -> Tree
-mkLeaf x = TLeaf . Leaf . combi $ ["leaf", x]
+mkLeaf = TLeaf . Leaf . hashLeaf
 
-mkBranch :: Tree -> Tree -> Tree
-mkBranch l r = TBranch Branch
-  { here = combi ["branch", treeHash l, treeHash r]
-  , size = treeSize l + treeSize r
+hashBranch :: BS -> BS -> BS
+hashBranch x y = combi ["branch", x, y]
+
+mkBranch :: Tree -> Maybe Tree -> Tree
+mkBranch l r_ = TBranch Branch
+  { here = hashBranch (hashed l) (hashed r_)
   , left = l
-  , right = r
+  , right = r_
   }
-
--- | Return the largest power of two such that it's smaller than n.
-powerOfTwo :: (Bits a, Num a) => a -> a
-powerOfTwo n
-   | n .&. (n - 1) == 0 = n `shiftR` 1
-   | otherwise = go n
- where
-   go w = if w .&. (w - 1) == 0 then w else go (w .&. (w - 1))
 
 mkMerkleTree :: [BS] -> MerkleTree
 mkMerkleTree [] = Empty
-mkMerkleTree xs' = NonEmpty $ go (length xs') xs'
+mkMerkleTree xs' = NonEmpty (fromIntegral (length xs')) $ keepPairing (mkLeaf <$> xs')
   where
-    go _ [x] = mkLeaf x
-    go n xs = mkBranch (go a ys) (go b zs)
-      where
-        a = powerOfTwo n
-        b = n - a
-        (ys, zs) = splitAt a xs
+    pair = \case
+      []       -> []
+      (x:y:xs) -> mkBranch x (Just y) : pair xs
+      [x]      -> [mkBranch x Nothing]
 
-data Side = LeftSide | RightSide
+    keepPairing = \case
+      []  -> panic "impossible"
+      [t] -> t
+      ts  -> keepPairing (pair ts)
+
+-- Proofs
+
+data Side = LeftSide | RightSide deriving (Eq, Show)
 
 data ProofElem = ProofElem
-  {
-    -- me      :: BS
-    sibling :: BS
+  { sibling :: BS
   , side    :: Side
-  }
+  } deriving (Show)
 
 type Proof = [ProofElem]
 
-mkProof :: Word32 -> MerkleTree -> BS -> Maybe Proof
-mkProof i t e = case t of
-  Empty -> Nothing
-  NonEmpty (TLeaf (Leaf h)) ->
-    if h == e then Just [] else Nothing
-  NonEmpty (TBranch b) ->
-    let n = size b in
-    if n < i
-    then Nothing
-    else
-      let a = powerOfTwo n in
-      if i <= a
-        then do
-          rest <- mkProof i (NonEmpty (left b)) e
-          let p = ProofElem
-                    {
-                      -- me = here b
-                      sibling = treeHash (right b)
-                    , side = LeftSide
-                    }
-          pure $ p : rest
-        else do
-          rest <- mkProof (i - a) (NonEmpty (right b)) e
-          let p = ProofElem
-                    {
-                      -- me = here b
-                      sibling = treeHash (left b)
-                    , side = RightSide
-                    }
-          pure $ p : rest
+-- | Given an (starting at 0) index 'i' of a sequence of length 'n', returns the
+-- sequence of sides for the proof, from the leaf to the root.
+indexSides :: Word32 -> Word32 -> [Side]
+indexSides n i = take b $ boolToSide <$> bitList i
+  where
+    b = ceiling $ logBase 2 (fromIntegral n :: Double)
+    bitList x = map (testBit x) [0..8*(sizeOf x)-1]
+    boolToSide = \case
+      True -> RightSide
+      False -> LeftSide
 
--- checkProof :: Proof -> BS -> BS -> Bool
--- checkProof (p:ps) root elem = case side p of
---   LeftSide -> _
---   RightSide -> combi ["branch", sibling p, ]
+-- | Given an index 'i' and a merkle-tree, returns the proof for the value of the
+-- 'i'-th element.
+mkProof :: Word32 -> MerkleTree -> Maybe Proof
+mkProof _ Empty = Nothing
+mkProof i (NonEmpty n _) | i >= n = Nothing
+mkProof i (NonEmpty n t) =
+  let sides = reverse (indexSides n i) in
+  getProof sides t
+  where
+    getProof (LeftSide:sides) (TBranch b) = do
+      rest <- getProof sides (left b)
+      pure $ ProofElem {sibling = hashed (right b), side = LeftSide } : rest
+    getProof (RightSide:sides) (TBranch b) = do
+      r <- right b
+      rest <- getProof sides r
+      pure $ ProofElem {sibling = hashed (left b), side = RightSide} : rest
+    getProof [] (TLeaf _) = pure []
+    getProof _ _ = Nothing
 
-rootFromProof :: Proof -> BS -> BS
-rootFromProof [] h = combi ["leaf", h]
-rootFromProof (p:ps) s = case side p of
-  LeftSide ->
-    combi ["branch", rootFromProof ps s, sibling p]
-  RightSide ->
-    combi ["branch", sibling p, rootFromProof ps s]
+-- | Checks a proof 'pf' that element at index 'i' in sequence of total length
+-- 'n' is indeed 'el'.
+checkProof
+  :: Word32 -- ^ Sequence size
+  -> Word32 -- ^ Index
+  -> BS     -- ^ Root hash
+  -> BS     -- ^ Element
+  -> Proof  -- ^ Proof
+  -> Bool
+checkProof n i root el pf =
+     i < n
+  && reverse (indexSides n i) == (side <$> pf)
+  && zipProof == root
+  where
+    zipProof = foldr applyPfElem (hashLeaf el) pf
 
--- data Merkle = Merkle
-
--- mkMerkle :: Value -> Merkle
--- mkMerkle = _
-
--- data Loc
---   = NthOfList Word32
---   | NthOfVec Word32
---   | KeyOfDict Value
-
--- type Path = [Loc]
-
--- data Proof = Proof
-
--- mkProof :: Path -> Value -> Value -> Maybe Proof
--- mkProof = notImplemented
-
--- checkProof :: Path -> BS -> BS -> Bool
--- checkProof = notImplemented
+    applyPfElem p x = case side p of
+      LeftSide  -> hashBranch x (sibling p)
+      RightSide -> hashBranch (sibling p) x
