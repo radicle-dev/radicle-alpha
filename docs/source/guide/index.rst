@@ -54,7 +54,7 @@ how to allow for future changes to the chain.
 
 
 .. toctree::
-  :maxdepth: 1
+  :maxdepth: 2
 
   GettingStarted.md
   Basics.lrad

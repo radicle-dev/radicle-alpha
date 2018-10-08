@@ -33,6 +33,9 @@ Strings are enclosed in double quotes:
 
 ### Lists
 
+Lists are one of the fundamental data structures of functional
+programming. 
+
 You can prepend an element to a list with `cons`:
 
 ```radicle
@@ -56,6 +59,9 @@ Or a specific index with `nth`:
 ```radicle
 (nth 2 (list 0 1 2 3)) ;; ==> 2
 ```
+
+Additionally, lists are a fundamental component of `radicle`'s metaprogramming
+facilities, which are discussed later in this document.
 
 ### Vectors
 
@@ -158,3 +164,6 @@ function, use the `def-rec` form:
 ```
 
 Note that `def-rec` may only be used to define functions.
+
+## Quote and eval
+
