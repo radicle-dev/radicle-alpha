@@ -1,7 +1,13 @@
 # Basics
 
-This chapter covers the basics of `radicle`. It should be enough to get you
-started with the language.
+Though `radicle` is designed with a particular use-case in mind--namely, 
+defining and interacting with the Open Source Network chains--it is ultimately
+a general purpose language, quite similar to Scheme or Clojure. To effectivel
+use it, it is helpful to learn the basics of it independent of its application.
+
+This chapter introduces `radicle` as a language. In each section we present
+a core datatype of the language, and show some basic operations that can be
+performed on them.
 
 ## Built-in datatypes
 
@@ -10,6 +16,12 @@ started with the language.
 ### Booleans
 
 The literal syntax for booleans is `#t` for true, and `#f` for false.
+
+Booleans are commonly used for conditionals:
+
+```radicle
+(if #t 0 1) ;; ==> 0
+```
 
 ### Strings
 
@@ -20,6 +32,57 @@ Strings are enclosed in double quotes:
 ```
 
 ### Lists
+
+You can prepend an element to a list with `cons`:
+
+```radicle
+(cons 0 (list 1)) ;; ==> (0 1)
+```
+
+Retrieve the head of a list with `head`:
+
+```radicle
+(head (list 0 1 2 3)) ;; ==> 0
+```
+
+The rest of it with `tail`:
+
+```radicle
+(tail (list 0 1 2 3)) ;; ==> (1 2 3)
+```
+
+Or a specific index with `nth`:
+
+```radicle
+(nth 2 (list 0 1 2 3)) ;; ==> 2
+```
+
+### Vectors
+
+In addition to lists, `radicle` has another built-in sequence datatype:
+vectors. Literal notation for vectors uses square brackets instead of
+parentheses:
+
+```radicle
+["this" "is" "a" "vector"]
+```
+
+Vectors differ from lists in a couple of important ways. First, lists are
+implemented as linked lists, and therefore have accessing the `nth` element
+of a list has a linear on `n` (the function `nth` works for both vectors and
+lists). Additionally, appending to the end of a list is also linear.  Vectors,
+on the other hand, allow for faster (logarithmic) indexed access and appending
+(constant time).  
+
+A second, subtler, difference is that since lists are also the syntax for
+function application, a list that is evaluated explicitly will end up
+applying its head to the rest of the list. Vectors, on the other hand, do not
+do double duty, and so evaluating them explicitly will only evaluate their 
+elements. 
+
+This second point may take a little while to sink in, and we'll come across
+it again, but the simplest takehome is that, unless you dealing with
+code-as-data, you will likely want to use vectors.
 
 ### Dictionaries
 
@@ -43,6 +106,18 @@ Keys may be any value, including other dictionaries:
 }
 ```
 
+You can access the value associated with a key with the function `lookup`:
+
+```radicle
+(lookup :key1 { :key1 1 }) ;; ==> 1
+```
+
+And add new values with `insert`:
+
+```radicle
+(insert :key2 2 { :key1 1 }) ==> { :key1 1 :key2 2 }
+```
+
 ### Primops
 
 Primitive operations (primops) are functions that are not defined in `radicle`
@@ -60,24 +135,26 @@ within parenthesis, with the function at the head, followed by its arguments:
 (+ 3 2) ;; => 5
 ```
 
+### Functions
+
 ### Definitions
 
 Definitions bind values to an identifier.
 
 ```radicle
-(define five 5)
+(def five 5)
 five ;; ==> 5
 ```
 
 Definitions are not by default recursive. If you want to define a recursive
-function, use the `define-rec` form:
+function, use the `def-rec` form:
 
 ```radicle
-(define-rec range
- (lambda (from to)
+(def-rec range
+ (fn [from to]
   (if (<= to from)
     (list)
     (cons from (range (+ 1 from) to)))))
 ```
 
-Note that `define-rec` may only be used to define functions.
+Note that `def-rec` may only be used to define functions.

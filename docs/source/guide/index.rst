@@ -20,6 +20,7 @@ how to allow for future changes to the chain.
 
      (load! "rad/prelude.rad")
      (def issues (ref { :open nil :closed nil }))
+     (def system (ref {}))
 
      (def new-feature-request
        (fn [author description test-case] 
@@ -34,6 +35,18 @@ how to allow for future changes to the chain.
          ...))
 
      (def close-issue ...)
+
+     (def can-modify ...)
+
+     (def modify-system ..)
+
+     (write-ref system
+       { :feature-handler new-feature-request
+         :bug-handler new-bug-report
+         :question-handler new-question
+         :can-modify can-modify
+       })
+
 
      (def handle-input 
        (fn [expr]
