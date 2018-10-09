@@ -4,7 +4,7 @@
 -- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
 
-import           Protolude hiding (Constructor, TypeError, list, (<>))
+import           Protolude hiding (Constructor, TypeError, (<>))
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except

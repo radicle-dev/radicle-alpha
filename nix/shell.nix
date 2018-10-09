@@ -1,6 +1,7 @@
 { pkgs ? import <nixpkgs> {}
 , compiler ? "ghc843"
 , doc ? false
+, extras ? true
 }:
 
 with pkgs;
@@ -13,7 +14,8 @@ in
 stdenv.mkDerivation {
     name = "radicle-dev";
     buildInputs = [ ghc zlib python3 wget stack ]
-      ++ (if doc then [docstuffs postgresql] else []);
+      ++ (if doc then [docstuffs postgresql] else [])
+      ++ (if extras then [ vimPlugins.stylish-haskell haskellPackages.apply-refact hlint ] else []);
     libraryPkgconfigDepends = [ zlib ];
     shellHook = ''
       eval $(grep export ${ghc}/bin/ghc)

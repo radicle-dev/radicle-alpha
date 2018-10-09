@@ -29,7 +29,7 @@ getCode (Pandoc blocks)
   where
     isRad (ident, _, _) = ident == "radicle"
 
-data Opts = Opts
+newtype Opts = Opts
     { srcFile :: FilePath
     }
 
