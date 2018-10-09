@@ -17,14 +17,14 @@ import           Protolude hiding (hash)
 import           Data.List (findIndex)
 import           Foreign.Storable
 
+import qualified Radicle.Internal.Annotation as Ann
+import           Radicle.Internal.Core
 import           Radicle.Internal.Hash
 
 type BS = ByteString
 
 combi :: [BS] -> BS
-combi =
-  hash . mconcat
-  --foldMap (\x -> "(" <> x <> ")")
+combi = hash . mconcat
 
 class HasHash a where
   hashed :: a -> BS
@@ -33,12 +33,10 @@ class HasHash a where
 data MerkleTree a
   = Empty
   | NonEmpty Int (Tree a)
-  deriving (Show)
+  deriving (Generic, Show)
 
--- merkleTreeHash :: MerkleTree a -> Maybe BS
--- merkleTreeHash = \case
---   Empty -> Nothing
---   NonEmpty _ t -> pure $ hashed t
+instance FromRad Ann.WithPos a => FromRad Ann.WithPos (MerkleTree a)
+instance ToRad   Ann.WithPos a => ToRad   Ann.WithPos (MerkleTree a)
 
 hashMerkleTree :: Int -> BS -> BS
 hashMerkleTree n x = combi ["non-empty-tree", show n, x]
@@ -50,18 +48,27 @@ instance HasHash (MerkleTree a) where
 data Tree a
   = TBranch (Branch a)
   | TLeaf (Leaf a)
-  deriving (Show)
+  deriving (Generic, Show)
+
+instance FromRad Ann.WithPos a => FromRad Ann.WithPos (Tree a)
+instance ToRad   Ann.WithPos a => ToRad   Ann.WithPos (Tree a)
 
 data Leaf a = Leaf
   { value     :: a
   , valueHash :: BS
-  } deriving (Show)
+  } deriving (Generic, Show)
+
+instance FromRad Ann.WithPos a => FromRad Ann.WithPos (Leaf a)
+instance ToRad   Ann.WithPos a => ToRad   Ann.WithPos (Leaf a)
 
 data Branch a = Branch
   { here  :: BS
   , left  :: Tree a
   , right :: Maybe (Tree a)
-  } deriving (Show)
+  } deriving (Generic, Show)
+
+instance FromRad Ann.WithPos a => FromRad Ann.WithPos (Branch a)
+instance ToRad   Ann.WithPos a => ToRad   Ann.WithPos (Branch a)
 
 elements :: MerkleTree a -> [a]
 elements Empty = []
@@ -119,7 +126,10 @@ data Claim = At Int Int BS
 
 data Side = LeftSide | RightSide deriving (Eq, Show)
 
-newtype ProofElem = ProofElem BS deriving (Show)
+newtype ProofElem = ProofElem BS deriving (Generic, Show)
+
+instance FromRad Ann.WithPos ProofElem
+instance ToRad   Ann.WithPos ProofElem
 
 type Proof = [ProofElem]
 
@@ -179,27 +189,3 @@ zipProof (At n i el) pf =
     applyPfElem (ProofElem sib, s) cur = case s of
       LeftSide  -> hashBranch cur sib
       RightSide -> hashBranch sib cur
-
--- Testing
-
--- newtype By = By ByteString
---   deriving (Show)
-
--- instance HasHash By where
---   hashed (By x) = x
-
---foo :: [By] -> Bool
--- foo xs =
---   let mtree = mkMerkleTree xs
---       rootHash = hashed mtree
---       n = length xs
---       is = [0..(n-1)]
---       xsi = zip xs is
---       claims = [ At n i' (hashed x) | (x, i') <- xsi ]
---       proofs = sequence [ mkProof i' mtree | i' <- is ]
---   in case proofs of
---     Nothing -> panic "bad"
---     Just ps' -> (rootHash, [ zipProof c p | (c, p) <- zip claims (snd <$> ps') ])
---       -- let ps = snd <$> ps'
---       --     result = and [ checkProof c rootHash p | (c, p) <- zip claims ps ]
---       -- in result == True

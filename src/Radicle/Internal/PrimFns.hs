@@ -13,11 +13,15 @@ import qualified Data.Aeson as Aeson
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
+import           Data.Sequence (Seq(..))
 import           GHC.Exts (IsList(..))
 
+import qualified Radicle.Internal.Annotation as Ann
+import qualified Radicle.Internal.AuthenticatedData as AuthData
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import qualified Radicle.Internal.Hash as Hash
+import qualified Radicle.Internal.Merkle as Merkle
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 
@@ -218,6 +222,11 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
       , oneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
           maybeJson v ?? toLangError (OtherError "Could not serialise value to JSON")
       )
+    , ( "from-just"
+      , oneArg "from-just" $ \case
+          Vec (Keyword (Ident "Just") :<| x :<| Empty) -> pure x
+          _ -> throwErrorHere $ TypeError "from-just: called on a non-just"
+      )
     , ( "hash"
       , oneArg "hash" (pure . String . toS . Hash.hashRad)
       )
@@ -229,14 +238,54 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ( "verify-signature"
       , \case
           [keyv, sigv, String msg] -> do
-            key <- hoistEither . first (toLangError . OtherError) $ fromRad keyv
-            sig <- hoistEither . first (toLangError . OtherError) $ fromRad sigv
+            key <- fromRadOtherErr keyv
+            sig <- fromRadOtherErr sigv
             pure . Boolean $ verifySignature key sig msg
           [_, _, _] -> throwErrorHere $ OtherError "verify-signature: message must be a string"
           xs -> throwErrorHere $ WrongNumberOfArgs "verify-signature" 3 (length xs)
       )
+    , ( "to-hash-tree", oneArgFromHask "to-hash-tree" AuthData.toHashData )
+    , ( "hash-tree-root"
+      , oneArgFromHask "hash-tree-root" (Merkle.hashed :: AuthData.HashData -> ByteString)
+      )
+    , ( "mk-auth-data-proof", twoArgFromHask "mk-auth-data-proof" AuthData.mkProof )
+    , ( "check-auth-data-proof"
+      , \case
+          [claim_, proof_, el_, root_] -> do
+            claim <- fromRadOtherErr claim_
+            proof <- fromRadOtherErr proof_
+            el <- fromRadOtherErr el_
+            root <- fromRadOtherErr root_
+            pure $ toRad (AuthData.checkProof claim proof el root)
+          xs -> throwErrorHere $ WrongNumberOfArgs "check-auth-data-proof" 4 (length xs)
+      )
     ]
   where
+
+    fromRadOtherErr :: (FromRad Ann.WithPos a) => Value -> Lang m a
+    fromRadOtherErr = hoistEither . first (toLangError . OtherError) . fromRad
+
+    oneArgFromHask
+      :: ( FromRad Ann.WithPos a
+         , ToRad Ann.WithPos b
+         )
+      => Text -> (a -> b) -> [Value] -> Lang m Value
+    oneArgFromHask fname f = oneArg fname $ \v ->
+      case fromRad v of
+        Left e  -> throwErrorHere . OtherError $ fname <> ": " <> e
+        Right x -> pure $ toRad (f x)
+
+    twoArgFromHask
+      :: ( FromRad Ann.WithPos a
+         , FromRad Ann.WithPos b
+         , ToRad Ann.WithPos c
+         )
+      => Text -> (a -> b -> c) -> [Value] -> Lang m Value
+    twoArgFromHask fname f = twoArg fname $ \x_ y_ ->
+      case (fromRad x_, fromRad y_) of
+        (Right x, Right y) -> pure $ toRad (f x y)
+        (Left e, _) -> throwErrorHere . OtherError $ fname <> ": " <> e
+        (_, Left e) -> throwErrorHere . OtherError $ fname <> ": " <> e
 
     tt = Boolean True
     ff = Boolean False
@@ -261,6 +310,11 @@ oneArg :: Monad m => Text -> (Value -> Lang m Value) -> [Value] -> Lang m Value
 oneArg fname f = \case
   [x] -> f x
   xs -> throwErrorHere $ WrongNumberOfArgs fname 1 (length xs)
+
+twoArg :: Monad m => Text -> (Value -> Value -> Lang m Value) -> [Value] -> Lang m Value
+twoArg fname f = \case
+  [x, y] -> f x y
+  xs -> throwErrorHere $ WrongNumberOfArgs fname 2 (length xs)
 
 readValue
     :: (MonadError (LangError Value) m)

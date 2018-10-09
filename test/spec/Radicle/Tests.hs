@@ -600,6 +600,36 @@ test_repl_primops =
                    (list tt ff)
                    |]
         in run [] prog @?= Right (List [Boolean True, Boolean False])
+    , testCase "generating merkle-proofs for radicle data-structures and verifying them" $
+        let prog = [s|
+                   (def mydata [0 {:foo "hello" :bar "world"} 2])
+
+                   (def ht (from-just (to-hash-tree mydata)))
+
+                   (def root (hash-tree-root ht))
+
+                   (def claim-0-0 [:Claim [[:NthOfVec 3 0]] (hash 0)])
+                   (def claim-2-2 [:Claim [[:NthOfVec 3 2]] (hash 2)])
+                   (def claim-foo-hello [:Claim [[:NthOfVec 3 1] [:HasKeyVal 2 (hash :foo)]] (hash "hello")])
+                   (def claim-bar-world [:Claim [[:NthOfVec 3 1] [:HasKeyVal 2 (hash :bar)]] (hash "world")])
+
+                   (def pf-0-0 (from-just (mk-auth-data-proof ht claim-0-0)))
+                   (def pf-2-2 (from-just (mk-auth-data-proof ht claim-2-2)))
+                   (def pf-foo-hello (from-just (mk-auth-data-proof ht claim-foo-hello)))
+                   (def pf-bar-world (from-just (mk-auth-data-proof ht claim-bar-world)))
+
+                   (list
+                     (check-auth-data-proof claim-0-0 pf-0-0 (hash 0) root)
+                     (check-auth-data-proof claim-2-2 pf-2-2 (hash 2) root)
+                     (check-auth-data-proof claim-0-0 pf-2-2 (hash 0) root)
+                     (check-auth-data-proof claim-2-2 pf-0-0 (hash 2) root)
+                     (check-auth-data-proof claim-foo-hello pf-foo-hello (hash "hello") root)
+                     (check-auth-data-proof claim-bar-world pf-bar-world (hash "world") root)
+                     (check-auth-data-proof claim-bar-world pf-foo-hello (hash "world") root)
+                     (check-auth-data-proof claim-foo-hello pf-bar-world (hash "hello") root)
+                   )
+                   |]
+        in run [] prog @?= Right (List (Boolean <$> [True, True, False, False, True, True, False, False]))
     ]
   where
     run stdin' prog = fst $ runTestWith replBindings stdin' prog
