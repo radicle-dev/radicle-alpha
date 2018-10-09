@@ -22,9 +22,6 @@ blake2b_256 = Crypto.hash
 hash :: BS -> BS
 hash = show . blake2b_256
 
-hashText :: Text -> Text
-hashText = show . blake2b_256 . toS
-
-hashRad :: (Copointed t, Annotation t) => Annotated t ValueF -> Text
-hashRad = hashText . renderCompactPretty
+hashRad :: (Copointed t, Annotation t) => Annotated t ValueF -> BS
+hashRad = hash . toS . renderCompactPretty
 

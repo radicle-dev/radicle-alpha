@@ -1,5 +1,6 @@
 module Radicle.Internal.AuthenticatedData
-  ( mkProof
+  ( mkPr
+    oof
   , checkProof
   , toHashData
   ) where
@@ -9,10 +10,8 @@ import           Protolude hiding (hash)
 import qualified Data.Map.Strict as Map
 
 import           Radicle.Internal.Core
-import qualified Radicle.Internal.Merkle as Merkle
---import           Radicle.Internal.Parse
 import           Radicle.Internal.Hash
-import           Radicle.Internal.Pretty
+import qualified Radicle.Internal.Merkle as Merkle
 
 type BS = ByteString
 
@@ -78,11 +77,11 @@ zipProof (Claim (loc:locs) h) (x:pf) el = case (loc, x) of
   (NthOfVec n i, PfNthOfVec p) -> do
     h' <- zipProof (Claim locs h) pf el
     h'' <- Merkle.zipProof (Merkle.At n i h') p
-    pure . hashVec . Merkle.hashMerkleTree n $ h''
+    pure . hashVec $ h''
   (HasKeyVal n k, PfHasKey i p) -> do
     h' <- zipProof (Claim locs h) pf el
     h'' <- Merkle.zipProof (Merkle.At n i (hashKeyValue k h')) p
-    pure . hashDict . Merkle.hashMerkleTree n $ h''
+    pure . hashDict $ h''
   _ -> Nothing
 zipProof _ _ _ = Nothing
 
@@ -99,14 +98,10 @@ toHashData = \case
     Dict m -> do
       let kvs = Map.toList m
       ys <- traverse toHashData (snd <$> kvs)
-      let ks = hashValue . fst <$> kvs
+      let ks = hashRad . fst <$> kvs
       let t = Merkle.mkMerkleTree (zip ks ys)
       pure $ HashDict t
-    v -> Just . HashValue $ hashValue v
-
-hashValue :: Value -> BS
-hashValue = hash . toS . renderCompactPretty
-  -- toS . renderCompactPretty
+    v -> Just . HashValue $ hashRad v
 
 -- foo = do
 --     xs <- val "[:a 1 {:foo 42 :bar 2}]"
@@ -115,12 +110,12 @@ hashValue = hash . toS . renderCompactPretty
 --     fourtyTwo <- val "42"
 --     hd <- toHashData xs
 --     let rootHash = Merkle.hashed hd
---     let claim = Claim [NthOfVec 3 2, HasKeyVal 2 (hashValue kFoo)] (hashValue fourtyTwo)
+--     let claim = Claim [NthOfVec 3 2, HasKeyVal 2 (hashRad kFoo)] (hashRad fourtyTwo)
 --     pf <- mkProof hd claim
---     z <- zipProof claim pf (hashValue fourtyTwo)
+--     z <- zipProof claim pf (hashRad fourtyTwo)
 --     --pure (z, rootHash)
 --     --pure (z == rootHash)
---     pure (checkProof claim pf (hashValue fourtyTwo) rootHash)
+--     pure (checkProof claim pf (hashRad fourtyTwo) rootHash)
 --   where
 --     val :: Text -> Maybe Value
 --     val t = either (const Nothing) Just (parse "" t)

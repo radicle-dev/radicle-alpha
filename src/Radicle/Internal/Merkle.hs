@@ -131,7 +131,7 @@ proofSize n = ceiling $ logBase 2 (fromIntegral n :: Double)
 indexSides :: Int -> Int -> [Side]
 indexSides n i = reverse $ take (proofSize n) $ boolToSide <$> bitList i
   where
-    bitList x = map (testBit x) [0..8*(sizeOf x)-1]
+    bitList x = map (testBit x) [0 .. 8 * sizeOf x - 1]
     boolToSide = \case
       True -> RightSide
       False -> LeftSide
@@ -166,17 +166,40 @@ checkProof
   -> BS     -- ^ Root hash
   -> Proof  -- ^ Proof
   -> Bool
-checkProof claim@(At n i _) root pf =
-     i < n
-  && zipProof claim pf == Just root
+checkProof claim root pf = zipProof claim pf == Just root
 
 zipProof :: Claim -> Proof -> Maybe BS
 zipProof (At n i el) pf =
     if i < n && length sides == length pf
-    then Just $ foldr applyPfElem (hashLeaf el) (zip pf sides)
+    then Just . hashMerkleTree n $
+           foldr applyPfElem (hashLeaf el) (zip pf sides)
     else Nothing
   where
     sides = indexSides n i
     applyPfElem (ProofElem sib, s) cur = case s of
       LeftSide  -> hashBranch cur sib
       RightSide -> hashBranch sib cur
+
+-- Testing
+
+-- newtype By = By ByteString
+--   deriving (Show)
+
+-- instance HasHash By where
+--   hashed (By x) = x
+
+--foo :: [By] -> Bool
+-- foo xs =
+--   let mtree = mkMerkleTree xs
+--       rootHash = hashed mtree
+--       n = length xs
+--       is = [0..(n-1)]
+--       xsi = zip xs is
+--       claims = [ At n i' (hashed x) | (x, i') <- xsi ]
+--       proofs = sequence [ mkProof i' mtree | i' <- is ]
+--   in case proofs of
+--     Nothing -> panic "bad"
+--     Just ps' -> (rootHash, [ zipProof c p | (c, p) <- zip claims (snd <$> ps') ])
+--       -- let ps = snd <$> ps'
+--       --     result = and [ checkProof c rootHash p | (c, p) <- zip claims ps ]
+--       -- in result == True

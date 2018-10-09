@@ -219,7 +219,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           maybeJson v ?? toLangError (OtherError "Could not serialise value to JSON")
       )
     , ( "hash"
-      , oneArg "hash" (pure . String . Hash.hashRad)
+      , oneArg "hash" (pure . String . toS . Hash.hashRad)
       )
     , ( "default-ecc-curve",
         \case

@@ -24,6 +24,7 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Foo)
+import qualified Radicle.Internal.Merkle as Merkle
 import           Radicle.Internal.TestCapabilities
 
 test_eval :: [TestTree]
@@ -725,6 +726,54 @@ test_source_files = testGroup "Radicle source file tests" <$> do
                             in testCase (toS name) $ result @?= "' succeeded\""
         pure $ testGroup file
             $ [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]
+
+newtype BS = BS ByteString
+  deriving (Show, Arbitrary)
+
+instance Merkle.HasHash BS where
+  hashed (BS x) = x
+
+test_merkle :: TestTree
+test_merkle =
+  testGroup "Merkle hash trees"
+    [ testMkProof (Proxy :: Proxy BS)
+    , testCase "Can't swap proofs" $
+        let mtree = Merkle.mkMerkleTree [BS "hello", BS "cruel", BS "world"]
+            rootHash = Merkle.hashed mtree
+            claim0 = Merkle.At 3 0 "hello"
+            claim1 = Merkle.At 3 1 "cruel"
+            claim2 = Merkle.At 3 2 "world"
+            ch (c, p) = Merkle.checkProof c rootHash p
+        in case fmap snd <$> sequence [ Merkle.mkProof i' mtree | i' <- [0..2]] of
+          Just [proof0, proof1, proof2] -> do
+            assertBool "correct positions are correct" . and $
+              ch <$> [ (claim0, proof0), (claim1, proof1), (claim2, proof2) ]
+            assertBool "incorrect positions are incorrect" .not . or $
+              ch <$> [ (claim0, proof1), (claim0, proof2)
+                     , (claim1, proof0), (claim1, proof2)
+                     , (claim2, proof0), (claim2, proof1)
+                     ]
+          _ -> assertBool "Couldn't make proofs" False
+    ]
+  where
+    testMkProof
+        :: forall a. (Show a, Arbitrary a, Merkle.HasHash a)
+        => Proxy a -> TestTree
+    testMkProof _ =
+        testProperty "mkProof makes valid proofs" $ \(xs :: [a]) -> do
+            let mtree = Merkle.mkMerkleTree xs
+                rootHash = Merkle.hashed mtree
+                n = length xs
+                is = [0..(n-1)]
+                xsi = zip xs is
+                claims = [ Merkle.At n i' (Merkle.hashed x) | (x, i') <- xsi ]
+                proofs = sequence [ Merkle.mkProof i' mtree | i' <- is ]
+            case proofs of
+              Nothing -> counterexample "Couldn't generate proofs." False
+              Just ps' ->
+                let ps = snd <$> ps'
+                    result = and [ Merkle.checkProof c rootHash p | (c, p) <- zip claims ps ]
+                in counterexample "Some of the proofs were not valid." $ result
 
 -- * Utils
 
