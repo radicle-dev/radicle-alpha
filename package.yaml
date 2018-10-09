@@ -154,6 +154,7 @@ executables:
     - radicle
     - optparse-applicative
     - pandoc
+    ghc-options: -main-is Doc
 
 default-extensions:
 - AutoDeriveTypeable

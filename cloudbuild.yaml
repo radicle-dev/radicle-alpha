@@ -36,10 +36,13 @@ steps:
     args: ['stack', 'build', '--fast', '--test', '--no-terminal', '--pedantic']
 
   - id: "Make docs"
-    name: 'haskell:8.4.3'
+    name: 'python:3-alpine3.8'
     args: 
     - '-c'
-    - cd docs && make html
+    - |
+      cd docs 
+      pip install -r requirements.txt
+      make html
 
   - id: "Save cache"
     name: gcr.io/cloud-builders/gsutil
@@ -52,5 +55,5 @@ steps:
 
 artifacts:
   objects:
-    location: 'gs://radicle.xyz'
+    location: 'gs://static.radicle.xyz'
     paths: [ 'docs/build/html/*' ]

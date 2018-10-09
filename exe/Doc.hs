@@ -3,9 +3,10 @@
 module Doc where
 
 import           Options.Applicative
-import           Pandoc
 import           Protolude
 import           Radicle
+import           System.Console.Haskeline (defaultSettings, runInputT)
+import           Text.Pandoc
 
 main :: IO ()
 main = do
@@ -20,14 +21,18 @@ main = do
 
 run :: FilePath -> IO ()
 run f = do
-    pand <- runCommonMark def f
-    runLang replBindings $ interpretMany f $ getCode pand
+    txt <- readFile f
+    pand <- runIOorExplode $ readMarkdown def txt
+    res <- runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ getCode pand
+    case res of
+        (Left err, _) -> die . toS $ "Error: " ++ show err
+        _             -> return ()
 
 getCode :: Pandoc -> Text
-getCode (Pandoc blocks)
-    = mconcat [ content | CodeBlock attr content <- block, isRad attr ]
+getCode (Pandoc _ blocks)
+    = toS $ mconcat [ content | CodeBlock attr content <- blocks, isRad attr ]
   where
-    isRad (ident, _, _) = ident == "radicle"
+    isRad (id, _, _) = id == "radicle"
 
 newtype Opts = Opts
     { srcFile :: FilePath
