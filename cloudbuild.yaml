@@ -35,6 +35,12 @@ steps:
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['stack', 'build', '--fast', '--test', '--no-terminal', '--pedantic']
 
+  - id: "Make docs"
+    name: 'haskell:8.4.3'
+    args: 
+    - '-c'
+    - cd docs && make html
+
   - id: "Save cache"
     name: gcr.io/cloud-builders/gsutil
     entrypoint: 'bash'
@@ -44,3 +50,7 @@ steps:
       source scripts/ci.sh
       save-cache
 
+artifacts:
+  objects:
+    location: 'gs://radicle.xyz'
+    paths: [ 'docs/build/html/*' ]
