@@ -2,10 +2,10 @@
 -- runs the code inside code blocks (within three backticks).
 module Doc where
 
-import Protolude
-import Radicle
-import Pandoc
-import Options.Applicative
+import           Options.Applicative
+import           Pandoc
+import           Protolude
+import           Radicle
 
 main :: IO ()
 main = do
