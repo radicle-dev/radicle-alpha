@@ -1,6 +1,6 @@
 { pkgs ? import <nixpkgs> {}
 , compiler ? "ghc843"
-, doc ? false
+, doc ? true
 , extras ? true
 }:
 
@@ -20,5 +20,7 @@ stdenv.mkDerivation {
     shellHook = ''
       eval $(grep export ${ghc}/bin/ghc)
       export LD_LIBRARY_PATH=$PWD:$LD_LIBRARY_PATH;
+      alias check="pushd $PWD && ./scripts/check-fmt.sh && hlint . && popd"
+      alias mkdocs="pushd $PWD/docs && make html && popd" 
     '';
 }

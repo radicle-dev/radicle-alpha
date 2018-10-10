@@ -9,34 +9,35 @@ steps:
       source scripts/ci.sh
       load-cache
 
-  - id: "Build deps"
-    name: 'haskell:8.4.3'
-    env: ['STACK_ROOT=/workspace/.stack']
-    entrypoint: 'bash'
-    args:
-    - '-c'
-    - |
-      stack config set system-ghc --global true
-      stack config set install-ghc --global false
-      stack install stylish-haskell hlint
-
-  - id: "Format"
-    name: 'haskell:8.4.3'
-    env: ['STACK_ROOT=/workspace/.stack']
-    args: ['./scripts/check-fmt.sh']
-
-  - id: "Lint"
-    name: 'haskell:8.4.3'
-    env: ['STACK_ROOT=/workspace/.stack']
-    args: ['stack', 'exec', '--', 'hlint', '.']
-
-  - id: "Test & Build"
-    name: 'haskell:8.4.3'
-    env: ['STACK_ROOT=/workspace/.stack']
-    args: ['stack', 'build', '--fast', '--test', '--no-terminal', '--pedantic']
+      #  - id: "Build deps"
+      #    name: 'haskell:8.4.3'
+      #    env: ['STACK_ROOT=/workspace/.stack']
+      #    entrypoint: 'bash'
+      #    args:
+      #    - '-c'
+      #    - |
+      #      stack config set system-ghc --global true
+      #      stack config set install-ghc --global false
+      #      stack install stylish-haskell hlint
+      #
+      #  - id: "Format"
+      #    name: 'haskell:8.4.3'
+      #    env: ['STACK_ROOT=/workspace/.stack']
+      #    args: ['./scripts/check-fmt.sh']
+      #
+      #  - id: "Lint"
+      #    name: 'haskell:8.4.3'
+      #    env: ['STACK_ROOT=/workspace/.stack']
+      #    args: ['stack', 'exec', '--', 'hlint', '.']
+      #
+      #  - id: "Test & Build"
+      #    name: 'haskell:8.4.3'
+      #    env: ['STACK_ROOT=/workspace/.stack']
+      #    args: ['stack', 'build', '--fast', '--test', '--no-terminal', '--pedantic']
 
   - id: "Make docs"
     name: 'python:3-alpine3.8'
+    entrypoint: 'bash'
     args: 
     - '-c'
     - |
