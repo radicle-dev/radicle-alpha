@@ -1,16 +1,4 @@
-module Radicle.Internal.Merkle
-  ( HasHash(..)
-  , mkMerkleTree
-  , mkProof
-  , checkProof
-  , Claim(..)
-  , Proof
-  , MerkleTree
-  , combi
-  , getIndex
-  , hashMerkleTree
-  , zipProof
-  ) where
+module Radicle.Internal.Merkle where
 
 import           Protolude hiding (hash)
 

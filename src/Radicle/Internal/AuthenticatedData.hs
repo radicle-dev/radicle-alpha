@@ -1,9 +1,4 @@
-module Radicle.Internal.AuthenticatedData
-  ( mkProof
-  , checkProof
-  , toHashData
-  , HashedData
-  ) where
+module Radicle.Internal.AuthenticatedData where
 
 import           Protolude hiding (hash)
 

@@ -1,7 +1,4 @@
-module Radicle.Internal.Hash
-  ( hashRad
-  , hash
-  ) where
+module Radicle.Internal.Hash where
 
 import           Protolude hiding (hash)
 
