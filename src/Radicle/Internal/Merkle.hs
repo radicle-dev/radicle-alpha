@@ -21,13 +21,11 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Hash
 
-type BS = ByteString
-
-combi :: [BS] -> BS
+combi :: [ByteString] -> ByteString
 combi = hash . mconcat
 
 class HasHash a where
-  hashed :: a -> BS
+  hashed :: a -> ByteString
 
 -- | A Merkle hash tree containing values 'a' at the leaves.
 data MerkleTree a
@@ -38,7 +36,7 @@ data MerkleTree a
 instance FromRad Ann.WithPos a => FromRad Ann.WithPos (MerkleTree a)
 instance ToRad   Ann.WithPos a => ToRad   Ann.WithPos (MerkleTree a)
 
-hashMerkleTree :: Int -> BS -> BS
+hashMerkleTree :: Int -> ByteString -> ByteString
 hashMerkleTree n x = combi ["non-empty-tree", show n, x]
 
 instance HasHash (MerkleTree a) where
@@ -55,14 +53,14 @@ instance ToRad   Ann.WithPos a => ToRad   Ann.WithPos (Tree a)
 
 data Leaf a = Leaf
   { value     :: a
-  , valueHash :: BS
+  , valueHash :: ByteString
   } deriving (Generic, Show)
 
 instance FromRad Ann.WithPos a => FromRad Ann.WithPos (Leaf a)
 instance ToRad   Ann.WithPos a => ToRad   Ann.WithPos (Leaf a)
 
 data Branch a = Branch
-  { here  :: BS
+  { here  :: ByteString
   , left  :: Tree a
   , right :: Maybe (Tree a)
   } deriving (Generic, Show)
@@ -74,8 +72,8 @@ elements :: MerkleTree a -> [a]
 elements Empty = []
 elements (NonEmpty _ t) = go t
   where
-    go (TBranch b) = go (left b) ++ go' (right b)
-    go (TLeaf l)   = [value l]
+    go  (TBranch b) = go (left b) ++ go' (right b)
+    go  (TLeaf l)   = [value l]
     go' (Just t') = go t'
     go' Nothing   = []
 
@@ -87,7 +85,7 @@ instance HasHash (Maybe (Tree a)) where
   hashed Nothing  = "right-empty"
   hashed (Just t) = hashed t
 
-hashLeaf :: BS -> BS
+hashLeaf :: ByteString -> ByteString
 hashLeaf x = combi ["leaf", x]
 
 mkLeaf :: HasHash a => a -> Tree a
@@ -96,7 +94,7 @@ mkLeaf x = TLeaf Leaf
   , valueHash = hashLeaf (hashed x)
   }
 
-hashBranch :: BS -> BS -> BS
+hashBranch :: ByteString -> ByteString -> ByteString
 hashBranch x y = combi ["branch", x, y]
 
 mkBranch :: Tree a -> Maybe (Tree a) -> Tree a
@@ -122,11 +120,11 @@ mkMerkleTree xs' = NonEmpty (fromIntegral (length xs')) $ keepPairing (mkLeaf <$
 
 -- Proofs
 
-data Claim = At Int Int BS
+data Claim = At Int Int ByteString
 
 data Side = LeftSide | RightSide deriving (Eq, Show)
 
-newtype ProofElem = ProofElem BS deriving (Generic, Show)
+newtype ProofElem = ProofElem ByteString deriving (Generic, Show)
 
 instance FromRad Ann.WithPos ProofElem
 instance ToRad   Ann.WithPos ProofElem
@@ -173,12 +171,12 @@ getProof _ _ = Nothing
 
 checkProof
   :: Claim  -- ^ Claim
-  -> BS     -- ^ Root hash
+  -> ByteString     -- ^ Root hash
   -> Proof  -- ^ Proof
   -> Bool
 checkProof claim root pf = zipProof claim pf == Just root
 
-zipProof :: Claim -> Proof -> Maybe BS
+zipProof :: Claim -> Proof -> Maybe ByteString
 zipProof (At n i el) pf =
     if i < n && length sides == length pf
     then Just . hashMerkleTree n $

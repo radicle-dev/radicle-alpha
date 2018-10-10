@@ -14,15 +14,13 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Hash
 import qualified Radicle.Internal.Merkle as Merkle
 
-type BS = ByteString
-
-data Loc = NthOfVec Int Int | HasKeyVal Int BS
+data Loc = NthOfVec Int Int | HasKeyVal Int ByteString
   deriving (Generic, Show)
 
 instance FromRad Ann.WithPos Loc
 instance ToRad   Ann.WithPos Loc
 
-data Claim = Claim [Loc] BS
+data Claim = Claim [Loc] ByteString
   deriving (Generic, Show)
 
 instance FromRad Ann.WithPos Claim
@@ -38,14 +36,23 @@ instance ToRad   Ann.WithPos ProofElem
 
 type Proof = [ProofElem]
 
+hashKeyValue :: ByteString -> ByteString -> ByteString
+hashKeyValue k v = Merkle.combi ["key-value", k, v]
+
+data HashedKeyVal = HashedKeyVal ByteString HashData
+  deriving (Generic, Show)
+
+instance FromRad Ann.WithPos HashedKeyVal
+instance ToRad   Ann.WithPos HashedKeyVal
+
 data HashData
   =
   -- | A simple value
-    HashValue BS
+    HashValue ByteString
   -- | A vector of nested values
   | HashVec (Merkle.MerkleTree HashData)
   -- | A dict of nested values, represented as key-value pairs, with hashed key.
-  | HashDict (Merkle.MerkleTree (BS, HashData))
+  | HashDict (Merkle.MerkleTree HashedKeyVal)
   deriving (Generic, Show)
 
 instance FromRad Ann.WithPos HashData
@@ -57,16 +64,13 @@ instance Merkle.HasHash HashData where
     HashVec t -> hashVec (Merkle.hashed t)
     HashDict t -> hashDict (Merkle.hashed t)
 
-hashElem, hashVec, hashDict :: BS -> BS
+hashElem, hashVec, hashDict :: ByteString -> ByteString
 hashElem x = Merkle.combi ["elem", x]
 hashVec x = Merkle.combi ["vector", x]
 hashDict x = Merkle.combi ["dict", x]
 
-hashKeyValue :: BS -> BS -> BS
-hashKeyValue k v = Merkle.combi ["key-value", k, v]
-
-instance Merkle.HasHash (BS, HashData) where
-  hashed (k, v) = hashKeyValue k (Merkle.hashed v)
+instance Merkle.HasHash HashedKeyVal where
+  hashed (HashedKeyVal k v) = hashKeyValue k (Merkle.hashed v)
 
 mkProof :: HashData -> Claim -> Maybe Proof
 mkProof (HashValue h) (Claim [] h') =
@@ -77,14 +81,14 @@ mkProof (HashVec t) (Claim (NthOfVec _ i : locs) h) = do
   pure (PfNthOfVec pf : rest)
 mkProof (HashDict t) (Claim (HasKeyVal _ k : locs) h) = do
     i <- Merkle.getIndex isKey t
-    ((_, x), pf) <- Merkle.mkProof i t
+    (HashedKeyVal _ x, pf) <- Merkle.mkProof i t
     rest <- mkProof x (Claim locs h)
     pure (PfHasKey i pf : rest)
   where
-    isKey (k', _) = k == k'
+    isKey (HashedKeyVal k' _) = k == k'
 mkProof _ _ = Nothing
 
-zipProof :: Claim -> Proof -> BS -> Maybe BS
+zipProof :: Claim -> Proof -> ByteString -> Maybe ByteString
 zipProof (Claim [] h) [] el
   | hashElem h == hashElem el = pure $ hashElem el
   | otherwise = Nothing
@@ -100,7 +104,7 @@ zipProof (Claim (loc:locs) h) (x:pf) el = case (loc, x) of
   _ -> Nothing
 zipProof _ _ _ = Nothing
 
-checkProof :: Claim -> Proof -> BS -> BS -> Bool
+checkProof :: Claim -> Proof -> ByteString -> ByteString -> Bool
 checkProof claim pf el rootHash =
   zipProof claim pf el == Just rootHash
 
@@ -114,6 +118,6 @@ toHashData = \case
       let kvs = Map.toList m
       ys <- traverse toHashData (snd <$> kvs)
       let ks = hashRad . fst <$> kvs
-      let t = Merkle.mkMerkleTree (zip ks ys)
+      let t = Merkle.mkMerkleTree (zipWith HashedKeyVal ks ys)
       pure $ HashDict t
     v -> Just . HashValue $ hashRad v
