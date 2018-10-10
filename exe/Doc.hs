@@ -26,7 +26,7 @@ run f = do
     res <- runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ getCode pand
     case res of
         (Left err, _) -> die . toS $ "Error: " ++ show err
-        _             -> return ()
+        _             -> pure ()
 
 getCode :: Pandoc -> Text
 getCode (Pandoc _ blocks)
