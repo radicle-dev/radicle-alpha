@@ -56,5 +56,5 @@ steps:
 
 artifacts:
   objects:
-    location: 'gs://static.radicle.xyz'
-    paths: [ 'docs/build/html/*' ]
+    location: 'gs://docs.radicle.xyz'
+    paths: [ 'docs/build/html/*', 'docs/build/html/**/*' ]
