@@ -22,5 +22,7 @@ stdenv.mkDerivation {
       export LD_LIBRARY_PATH=$PWD:$LD_LIBRARY_PATH;
       alias check="pushd $PWD && ./scripts/check-fmt.sh && hlint . && popd"
       alias mkdocs="pushd $PWD/docs && make html && popd" 
+      alias sb="stack build --system-ghc --nix-packages zlib"
+      alias sb="stack test --fast --system-ghc --nix-packages zlib"
     '';
 }
