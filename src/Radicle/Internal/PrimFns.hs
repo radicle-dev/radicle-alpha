@@ -246,7 +246,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
       )
     , ( "to-hash-tree", oneArgFromHask "to-hash-tree" AuthData.toHashData )
     , ( "hash-tree-root"
-      , oneArgFromHask "hash-tree-root" (Merkle.hashed :: AuthData.HashData -> ByteString)
+      , oneArgFromHask "hash-tree-root" (Merkle.hashed :: AuthData.HashedData -> ByteString)
       )
     , ( "mk-auth-data-proof", twoArgFromHask "mk-auth-data-proof" AuthData.mkProof )
     , ( "check-auth-data-proof"

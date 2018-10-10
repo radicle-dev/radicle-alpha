@@ -2,7 +2,7 @@ module Radicle.Internal.AuthenticatedData
   ( mkProof
   , checkProof
   , toHashData
-  , HashData
+  , HashedData
   ) where
 
 import           Protolude hiding (hash)
@@ -14,18 +14,28 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Hash
 import qualified Radicle.Internal.Merkle as Merkle
 
-data Loc = NthOfVec Int Int | HasKeyVal Int ByteString
+-- | The location of a datum in a larger datum. Used for constructing proof
+-- paths.
+data Loc
+  -- | 'NthOfVec n i' is the 'i'th element (0-indexed) of a vector of size 'n'.
+  = NthOfVec Int Int
+  -- | 'HasKeyVal n h' is the element of a dict at key with hash 'h', the dict
+  -- having size 'n'.
+  | HasKeyVal Int ByteString
   deriving (Generic, Show)
 
 instance FromRad Ann.WithPos Loc
 instance ToRad   Ann.WithPos Loc
 
+-- | A verifiable statement about a radicle value.
+-- 'Claim path h' says that the the datum at 'path' has hash 'h'.
 data Claim = Claim [Loc] ByteString
   deriving (Generic, Show)
 
 instance FromRad Ann.WithPos Claim
 instance ToRad   Ann.WithPos Claim
 
+-- | A step in the proof of a 'Claim'.
 data ProofElem
   = PfNthOfVec Merkle.Proof
   | PfHasKey Int Merkle.Proof
@@ -34,31 +44,37 @@ data ProofElem
 instance FromRad Ann.WithPos ProofElem
 instance ToRad   Ann.WithPos ProofElem
 
+-- | A proof that a 'Claim' is true.
 type Proof = [ProofElem]
 
 hashKeyValue :: ByteString -> ByteString -> ByteString
 hashKeyValue k v = Merkle.combi ["key-value", k, v]
 
-data HashedKeyVal = HashedKeyVal ByteString HashData
+-- | A data-structure associated to a radicle value used for constructing proofs
+-- of claims about that value. That is, if 'v' is a radicle value and 'hd' is
+-- the corresponding 'HashedData', then 'hd' can be used to produce 'Proof's 'p'
+-- regarding 'Claim's 'c' about 'v'.
+data HashedData
+  =
+  -- | A simple value
+    HashValue ByteString
+  -- | A vector of nested values
+  | HashVec (Merkle.MerkleTree HashedData)
+  -- | A dict of nested values, represented as key-value pairs, with hashed key.
+  | HashDict (Merkle.MerkleTree HashedKeyVal)
+  deriving (Generic, Show)
+
+instance FromRad Ann.WithPos HashedData
+instance ToRad   Ann.WithPos HashedData
+
+-- | A hashed key-value pair of a dict.
+data HashedKeyVal = HashedKeyVal ByteString HashedData
   deriving (Generic, Show)
 
 instance FromRad Ann.WithPos HashedKeyVal
 instance ToRad   Ann.WithPos HashedKeyVal
 
-data HashData
-  =
-  -- | A simple value
-    HashValue ByteString
-  -- | A vector of nested values
-  | HashVec (Merkle.MerkleTree HashData)
-  -- | A dict of nested values, represented as key-value pairs, with hashed key.
-  | HashDict (Merkle.MerkleTree HashedKeyVal)
-  deriving (Generic, Show)
-
-instance FromRad Ann.WithPos HashData
-instance ToRad   Ann.WithPos HashData
-
-instance Merkle.HasHash HashData where
+instance Merkle.HasHash HashedData where
   hashed = \case
     HashValue h -> hashElem h
     HashVec t -> hashVec (Merkle.hashed t)
@@ -72,7 +88,7 @@ hashDict x = Merkle.combi ["dict", x]
 instance Merkle.HasHash HashedKeyVal where
   hashed (HashedKeyVal k v) = hashKeyValue k (Merkle.hashed v)
 
-mkProof :: HashData -> Claim -> Maybe Proof
+mkProof :: HashedData -> Claim -> Maybe Proof
 mkProof (HashValue h) (Claim [] h') =
   if h == h' then Just [] else Nothing
 mkProof (HashVec t) (Claim (NthOfVec _ i : locs) h) = do
@@ -108,7 +124,7 @@ checkProof :: Claim -> Proof -> ByteString -> ByteString -> Bool
 checkProof claim pf el rootHash =
   zipProof claim pf el == Just rootHash
 
-toHashData :: Value -> Maybe HashData
+toHashData :: Value -> Maybe HashedData
 toHashData = \case
     Vec xs -> do
       ys <- traverse toHashData (toList xs)
