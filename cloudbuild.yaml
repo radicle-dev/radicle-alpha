@@ -36,7 +36,7 @@ steps:
       #    args: ['stack', 'build', '--fast', '--test', '--no-terminal', '--pedantic']
 
   - id: "Make docs"
-    name: 'python:3-alpine3.8'
+    name: 'python:3'
     entrypoint: 'bash'
     args: 
     - '-c'
