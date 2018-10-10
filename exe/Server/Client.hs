@@ -67,10 +67,10 @@ bindings :: ClientEnv -> Bindings (PrimFns (InputT IO))
 bindings cEnv = e { bindingsPrimFns = bindingsPrimFns e <> primops cEnv }
     where
       e :: Bindings (PrimFns (InputT IO))
-      e = pureEnv
+      e = replBindings
 
 primops :: ClientEnv -> PrimFns (InputT IO)
-primops cEnv = PrimFns (fromList [sendPrimop, receivePrimop]) <> replPrimFns
+primops cEnv = PrimFns (fromList [sendPrimop, receivePrimop])
   where
     sendPrimop =
       ( unsafeToIdent "send!"
