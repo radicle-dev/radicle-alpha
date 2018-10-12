@@ -22,11 +22,10 @@ stack test
 
 ## How to run executables
 
-Running scripts and a REPL are the same thing - some scripts (in particular
-`rad/repl.rad`) just *define* a REPL.
+Executing a .rad script and running a REPL are equivalent. Some scripts (in particular
+`rad/repl.rad`) simply *define* a REPL.
 
-You should probably run the client against radicle.xyz for fuller
-functionality.
+Running your own client will likely have more functionality than the in-browser demo at radicle.xyz.
 
 ```
 stack exec client -- --config rad/repl.rad --url radicle.xyz
@@ -34,8 +33,7 @@ stack exec client -- --config rad/repl.rad --url radicle.xyz
 
 ## The language
 
-The language currently lacking good documentation. A good place to get a sense
-for it is in the rad/ directory, which contains a number of radicle files.
+The language currently lacking complete documentation, however a good place to start is the rad/ directory, which contains a number of radicle files.
 
 Variables defined there are usually documented. This means you can type `(doc
 'ident)` to retrieve documentation for the identifier `ident`.
