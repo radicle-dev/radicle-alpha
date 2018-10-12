@@ -5,6 +5,7 @@ set -o errexit
 
 DEPLOY=false
 BUCKET="gs://docs.radicle.xyz"
+IS_NIX=${NIX_PATH:-}
 
 help(){
     echo "./build-docs.sh [-d|-h]" 
@@ -26,7 +27,7 @@ popd () {
 
 build(){
     pushd "$PWD"/docs
-    [ -z "$NIX_PATH" ] && pip install -r requirements.txt
+    [ -z "$IS_NIX" ] && pip install -r requirements.txt
     make html
     popd
 }
