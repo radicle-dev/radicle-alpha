@@ -40,10 +40,7 @@ steps:
     entrypoint: 'bash'
     args: 
     - '-c'
-    - |
-      cd docs 
-      pip install -r requirements.txt
-      make html
+    - scripts/build-docs.sh -d
 
   - id: "Save cache"
     name: gcr.io/cloud-builders/gsutil
@@ -53,8 +50,3 @@ steps:
     - |
       source scripts/ci.sh
       save-cache
-
-artifacts:
-  objects:
-    location: 'gs://docs.radicle.xyz'
-    paths: [ 'docs/build/html/' ]
