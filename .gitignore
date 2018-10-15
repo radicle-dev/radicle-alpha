@@ -12,3 +12,7 @@ out/
 result/
 result
 .stack-work/
+docs/build/
+*.orig
+*.swp
+docs/build/

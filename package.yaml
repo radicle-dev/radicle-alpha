@@ -143,6 +143,19 @@ executables:
           buildable: false
     ghc-options: -main-is GHCJS -threaded
 
+  doc:
+    main: Doc.hs
+    source-dirs: exe/
+    other-modules: []
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    dependencies:
+    - radicle
+    - optparse-applicative
+    - pandoc
+    ghc-options: -main-is Doc
+
 default-extensions:
 - AutoDeriveTypeable
 - ConstraintKinds

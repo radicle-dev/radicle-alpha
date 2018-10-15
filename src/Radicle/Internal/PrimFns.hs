@@ -7,7 +7,7 @@ module Radicle.Internal.PrimFns
   , primFnsEnv
   ) where
 
-import           Protolude hiding (TypeError, toList)
+import           Protolude hiding (TypeError)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.IntMap as IntMap
