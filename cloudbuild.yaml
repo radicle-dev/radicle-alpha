@@ -39,7 +39,12 @@ steps:
     name: 'haskell:8.4.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: 'bash'
-    args: npm install uglifyjs && ./scripts/upload-ghcjs.sh
+    args: 
+    - '-c'
+    - if [ "$BRANCH_NAME" = "master" ]; then
+        npm install uglifyjs 
+        ./scripts/upload-ghcjs.sh
+      fi
 
   - id: "Save cache"
     name: gcr.io/cloud-builders/gsutil
