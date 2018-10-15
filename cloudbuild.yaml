@@ -35,6 +35,12 @@ steps:
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['stack', 'build', '--fast', '--test', '--no-terminal', '--pedantic']
 
+  - id: "Build & Deploy GHCJS"
+    name: 'haskell:8.4.3'
+    env: ['STACK_ROOT=/workspace/.stack']
+    entrypoint: 'bash'
+    args: npm install uglifyjs && ./scripts/upload-ghcjs.sh
+
   - id: "Save cache"
     name: gcr.io/cloud-builders/gsutil
     entrypoint: 'bash'

@@ -15,12 +15,22 @@
 set -o nounset
 set -o errexit
 
+IS_CI=${PROJECT_ID:-}
+
 export STACK_YAML=stack-ghcjs.yaml
 
-[[ -d out ]] || mkdir out
-stack build
-ORIG=$(find .stack-work/dist -name all.js)
+build() {
+    [[ -d out ]] || mkdir out
+    stack build
+    ORIG=$(find .stack-work/dist -name all.js)
+    
+    uglifyjs $ORIG > out/all.min.js
+    
+    gzip --keep out/all.min.js
+}
 
-uglifyjs $ORIG > out/all.min.js
+deploy() {
+    gsutil cp out/all.min.js gs://static.radicle.xyz
+    gsutil cp out/all.min.js.gz gs://static.radicle.xyz
+}
 
-gsutil cp out/all.min.js gs://static.radicle.xyz
