@@ -3,7 +3,6 @@
 set -o nounset
 set -o errexit
 
-DEPLOY=false
 BUCKET="gs://docs.radicle.xyz"
 IS_NIX=${NIX_PATH:-}
 
@@ -11,7 +10,6 @@ help(){
     echo "./build-docs.sh [-d|-h]" 
     echo " Builds the radicle documentation"
     echo " Options:"
-    echo "   -d : Also deploy the documentation"
     echo "   -h : Show this help text"
     exit 0
 }
@@ -32,19 +30,11 @@ build(){
     popd
 }
 
-deploy(){
-    pushd "$PWD"/docs
-    gsutil -m cp -r build/html "$BUCKET"
-    popd
-}
 
-while getopts ":d:h" opt; do
+while getopts ":h" opt; do
   case $opt in
     h) 
       help 
-      ;;
-    d)
-      DEPLOY=true
       ;;
     \?) 
       echo "Invalid option: -$OPTARG" 
@@ -54,7 +44,3 @@ while getopts ":d:h" opt; do
 done
 
 build
-
-if [ "$DEPLOY" = true ] ; then
-    deploy
-fi
