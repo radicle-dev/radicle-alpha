@@ -108,7 +108,7 @@ Or a specific index with `nth`:
 (nth 2 (list 0 1 2 3)) ;; ==> 2
 ```
 
-### Lists of vectors?
+### Lists or vectors?
 
 Vectors differ from lists in a couple of important ways. First, lists are
 implemented as linked lists, and therefore have accessing the `nth` element
@@ -116,16 +116,6 @@ of a list has a linear on `n` (the function `nth` works for both vectors and
 lists). Additionally, appending to the end of a list is also linear.  Vectors,
 on the other hand, allow for faster (logarithmic) indexed access and appending
 (constant time).
-
-A second, subtler, difference is that since lists are also the syntax for
-function application, a list that is evaluated explicitly will end up
-applying its head to the rest of the list. Vectors, on the other hand, do not
-do double duty, and so evaluating them explicitly will only evaluate their 
-elements. 
-
-This second point may take a little while to sink in, and we'll come across
-it again, but the simplest takehome is that, unless you dealing with
-code-as-data, you will likely want to use vectors.
 
 ### Dictionaries
 
