@@ -4,7 +4,7 @@ Though `radicle` is designed with a particular use-case in mind--namely,
 defining and interacting with the Open Source Network chains--it is ultimately a
 general purpose language, quite similar to
 [Scheme](en.wikipedia.org/wiki/Scheme_%28programming_language%29) or
-[Clojure](clojure.org/). To effectivel use it, it is helpful to learn the basics
+[Clojure](clojure.org/). To effectively use it, it is helpful to learn the basics
 of it independent of its application.
 
 This chapter introduces `radicle` as a language. In each section we present
@@ -34,7 +34,7 @@ Strings are enclosed in double quotes:
 
 ### Vectors
 
-For talking about sequences of values `radicle` has vectors. Literal notation
+`radicle`'s *vectors* are an array-like container for values. Literal notation
 for vectors uses square brackets:
 
 ```radicle
@@ -47,7 +47,7 @@ You can access any of the elements in the vector using `nth`:
 (nth 2 ["start at zero!" "one" "two" "three"]) ;; ==> "two"
 ```
 
-But be careful: if the size of the argument isn't less than (<) the size of the
+But be careful: if the size of the argument isn't less than (`<`) the size of the
 vector then this will result in an error.
 
 Concatenate vectors using `<>`:
@@ -71,16 +71,18 @@ Add an element to the right using `add-right`:
 ### Lists
 
 Lists are one of the fundamental data structures of functional programming.
+Just like vector are enclosed, list are enclosed in parentheses. 
 
-The literal syntax for lists is just to write the elements down surrounded by
-parenthesis. In fact we've been using this notation up till now for all the rest
-of the code! So when you write down a list, the `radicle` interpreter thinks you
-want to evaluate something, so if the first element isn't a function (or some
-other special keyword), then you'll get an error.
+However, as you may have noticed, parentheses are also used for function 
+application. This is because lists are the representation for *code* that
+evaluates to the result of applying the first element of the list to the
+other elements. 
 
-Therefore to create lists we'll use the function `list`, which takes all the
-elements you want to put into the list. You can also use `list-from-vec` to make
-a vector into a list.
+Don't worry if this is still a little unclear; we will discuss it at greater
+length when we talk about evaluation and quotation. For now, what this in
+practice means is that if you want to create a list, you can used the
+function `list` on the elements you want in the list.  You can also use
+`list-from-vec` to make a vector into a list.
 
 You can prepend an element to a list with `cons`:
 
