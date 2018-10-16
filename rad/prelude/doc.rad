@@ -16,10 +16,12 @@
 (def doc
   (fn [name]
     (def the-doc (lookup name (read-ref _doc-ref)))
-    (string-append
-       (lookup :desc the-doc)
-       "\nArguments:\n\t"
-       (show (lookup :args the-doc)))))
+    (if (eq? the-doc '())
+      (string-append "No documentation found for " (show name))
+      (string-append
+         (lookup :desc the-doc)
+         "\nArguments:\n\t"
+         (show (lookup :args the-doc))))))
 
 (document 'doc
   '(("name" atom))
