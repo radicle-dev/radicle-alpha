@@ -85,7 +85,7 @@ executables:
     - optparse-applicative
     ghc-options: -threaded -O3
 
-  server:
+  radicle-server:
     main: Server.hs
     source-dirs: exe/Server
     other-modules: API
@@ -105,7 +105,7 @@ executables:
     - wai-cors
     ghc-options: -main-is Server -O3 -threaded
 
-  client:
+  radicle-client:
     main: Client.hs
     source-dirs: exe/Server
     other-modules: API
@@ -123,7 +123,7 @@ executables:
         buildable: false
     ghc-options: -main-is Client -O3 -threaded
 
-  client-ghcjs:
+  radicle-client-ghcjs:
     main: GHCJS.hs
     source-dirs: exe/Server
     other-modules: API
