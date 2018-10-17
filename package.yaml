@@ -94,12 +94,13 @@ executables:
         buildable: false
     dependencies:
     - radicle
-    - optparse-applicative
+    - acid-state
     - bytestring
+    - cereal
+    - optparse-applicative
+    - safecopy
     - servant
     - servant-server
-    - stm-containers
-    - stm
     - warp
     - wai-extra
     - wai-cors
