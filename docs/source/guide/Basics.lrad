@@ -70,8 +70,8 @@ Add an element to the right using `add-right`:
 
 ### Lists
 
-Lists are one of the fundamental data structures of functional programming.
-Just like vector are enclosed, list are enclosed in parentheses. 
+Lists are one of the fundamental data structures of functional programming. Just
+like vector are enclosed in square brackets, list are enclosed in parentheses.
 
 However, as you may have noticed, parentheses are also used for function 
 application. This is because lists are the representation for *code* that
