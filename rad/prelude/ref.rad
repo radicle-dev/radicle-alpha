@@ -7,4 +7,4 @@
 
 (document 'modify-ref
   '(("ref" ref) ("fn" function))
-  "Modify 'ref' by applying the provided function.")
+  "Modify 'ref' by applying the provided function. Returns the new value.")

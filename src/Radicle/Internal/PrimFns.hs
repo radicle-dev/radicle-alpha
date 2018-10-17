@@ -140,6 +140,11 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [_, _, _]                -> throwErrorHere
                                     $ TypeError "insert: third argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
+    , ( "delete"
+      , twoArg "delete" $ \case
+          (k, Dict m) -> pure . Dict $ Map.delete k m
+          _ -> throwErrorHere $ TypeError "delete: second argument must be a dict"
+      )
     -- The semantics of + and - in Scheme is a little messed up. (+ 3)
     -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.
     -- But while (+ 3 2 1) evaluates to 6, (- 3 2 1) evaluates to 0. So with -
@@ -222,7 +227,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [Ref (Reference x), v] -> do
               st <- get
               put $ st { bindingsRefs = IntMap.insert x v $ bindingsRefs st }
-              pure nil
+              pure v
           [_, _]                 -> throwErrorHere
                                   $ TypeError "write-ref: first argument must be a ref"
           xs                     -> throwErrorHere

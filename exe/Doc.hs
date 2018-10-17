@@ -30,9 +30,7 @@ run f = do
 
 getCode :: Pandoc -> Text
 getCode (Pandoc _ blocks)
-    = toS $ mconcat [ content | CodeBlock attr content <- blocks, isRad attr ]
-  where
-    isRad (id, _, _) = id == "radicle"
+    = toS $ mconcat [ content | CodeBlock attr content <- blocks ]
 
 newtype Opts = Opts
     { srcFile :: FilePath
