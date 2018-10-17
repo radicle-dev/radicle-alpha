@@ -13,6 +13,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
+import qualified Data.Sequence as Seq
 import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
@@ -73,6 +74,25 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ("eq?", \case
           [a, b] -> pure $ Boolean (a == b)
           xs     -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
+
+    -- Vectors
+    , ( "<>"
+      , twoArg "<>" $ \case
+          (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
+          _ -> throwErrorHere $ TypeError "<>: both arguments must be vectors"
+      )
+    , ( "add-left"
+      , twoArg "add-left" $ \case
+          (x, Vec xs) -> pure $ Vec (x Seq.:<| xs)
+          _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
+      )
+    , ( "add-right"
+      , twoArg "add-right" $ \case
+          (x, Vec xs) -> pure $ Vec (xs Seq.:|> x)
+          _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
+      )
+
+    -- Lists
     , ("cons", \case
           [x, List xs] -> pure $ List (x:xs)
           [_, _]       -> throwErrorHere $ TypeError "cons: second argument must be list"
@@ -85,6 +105,8 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           List (_:xs) -> pure $ List xs
           List []     -> throwErrorHere $ OtherError "tail: empty list"
           _           -> throwErrorHere $ TypeError "tail: expects list argument")
+
+    -- Lists and Vecs
     , ( "nth"
       , \case
           [Number n, vs] -> case floatingOrInteger n of
@@ -97,6 +119,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [_,_] -> throwErrorHere $ TypeError "nth: expects a integer and a list"
           xs -> throwErrorHere $ WrongNumberOfArgs "nth" 2 (length xs)
       )
+
     , ("lookup", \case
           [a, Dict m] -> pure $ case Map.lookup a m of
               Just v  -> v
@@ -257,6 +280,11 @@ oneArg :: Monad m => Text -> (Value -> Lang m Value) -> [Value] -> Lang m Value
 oneArg fname f = \case
   [x] -> f x
   xs -> throwErrorHere $ WrongNumberOfArgs fname 1 (length xs)
+
+twoArg :: Monad m => Text -> ((Value, Value) -> Lang m Value) -> [Value] -> Lang m Value
+twoArg fname f = \case
+  [x, y] -> f (x, y)
+  xs -> throwErrorHere $ WrongNumberOfArgs fname 2 (length xs)
 
 readValue
     :: (MonadError (LangError Value) m)
