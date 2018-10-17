@@ -1,0 +1,73 @@
+In this example we will create a chain which stores some issues about a code
+repository.
+
+First we load the prelude
+
+    (load! "rad/prelude.rad")
+
+We'll use two refs, one to store the next issue ID, and one to store the issues themselves, as a dictionary from issue IDs to issues.
+
+    (def last-issue-id (ref -1))
+    
+    (def issues (ref {}))
+
+We'll need a utility function for creating new IDs:
+
+    (def new-issue-id
+      (fn []
+        (modify-ref last-issue-id (fn [i] (+ i 1)))))
+
+Next we'll define a function for creating a new issue. An issue is a dict which
+looks like:
+
+    (def example-issue
+      { :author "xyz345" ;; user id / public key
+        :title  "I want pattern matching"
+        :body   "I can't continue using radicle without it."
+      })
+
+To add an issue we just update `issues` with a new issue id:
+
+    (def new-issue
+      (fn [i]
+        (modify-ref
+          issues
+          (fn [is] (insert (new-issue-id) i is)))))
+
+Closing an issue is also easy:
+
+    (def close-issue
+      (fn [id]
+        (modify-ref
+          issues
+          (fn [is] (delete id is)))))
+
+And now the new eval function:
+
+Now we can define the evaluation function:
+
+    (def new-eval
+      (fn [expr st]
+        (def command (head expr))
+        (def arg (head (tail expr)))
+        (write-ref issues
+          (cond
+            (eq? command 'create) (new-issue arg)
+            (eq? command 'close)  (close-issue arg)))
+        (list (read-ref issues) (get-current-env))))
+
+Now we update the eval to this eval:
+
+    (def eval new-eval)
+
+And test some inputs:
+
+    (create {})
+
+ff
+
+    (create {})
+
+To finish off we'll create a REPL so that we can test things:
+
+(load! "rad/repl.rad")
