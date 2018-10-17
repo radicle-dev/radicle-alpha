@@ -64,10 +64,14 @@ opts = Opts
 -- * Primops
 
 bindings :: ClientEnv -> Bindings (PrimFns (InputT IO))
-bindings cEnv = e { bindingsPrimFns = bindingsPrimFns e <> primops cEnv }
-    where
-      e :: Bindings (PrimFns (InputT IO))
-      e = replBindings
+bindings cEnv
+    = e { bindingsPrimFns = bindingsPrimFns e <> prims
+        , bindingsEnv = bindingsEnv e <> primFnsEnv prims
+        }
+  where
+    e :: Bindings (PrimFns (InputT IO))
+    e = replBindings
+    prims = primops cEnv
 
 primops :: ClientEnv -> PrimFns (InputT IO)
 primops cEnv = PrimFns (fromList [sendPrimop, receivePrimop])
