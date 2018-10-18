@@ -6,8 +6,11 @@
 ;;   - A sequence of inputs.
 
 
+;; TODO
 ;; DELETEME
-(def eval-definer (fn [ev] (write-ref eval ev)))
+(def eval-ref (ref eval)) 
+(def eval (fn [expr env] ((read-ref eval-ref) expr env)))
+(def eval-definer (fn [ev] (write-ref eval-ref ev)))
 ;; DELETEME
 
 (def empty-chain
@@ -108,4 +111,5 @@
           "Syncs up to a remote chain, and allows experimentation inputs. There are two special inputs: ':quit' will leave the chain, ':send' will send all the accumulated inputs to the remote chain, one by one, and then leave the chain. Uses the parameter 'eval-definer' for eval redefinition, this should be a function which can be used to redefine 'eval': it should set eval to it's input.")
 
 ;; TODO - update docs.
-;; TODO - should-bes.
+;; TODO - eval as ref
+;; TODO - get rid of eval-definer and stuff above
