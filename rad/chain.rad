@@ -5,6 +5,11 @@
 ;;     == base-eval')
 ;;   - A sequence of inputs.
 
+
+;; DELETEME
+(def eval-definer (fn [ev] (write-ref eval ev)))
+;; DELETEME
+
 (def empty-chain
   (dict :state (pure-env)
         :inputs (list)
@@ -12,7 +17,7 @@
 
 (def eval-in-chain
   (fn [expr chain]
-    (def x (eval-with-env expr (lookup :state chain)))
+    (def x (eval expr (lookup :state chain)))
     (dict :chain (dict :state (head (tail x))
                        :input (cons expr (lookup :logs chain))
                        :index (+ 1 (lookup :index chain)))
@@ -21,6 +26,11 @@
 (document 'eval-in-chain
           '(("expr" any) ("chain" chain))
           "Evaluates 'expr' in the 'chain' and returns a dict with the ':result' and the resulting ':chain'.")
+
+(do 
+  (def res (eval-in-chain (+ 3 2) empty-chain))
+  (def ~~> (fn [comp expected] (should-be "eval-in-chain" (lookup comp) expected)))
+  (~~> :result 5))
 
 (def update-chain-with
   (fn [chain remote-chain-id cb-expr cb-res]
@@ -39,7 +49,7 @@
           "Updates 'chain' according to activity on the remote chain with ID 'chain-id', by pulling down and evaluating new inputs. Accepts two callbacks: 'cb-expr' is applied to the incoming expressions, and 'cb-res' is applied to the resulting values. Usually one uses 'print!' for both of these. If 'chain' is not a past version of the remote chain then the behaviour is unspecified.")
 
 (def enter-chain
-  (fn [eval-definer chain]
+  (fn [chain]
     (def old-eval eval)
     (def ch (ref chain))
     (def ev
@@ -47,17 +57,17 @@
         (if (eq? e :quit)
             (do (print! "leaving chain")
                 (eval-definer old-eval))
-          (do (def x (eval-in-chain e (read-ref ch)))
+          (do (def x (eval e (read-ref ch)))
               (write-ref ch (view (@ :chain) x))
               (view (@ :result) x)))))
     (eval-definer ev)))
 
 (document 'enter-chain
-          '(("eval-definer" function) ("chain" chain))
+          '(("chain" chain))
           "Instantiates an 'eval' which evaluates expressions in 'chain'. The expression ':quit' will return to the previous eval. Uses the parameter 'eval-definer' for eval redefinition, this should be a function which can be used to redefine 'eval': it should set eval to it's input.")
 
 (def enter-remote-chain
-  (fn [eval-definer chain-id]
+  (fn [chain-id]
     (def old-eval eval)
     (def chain (update-chain-with empty-chain chain-id (fn [e] '()) (fn [e] '())))
     (print! (string-append "Synced with remote chain, at index: " (show (view (@ :index) chain))))
@@ -78,12 +88,8 @@
                   (view (@ :result) x)))))))
 
 (document 'enter-remote-chain
-          '(("eval-definer" function) ("chain-id" string))
+          '(("chain-id" string))
           "Syncs up to a remote chain, and allows experimentation inputs. There are two special inputs: ':quit' will leave the chain, ':send' will send all the accumulated inputs to the remote chain, one by one, and then leave the chain. Uses the parameter 'eval-definer' for eval redefinition, this should be a function which can be used to redefine 'eval': it should set eval to it's input.")
 
-;; Setup an eval definer
-(def boom
-  (quote
-   (do (def eval-ref (ref eval))
-       (def eval-definer (fn [f] (write-ref eval-ref f)))
-       (def eval (fn [e] ((read-ref eval-ref) e))))))
+;; TODO - update docs.
+;; TODO - should-bes.
