@@ -554,6 +554,11 @@ test_pretty =
                                                                    , (kw "k2", Number 2)
                                                                    ]))
         r @?= "{:k1 1.0\n :k2 2.0}"
+    , testProperty "read . pprint == identity for strings" $ \(t :: Text) ->
+        let v = asValue (String t)
+            pp = renderPrettyDef v
+            v_ = parseTest pp
+        in v_ == Right v
     ]
   where
     apl cols = AvailablePerLine cols 1

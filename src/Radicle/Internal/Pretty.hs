@@ -50,7 +50,8 @@ instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) wher
                         , sep $ pretty <$> toList vals
                         ])
       where
-        escapeStr = T.replace "\"" "\\\"" . T.replace "\\" "\\\\"
+        -- We print string literals escaped just like Haskell does.
+        escapeStr = T.init . T.tail . show
 
 instance Pretty Ann.SrcPos where
     pretty (Ann.SrcPos pos)        = pretty (sourcePosPretty pos)
