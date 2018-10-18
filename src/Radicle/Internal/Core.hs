@@ -19,7 +19,8 @@ import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
-import           Data.Scientific (Scientific, floatingOrInteger)
+import           Data.Scientific
+                 (Scientific, floatingOrInteger, toBoundedInteger)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
@@ -494,12 +495,22 @@ instance CPA t => FromRad t () where
 instance (CPA t, FromRad t a, FromRad t b) => FromRad t (a,b) where
     fromRad (Vec (x :<| y :<| Seq.Empty)) = (,) <$> fromRad x <*> fromRad y
     fromRad _ = Left "Expecting a vector of length 2"
+instance (CPA t, FromRad t a) => FromRad t (Maybe a) where
+    fromRad (Vec (Keyword (Ident "Just") :<| x :<| Empty)) = Just <$> fromRad x
+    fromRad (Keyword (Ident "Nothing")) = pure Nothing
+    fromRad _ = Left "Expecting :Nothing or [:Just _]"
 instance FromRad Ann.WithPos Value where
   fromRad = pure
 instance CPA t => FromRad t Scientific where
     fromRad x = case x of
         Number n -> pure n
         _        -> Left "Expecting number"
+instance CPA t => FromRad t Int where
+    fromRad = \case
+      Number s -> case toBoundedInteger s of
+        Just i  -> pure i
+        Nothing -> Left "Number was not a bounded int"
+      _ -> Left "Expecting number"
 instance CPA t => FromRad t Integer where
     fromRad = \case
       Number s -> case floatingOrInteger s of
@@ -544,8 +555,13 @@ class ToRad t a where
 
 instance CPA t => ToRad t () where
     toRad _ = Vec Empty
+instance CPA t => ToRad t Bool where
+    toRad = Boolean
 instance (CPA t, ToRad t a, ToRad t b) => ToRad t (a,b) where
     toRad (x,y) = Vec $ toRad x :<| toRad y :<| Empty
+instance (CPA t, ToRad t a) => ToRad t (Maybe a) where
+    toRad Nothing  = Keyword (Ident "Nothing")
+    toRad (Just x) = Vec $ Keyword (Ident "Just") :<| toRad x :<| Empty
 instance CPA t => ToRad t Int where
     toRad = Number . fromIntegral
 instance CPA t => ToRad t Integer where
@@ -555,7 +571,7 @@ instance CPA t => ToRad t Scientific where
 instance CPA t => ToRad t Text where
     toRad = String
 instance (CPA t, ToRad t a) => ToRad t [a] where
-    toRad xs = List $ toRad <$> xs
+    toRad xs = Vec . Seq.fromList $ toRad <$> xs
 instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
 instance ToRad Ann.WithPos (Env Value) where

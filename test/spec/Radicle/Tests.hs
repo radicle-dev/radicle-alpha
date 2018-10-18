@@ -673,6 +673,8 @@ test_from_to_radicle =
         [ testForType (Proxy :: Proxy Scientific) ]
     , testGroup "Text"
         [ testForType (Proxy :: Proxy Text) ]
+    , testGroup "Maybe Text"
+        [ testForType (Proxy :: Proxy (Maybe Text))]
     , testGroup "[Text]"
         [ testForType (Proxy :: Proxy [Text]) ]
     , testGroup "Generic a => a"

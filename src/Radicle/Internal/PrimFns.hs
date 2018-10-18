@@ -236,6 +236,11 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
             Dict kvs -> pure $ List [List [k, v] | (k,v) <- Map.toList kvs ]
             _ -> throwErrorHere $ TypeError "seq: can only be used on a list, vector or dictionary"
       )
+    , ( "from-just"
+      , oneArg "from-just" $ \case
+          Vec (Keyword (Ident "Just") Seq.:<| x Seq.:<| Seq.Empty) -> pure x
+          _ -> throwErrorHere $ TypeError "from-just: called on a non-just"
+      )
     , ( "to-json"
       , oneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
           maybeJson v ?? toLangError (OtherError "Could not serialise value to JSON")
