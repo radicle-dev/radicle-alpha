@@ -63,18 +63,22 @@ opts = Opts
 
 -- * Primops
 
-bindings :: ClientEnv -> Bindings (Primops (InputT IO))
-bindings cEnv = e { bindingsPrimops = bindingsPrimops e <> primops cEnv }
-    where
-      e :: Bindings (Primops (InputT IO))
-      e = pureEnv
+bindings :: ClientEnv -> Bindings (PrimFns (InputT IO))
+bindings cEnv
+    = e { bindingsPrimFns = bindingsPrimFns e <> prims
+        , bindingsEnv = bindingsEnv e <> primFnsEnv prims
+        }
+  where
+    e :: Bindings (PrimFns (InputT IO))
+    e = replBindings
+    prims = primops cEnv
 
-primops :: ClientEnv -> Primops (InputT IO)
-primops cEnv = Primops (fromList [sendPrimop, receivePrimop]) <> replPrimops
+primops :: ClientEnv -> PrimFns (InputT IO)
+primops cEnv = PrimFns (fromList [sendPrimop, receivePrimop])
   where
     sendPrimop =
       ( unsafeToIdent "send!"
-      , evalArgs $ \case
+      , \case
          [String name, v] -> do
              res <- liftIO $ runClientM (submit $ List $ [String name, v]) cEnv
              case res of
@@ -86,7 +90,7 @@ primops cEnv = Primops (fromList [sendPrimop, receivePrimop]) <> replPrimops
       )
     receivePrimop =
       ( unsafeToIdent "receive!"
-      , evalArgs $ \case
+      , \case
           [String name, Number n] -> do
               case floatingOrInteger n of
                   Left (_ :: Float) -> throwErrorHere . OtherError

@@ -3,6 +3,7 @@ module Radicle.Tests where
 
 import           Protolude hiding (toList)
 
+import           Codec.Serialise (Serialise, deserialise, serialise)
 import           Data.List (isInfixOf, isSuffixOf)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromJust)
@@ -280,7 +281,7 @@ test_eval =
         "(type 'a)" `hasTy` "atom"
         "(type 1)" `hasTy` "number"
         "(type #t)" `hasTy` "boolean"
-        "(type list?)" `hasTy` "primop"
+        "(type list?)" `hasTy` "function"
         "(type (list 1 2 3))" `hasTy` "list"
         "(type (dict 1 2))" `hasTy` "dict"
         "(type (ref 0))" `hasTy` "ref"
@@ -419,7 +420,7 @@ test_eval =
         runTest' "(show #t)" @?= Right (String "#t")
         runTest' "(show #f)" @?= Right (String "#f")
         runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1.0 \"foo\" (b (quote x) 2.0 \"bar\"))")
-        runTest' "eval" @?= Right (Primop [ident|base-eval|])
+        runTest' "eval" @?= Right (PrimFn [ident|base-eval|])
         runTest' "(show (dict 'a 1))" @?= Right (String "{a 1.0}")
         runTest' "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
@@ -485,10 +486,6 @@ test_parser =
     , testCase "parses booleans" $ do
         "#t" ~~> Boolean True
         "#f" ~~> Boolean False
-
-    , testCase "parses primops" $ do
-        "boolean?" ~~> Primop [ident|boolean?|]
-        "base-eval" ~~> Primop [ident|base-eval|]
 
     , testCase "parses keywords" $ do
         ":foo" ~~> kw "foo"
@@ -636,8 +633,8 @@ test_repl =
         (_, result) <- runInRepl input
         result @==> output
 
-    , testCase "(def eval (quote base-eval)) doesn't change things" $ do
-        let input = [ "(def eval (quote base-eval))"
+    , testCase "(def eval base-eval) doesn't change things" $ do
+        let input = [ "(def eval base-eval)"
                     , "(def id (fn [x] x))"
                     , "(id #t)"
                     ]
@@ -664,7 +661,11 @@ test_repl =
 
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
-    [ testGroup "Env Value"
+    [ testGroup "()"
+        [ testForType (Proxy :: Proxy ()) ]
+    , testGroup "(Foo, Foo)"
+        [ testForType (Proxy :: Proxy (Foo, Foo)) ]
+    , testGroup "Env Value"
         [ testForType (Proxy :: Proxy (Env Value)) ]
     , testGroup "Bindings ()"
         [ testForType (Proxy :: Proxy (Bindings ())) ]
@@ -679,15 +680,35 @@ test_from_to_radicle =
     ]
   where
     testForType
-        :: forall a. (Arbitrary a, Show a, ToRad a, FromRad a, Eq a)
+        :: forall a. (Arbitrary a, Show a, ToRad Ann.WithPos a, FromRad Ann.WithPos a, Eq a)
         => Proxy a -> TestTree
     testForType _ =
         testProperty "fromRadicle . toRadicle == id" $ \(v :: a ) -> do
             let expected = Right v
-                got = fromRad (toRad v)
+                got = fromRad (toRad v :: Value)
                 info = "Expected\n\t" <> show expected
                     <> "\nGot\n\t" <> show got
             counterexample info $ got == expected
+
+test_cbor :: [TestTree]
+test_cbor =
+    [ testGroup "UntaggedValue"
+        [ testForType (Proxy :: Proxy UntaggedValue) ]
+    , testGroup "Value"
+        [ testForType (Proxy :: Proxy Value) ]
+    ]
+  where
+    testForType
+        :: forall a. (Arbitrary a, Show a, Serialise a, Eq a)
+        => Proxy a -> TestTree
+    testForType _ =
+        testProperty "deserialise . serialise == id" $ \(v :: a) -> do
+            let expected = v
+                got = deserialise (serialise v)
+                info = "Expected\n\t" <> show expected
+                    <> "\nGot\n\t" <> show got
+            counterexample info $ got == expected
+
 
 -- Tests all radicle files 'repl' dir. These should use the 'should-be'
 -- function to ensure they are in the proper format.
@@ -716,10 +737,7 @@ atom = Atom . unsafeToIdent
 -- -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- -- primops.
 parseTest :: MonadError Text m => Text -> m Value
-parseTest t = parse "(test)" t (Map.keys . getPrimops $ bindingsPrimops e)
-  where
-    e :: Bindings (Primops (Lang Identity))
-    e = pureEnv
+parseTest t = parse "(test)" t
 
 prettyEither :: Either (LangError Value) Value -> T.Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e

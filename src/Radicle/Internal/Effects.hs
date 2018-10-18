@@ -23,7 +23,7 @@ import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
-import           Radicle.Internal.Primops
+import           Radicle.Internal.PrimFns
 
 
 type ReplM m =
@@ -35,10 +35,10 @@ type ReplM m =
 
 instance MonadRandom (InputT IO) where
     getRandomBytes = liftIO . getRandomBytes
-instance MonadRandom m => MonadRandom (LangT (Bindings (Primops m)) m) where
+instance MonadRandom m => MonadRandom (LangT (Bindings (PrimFns m)) m) where
     getRandomBytes = lift . getRandomBytes
 
-repl :: Maybe FilePath -> Text -> Text -> Bindings (Primops (InputT IO)) -> IO ()
+repl :: Maybe FilePath -> Text -> Text -> Bindings (PrimFns (InputT IO)) -> IO ()
 repl histFile preFileName preCode bindings = do
     let settings = setComplete completion
                  $ defaultSettings { historyFile = histFile }
@@ -54,51 +54,51 @@ completion :: Monad m => CompletionFunc m
 completion = completeWord Nothing ['(', ')', ' ', '\n'] go
   where
     -- Any type for first param will do
-    bnds :: Bindings (Primops (InputT IO))
+    bnds :: Bindings (PrimFns (InputT IO))
     bnds = replBindings
 
     go s = pure $ fmap simpleCompletion
          $ filter (s `isPrefixOf`)
          $ fmap (T.unpack . fromIdent)
          $ (Map.keys . fromEnv $ bindingsEnv bnds)
-        <> Map.keys (getPrimops $ bindingsPrimops bnds)
+        <> Map.keys (getPrimFns $ bindingsPrimFns bnds)
 
-replBindings :: forall m. ReplM m => Bindings (Primops m)
-replBindings = e { bindingsPrimops = bindingsPrimops e <> replPrimops }
+replBindings :: forall m. ReplM m => Bindings (PrimFns m)
+replBindings = e { bindingsPrimFns = bindingsPrimFns e <> replPrimFns
+                 , bindingsEnv = bindingsEnv e <> primFnsEnv pfs }
     where
-      e :: Bindings (Primops m)
+      e :: Bindings (PrimFns m)
       e = pureEnv
+      pfs :: PrimFns m
+      pfs = replPrimFns
 
-replPrimops :: forall m. ReplM m => Primops m
-replPrimops = Primops . Map.fromList $ first unsafeToIdent <$>
-    [ ("print!", \args -> case args of
+replPrimFns :: forall m. ReplM m => PrimFns m
+replPrimFns = PrimFns . Map.fromList $ first unsafeToIdent <$>
+    [ ("print!", \case
         [x] -> do
-            v <- eval x
-            putStrS (renderPrettyDef v)
+            putStrS (renderPrettyDef x)
             pure nil
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
-    , ("set-env!", \args -> case args of
+
+    , ("set-env!", \case
         [Atom x, v] -> do
-            v' <- eval v
-            defineAtom x v'
+            defineAtom x v
             pure nil
         [_, _] -> throwErrorHere $ TypeError "Expected atom as first arg"
         xs  -> throwErrorHere $ WrongNumberOfArgs "set-env!" 2 (length xs))
 
-    , ("get-line!", \args -> case args of
+    , ("get-line!", \case
         [] -> String <$> getLineS
         xs -> throwErrorHere $ WrongNumberOfArgs "get-line!" 0 (length xs))
 
-    , ("subscribe-to!", \args -> case args of
+    , ("subscribe-to!", \case
         [x, v] -> do
-            x' <- eval x
-            v' <- eval v
             e <- gets bindingsEnv
-            case (x', v') of
-                (Dict m, fn) -> case Map.lookup (Atom $ unsafeToIdent "getter") m of
+            case (x, v) of
+                (Dict m, fn) -> case Map.lookup (Keyword $ unsafeToIdent "getter") m of
                     Nothing -> throwErrorHere
-                        $ OtherError "subscribe-to!: Expected 'getter' key"
+                        $ OtherError "subscribe-to!: Expected ':getter' key"
                     Just g -> forever (protect go)
                       where
                         protect action = do
@@ -123,17 +123,17 @@ replPrimops = Primops . Map.fromList $ first unsafeToIdent <$>
                 _  -> throwErrorHere $ TypeError "subscribe-to!: Expected dict"
         xs  -> throwErrorHere $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
     , ( "read-file!"
-      , evalOneArg "read-file" $ \case
+      , oneArg "read-file" $ \case
           String filename -> String <$> readFileS filename
           _ -> throwErrorHere $ TypeError "read-file: expects a string"
       )
     , ( "load!"
-      , evalOneArg "load!" $ \case
+      , oneArg "load!" $ \case
           String filename -> readFileS filename >>= interpretMany ("[load! " <> filename <> "]")
           _ -> throwErrorHere $ TypeError "load: expects a string"
       )
     , ( "gen-key-pair!"
-      , evalArgs $ \case
+      , \case
           [curvev] -> do
             curve <- hoistEither . first (toLangError . OtherError) $ fromRad curvev
             (pk, sk) <- generateKeyPair curve
@@ -146,7 +146,7 @@ replPrimops = Primops . Map.fromList $ first unsafeToIdent <$>
           xs -> throwErrorHere $ WrongNumberOfArgs "gen-key-pair!" 0 (length xs)
       )
     , ( "gen-signature!"
-      , evalArgs $ \case
+      , \case
           [skv, String msg] -> do
             sk <- hoistEither . first (toLangError . OtherError) $ fromRad skv
             toRad <$> signText sk msg

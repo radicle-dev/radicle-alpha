@@ -29,7 +29,7 @@ You should probably run the client against radicle.xyz for fuller
 functionality.
 
 ```
-stack exec client -- --config rad/repl.rad --url radicle.xyz
+stack exec radicle-client -- --config rad/repl.rad --url radicle.xyz
 ```
 
 ## The language

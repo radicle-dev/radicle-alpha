@@ -1,0 +1,242 @@
+# Basics
+
+Though `radicle` is designed with a particular use-case in mind--namely,
+defining and interacting with the Open Source Network chains--it is ultimately a
+general purpose language, quite similar to
+[Scheme](en.wikipedia.org/wiki/Scheme_%28programming_language%29) or
+[Clojure](clojure.org/). To effectively use it, it is helpful to learn the basics
+of it independent of its application.
+
+This chapter introduces `radicle` as a language. In each section we present
+a core datatype of the language, and show some basic operations that can be
+performed on them.
+
+## Built-in datatypes
+
+`radicle` supports the following datatypes:
+
+### Booleans
+
+The literal syntax for booleans is `#t` for true, and `#f` for false. Booleans can be combined with `and` and `or`:
+
+```radicle
+(and #t #f) ;; ==> #f
+(or  #t #f) ;; ==> #t
+```
+
+### Strings
+
+Strings are enclosed in double quotes:
+
+```radicle
+"this is a string"
+```
+
+### Vectors
+
+`radicle`'s *vectors* are an array-like container for values. Literal notation
+for vectors uses square brackets:
+
+```radicle
+["this" "is" "a" "vector"]
+```
+
+You can access any of the elements in the vector using `nth`:
+
+```radicle
+(nth 2 ["start at zero!" "one" "two" "three"]) ;; ==> "two"
+```
+
+But be careful: if the size of the argument isn't less than (`<`) the size of the
+vector then this will result in an error.
+
+Concatenate vectors using `<>`:
+
+```radicle
+(<> [1 2 3] [4 5 6]) ;; ==> [1 2 3 4 5 6]
+```
+
+Add an element to the left using `add-left`:
+
+```radicle
+(add-left 0 [1 2 3]) ;; ==> [0 1 2 3]
+```
+
+Add an element to the right using `add-right`:
+
+```radicle
+(add-right 3 [0 1 2]) ;; ==> [0 1 2 3]
+```
+
+### Lists
+
+Lists are one of the fundamental data structures of functional programming. Just
+like vectors are enclosed in square brackets, lists are enclosed in parentheses.
+
+However, as you may have noticed, parentheses are also used for function 
+application. This is because lists are the representation for *code* that
+evaluates to the result of applying the first element of the list to the
+other elements. 
+
+Don't worry if this is still a little unclear; we will discuss it at greater
+length when we talk about evaluation and quotation. For now, what this in
+practice means is that if you want to create a list, you can used the
+function `list` on the elements you want in the list.  You can also use
+`list-from-vec` to make a vector into a list.
+
+You can prepend an element to a list with `cons`:
+
+```radicle
+(cons 0 (list 1)) ;; ==> (0 1)
+```
+
+Retrieve the head of a list with `head`:
+
+```radicle
+(head (list 0 1 2 3)) ;; ==> 0
+```
+
+The rest of it with `tail`:
+
+```radicle
+(tail (list 0 1 2 3)) ;; ==> (1 2 3)
+```
+
+Or a specific index with `nth`:
+
+```radicle
+(nth 2 (list 0 1 2 3)) ;; ==> 2
+```
+
+### Lists or vectors?
+
+Vectors differ from lists in a couple of important ways. First, lists are
+implemented as linked lists, and therefore have accessing the `nth` element
+of a list has a linear on `n` (the function `nth` works for both vectors and
+lists). Additionally, appending to the end of a list is also linear.  Vectors,
+on the other hand, allow for faster (logarithmic) indexed access and appending
+(constant time).
+
+### Dictionaries
+
+Dictionaries are mappings between keys and values. (You may know them as maps,
+associative arrays, or symbol tables.) Literal syntax for dictionaries is
+formed by including the keys and values inside curly braces:
+
+```radicle
+{ :key1 1
+  :key2 "foo"
+}
+```
+
+It is an error to have an odd number of elements inside the braces.
+
+Keys may be any value, including other dictionaries:
+
+```radicle
+{ :key1 1
+  { :nested "foo" } "bar"
+}
+```
+
+You can access the value associated with a key with the function `lookup`:
+
+```radicle
+(lookup :key1 { :key1 1 }) ;; ==> 1
+```
+
+And add new values with `insert`:
+
+```radicle
+(insert :key2 2 { :key1 1 }) ==> { :key1 1 :key2 2 }
+```
+
+## Simple expressions
+
+### Branching
+
+To dispatch on a boolean value use `if`:
+
+```radicle
+(if (pr-accepted? pr)
+  (merge-pr master pr)
+  (close-pr pr))
+```
+
+To test multiple booleans use `cond`:
+
+```radicle
+(cond
+  (> num-issues 100) "Oh no, so many bugs!"
+  (= num-issues 0)   "All done!"
+  #t                 "A few bugs.")
+```
+
+In fact _all_ values which are not `#f` are treated as true, so one can also
+write:
+
+```radicle
+(cond
+  (> num-issues 100) "Oh no, so many bugs!"
+  (= num-issues 0)   "All done!"
+  :else              "A few bugs.")
+```
+
+If none of the conditions in the `cond` are true then the result is an error!
+
+### Function application
+
+A function call takes prefixed, parenthesized form. That is, the call appears
+within parenthesis, with the function at the head, followed by its arguments:
+
+```radicle
+(+ 3 2) ;; => 5
+```
+
+### Definitions
+
+Definitions bind values to an identifier.
+
+```radicle
+(def five 5)
+five ;; ==> 5
+```
+
+### Functions
+
+A function is created using `fn`. The first argument is a vector of symbols
+representing the parameters of the function, and the rest is a sequence of
+expressions which are run when the function is called.
+
+So a function which adds one to a number can be defined like so:
+```radicle
+(fn [x] (+ x 1))
+```
+
+You can call it like any other function:
+```radicle
+((fn [x] (+ x 1)) 1) ;; ==> 2
+```
+
+But most likely you want to `def`ine a new variable:
+```radicle
+(def f (fn [x] (+ x 1)))
+
+(f 41) ;; ==> 42
+```
+
+Functions are not by default recursive. If you want to define a recursive
+function, use the `def-rec` form:
+
+```radicle
+(def-rec range
+ (fn [from to]
+  (if (<= to from)
+    (list)
+    (cons from (range (+ 1 from) to)))))
+```
+
+Note that `def-rec` may only be used to define functions.
+
+## Quote and eval
+

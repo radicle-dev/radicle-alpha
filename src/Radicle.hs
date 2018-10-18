@@ -30,11 +30,13 @@ module Radicle
     , pattern Boolean
     , pattern List
     , pattern Vec
-    , pattern Primop
+    , pattern PrimFn
     , pattern Dict
     , pattern Ref
     , pattern Lambda
     , maybeJson
+    , UntaggedValue
+    , untag
     -- *** LangError
     , LangError(..)
     , LangErrorData(..)
@@ -72,13 +74,12 @@ module Radicle
     -- * Repl
     , repl
 
-    -- * Primops
-    , Primops(..)
-    , purePrimops
-    , replPrimops
+    -- * PrimFns
+    , PrimFns(..)
+    , purePrimFns
+    , replPrimFns
+    , primFnsEnv
     , ReplM
-    -- ** Primop helpers
-    , evalArgs
 
     -- * CLI
     , getConfig

@@ -91,7 +91,7 @@ getSince st name index = do
 
 data Chain = Chain
     { chainName  :: Text
-    , chainState :: Bindings (Primops Identity)
+    , chainState :: Bindings (PrimFns Identity)
     , chainExprs :: Seq (Value, Value)
     } deriving (Generic)
 

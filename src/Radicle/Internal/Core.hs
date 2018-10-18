@@ -4,7 +4,7 @@
 -- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
 
-import           Protolude hiding (Constructor, TypeError, list, (<>))
+import           Protolude hiding (Constructor, TypeError, (<>))
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
@@ -21,6 +21,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
 import           Data.Semigroup ((<>))
+import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
@@ -28,6 +29,7 @@ import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
+import qualified Radicle.Internal.Identifier as Identifier
 import           Radicle.Internal.Orphans ()
 
 
@@ -35,6 +37,8 @@ import           Radicle.Internal.Orphans ()
 
 data LangError r = LangError [Ann.SrcPos] (LangErrorData r)
     deriving (Eq, Show, Read, Generic, Functor)
+
+instance Serialise r => Serialise (LangError r)
 
 -- | An error throw during parsing or evaluating expressions in the language.
 data LangErrorData r =
@@ -49,6 +53,8 @@ data LangErrorData r =
     | ThrownError Ident r
     | Exit
     deriving (Eq, Show, Read, Generic, Functor)
+
+instance Serialise r => Serialise (LangErrorData r)
 
 throwErrorHere :: (MonadError (LangError Value) m, HasCallStack) => LangErrorData Value -> m a
 throwErrorHere = withFrozenCallStack (throwError . LangError [Ann.thisPos])
@@ -126,8 +132,8 @@ data ValueF r =
     | NumberF Scientific
     | BooleanF Bool
     | ListF [r]
-    | VecF (Seq.Seq r)
-    | PrimopF Ident
+    | VecF (Seq r)
+    | PrimFnF Ident
     -- | Map from *pure* Values -- annotations shouldn't change lookup semantics.
     | DictF (Map.Map Value r)
     | RefF Reference
@@ -138,7 +144,9 @@ data ValueF r =
     | LambdaF [Ident] (NonEmpty r) (Env r)
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
-{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Primop, Dict, Ref, Lambda #-}
+instance Serialise r => Serialise (ValueF r)
+
+{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -172,15 +180,15 @@ pattern List vs <- (Ann.match -> ListF vs)
     where
     List = Ann.annotate . ListF
 
-pattern Vec :: ValueConC t => Seq.Seq (Annotated t ValueF) -> Annotated t ValueF
+pattern Vec :: ValueConC t => Seq (Annotated t ValueF) -> Annotated t ValueF
 pattern Vec vs <- (Ann.match -> VecF vs)
     where
     Vec = Ann.annotate . VecF
 
-pattern Primop :: ValueConC t => Ident -> Annotated t ValueF
-pattern Primop i <- (Ann.match -> PrimopF i)
+pattern PrimFn :: ValueConC t => Ident -> Annotated t ValueF
+pattern PrimFn i <- (Ann.match -> PrimFnF i)
     where
-    Primop = Ann.annotate . PrimopF
+    PrimFn = Ann.annotate . PrimFnF
 
 pattern Dict :: ValueConC t => Map.Map Value (Annotated t ValueF) -> Annotated t ValueF
 pattern Dict vs <- (Ann.match -> DictF vs)
@@ -287,13 +295,13 @@ instance GhcExts.IsList (Env s) where
     toList = GhcExts.toList . fromEnv
 
 -- | Primop mappings. The parameter specifies the monad the primops run in.
-newtype Primops m = Primops { getPrimops :: Map Ident ([Value ] -> Lang m Value) }
+newtype PrimFns m = PrimFns { getPrimFns :: Map Ident ([Value] -> Lang m Value) }
   deriving (Semigroup)
 
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
     { bindingsEnv     :: Env Value
-    , bindingsPrimops :: prims
+    , bindingsPrimFns :: prims
     , bindingsRefs    :: IntMap Value
     , bindingsNextRef :: Int
     } deriving (Eq, Show, Functor, Generic)
@@ -317,19 +325,19 @@ instance MonadTrans (LangT r) where lift = LangT . lift . lift
 
 -- | A monad for language operations specialized to have as state the Bindings
 -- with appropriate underlying monad.
-type Lang m = LangT (Bindings (Primops m)) m
+type Lang m = LangT (Bindings (PrimFns m)) m
 
 -- | Run a `Lang` computation with the provided bindings. Returns the result as
 -- well as the updated bindings.
 runLang
-    :: Bindings (Primops m)
+    :: Bindings (PrimFns m)
     -> Lang m a
-    -> m (Either (LangError Value) a, Bindings (Primops m))
+    -> m (Either (LangError Value) a, Bindings (PrimFns m))
 runLang e l = runStateT (runExceptT $ fromLangT l) e
 
 -- | Like 'local' or 'withState'. Will run an action with a modified environment
 -- and then restore the original bindings.
-withBindings :: Monad m => (Bindings (Primops m) -> Bindings (Primops m)) -> Lang m a -> Lang m a
+withBindings :: Monad m => (Bindings (PrimFns m) -> Bindings (PrimFns m)) -> Lang m a -> Lang m a
 withBindings modifier action = do
     oldBnds <- get
     modify modifier
@@ -362,7 +370,7 @@ lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
 
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
-lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimops $ bindingsPrimops e of
+lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns e of
     Nothing -> throwErrorHere $ Impossible "Unknown primop"
     Just v  -> pure v
 
@@ -376,23 +384,15 @@ eval :: Monad m => Value -> Lang m Value
 eval val = do
     e <- lookupAtom (Ident "eval")
     st <- gets toRad
-    logValPos e $ case e of
-        Primop i -> do
-            fn <- lookupPrimop i
-            -- Primops get to decide whether and how their args are
-            -- evaluated.
-            res <- fn [quote val, quote st]
-            updateEnvAndReturn res
-        l@Lambda{} -> callFn l [val, st] >>= updateEnvAndReturn
-        _ -> throwErrorHere $ TypeError "Trying to apply a non-function"
+    logValPos e $ callFn e [val, st] >>= updateEnvAndReturn
   where
     updateEnvAndReturn :: Monad m => Value -> Lang m Value
     updateEnvAndReturn v = case v of
         List [val', newSt] -> do
-            prims <- gets bindingsPrimops
+            prims <- gets bindingsPrimFns
             newSt' <- either (throwErrorHere . OtherError) pure
                       (fromRad newSt :: Either Text (Bindings ()))
-            put $ newSt' { bindingsPrimops = prims }
+            put $ newSt' { bindingsPrimFns = prims }
             pure val'
         _ -> throwErrorHere $ OtherError "eval: should return list with value and new env"
 
@@ -412,42 +412,117 @@ baseEval val = logValPos val $ case val of
         Dict . Map.fromList <$> traverse evalBoth (Map.toList mp)
     autoquote -> pure autoquote
 
+specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)
+specialForms = Map.fromList $ first Ident <$>
+  [ ( "fn"
+    , \case
+          args : b : bs ->
+            case args of
+              Vec atoms_ -> do
+                atoms <- traverse isAtom (toList atoms_) ?? toLangError (TypeError "fn: expecting a list of symbols")
+                e <- gets bindingsEnv
+                pure (Lambda atoms (b :| bs) e)
+              _ -> throwErrorHere $ OtherError "fn: first argument must be a vector of argument symbols, and then at least one form for the body"
+          xs -> throwErrorHere $ WrongNumberOfArgs "fn" 2 (length xs) -- TODO: technically "at least 2"
+      )
+  , ("quote", \case
+          [v] -> pure v
+          xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
+  , ("def", \case
+          [Atom name, val] -> do
+              val' <- baseEval val
+              defineAtom name val'
+              pure nil
+          [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
+          xs               -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
+    , ( "def-rec"
+      , \case
+          [Atom name, val] -> do
+            val' <- baseEval val
+            case val' of
+                Lambda is b e -> do
+                    let v = Lambda is b (Env . Map.insert name v . fromEnv $ e)
+                    defineAtom name v
+                    pure nil
+                _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
+          [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
+          xs               -> throwErrorHere $ WrongNumberOfArgs "def-rec" 2 (length xs)
+      )
+    , ("do", (lastDef nil <$>) . traverse baseEval)
+    , ("catch", \case
+          [l, form, handler] -> do
+              mlabel <- baseEval l
+              case mlabel of
+                  -- TODO reify stack
+                  Atom label -> baseEval form `catchError` \(LangError _stack e) -> do
+                     (thrownLabel, thrownValue) <- errorDataToValue e
+                     if thrownLabel == label || label == Ident "any"
+                         then handler $$ [thrownValue]
+                         else baseEval form
+                  _ -> throwErrorHere $ TypeError "catch: first argument must be atom"
+          xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
+    , ("if", \case
+          [condition, t, f] -> do
+            b <- baseEval condition
+            -- I hate this as much as everyone that might ever read Haskell, but
+            -- in Lisps a lot of things that one might object to are True...
+            if b == Boolean False then baseEval f else baseEval t
+          xs -> throwErrorHere $ WrongNumberOfArgs "if" 3 (length xs))
+    , ( "cond", (cond =<<) . evenArgs "cond" )
+  ]
+  where
+    cond = \case
+      [] -> pure nil
+      (c,e):ps -> do
+        b <- baseEval c
+        if b /= Boolean False
+          then baseEval e
+          else cond ps
+
 -- * From/ToRadicle
 
-class FromRad a where
-  fromRad :: Value -> Either Text a
-  default fromRad :: (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
+type CPA t = (Ann.Annotation t, Copointed t)
+
+class FromRad t a where
+  fromRad :: Annotated t ValueF -> Either Text a
+  default fromRad :: (CPA t, HasEot a, FromRadG t (Eot a)) => Annotated t ValueF -> Either Text a
   fromRad = fromRadG
 
-instance FromRad Value where
+instance CPA t => FromRad t () where
+    fromRad (Vec Seq.Empty) = pure ()
+    fromRad _               = Left "Expecting an empty vector"
+instance (CPA t, FromRad t a, FromRad t b) => FromRad t (a,b) where
+    fromRad (Vec (x :<| y :<| Seq.Empty)) = (,) <$> fromRad x <*> fromRad y
+    fromRad _ = Left "Expecting a vector of length 2"
+instance FromRad Ann.WithPos Value where
   fromRad = pure
-instance FromRad Scientific where
+instance CPA t => FromRad t Scientific where
     fromRad x = case x of
         Number n -> pure n
         _        -> Left "Expecting number"
-instance FromRad Integer where
+instance CPA t => FromRad t Integer where
     fromRad = \case
       Number s -> case floatingOrInteger s of
         Left (_ :: Double) -> Left "Expecting whole number"
         Right i            -> pure i
       _ -> Left "Expecting number"
-instance FromRad Text where
+instance CPA t => FromRad t Text where
     fromRad x = case x of
         String n -> pure n
         _        -> Left "Expecting string"
-instance FromRad a => FromRad [a] where
+instance (CPA t, FromRad t a) => FromRad t [a] where
     fromRad x = case x of
         List xs -> traverse fromRad xs
         Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
-instance FromRad (Env Value) where
+instance FromRad Ann.WithPos (Env Value) where
     fromRad x = case x of
         Dict d -> fmap (Env . Map.fromList)
                 $ forM (Map.toList d) $ \(k, v) -> case k of
             Atom i -> pure (i, v)
             k'     -> Left $ "Expecting atom keys. Got: " <> show k'
         _ -> Left "Expecting dict"
-instance FromRad (Bindings ()) where
+instance FromRad Ann.WithPos (Bindings ()) where
     fromRad x = case x of
         Dict d -> do
             env' <- kwLookup "env" d ?? "Expecting 'env' key"
@@ -462,26 +537,30 @@ instance FromRad (Bindings ()) where
             _       -> throwError $ "Expecting dict"
 
 
-class ToRad a where
-  toRad :: a -> Value
-  default toRad :: (HasEot a, ToRadG (Eot a)) => a -> Value
+class ToRad t a where
+  toRad :: a -> Annotated t ValueF
+  default toRad :: (HasEot a, ToRadG t (Eot a)) => a -> Annotated t ValueF
   toRad = toRadG
 
-instance ToRad Int where
+instance CPA t => ToRad t () where
+    toRad _ = Vec Empty
+instance (CPA t, ToRad t a, ToRad t b) => ToRad t (a,b) where
+    toRad (x,y) = Vec $ toRad x :<| toRad y :<| Empty
+instance CPA t => ToRad t Int where
     toRad = Number . fromIntegral
-instance ToRad Integer where
+instance CPA t => ToRad t Integer where
     toRad = Number . fromIntegral
-instance ToRad Scientific where
+instance CPA t => ToRad t Scientific where
     toRad = Number
-instance ToRad Text where
+instance CPA t => ToRad t Text where
     toRad = String
-instance ToRad a => ToRad [a] where
+instance (CPA t, ToRad t a) => ToRad t [a] where
     toRad xs = List $ toRad <$> xs
-instance ToRad a => ToRad (Map.Map Text a) where
+instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
-instance ToRad (Env Value) where
+instance ToRad Ann.WithPos (Env Value) where
     toRad x = Dict . Map.mapKeys Atom $ fromEnv x
-instance ToRad (Bindings m) where
+instance ToRad Ann.WithPos (Bindings m) where
     toRad x = Dict $ Map.fromList
         [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
         , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs x))
@@ -501,37 +580,37 @@ callFn f vs = case f of
                   modEnv = mappings <> closure
               NonEmpty.last <$> withEnv (const modEnv)
                                         (traverse baseEval body)
-  Primop i -> throwErrorHere . TypeError
-    $ "Trying to call a non-function: the primop '" <> show i
-    <> "' cannot be used as a function."
-  _ -> throwErrorHere . TypeError $ "Trying to call a non-function."
+  PrimFn i -> do
+    fn <- lookupPrimop i
+    fn vs
+  _ -> throwErrorHere . TypeError $ "Trying to call a non-function"
 
--- | Infix evaluation of application (of functions or primops)
+-- | Infix evaluation of application (of functions or special forms)
 infixr 1 $$
 ($$) :: Monad m => Value -> [Value] -> Lang m Value
-mfn $$ vs = do
-    mfn' <- baseEval mfn
-    case mfn' of
-        Primop i -> do
-            fn <- lookupPrimop i
-            -- Primops get to decide whether and how their args are
-            -- evaluated.
-            fn vs
-        f@Lambda{} -> do
-          vs' <- traverse baseEval vs
-          callFn f vs'
-        _ -> throwErrorHere $ TypeError "Trying to apply a non-function"
+f $$ vs = case f of
+    Atom i ->
+      case Map.lookup i specialForms of
+        Just form -> form vs
+        Nothing   -> fnApp
+    _ -> fnApp
+  where
+    fnApp = do
+      f' <- baseEval f
+      vs' <- traverse baseEval vs
+      callFn f' vs'
 
 nil :: Value
 nil = List []
 
 quote :: Value -> Value
-quote v = List [Primop (Ident "quote"), v]
+quote v = List [Atom (Ident "quote"), v]
+
 
 list :: [Value] -> Value
-list vs = List (Primop (Ident "list") : vs)
+list vs = List (Atom (Ident "list") : vs)
 
-kwLookup :: Text -> Map Value Value -> Maybe Value
+kwLookup :: Text -> Map Value (Annotated t ValueF) -> Maybe (Annotated t ValueF)
 kwLookup key = Map.lookup (Keyword $ Ident key)
 
 (??) :: MonadError e m => Maybe a -> e -> m a
@@ -544,15 +623,24 @@ hoistEitherWith :: MonadError e' m => (e -> e') -> Either e a -> m a
 hoistEitherWith f (Left e)  = throwError (f e)
 hoistEitherWith _ (Right x) = pure x
 
+-- | Some forms/functions expect an even number or arguments.
+evenArgs :: MonadError (LangError Value) m => Text -> [b] -> m [(b, b)]
+evenArgs name = \case
+    [] -> pure []
+    [_] -> throwErrorHere . OtherError $ name <> ": expects an even number of arguments"
+    x:y:xs -> do
+        ps <- evenArgs name xs
+        pure ((x,y):ps)
+
 -- * Generic encoding/decoding of Radicle values.
 
-toRadG :: forall a. (HasEot a, ToRadG (Eot a)) => a -> Value
+toRadG :: forall a t. (HasEot a, ToRadG t (Eot a)) => a -> Annotated t ValueF
 toRadG x = toRadConss (constructors (datatype (Proxy :: Proxy a))) (toEot x)
 
-class ToRadG a where
-  toRadConss :: [Constructor] -> a -> Value
+class ToRadG t a where
+  toRadConss :: [Constructor] -> a -> Annotated t ValueF
 
-instance (ToRadFields a, ToRadG b) => ToRadG (Either a b) where
+instance (CPA t, ToRadFields t a, ToRadG t b) => ToRadG t (Either a b) where
   toRadConss (Constructor name fieldMeta : _) (Left fields) =
     case fieldMeta of
       Selectors names ->
@@ -563,52 +651,55 @@ instance (ToRadFields a, ToRadG b) => ToRadG (Either a b) where
   toRadConss (_ : r) (Right next) = toRadConss r next
   toRadConss [] _ = panic "impossible"
 
-radCons :: Text -> [Value] -> Value
-radCons name args = List ( Keyword (Ident name) : args )
+radCons :: CPA t => Text -> [Annotated t ValueF] -> Annotated t ValueF
+radCons name args = case args of
+    [] -> consKw
+    _  -> Vec ( consKw :<| Seq.fromList args )
+  where
+    consKw = Keyword (Ident (Identifier.keywordWord name))
 
-instance ToRadG Void where
+instance ToRadG t Void where
   toRadConss _ = absurd
 
-class ToRadFields a where
-  toRadFields :: a -> [Value]
+class ToRadFields t a where
+  toRadFields :: a -> [Annotated t ValueF]
 
-instance (ToRad a, ToRadFields as) => ToRadFields (a, as) where
+instance (ToRad t a, ToRadFields t as) => ToRadFields t (a, as) where
   toRadFields (x, xs) = toRad x : toRadFields xs
 
-instance ToRadFields () where
+instance ToRadFields t () where
   toRadFields () = []
 
--- Generic decoding of Radicle values to Haskell values
-
-fromRadG :: forall a. (HasEot a, FromRadG (Eot a)) => Value -> Either Text a
+fromRadG :: forall a t. (CPA t, HasEot a, FromRadG t (Eot a)) => Annotated t ValueF -> Either Text a
 fromRadG v = do
   (name, args) <- isRadCons v ?? gDecodeErr "expecting constructor"
   fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) name args
 
-class FromRadG a where
-  fromRadConss :: [Constructor] -> Text -> [Value] -> Either Text a
+class FromRadG t a where
+  fromRadConss :: [Constructor] -> Text -> [Annotated t ValueF] -> Either Text a
 
-isRadCons :: Value -> Maybe (Text, [Value])
-isRadCons (List (Keyword (Ident name) : args)) = pure (name, args)
-isRadCons _                                    = Nothing
+isRadCons :: CPA t => Annotated t ValueF -> Maybe (Text, [Annotated t ValueF])
+isRadCons (Keyword (Ident name))                = pure (name, [])
+isRadCons (Vec (Keyword (Ident name) :<| args)) = pure (name, toList args)
+isRadCons _                                     = Nothing
 
 gDecodeErr :: Text -> Text
 gDecodeErr e = "Couldn't generically decode radicle value: " <> e
 
-instance (FromRadFields a, FromRadG b) => FromRadG (Either a b) where
+instance (FromRadFields t a, FromRadG t b) => FromRadG t (Either a b) where
   fromRadConss (Constructor name fieldMeta : r) name' args = do
-    if toS name /= name'
+    if Identifier.keywordWord (toS name) /= name'
       then Right <$> fromRadConss r name' args
       else Left <$> fromRadFields fieldMeta args
   fromRadConss [] _ _ = panic "impossible"
 
-instance FromRadG Void where
+instance FromRadG t Void where
   fromRadConss _ name _ = Left (gDecodeErr "unknown constructor '" <> name <> "'")
 
-class FromRadFields a where
-  fromRadFields :: Fields -> [Value] -> Either Text a
+class FromRadFields t a where
+  fromRadFields :: Fields -> [Annotated t ValueF] -> Either Text a
 
-instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
+instance (CPA t, FromRad t a, FromRadFields t as) => FromRadFields t (a, as) where
   fromRadFields fields args = case fields of
     NoSelectors _ -> case args of
       v:vs -> do
@@ -625,5 +716,5 @@ instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
       _ -> Left . gDecodeErr $ "expecting a dict"
     _ -> panic "impossible"
 
-instance FromRadFields () where
+instance FromRadFields t () where
   fromRadFields _ _ = pure ()

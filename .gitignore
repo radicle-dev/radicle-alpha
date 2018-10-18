@@ -9,3 +9,10 @@ radicle.cabal
 .cabal-sandbox/
 cabal.sandbox.config
 out/
+result/
+result
+.stack-work/
+docs/build/
+*.orig
+*.swp
+docs/build/
