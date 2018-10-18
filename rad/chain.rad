@@ -15,6 +15,8 @@
         :inputs (list)
         :index 0))
 
+;; eval-in-chain
+
 (def eval-in-chain
   (fn [expr chain]
     (def x (eval expr (lookup :state chain)))
@@ -28,9 +30,13 @@
           "Evaluates 'expr' in the 'chain' and returns a dict with the ':result' and the resulting ':chain'.")
 
 (do 
-  (def res (eval-in-chain (+ 3 2) empty-chain))
-  (def ~~> (fn [comp expected] (should-be "eval-in-chain" (lookup comp) expected)))
-  (~~> :result 5))
+  (def res (eval-in-chain '(+ 3 2) empty-chain))
+  (def ~~> (fn [comp expected] (should-be "eval-in-chain" (view comp res) expected)))
+  (~~> (@ :result) 5)
+  (~~> (.. (@ :chain) (@ :input)) '((+ 3 2)))
+  (~~> (.. (@ :chain) (@ :index)) 1))
+
+;; update-chain-with
 
 (def update-chain-with
   (fn [chain remote-chain-id cb-expr cb-res]
@@ -48,23 +54,33 @@
           '(("chain" chain) ("chain-id" string) ("cb-expr" function) ("cb-res" function))
           "Updates 'chain' according to activity on the remote chain with ID 'chain-id', by pulling down and evaluating new inputs. Accepts two callbacks: 'cb-expr' is applied to the incoming expressions, and 'cb-res' is applied to the resulting values. Usually one uses 'print!' for both of these. If 'chain' is not a past version of the remote chain then the behaviour is unspecified.")
 
+;; enter-chain
+
 (def enter-chain
   (fn [chain]
     (def old-eval eval)
     (def ch (ref chain))
     (def ev
-      (fn [e]
+      (fn [e env]
         (if (eq? e :quit)
             (do (print! "leaving chain")
                 (eval-definer old-eval))
           (do (def x (eval e (read-ref ch)))
               (write-ref ch (view (@ :chain) x))
-              (view (@ :result) x)))))
+              (list (view (@ :result) x) env)))))
     (eval-definer ev)))
 
 (document 'enter-chain
           '(("chain" chain))
           "Instantiates an 'eval' which evaluates expressions in 'chain'. The expression ':quit' will return to the previous eval. Uses the parameter 'eval-definer' for eval redefinition, this should be a function which can be used to redefine 'eval': it should set eval to it's input.")
+
+(do 
+  (enter-chain empty-chain)
+  (def eval (fn [expr env] (list #t env)))
+  :quit
+  (should-be "enter-chain" #f #f))
+
+;; enter-remote-chain
 
 (def enter-remote-chain
   (fn [chain-id]
