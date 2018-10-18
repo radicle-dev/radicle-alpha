@@ -69,7 +69,7 @@ sqBracketsP = inside "[" "]"
 stringLiteralP :: VParser
 stringLiteralP = lexeme $ tag =<< StringF . toS <$> escaptedString
   where
-    escaptedString = catMaybes <$> (char '"' >> manyTill ch (char '"'))
+    escapedString = catMaybes <$> (char '"' >> manyTill ch (char '"'))
     ch = (Just <$> L.charLiteral) <|> (Nothing <$ string "\\&")
 
 boolLiteralP :: VParser
