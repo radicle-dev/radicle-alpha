@@ -67,7 +67,7 @@ sqBracketsP = inside "[" "]"
 
 -- Parsing of string literals handles escape sequences just like Haskell does.
 stringLiteralP :: VParser
-stringLiteralP = lexeme $ tag =<< StringF . toS <$> escaptedString
+stringLiteralP = lexeme $ tag =<< StringF . toS <$> escapedString
   where
     escapedString = catMaybes <$> (char '"' >> manyTill ch (char '"'))
     ch = (Just <$> L.charLiteral) <|> (Nothing <$ string "\\&")
