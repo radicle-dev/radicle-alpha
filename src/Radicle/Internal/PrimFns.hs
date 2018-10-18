@@ -17,6 +17,7 @@ import qualified Data.Sequence as Seq
 import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
+import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
@@ -64,6 +65,16 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ("get-current-env", \case
           [] -> toRad <$> get
           xs -> throwErrorHere $ WrongNumberOfArgs "get-current-env" 0 (length xs))
+    , ( "set-current-env"
+      , oneArg "set-current-env" $ \x -> do
+          e' :: Bindings () <- fromRadOtherErr x
+          e <- get
+          put e { bindingsEnv = bindingsEnv e'
+                , bindingsNextRef = bindingsNextRef e'
+                , bindingsRefs = bindingsRefs e'
+                }
+          pure ok
+      )
     , ("list", pure . List)
     , ("dict", (Dict . foldr (uncurry Map.insert) mempty <$>)
                         . evenArgs "dict")
@@ -138,7 +149,8 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ("insert", \case
           [k, v, Dict m] -> pure . Dict $ Map.insert k v m
           [_, _, _]                -> throwErrorHere
-                                    $ TypeError "insert: third argument must be a dict"
+
+                                      $ TypeError "insert: third argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
     , ( "delete"
       , twoArg "delete" $ \case
@@ -253,8 +265,8 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ( "verify-signature"
       , \case
           [keyv, sigv, String msg] -> do
-            key <- hoistEither . first (toLangError . OtherError) $ fromRad keyv
-            sig <- hoistEither . first (toLangError . OtherError) $ fromRad sigv
+            key <- fromRadOtherErr keyv
+            sig <- fromRadOtherErr sigv
             pure . Boolean $ verifySignature key sig msg
           [_, _, _] -> throwErrorHere $ OtherError "verify-signature: message must be a string"
           xs -> throwErrorHere $ WrongNumberOfArgs "verify-signature" 3 (length xs)
@@ -262,8 +274,13 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     ]
   where
 
+    fromRadOtherErr :: (FromRad Ann.WithPos a) => Value -> Lang m a
+    fromRadOtherErr = hoistEither . first (toLangError . OtherError) . fromRad
+
     tt = Boolean True
     ff = Boolean False
+
+    ok = Keyword (Ident "ok")
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text

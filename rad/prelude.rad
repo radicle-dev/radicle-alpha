@@ -46,3 +46,10 @@
 (document 'send-prelude!
           '(("chain-id" string))
 "Send the pure prelude to a chain.")
+
+(def set-current-env-with
+  (fn [state k v]
+    (def env (lookup :env state))
+    (def env_ (insert k v env))
+    (def state_ (insert :env env_ state))
+    (set-current-env state_)))

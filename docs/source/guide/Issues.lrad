@@ -1,6 +1,8 @@
 In this example we will create a chain which stores some issues about a code
 repository.
 
+This is a literate radicle file, which means you can run it like this: `stack exec doc -- docs/source/guide/Issues.lrad`.
+
 First we load the prelude
 
     (load! "rad/prelude.rad")
@@ -46,28 +48,31 @@ And now the new eval function:
 
 Now we can define the evaluation function:
 
-    (def new-eval
-      (fn [expr st]
+    (def process-command
+      (fn [expr]
+        (print! expr)
         (def command (head expr))
         (def arg (head (tail expr)))
-        (write-ref issues
-          (cond
-            (eq? command 'create) (new-issue arg)
-            (eq? command 'close)  (close-issue arg)))
-        (list (read-ref issues) (get-current-env))))
+        (cond
+          (eq? command 'create) (new-issue arg)
+          (eq? command 'close)  (close-issue arg)
+          :else                 (throw 'invalid-command (show command)))
+        (print! (read-ref issues))
+        :ok))
 
 Now we update the eval to this eval:
 
-    (def eval new-eval)
+    (def eval
+      (fn [expr st]
+        (set-current-env-with st 'expr expr)
+        (process-command expr)
+        (list :ok (get-current-env))))
 
 And test some inputs:
 
     (create {})
-
-ff
-
     (create {})
 
 To finish off we'll create a REPL so that we can test things:
 
-(load! "rad/repl.rad")
+    ;; (load! "rad/repl.rad")

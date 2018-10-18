@@ -23,7 +23,8 @@ run :: FilePath -> IO ()
 run f = do
     txt <- readFile f
     pand <- runIOorExplode $ readMarkdown def txt
-    res <- runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ getCode pand
+    let code = getCode pand
+    res <- Protolude.trace code $ runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ code
     case res of
         (Left err, _) -> die . toS $ "Error: " ++ show err
         _             -> pure ()
