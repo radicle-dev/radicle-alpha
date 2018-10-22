@@ -88,9 +88,6 @@
 (def store-exprs
  (fn [evalfn key]
      (fn [expr env]
-         (print! key)
-         (print! (view (.. (@ :env) (@ key)) env))
-         (print! env)
          (def env_ (over (.. (@ :env) (@ key)) (fn [x] (add-right expr x)) env))
          (evalfn expr env_ ))))
 
@@ -103,7 +100,8 @@
   (fn [oeval remote-chain inputs]
       (fn [expr env] 
           (if (eq? expr :send) 
-              (send! remote-chain inputs) 
+              ;; (send! remote-chain inputs) 
+              (print! (view (.. (@ :env) (@ inputs)) env))
               ((store-exprs oeval inputs) expr env)))))
 
 ;; enter-chain & enter-remote-chain
@@ -125,8 +123,9 @@
                 ;; Still broken
                 (eq? (head expr) :enter-remote-chain) (do 
                                                         (def arg (simple-eval (nth 1 expr)))
+                                                        (def state (lookup :state arg))
                                                         (def mod-state1
-                                                          (insert '_inputs [] (lookup :state arg))) 
+                                                          (over (@ :env) (fn [x] (insert '_inputs [] x)) state))
                                                         (def mod-state2
                                                           (over (.. (@ :env) (@ 'eval)) 
                                                                 (fn [x] (add-send 
