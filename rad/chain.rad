@@ -5,18 +5,18 @@
 ;;     == base-eval')
 ;;   - A sequence of inputs.
 
+;; TODO do we want this? then move it
+;; (def eval-ref (ref eval))
+;; (def eval (fn [expr env] ((read-ref eval-ref) expr env)))
 
-;; TODO
-;; DELETEME
-(def eval-ref (ref eval)) 
-(def eval (fn [expr env] ((read-ref eval-ref) expr env)))
-(def eval-definer (fn [ev] (write-ref eval-ref ev)))
-;; DELETEME
 
 (def empty-chain
-  (dict :state (pure-env)
-        :inputs (list)
-        :index 0))
+  {:state (pure-env)
+   :inputs (list)
+   :index 0})
+
+(def test-chain 
+  (set (... (list (@ :state) (@ :env) (@ 'eval))) (fn [expr env] (list #t env)) empty-chain) )  
 
 ;; eval-in-chain
 
@@ -57,31 +57,76 @@
           '(("chain" chain) ("chain-id" string) ("cb-expr" function) ("cb-res" function))
           "Updates 'chain' according to activity on the remote chain with ID 'chain-id', by pulling down and evaluating new inputs. Accepts two callbacks: 'cb-expr' is applied to the incoming expressions, and 'cb-res' is applied to the resulting values. Usually one uses 'print!' for both of these. If 'chain' is not a past version of the remote chain then the behaviour is unspecified.")
 
+;; set-topmost-st
+
+;; (def set-topmost-st
+;;   (fn [new-state]
+;;     (def once (fn [x y]
+;;       (def first? (ref #t))
+;;       (if (read-ref first?) x y))) 
+;;     (def  
+;;     (write-ref eval-ref 
+
+;; add-quit
+
+(def add-quit
+  (fn [old-state new-eval]
+    (fn [expr env]
+      (if (eq? expr :quit)
+          (list :ok old-state)
+          (new-eval expr env)))))
+
 ;; enter-chain
 
-(def enter-chain
-  (fn [chain]
-    (def old-eval eval)
-    (def ch (ref chain))
-    (def ev
-      (fn [e env]
-        (if (eq? e :quit)
-            (do (print! "leaving chain")
-                (eval-definer old-eval))
-          (do (def x (eval e (read-ref ch)))
-              (write-ref ch (view (@ :chain) x))
-              (list (view (@ :result) x) env)))))
-    (eval-definer ev)))
 
-(document 'enter-chain
-          '(("chain" chain))
-          "Instantiates an 'eval' which evaluates expressions in 'chain'. The expression ':quit' will return to the previous eval. Uses the parameter 'eval-definer' for eval redefinition, this should be a function which can be used to redefine 'eval': it should set eval to it's input.")
+;; (def test-chain 
+;;   (set (.. (@ :state) (@ :env) (@ 'eval)) (fn [expr env] (list #t env)) empty-chain ))  
 
-(do 
-  (enter-chain empty-chain)
-  (def eval (fn [expr env] (list #t env)))
-  :quit
-  (should-be "enter-chain" #f #f))
+
+;; (def enter-chain
+;;   (fn [chain]
+;;     (def old-eval eval)
+;;     (def ch (ref chain))
+;;     (add-quit old-eval  
+;;     (def ev
+;;       (fn [e env]
+;;         (print! e)
+;;         (if (eq? e :quit)
+;;             (do (print! "leaving chain")
+;;                 (list :ok old-state))
+;;           (do (def x (eval e (read-ref ch)))
+;;               (write-ref ch (view (@ :chain) x))
+;;               (list (view (@ :result) x) env)))))
+;;     (print! "here")
+;;     (write-ref eval-ref ev)))
+;; 
+;; (document 'enter-chain
+;;           '(("chain" chain))
+;;           "Instantiates an 'eval' which evaluates expressions in 'chain'. The expression ':quit' will return to the previous eval. Uses the parameter 'eval-definer' for eval redefinition, this should be a function which can be used to redefine 'eval': it should set eval to it's input.")
+;; 
+;; (do 
+;;   (enter-chain empty-chain)
+;;   (def eval (fn [expr env] (list #t env)))
+;;   :quit
+;;   (should-be "enter-chain" #f #f))
+
+;; TODO move else-where
+(def simple-eval
+ (fn [expr]
+     (head (eval expr (get-current-env)))))
+
+;; TODO: once you :quit, you can no longer :enter. Fix that
+(def eval 
+  (fn [expr env]
+      (if (and (list? expr) (eq? (head expr) :enter-chain))
+          (do
+            (def mod-state 
+              (over (.. (@ :env) (@ 'eval)) 
+                    (fn [x] (add-quit (get-current-env) x))  
+                    (lookup :state (simple-eval (nth 1 expr)))))
+            (list :ok mod-state))
+          (eval expr env))))
+
 
 ;; enter-remote-chain
 
