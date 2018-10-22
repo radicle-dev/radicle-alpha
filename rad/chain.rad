@@ -116,16 +116,33 @@
      (head (eval expr (get-current-env)))))
 
 ;; TODO: once you :quit, you can no longer :enter. Fix that
-(def eval 
+;; (def eval 
+;;   (fn [expr env]
+;;       (if (and (list? expr) (eq? (head expr) :enter-chain))
+;;           (do
+;;             (def mod-state 
+;;               (over (.. (@ :env) (@ 'eval)) 
+;;                     (fn [x] (add-quit (get-current-env) x))  
+;;                     (lookup :state (simple-eval (nth 1 expr)))))
+;;             (list :ok mod-state))
+;;           (eval expr env))))
+
+(def eval__ eval)
+(def-rec eval 
   (fn [expr env]
-      (if (and (list? expr) (eq? (head expr) :enter-chain))
-          (do
-            (def mod-state 
-              (over (.. (@ :env) (@ 'eval)) 
-                    (fn [x] (add-quit (get-current-env) x))  
-                    (lookup :state (simple-eval (nth 1 expr)))))
-            (list :ok mod-state))
-          (eval expr env))))
+      ;; The horror, the horror
+      (if (list? expr) 
+          (if (> (length expr) 0) 
+              (if (eq? (head expr) :enter-chain)
+                  (do
+                     (def mod-state 
+                       (over (.. (@ :env) (@ 'eval)) 
+                             (fn [x] (add-quit (get-current-env) x)) 
+                             (lookup :state (simple-eval (nth 1 expr)))))
+                     (list :ok mod-state))
+                  (eval__ expr env))
+              (eval__ expr env))
+          (eval__ expr env))))
 
 
 ;; enter-remote-chain
