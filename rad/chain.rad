@@ -101,7 +101,9 @@
       (fn [expr env] 
           (if (eq? expr :send) 
               ;; (send! remote-chain inputs) 
-              (print! (view (.. (@ :env) (@ inputs)) env))
+              ;; TODO: reset inputs on send, so things don't get sent twice
+              (do (print! (view (.. (@ :env) (@ inputs)) env))
+                  (list :ok env))
               ((store-exprs oeval inputs) expr env)))))
 
 ;; enter-chain & enter-remote-chain
