@@ -13,11 +13,12 @@ import qualified Data.Aeson as Aeson
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
+import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import           GHC.Exts (IsList(..))
 
-import           Radicle.Internal.Core
 import qualified Radicle.Internal.Annotation as Ann
+import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
@@ -86,6 +87,15 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [a, b] -> pure $ Boolean (a == b)
           xs     -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
 
+    -- Maybe
+    , ( "maybe"
+      , \case
+          [Keyword (Ident "Nothing"), nothing, _] -> pure nothing
+          [Vec (Keyword (Ident "Just") :<| v :<| Empty), _, just] -> callFn just [v]
+          [x, _, _] -> throwErrorHere $ TypeError $ "maybe: first argument should be a Maybe: " <> renderCompactPretty x
+          xs -> throwErrorHere $ WrongNumberOfArgs "maybe" 3 (length xs)
+      )
+
     -- Vectors
     , ( "<>"
       , twoArg "<>" $ \case
@@ -94,12 +104,12 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
       )
     , ( "add-left"
       , twoArg "add-left" $ \case
-          (x, Vec xs) -> pure $ Vec (x Seq.:<| xs)
+          (x, Vec xs) -> pure $ Vec (x :<| xs)
           _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
       )
     , ( "add-right"
       , twoArg "add-right" $ \case
-          (x, Vec xs) -> pure $ Vec (xs Seq.:|> x)
+          (x, Vec xs) -> pure $ Vec (xs :|> x)
           _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
       )
 
@@ -137,8 +147,15 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
               -- Probably an exception is better, but that seems cruel
               -- when you have no exception handling facilities.
               Nothing -> nil
-          [_, _]      -> throwErrorHere $ TypeError "lookup: second argument must be map"
+          [_, d]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict" <> renderCompactPretty d
           xs -> throwErrorHere $ WrongNumberOfArgs "lookup" 2 (length xs))
+    , ( "safe-lookup"
+      , twoArg "safe-lookup" $ \case
+          (a, Dict m) -> pure $ case Map.lookup a m of
+            Just v  -> toRad [kw "Just", v]
+            Nothing -> kw "Nothing"
+          (_, d) -> throwErrorHere $ TypeError $ "safe-lookup: second argument must be a dict" <> renderCompactPretty d
+      )
     , ("string-append", \args ->
           let fromStr (String s) = Just s
               fromStr _          = Nothing
@@ -177,14 +194,18 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [_, _]               -> throwErrorHere $ TypeError ">: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs ">" 2 (length xs))
     , ("foldl", \case
-          [fn, init', List ls] -> foldlM (\b a -> callFn fn [b, a]) init' ls
-          [_, _, _]            -> throwErrorHere
-                                $ TypeError "foldl: third argument should be a list"
+          [fn, init', v] -> do
+            ls :: [Value] <- fromRadOtherErr v
+            foldlM (\b a -> callFn fn [b, a]) init' ls
+          -- [_, _, _]            -> throwErrorHere
+          --                       $ TypeError "foldl: third argument should be a list"
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldl" 3 (length xs))
     , ("foldr", \case
-          [fn, init', List ls] -> foldrM (\b a -> callFn fn [b, a]) init' ls
-          [_, _, _]            -> throwErrorHere
-                                $ TypeError "foldr: third argument should be a list"
+          [fn, init', v] -> do
+            ls :: [Value] <- fromRadOtherErr v
+            foldrM (\b a -> callFn fn [b, a]) init' ls
+          -- [_, _, _]            -> throwErrorHere
+          --                       $ TypeError "foldr: third argument should be a list"
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", \case
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
@@ -203,19 +224,19 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
                   Dict _ -> pure tt
                   _      -> pure ff)
     , ( "type"
-      , let kw = pure . Keyword . Ident
+      , let kw' = pure . Keyword . Ident
         in oneArg "type" $ \case
-             Atom _ -> kw "atom"
-             Keyword _ -> kw "keyword"
-             String _ -> kw "string"
-             Number _ -> kw "number"
-             Boolean _ -> kw "boolean"
-             List _ -> kw "list"
-             Vec _ -> kw "vector"
-             PrimFn _ -> kw "function"
-             Dict _ -> kw "dict"
-             Ref _ -> kw "ref"
-             Lambda{} -> kw "function"
+             Atom _ -> kw' "atom"
+             Keyword _ -> kw' "keyword"
+             String _ -> kw' "string"
+             Number _ -> kw' "number"
+             Boolean _ -> kw' "boolean"
+             List _ -> kw' "list"
+             Vec _ -> kw' "vector"
+             PrimFn _ -> kw' "function"
+             Dict _ -> kw' "dict"
+             Ref _ -> kw' "ref"
+             Lambda{} -> kw' "function"
       )
     , ("string?", oneArg "string?" $ \case
           String _ -> pure tt
@@ -280,7 +301,9 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     tt = Boolean True
     ff = Boolean False
 
-    ok = Keyword (Ident "ok")
+    ok = kw "ok"
+
+    kw = Keyword . Ident
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text

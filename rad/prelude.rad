@@ -3,6 +3,7 @@
 (load! "rad/prelude/io.rad")
 (load! "rad/prelude/bool.rad")
 (load! "rad/prelude/recursion.rad")
+(load! "rad/prelude/maybe.rad")
 (load! "rad/prelude/list.rad")
 (load! "rad/prelude/dict.rad")
 (load! "rad/prelude/ref.rad")
