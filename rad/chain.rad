@@ -87,16 +87,17 @@
 (def store-exprs
  (fn [eref evalfn]
      (fn [expr env]
-         (modify-ref cons eref)
+         (modify-ref eref cons)
          (evalfn expr env))))
 
 ;; add-send
 (def add-send
   (fn [oeval remote-chain]
       (def expr-store (ref (list)))
-      (if (eq? expr :send)
-          (send! remote-chain (reverse (read-ref expr-store)))
-          (store-exprs expr-store oeval ))))
+      (fn [expr env] 
+          (if (eq? expr :send) 
+              (send! remote-chain (reverse (read-ref expr-store))) 
+              ((store-exprs expr-store oeval) expr env)))))
 
 ;; enter-chain & enter-remote-chain
 
