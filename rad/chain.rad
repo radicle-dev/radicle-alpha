@@ -84,20 +84,27 @@
      (head (eval expr (get-current-env)))))
 
 ;; store-exprs
+
 (def store-exprs
- (fn [eref evalfn]
+ (fn [evalfn key]
      (fn [expr env]
-         (modify-ref eref cons)
-         (evalfn expr env))))
+         (print! key)
+         (print! (view (.. (@ :env) (@ key)) env))
+         (print! env)
+         (def env_ (over (.. (@ :env) (@ key)) (fn [x] (add-right expr x)) env))
+         (evalfn expr env_ ))))
+
+(document 'store-exprs
+          '(("key" lens) ("eval" fn)) 
+          "Store each new evaluated expression in 'key'")
 
 ;; add-send
 (def add-send
-  (fn [oeval remote-chain]
-      (def expr-store (ref (list)))
+  (fn [oeval remote-chain inputs]
       (fn [expr env] 
           (if (eq? expr :send) 
-              (send! remote-chain (reverse (read-ref expr-store))) 
-              ((store-exprs expr-store oeval) expr env)))))
+              (send! remote-chain inputs) 
+              ((store-exprs oeval inputs) expr env)))))
 
 ;; enter-chain & enter-remote-chain
 
@@ -118,11 +125,16 @@
                 ;; Still broken
                 (eq? (head expr) :enter-remote-chain) (do 
                                                         (def arg (simple-eval (nth 1 expr)))
-                                                        (def mod-state 
+                                                        (def mod-state1
+                                                          (insert '_inputs [] (lookup :state arg))) 
+                                                        (def mod-state2
                                                           (over (.. (@ :env) (@ 'eval)) 
-                                                                (fn [x] (add-send (add-quit (get-current-env) x) arg)) 
-                                                                (lookup :state arg))) 
-                                                        (list :ok mod-state)) 
+                                                                (fn [x] (add-send 
+                                                                          (add-quit (get-current-env) x) 
+                                                                          arg 
+                                                                          '_inputs)) 
+                                                                mod-state1)) 
+                                                        (list :ok mod-state2)) 
                 :else (eval__ expr env))
               (eval__ expr env))
           (eval__ expr env))))

@@ -89,7 +89,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ( "add-right"
       , twoArg "add-right" $ \case
           (x, Vec xs) -> pure $ Vec (xs Seq.:|> x)
-          _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
+          _ -> throwErrorHere $ TypeError "add-right: second argument must be a vector"
       )
 
     -- Lists
