@@ -140,6 +140,10 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [_, _, _]                -> throwErrorHere
                                     $ TypeError "insert: third argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
+    , ("delete", \case
+          [k, Dict m] -> pure . Dict $ Map.delete k m
+          [_, _]      -> throwErrorHere $ TypeError "delete: second argument must be a dict"
+          xs          -> throwErrorHere $ WrongNumberOfArgs "delete" 2 (length xs))
     -- The semantics of + and - in Scheme is a little messed up. (+ 3)
     -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.
     -- But while (+ 3 2 1) evaluates to 6, (- 3 2 1) evaluates to 0. So with -
