@@ -54,3 +54,8 @@
     (def env_ (insert k v env))
     (def state_ (insert :env env_ state))
     (set-current-env state_)))
+
+(def make-counter []
+  (def i (ref -1))
+  (fn []
+    (modify-ref i (fn [x] (+ x 1)))))
