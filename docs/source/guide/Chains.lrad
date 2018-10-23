@@ -19,10 +19,12 @@ abstract
 
 In other words, we would like for programs to be *deterministic*. 
 
+TODO: more.
 
 ## Exploring chains
 
-You can enter an environment that corresponds to a chain:
+Chains, then, are like environments.  You can enter an environment that
+corresponds to a chain and explore it:
 
 ```
 (def x 0) 
@@ -41,3 +43,14 @@ As you can see, between entering a chain (with `:enter-chain`) and leaving it
 as it contains a keyword apparently doing the job of a function application. 
 The short answer is that we can define special macro-like operations, of which
 we will see more.)
+
+`:enter-chain` allows you to enter a local chain. More often, you'll want to
+explore and interact with chains that exist elsewhere--that are replicated in
+a distributed way, or exist in some centralized server. For that, you can use
+`:enter-remote-chain`. 
+
+`:enter-remote-chain` takes an argument just like `:enter-chain`, and indeed
+for the most part both behave identically. The main difference is that with
+`:enter-remote-chain`, you also have access to the special command `:send`,
+which sends all the inputs you have so far to the remote.
+ 

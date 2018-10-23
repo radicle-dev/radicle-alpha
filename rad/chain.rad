@@ -55,16 +55,6 @@
           '(("chain" chain) ("chain-id" string) ("cb-expr" function) ("cb-res" function))
           "Updates 'chain' according to activity on the remote chain with ID 'chain-id', by pulling down and evaluating new inputs. Accepts two callbacks: 'cb-expr' is applied to the incoming expressions, and 'cb-res' is applied to the resulting values. Usually one uses 'print!' for both of these. If 'chain' is not a past version of the remote chain then the behaviour is unspecified.")
 
-;; set-topmost-st
-
-;; (def set-topmost-st
-;;   (fn [new-state]
-;;     (def once (fn [x y]
-;;       (def first? (ref #t))
-;;       (if (read-ref first?) x y))) 
-;;     (def  
-;;     (write-ref eval-ref 
-
 ;; add-quit
 
 (def add-quit
@@ -76,11 +66,6 @@
 
 ;; enter-chain
 
-
-;; (def test-chain 
-;;   (set (.. (@ :state) (@ :env) (@ 'eval)) (fn [expr env] (list #t env)) empty-chain ))  
-
-
 ;; TODO move else-where
 (def simple-eval
  (fn [expr]
@@ -89,24 +74,30 @@
 ;; store-exprs
 
 (def store-exprs
- (fn [evalfn key]
+ (fn [evalfn]
      (fn [expr env]
-         (def env_ (over (.. (@ :env) (@ key)) (fn [x] (add-right expr x)) env))
+         (def env_ (over (.. (@ :env) (@ '_inputs)) (fn [x] (add-right expr x)) env))
          (evalfn expr env_ ))))
 
 (document 'store-exprs
-          '(("key" lens) ("eval" fn)) 
-          "Store each new evaluated expression in 'key'")
+          '(("eval" fn)) 
+          "Store each new evaluated expression in '_inputs'")
 
 ;; add-send
 (def add-send
-  (fn [oeval remote-chain inputs]
+  (fn [oeval]
       (fn [expr env] 
           (if (eq? expr :send) 
-              (do (map (fn [e] (send! (view (.. (@ :env) (@ '_cur-chain)) env) e)) (view (.. (@ :env) (@ inputs)) env))
-                  (def env_ (set (.. (@ :env) (@ inputs)) [] env))
+              (do (def inpl (.. (@ :env) (@ '_inputs))) 
+                  (def chainl (.. (@ :env) (@ '_cur-chain)))
+                  (map (fn [e] (send! (view chainl env) e)) (view inpl env))
+                  (def env_ (set inpl [] env))
                   (list :ok env_))
-              ((store-exprs oeval inputs) expr env)))))
+              ((store-exprs oeval) expr env)))))
+
+(document 'add-send
+          '(("eval-fn" fn))
+          "Add a :send special form that sends the contents of _input to the chain _cur-chain")
 
 ;; enter-chain & enter-remote-chain
 
@@ -124,7 +115,6 @@
                                                          (fn [x] (add-quit env x)) 
                                                          (lookup :state arg))) 
                                                  (list :ok mod-state)) 
-                ;; Still broken
                 (eq? (head expr) :enter-remote-chain) (do 
                                                         (def arg (simple-eval (nth 1 expr)))
                                                         (def state (lookup :state arg))
@@ -136,41 +126,9 @@
                                                                 mod-state1))
                                                         (def mod-state3
                                                           (over (.. (@ :env) (@ 'eval)) 
-                                                                (fn [x] (add-send 
-                                                                          (add-quit (get-current-env) x) 
-                                                                          arg 
-                                                                          '_inputs)) 
+                                                                (fn [x] (add-send (add-quit (get-current-env) x))) 
                                                                 mod-state2)) 
                                                         (list :ok mod-state3)) 
                 :else (eval__ expr env))
               (eval__ expr env))
           (eval__ expr env))))
-
-;; enter-remote-chain
-
-(def enter-remote-chain
-  (fn [chain-id]
-    (def old-eval eval)
-    (def chain (update-chain-with empty-chain chain-id (fn [e] '()) (fn [e] '())))
-    (print! (string-append "Synced with remote chain, at index: " (show (view (@ :index) chain))))
-    (def ch (ref chain))
-    (def inputs (ref (list)))
-    (eval-definer
-     (fn [e]
-       (cond
-        (eq? e :quit) (do (print! "Leaving remote-chain.")
-                          (eval-definer old-eval))
-        (eq? e :send) (do (print! "Sending inputs to remote chain.")
-                          (map (fn [i] (send! chain-id i)) (reverse (read-ref inputs)))
-                          (print! "Done! Leaving remote-chain.")
-                          (eval-definer old-eval))
-        :else (do (def x (eval-in-chain e (read-ref ch)))
-                  (write-ref ch (view (@ :chain) x))
-                  (modify-ref inputs (fn [is] (cons e is)))
-                  (view (@ :result) x)))))))
-
-(document 'enter-remote-chain
-          '(("chain-id" string))
-          "Syncs up to a remote chain, and allows experimentation inputs. There are two special inputs: ':quit' will leave the chain, ':send' will send all the accumulated inputs to the remote chain, one by one, and then leave the chain. Uses the parameter 'eval-definer' for eval redefinition, this should be a function which can be used to redefine 'eval': it should set eval to it's input.")
-
-;; TODO - update docs.
