@@ -18,3 +18,26 @@ importantly for our purposes--it also means we can't think of programs in the
 abstract
 
 In other words, we would like for programs to be *deterministic*. 
+
+
+## Exploring chains
+
+You can enter an environment that corresponds to a chain:
+
+```
+(def x 0) 
+x 			   ;; ==> 0
+(:enter-chain empty-chain) ;; ==> :ok
+(def x 1)
+x 			   ;; ==> 1
+:quit 			   ;; ==> :ok
+x 			   ;; ==> 0
+```
+
+As you can see, between entering a chain (with `:enter-chain`) and leaving it
+(with `:quit`), all inputs are evaluated in the context of that chain.
+
+(You may be wondering how `(:enter-chain empty-chain)` could possibly be valid, 
+as it contains a keyword apparently doing the job of a function application. 
+The short answer is that we can define special macro-like operations, of which
+we will see more.)

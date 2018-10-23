@@ -175,7 +175,8 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", \case
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
-          [_, _]        -> throwErrorHere $ TypeError "map: second argument should be a list"
+          [fn, Vec ls]  -> Vec <$> traverse (callFn fn) (pure <$> ls)
+          [_, _]        -> throwErrorHere $ TypeError "map: second argument should be a list or vector"
           xs            -> throwErrorHere $ WrongNumberOfArgs "map" 3 (length xs))
     , ("keyword?", oneArg "keyword?" $ \case
           Keyword _ -> pure tt

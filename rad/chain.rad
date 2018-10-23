@@ -11,7 +11,10 @@
    :index 0})
 
 (def test-chain 
-  (set (... (list (@ :state) (@ :env) (@ 'eval))) (fn [expr env] (list #t env)) empty-chain) )  
+  {:state (pure-env)
+   :inputs (list)
+   :name "test"
+   :index 0})
 
 ;; eval-in-chain
 
@@ -100,10 +103,9 @@
   (fn [oeval remote-chain inputs]
       (fn [expr env] 
           (if (eq? expr :send) 
-              ;; (send! remote-chain inputs) 
-              ;; TODO: reset inputs on send, so things don't get sent twice
-              (do (print! (view (.. (@ :env) (@ inputs)) env))
-                  (list :ok env))
+              (do (map (fn [e] (send! (view (.. (@ :env) (@ '_cur-chain)) env) e)) (view (.. (@ :env) (@ inputs)) env))
+                  (def env_ (set (.. (@ :env) (@ inputs)) [] env))
+                  (list :ok env_))
               ((store-exprs oeval inputs) expr env)))))
 
 ;; enter-chain & enter-remote-chain
@@ -119,7 +121,7 @@
                                                  (def arg (simple-eval (nth 1 expr)))
                                                  (def mod-state 
                                                    (over (.. (@ :env) (@ 'eval)) 
-                                                         (fn [x] (add-quit (get-current-env) x)) 
+                                                         (fn [x] (add-quit env x)) 
                                                          (lookup :state arg))) 
                                                  (list :ok mod-state)) 
                 ;; Still broken
@@ -129,13 +131,17 @@
                                                         (def mod-state1
                                                           (over (@ :env) (fn [x] (insert '_inputs [] x)) state))
                                                         (def mod-state2
+                                                          (over (@ :env) 
+                                                                (fn [x] (insert '_cur-chain (lookup :name arg) x)) 
+                                                                mod-state1))
+                                                        (def mod-state3
                                                           (over (.. (@ :env) (@ 'eval)) 
                                                                 (fn [x] (add-send 
                                                                           (add-quit (get-current-env) x) 
                                                                           arg 
                                                                           '_inputs)) 
-                                                                mod-state1)) 
-                                                        (list :ok mod-state2)) 
+                                                                mod-state2)) 
+                                                        (list :ok mod-state3)) 
                 :else (eval__ expr env))
               (eval__ expr env))
           (eval__ expr env))))
