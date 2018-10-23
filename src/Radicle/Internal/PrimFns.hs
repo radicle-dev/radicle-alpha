@@ -156,6 +156,14 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
             Nothing -> kw "Nothing"
           (_, d) -> throwErrorHere $ TypeError $ "safe-lookup: second argument must be a dict" <> renderCompactPretty d
       )
+    , ( "map-values"
+      , twoArg "map-values" $ \case
+          (f, Dict m) -> do
+            let kvs = Map.toList m
+            vs <- traverse (\v -> callFn f [v]) (snd <$> kvs)
+            pure (Dict (Map.fromList (zip (fst <$> kvs) vs)))
+          _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
+      )
     , ("string-append", \args ->
           let fromStr (String s) = Just s
               fromStr _          = Nothing

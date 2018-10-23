@@ -1,13 +1,13 @@
 In this example we will create a chain which stores some issues about a code
 repository.
 
-This is a literate radicle file, which means you can run it like this: `stack exec doc -- docs/source/guide/Issues.lrad`.
+This is a literate radicle file, which means you can run it like this: `stack
+exec doc -- docs/source/guide/Issues.lrad`.
 
 First we load the prelude, and load up a mode which makes it easy to define
 updatable chains:
 
     (load! "rad/prelude.rad")
-    ;; (updatable-chain-mode)
 
 We'll use two refs, one to store the next issue ID, and one to store the issues
 themselves, as a dictionary from issue IDs to issues.
@@ -16,16 +16,19 @@ themselves, as a dictionary from issue IDs to issues.
 
 We'll need a way of creating new IDs for issues. Our IDs will just be
 incrementing integers. What we need is a function which returns these integers,
-one by one, as it is called. There is a function in the prelude for creating such functions called `make-counter`, so we can just create our counter like this: 
+one by one, as it is called. There is a function in the prelude for creating
+such functions called `make-counter`, so we can just create our counter like
+this:
 
-    (def new-issue-id (make-counter))`
+    (def new-issue-id (make-counter))
     
 The `make-counter` function is nothing special, it is defined like so:
 
-    (def make-counter []
-      (def i (ref -1))
+    (def make-counter
       (fn []
-        (modify-ref i (fn [x] (+ x 1)))))
+        (def i (ref -1))
+        (fn []
+          (modify-ref i (fn [x] (+ x 1))))))
 
 So every time it is called it creates a new reference `i` which is in the scope
 of the function that is returned. Every time `make-counter` is called, a new ref
@@ -68,8 +71,7 @@ Note that we'll also include a command to update the chain as we go along:
     (def commands
       (ref
         {'create new-issue
-         'close  close-issue
-         'update update-chain}))
+         'close  close-issue}))
 
 Now we create a function for handling these commands.
 
@@ -87,25 +89,35 @@ Now we create a function for handling these commands.
         (print! (read-ref issues))
         :ok))
 
-Now we update the eval to this eval:
+Now we update the eval. We will check for a special command `update` for
+updating the semantics of our chain (by executing arbitrary code), but otherwise
+we delegate to `process-command`. In general of course you wouldn't want to
+leave such an `update` command with no restrictions; we'll talk about that
+later.
 
-    (def-rec eval
-      (fn [expr st]
-        (set-current-env-with st 'expr expr)
-        (process-command expr)
-        (list :ok (get-current-env))))
+TODO: talk about that later.
+TODO: this eval is messy, use more/better helper functions.
+
+    (def eval
+      (fn [expr state]
+        (print! expr)
+        (list-with-head
+          expr
+          (fn [cmd]
+            (if (eq? cmd 'update)
+              (base-eval (nth 1 expr) state)
+              (eval-fn-app state 'process-command expr print!)))
+          (fn [] (eval-fn-app state 'process-command expr print!)))))
 
 And test some inputs:
 
     (create {:author "James"
-             :title "Pattern matches"
+             :title "Pattern matching"
              :body "Pleeease"})
     
     (create {:author "Julian"
              :title "Better numbers"
              :body "The ids are floats!"})
-    
-    (comment 0 "super")
 
 Now it would be nice to be able to comment on issues. For this we'll just use a
 `:comment` field in the issue, which is just a vector of comments. The first
@@ -119,16 +131,19 @@ some arbitrary updating code:
                     (map-values (fn [i] (insert :comments [] i))
                                 is))))
 
-TODO: add the primfn map-values
+When creating issues now we need to be careful to add the comments:
 
     (create {:author   "Alice"
              :title    "Can issues have comments please?"
              :body     "So that we can talk about them."
              :comments []})
 
-First we will add a new function to add comments to issues. We'll assume the
-input is a dict with the `:id` of the issue it should be added to, and the
-`:comment` that should be added.
+A more sophisticated handler might add an empty comments field if it doesn't
+exist.
+
+To add the commenting feature, first we will add a new function to add comments
+to issues. We'll assume the input is a dict with the `:id` of the issue it
+should be added to, and the `:comment` that should be added.
 
     (update
       (def add-comment
@@ -153,7 +168,7 @@ Adding this command to our commands dictionary will now make comments work:
     (update
       (modify-ref
         commands
-        (fn [cs] (insert 'comment add-comment))))
+        (fn [cs] (insert 'comment add-comment cs))))
 
 Now we can comments on issues:
 

@@ -48,14 +48,22 @@
           '(("chain-id" string))
 "Send the pure prelude to a chain.")
 
-(def set-current-env-with
-  (fn [state k v]
-    (def env (lookup :env state))
-    (def env_ (insert k v env))
-    (def state_ (insert :env env_ state))
-    (set-current-env state_)))
-
-(def make-counter []
-  (def i (ref -1))
+(def make-counter
   (fn []
-    (modify-ref i (fn [x] (+ x 1)))))
+    (def i (ref -1))
+    (fn []
+      (modify-ref i (fn [x] (+ x 1))))))
+
+(def list-with-head
+  (fn [x f g]
+    (if (list? x)
+      (if (> (length x) 0)
+        (f (head x))
+        (g))
+      (g))))
+
+(def eval-fn-app
+  (fn [state f arg cb]
+    (def exec (base-eval (list f (list 'quote arg)) state))
+    (cb (head exec))
+    exec))

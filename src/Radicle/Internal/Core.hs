@@ -585,7 +585,7 @@ callFn f vs = case f of
   PrimFn i -> do
     fn <- lookupPrimop i
     fn vs
-  _ -> throwErrorHere . TypeError $ "Trying to call a non-function"
+  nf -> throwErrorHere . TypeError $ "Trying to call a non-function: " <> show nf
 
 -- | Infix evaluation of application (of functions or special forms)
 infixr 1 $$
