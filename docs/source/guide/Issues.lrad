@@ -206,7 +206,7 @@ signatures. First of all we will assume that this chain has a unique ID:
     (update
       (def chain-id "some-unique-name"))
 
-Next, we will give all comments a unique ID, to avoid replay attacks, for this
+Next, we will give all comments a unique ID, to avoid replay attacks. For this
 we use another counter:
 
     (update
