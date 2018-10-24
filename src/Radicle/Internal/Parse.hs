@@ -23,7 +23,7 @@ import           Text.Megaparsec
                  , (<?>)
                  )
 import qualified Text.Megaparsec as M
-import           Text.Megaparsec.Char (char, satisfy, space1)
+import           Text.Megaparsec.Char (char, satisfy, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Text.Megaparsec.Error as Par
 
@@ -47,7 +47,6 @@ tag v = do
     pos <- getPosition -- N.B. in megaparsec 7 this is called getSourcePos
     pure $ Ann.Annotated (Ann.WithPos (Ann.SrcPos pos) v)
 
-
 symbol :: Text -> Parser Text
 symbol = L.symbol spaceConsumer
 
@@ -66,9 +65,12 @@ bracesP = inside "{" "}"
 sqBracketsP :: Parser a -> Parser a
 sqBracketsP = inside "[" "]"
 
+-- Parsing of string literals handles escape sequences just like Haskell does.
 stringLiteralP :: VParser
-stringLiteralP = lexeme $
-    tag =<< StringF . toS <$> (char '"' >> manyTill L.charLiteral (char '"'))
+stringLiteralP = lexeme $ tag =<< StringF . toS <$> escapedString
+  where
+    escapedString = catMaybes <$> (char '"' >> manyTill ch (char '"'))
+    ch = (Just <$> L.charLiteral) <|> (Nothing <$ string "\\&")
 
 boolLiteralP :: VParser
 boolLiteralP = lexeme $ tag =<< BooleanF <$> (char '#' >>

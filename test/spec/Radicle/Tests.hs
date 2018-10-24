@@ -554,6 +554,11 @@ test_pretty =
                                                                    , (kw "k2", Number 2)
                                                                    ]))
         r @?= "{:k1 1.0\n :k2 2.0}"
+    , testProperty "read . pprint == identity for strings" $ \(t :: Text) ->
+        let v = asValue (String t)
+            pp = renderPrettyDef v
+            v_ = parseTest pp
+        in v_ == Right v
     ]
   where
     apl cols = AvailablePerLine cols 1
@@ -644,6 +649,24 @@ test_repl =
                      ]
         (_, result) <- runInRepl input
         result @==> output
+
+    , testCase "'enter-chain' changes environment" $ do
+        let input = [ "(def x 0)"
+                    , "(:enter-chain empty-chain)"
+                    , "(def x 1)"
+                    , "x"
+                    , ":quit"
+                    , "x"
+                    ]
+            output = [ "()"
+                     , ":ok"
+                     , "()"
+                     , "1.0"
+                     , ":ok"
+                     , "0.0"
+                     ]
+        (_, result) <- runInRepl input
+        result @==> output
     ]
     where
       -- In addition to the output of the lines tested, 'should-be's get
@@ -673,6 +696,8 @@ test_from_to_radicle =
         [ testForType (Proxy :: Proxy Scientific) ]
     , testGroup "Text"
         [ testForType (Proxy :: Proxy Text) ]
+    , testGroup "Maybe Text"
+        [ testForType (Proxy :: Proxy (Maybe Text))]
     , testGroup "[Text]"
         [ testForType (Proxy :: Proxy [Text]) ]
     , testGroup "Generic a => a"

@@ -110,7 +110,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ( "add-right"
       , twoArg "add-right" $ \case
           (x, Vec xs) -> pure $ Vec (xs :|> x)
-          _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
+          _ -> throwErrorHere $ TypeError "add-right: second argument must be a vector"
       )
 
     -- Lists
@@ -213,7 +213,8 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", \case
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
-          [_, _]        -> throwErrorHere $ TypeError "map: second argument should be a list"
+          [fn, Vec ls]  -> Vec <$> traverse (callFn fn) (pure <$> ls)
+          [_, _]        -> throwErrorHere $ TypeError "map: second argument should be a list or vector"
           xs            -> throwErrorHere $ WrongNumberOfArgs "map" 3 (length xs))
     , ("keyword?", oneArg "keyword?" $ \case
           Keyword _ -> pure tt
@@ -277,6 +278,11 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
             x@(Vec _) -> pure x
             Dict kvs -> pure $ List [List [k, v] | (k,v) <- Map.toList kvs ]
             _ -> throwErrorHere $ TypeError "seq: can only be used on a list, vector or dictionary"
+      )
+    , ( "from-just"
+      , oneArg "from-just" $ \case
+          Vec (Keyword (Ident "Just") Seq.:<| x Seq.:<| Seq.Empty) -> pure x
+          _ -> throwErrorHere $ TypeError "from-just: called on a non-just"
       )
     , ( "to-json"
       , oneArg "to-json" $ \v -> String . toS . Aeson.encode <$>

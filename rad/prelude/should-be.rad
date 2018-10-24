@@ -4,7 +4,9 @@
   (fn [name x y]
     (if (eq? x y)
         (print! (string-append "Test '" name "' succeeded"))
-      (print! (string-append "Test '" name "' failed")))))
+        (do 
+          (print! (string-append "Test '" name "' failed"))
+          (print! (string-append "LHS:\n\t" (show x) "\nRHS:\n\t" (show y)))))))
 
 (document 'should-be
   '(("test-name" string) ("actual" any) ("expected" any))

@@ -58,3 +58,4 @@ how to allow for future changes to the chain.
 
   GettingStarted.md
   Basics.lrad
+  Chains.lrad
