@@ -140,7 +140,7 @@ some arbitrary updating code:
                     (map-values (fn [i] (insert :comments [] i))
                                 is))))
 
-When creating issues now we need to be careful to add the comments:
+When creating issues we now need to be careful to add the comments:
 
     (create {:author   "Alice"
              :title    "Can issues have comments please?"
