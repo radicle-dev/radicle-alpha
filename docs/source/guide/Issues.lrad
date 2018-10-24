@@ -178,7 +178,7 @@ nds dictionary will now make comments work:
         commands
         (fn [cs] (insert 'comment add-comment cs))))
 
-Now we can comments on issues:
+Now we can comment on issues:
 
     (comment 1 {:author  "James"
                 :comment "Yes that is a good idea."})
