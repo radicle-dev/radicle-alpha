@@ -51,8 +51,8 @@
 (def make-counter
   (fn []
     (def i (ref -1))
-    (fn []
-      (modify-ref i (fn [x] (+ x 1))))))
+    {:next-will-be (fn [] (+ 1 (read-ref i)))
+     :next         (fn [] (modify-ref i (fn [x] (+ x 1))))}))
 
 (def list-with-head
   (fn [x f g]

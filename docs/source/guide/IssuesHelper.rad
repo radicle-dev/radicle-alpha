@@ -1,0 +1,9 @@
+;; (def chain-id "some-unique-name")
+
+;; (def make-comment
+;;   (fn [sk pk comment-id text]
+;;     (def msg (string-append chain-id (show comment-id) text))
+;;     {:id comment-id
+;;      :author pk
+;;      :comment text
+;;      :signature (gen-signature! sk msg)}))

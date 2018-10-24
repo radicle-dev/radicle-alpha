@@ -22,15 +22,16 @@ integers. What we need is a function which returns these integers, one by one,
 as it is called. There is a function in the prelude for creating such functions
 called `make-counter`, so we can just create our counter like this:
 
-    (def new-issue-id (make-counter))
+    (def issue-id-counter (make-counter))
+    (def new-issue-id (lookup :next issue-id-counter))
     
 The `make-counter` function is nothing special, it is defined like so:
 
-    (def make-counter
-      (fn []
-        (def i (ref -1))
-        (fn []
-          (modify-ref i (fn [x] (+ x 1))))))
+     (def make-counter
+       (fn []
+         (def i (ref -1))
+         {:next-will-be (fn [] (+ 1 (read-ref i)))
+          :next         (fn [] (modify-ref i (fn [x] (+ x 1))))}))
 
 So every time it is called it creates a new reference `i` which is in the scope
 of the function that is returned. Every time `make-counter` is called, a new ref
@@ -184,8 +185,141 @@ Now we can comments on issues:
 
 ## Validating data
 
-It would be nice not to add invalid issues/comments
+It would be nice to validate issues and comments before they are added, e.g.
+checking if all the right keys exist.
+
+TODO
 
 ## Verifying authors
 
-Using signatures
+This chain has issues and comments coming from users but there is nothing that
+enforces that the issues and comments are actually submitted by these users. I
+(Alice) could easily submit the comment:
+
+   (update
+     { :author "bobs-id"
+       :comment "LGTM"})
+
+to the chain and no one would know it wasn't Bob. To remedy this we will use
+signatures. First of all we will assume that this chain has a unique ID:
+
+    (update
+      (def chain-id "some-unique-name"))
+
+Next, we will give all comments a unique ID, to avoid replay attacks, for this
+we use another counter:
+
+    (update
+      (do
+        (def comment-id-counter (make-counter))
+    
+        (def new-comment-id  (lookup :next         comment-id-counter))
+        (def next-comment-id (lookup :next-will-be comment-id-counter))))
+
+This time we are also going to use `next-comment-id` which tells us what the
+next ID to be generated is, without incrementing the counter.
+
+Now a comment will look like this:
+
+    (update
+      { :author    "key here"
+        :comment   "some-text"
+        :signature "signature here"})
+
+Signatures are creatied using the `gen-signature!` function, it takes a secret
+key `sk` and a string `msg`. The signature `sig` that it returns can be used
+with the function `verify-signature` as follows: `(verify-signature pk sig
+msg)`. If this returns `#t` then this tells us that the person who signed the
+message is the person who knows the secret key.
+
+So let's make a utility function for creating signed comments. Note that usually
+this function would _not_ be part of the chain, since it contains effectful
+code.
+
+    (update
+      (def make-comment
+        (fn [sk pk text]
+          (def comment-id (next-comment-id))
+          (def msg (string-append chain-id comment-id text))
+          {:id comment-identifiers
+           :author pk
+           :comment text
+           :signature (gen-signature! sk msg)})))
+
+On the chain we can create a function to verify comments are valid:
+
+    (update
+      (def comment-valid?
+        (fn [c]
+          (def id (next-comment-id))
+          (and (eq? (lookup :id c) id)
+               (verify-signature (lookup :author c)
+                                 (lookup :signature c)
+                                 (string-append chain-id (show id) (lookup :comment c)))))))
+
+Finally we modify the `add-comment` function. Note that we re-use our old
+add-comment function, just adding the extra layer of security:
+
+    (update
+      (def add-verified-comment
+        (fn [issue-id comment]
+          (if (comment-valid? comment)
+              (add-comment issue-id comment)
+              ;; In a real chain we would throw, not print a message.
+              (print! "The comment was not valid.")
+              ))))
+
+And we update our commands:
+
+    (update
+      (modify-ref
+        commands
+        (fn [cs] (insert 'comment add-verified-comment cs))))
+
+Comments have to be signed to be valid, here is some code one could run in
+another file to create such comments:
+
+    ;; (def chain-id "some-unique-name")
+    ;;
+    ;; Generate a comment.
+    ;;   sk: private key
+    ;;   pk: public key
+    ;;   comment-id: the next comment id
+    ;;   text: the text of the comment.
+    ;; (def make-comment
+    ;;   (fn [sk pk comment-id text]
+    ;;     (def msg (string-append chain-id (show comment-id) text))
+    ;;     {:id comment-id
+    ;;      :author pk
+    ;;      :comment text
+    ;;      :signature (gen-signature! sk msg)}))
+
+To generate the first valid comment we can now call:
+
+    (make-comment sk pk 0 "hello")
+
+And submit the result to the chain:
+
+    (comment 0
+      {:author [:PublicKey
+       {:public_curve [:CurveFP
+        [:CurvePrime
+        1.15792089237316195423570985008687907853269984665640564039457584007908834671663e77
+        [:CurveCommon
+        {:ecc_a 0.0
+         :ecc_b 7.0
+         :ecc_g [:Point
+         5.506626302227734366957871889516853432625060345377759417550018736038911672924e76
+         3.2670510020758816978083085130507043184471273380659243275938904335757337482424e76]
+         :ecc_h 1.0
+         :ecc_n 1.15792089237316195423570985008687907852837564279074904382605163141518161494337e77}]]]
+        :public_q [:Point
+        9.2931283663690685721504325504640475411994819428791269001243764662744013425099e76
+        3.6596591984233286089056041079822336001174921649384520024155197534940746477932e76]}]
+       :comment "hello"
+       :id 0.0
+       :signature [:Signature
+       {:sign_r 1.01192636226738430105958167746173122946852303538902797009132349695443307988401e77
+        :sign_s 5.8543237989708509717277607902528553462065125985173573031888935675327120728182e76}]})
+
+Signing issues would be done in a similar way.
