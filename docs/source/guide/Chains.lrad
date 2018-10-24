@@ -51,12 +51,12 @@ corresponds to a chain and explore it:
 
 ```
 (def x 0)
-x 			               ;; ==> 0
+x                          ;; ==> 0
 (:enter-chain empty-chain) ;; ==> :ok
 (def x 1)
-x 			   			   ;; ==> 1
-:quit 	       			   ;; ==> :ok
-x 						   ;; ==> 0
+x                          ;; ==> 1
+:quit                      ;; ==> :ok
+x                          ;; ==> 0
 ```
 
 As you can see, between entering a chain (with `:enter-chain`) and leaving it
