@@ -10,7 +10,7 @@
    :inputs (list)
    :index 0})
 
-(def test-chain 
+(def test-chain
   {:state (pure-env)
    :inputs (list)
    :name "test"
@@ -30,12 +30,12 @@
           '(("expr" any) ("chain" chain))
           "Evaluates 'expr' in the 'chain' and returns a dict with the ':result' and the resulting ':chain'.")
 
-(do 
+((fn []
   (def res (eval-in-chain '(+ 3 2) empty-chain))
   (def ~~> (fn [comp expected] (should-be "eval-in-chain" (view comp res) expected)))
   (~~> (@ :result) 5)
   (~~> (.. (@ :chain) (@ :input)) '((+ 3 2)))
-  (~~> (.. (@ :chain) (@ :index)) 1))
+  (~~> (.. (@ :chain) (@ :index)) 1)))
 
 ;; update-chain-with
 
@@ -69,18 +69,15 @@
 ;; add-quit
 
 (def add-quit
-  (fn [old-state new-eval]
+  (fn [after-quit-state before-quit-eval]
     (fn [expr env]
       (if (eq? expr :quit)
-          (list :ok old-state)
-          (new-eval expr env)))))
+          (list :ok after-quit-state)
+          (before-quit-eval expr env)))))
 
-;; enter-chain
-
-;; TODO move else-where
-(def simple-eval
- (fn [expr]
-     (head (eval expr (get-current-env)))))
+(document 'add-quit
+          '(("after-quit-state" dict) ("before-quit-eval" fn))
+          "Adds a ':quit' command to 'before-quit-eval', which switches to 'after-quit-state' (and to the eval in that state)")
 
 ;; store-exprs
 
@@ -91,15 +88,15 @@
          (evalfn expr env_ ))))
 
 (document 'store-exprs
-          '(("eval" fn)) 
+          '(("eval" fn))
           "Store each new evaluated expression in '_inputs'")
 
 ;; add-send
 (def add-send
   (fn [oeval]
-      (fn [expr env] 
-          (if (eq? expr :send) 
-              (do (def inpl (.. (@ :env) (@ '_inputs))) 
+      (fn [expr env]
+          (if (eq? expr :send)
+              (do (def inpl (.. (@ :env) (@ '_inputs)))
                   (def chainl (.. (@ :env) (@ '_cur-chain)))
                   (map (fn [e] (send! (view chainl env) e)) (view inpl env))
                   (def env_ (set inpl [] env))
@@ -113,33 +110,35 @@
 ;; enter-chain & enter-remote-chain
 
 (def eval__ eval)
-(def-rec eval 
+(def-rec eval
   (fn [expr env]
       ;; The horror, the horror
-      (if (list? expr) 
-          (if (> (length expr) 0) 
-              (cond  
-                (eq? (head expr) :enter-chain) (do 
-                                                 (def arg (simple-eval (nth 1 expr)))
-                                                 (def mod-state 
-                                                   (over (.. (@ :env) (@ 'eval)) 
-                                                         (fn [x] (add-quit env x)) 
-                                                         (lookup :state arg))) 
-                                                 (list :ok mod-state)) 
-                (eq? (head expr) :enter-remote-chain) (do 
-                                                        (def arg (simple-eval (nth 1 expr)))
+      (if (list? expr)
+          (if (> (length expr) 0)
+              (cond
+                (eq? (head expr) :enter-chain) (do
+                                                 (def arg_ (nth 1 expr))
+                                                 (def arg (head (eval arg_ env)))
+                                                 (def mod-state
+                                                   (over (.. (@ :env) (@ 'eval))
+                                                         (fn [x] (add-quit env x))
+                                                         (lookup :state arg)))
+                                                 (list :ok mod-state))
+                (eq? (head expr) :enter-remote-chain) (do
+                                                        (def arg_ (nth 1 expr))
+                                                        (def arg (head (eval arg_ env)))
                                                         (def state (lookup :state arg))
                                                         (def mod-state1
                                                           (over (@ :env) (fn [x] (insert '_inputs [] x)) state))
                                                         (def mod-state2
-                                                          (over (@ :env) 
-                                                                (fn [x] (insert '_cur-chain (lookup :name arg) x)) 
+                                                          (over (@ :env)
+                                                                (fn [x] (insert '_cur-chain (lookup :name arg) x))
                                                                 mod-state1))
                                                         (def mod-state3
-                                                          (over (.. (@ :env) (@ 'eval)) 
-                                                                (fn [x] (add-send (add-quit (get-current-env) x))) 
-                                                                mod-state2)) 
-                                                        (list :ok mod-state3)) 
+                                                          (over (.. (@ :env) (@ 'eval))
+                                                                (fn [x] (add-send (add-quit (get-current-env) x)))
+                                                                mod-state2))
+                                                        (list :ok mod-state3))
                 :else (eval__ expr env))
               (eval__ expr env))
           (eval__ expr env))))
