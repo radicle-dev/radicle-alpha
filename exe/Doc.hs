@@ -23,15 +23,14 @@ run :: FilePath -> IO ()
 run f = do
     txt <- readFile f
     pand <- runIOorExplode $ readMarkdown def txt
-    let code = getCode pand
-    res <- Protolude.trace code $ runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ code
+    res <- runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ getCode pand
     case res of
         (Left err, _) -> die . toS $ "Error: " ++ show err
         _             -> pure ()
 
 getCode :: Pandoc -> Text
 getCode (Pandoc _ blocks)
-    = toS $ mconcat [ content | CodeBlock attr content <- blocks ]
+    = toS $ mconcat [ content | CodeBlock _ content <- blocks ]
 
 newtype Opts = Opts
     { srcFile :: FilePath

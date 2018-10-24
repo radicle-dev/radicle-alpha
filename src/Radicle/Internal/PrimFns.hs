@@ -147,14 +147,14 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
               -- Probably an exception is better, but that seems cruel
               -- when you have no exception handling facilities.
               Nothing -> nil
-          [_, d]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict" <> renderCompactPretty d
+          [_, _]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ( "safe-lookup"
       , twoArg "safe-lookup" $ \case
           (a, Dict m) -> pure $ case Map.lookup a m of
             Just v  -> toRad [kw "Just", v]
             Nothing -> kw "Nothing"
-          (_, d) -> throwErrorHere $ TypeError $ "safe-lookup: second argument must be a dict" <> renderCompactPretty d
+          _ -> throwErrorHere $ TypeError $ "safe-lookup: second argument must be a dict"
       )
     , ( "map-values"
       , twoArg "map-values" $ \case
@@ -205,15 +205,11 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [fn, init', v] -> do
             ls :: [Value] <- fromRadOtherErr v
             foldlM (\b a -> callFn fn [b, a]) init' ls
-          -- [_, _, _]            -> throwErrorHere
-          --                       $ TypeError "foldl: third argument should be a list"
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldl" 3 (length xs))
     , ("foldr", \case
           [fn, init', v] -> do
             ls :: [Value] <- fromRadOtherErr v
             foldrM (\b a -> callFn fn [b, a]) init' ls
-          -- [_, _, _]            -> throwErrorHere
-          --                       $ TypeError "foldr: third argument should be a list"
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", \case
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)

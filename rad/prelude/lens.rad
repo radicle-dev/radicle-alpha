@@ -81,10 +81,6 @@
   '(("key" any))
   " Returns a lens targetting keys of dicts.")
 
-(def _Just
-  (make-lens (fn [v] v)
-             (fn [x s] [:Just x])))
-
 (should-be "view lens"
            (view (@ :one) {:one 1 :two 2})
            1)
@@ -99,64 +95,63 @@
                  {:one 1 :two 2})
            {:one 2 :two 2})
 
-;; (should-be "lens composition"
-;;            (over (.. (@ :a) (@ :b))
-;;                  (map-maybe (fn [x] (+ x 1)))
-;;                  {:a {:b 2}})
-;;            {:a {:b 3}})
+(should-be "lens composition"
+           (over (.. (@ :a) (@ :b))
+                 (fn [x] (+ x 1))
+                 {:a {:b 2}})
+           {:a {:b 3}})
 
-;; (do (def make-deep
-;;       (fn [x] {:a {:b {:c x}}}))
-;;     (should-be "deep lenses"
-;;                (over (... (list (@ :a) (@ :b) (@ :c)))
-;;                      (map-maybe (fn [x] (+ x 1)))
-;;                      (make-deep 0))
-;;                (make-deep 1)))
+(should-be "deep lenses"
+           (over (... (list (@ :a) (@ :b) (@ :c)))
+                 (fn [x] (+ x 1))
+                 {:a {:b {:c 0}}})
+           {:a {:b {:c 1}}})
 
-;; ;; Lens access to refs
+;; Lens access to refs
 
-;; ;; view-ref
-;; (def view-ref
-;;   (fn [r lens]
-;;     (view lens (read-ref r))))
+;; view-ref
+(def view-ref
+  (fn [r lens]
+    (view lens (read-ref r))))
 
-;; (document 'view-ref
-;;   '(("ref" ref) ("lens" dict))
-;;   "Like 'view', but for refs.")
+(document 'view-ref
+  '(("ref" ref) ("lens" dict))
+  "Like 'view', but for refs.")
 
-;; (should-be "view-ref"
-;;            (view-ref (ref {:key 1}) (@ :key))
-;;            [:Just 1])
+(should-be "view-ref"
+           (view-ref (ref {:key 1}) (@ :key))
+           1)
 
-;; ;; set-ref
+;; set-ref
 
-;; (def set-ref
-;;   (fn [r lens v]
-;;     (modify-ref r (fn [x] (set lens v x)))))
+(def set-ref
+  (fn [r lens v]
+    (modify-ref r (fn [x] (set lens v x)))))
 
-;; (document 'set-ref
-;;   '(("ref" ref) ("lens" dict) ("new-value" any))
-;;   "Like 'set', but for refs.")
+(document 'set-ref
+  '(("ref" ref) ("lens" dict) ("new-value" any))
+  "Like 'set', but for refs.")
 
-;; (should-be "set-ref"
-;;            ((fn [r]
-;;               (set-ref r (@ :a) [:Just 2])
-;;               (view-ref r (@ :a)))
-;;             (ref {:a 1}))
-;;            [:Just 2])
-;; ;; set-ref
+(should-be "set-ref"
+           ((fn [r]
+              (set-ref r (@ :a) 2)
+              (view-ref r (@ :a)))
+            (ref {:a 1}))
+           2)
 
-;; (def over-ref
-;;   (fn [r lens f]
-;;     (modify-ref r (fn [x] (over lens f x)))))
+;; over-ref
 
-;; (document 'over-ref
-;;   '(("ref" ref) ("lens" dict) ("fn" function))
-;;   "Like 'over', but for refs.")
+(def over-ref
+  (fn [r lens f]
+    (modify-ref r (fn [x] (over lens f x)))))
 
-;; (should-be "over-ref"
-;;            ((fn [r]
-;;               (over-ref r (@ :a) (map-maybe (fn [x] (* x 2))))
-;;               (view-ref r (@ :a)))
-;;             (ref {:a 2}))
-;;            [:Just 4])
+(document 'over-ref
+  '(("ref" ref) ("lens" dict) ("fn" function))
+  "Like 'over', but for refs.")
+
+(should-be "over-ref"
+           ((fn [r]
+              (over-ref r (@ :a) (fn [x] (* x 2)))
+              (view-ref r (@ :a)))
+            (ref {:a 2}))
+           4)
