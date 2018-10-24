@@ -258,7 +258,7 @@ On the chain we can create a function to verify comments are valid:
                                  (string-append chain-id (show id) (lookup :comment c)))))))
 
 Finally we modify the `add-comment` function. Note that we re-use our old
-add-comment function, just adding the extra layer of security:
+`add-comment` function, just adding the extra layer of security:
 
     (update
       (def add-verified-comment
