@@ -167,7 +167,7 @@ to issues.
 
 TODO: modify-map should be renamed to modify-dict
 
-You'll note that there is a lot of painful nested updating going on; later we
+(You'll note that there is a lot of painful nested updating going on; later we
 will see how this can be made a lot easier with lenses.
 
 Adding this command to our comma
