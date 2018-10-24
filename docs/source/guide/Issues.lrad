@@ -25,7 +25,7 @@ called `make-counter`, so we can just create our counter like this:
     (def issue-id-counter (make-counter))
     (def new-issue-id (lookup :next issue-id-counter))
     
-The `make-counter` function is nothing special, it is defined like so:
+The `make-counter` function is nothing special; it is defined like so:
 
      (def make-counter
        (fn []
