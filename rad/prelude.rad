@@ -61,9 +61,3 @@
         (f (head x))
         (g))
       (g))))
-
-(def eval-fn-app
-  (fn [state f arg cb]
-    (def exec (base-eval (list f (list 'quote arg)) state))
-    (cb (head exec))
-    exec))

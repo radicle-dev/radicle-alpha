@@ -142,3 +142,20 @@
                 :else (eval__ expr env))
               (eval__ expr env))
           (eval__ expr env))))
+
+(def eval-fn-app
+  (fn [state f arg cb]
+    (def exec (base-eval (list f (list 'quote arg)) state))
+    (cb (head exec))
+    exec))
+
+(def updatable-eval
+  (fn [sub-eval]
+    (fn [expr state]
+      (list-with-head
+       expr
+       (fn [cmd]
+         (if (eq? cmd 'update)
+           (base-eval (nth 1 expr) state)
+           (sub-eval expr state)))
+       (fn [] (sub-eval expr state))))))

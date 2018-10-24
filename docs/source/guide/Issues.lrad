@@ -102,19 +102,12 @@ we delegate to `process-command`. In general of course you wouldn't want to
 leave such an `update` command with no restrictions; we'll talk about that
 later.
 
-TODO: talk about that later.
-TODO: this eval is messy, use more/better helper functions.
-
+    (load! "rad/chain.rad")
+    
     (def eval
-      (fn [expr state]
-        (print! expr)
-        (list-with-head
-          expr
-          (fn [cmd]
-            (if (eq? cmd 'update)
-              (base-eval (nth 1 expr) state)
-              (eval-fn-app state 'process-command expr print!)))
-          (fn [] (eval-fn-app state 'process-command expr print!)))))
+      (updatable-eval
+        (fn [expr state]
+          (eval-fn-app state 'process-command expr print!))))
 
 Now we can start creating some issues:
 
@@ -212,7 +205,7 @@ we use another counter:
     (update
       (do
         (def comment-id-counter (make-counter))
-    
+
         (def new-comment-id  (lookup :next         comment-id-counter))
         (def next-comment-id (lookup :next-will-be comment-id-counter))))
 
@@ -279,24 +272,7 @@ And we update our commands:
 Comments have to be signed to be valid, here is some code one could run in
 another file to create such comments:
 
-    ;; (def chain-id "some-unique-name")
-    ;;
-    ;; Generate a comment.
-    ;;   sk: private key
-    ;;   pk: public key
-    ;;   comment-id: the next comment id
-    ;;   text: the text of the comment.
-    ;; (def make-comment
-    ;;   (fn [sk pk comment-id text]
-    ;;     (def msg (string-append chain-id (show comment-id) text))
-    ;;     {:id comment-id
-    ;;      :author pk
-    ;;      :comment text
-    ;;      :signature (gen-signature! sk msg)}))
-
 To generate the first valid comment we can now call:
-
-    (make-comment sk pk 0 "hello")
 
 And submit the result to the chain:
 
@@ -314,12 +290,12 @@ And submit the result to the chain:
          :ecc_h 1.0
          :ecc_n 1.15792089237316195423570985008687907852837564279074904382605163141518161494337e77}]]]
         :public_q [:Point
-        9.2931283663690685721504325504640475411994819428791269001243764662744013425099e76
-        3.6596591984233286089056041079822336001174921649384520024155197534940746477932e76]}]
+        5.3521771879680618093527944359691562654288805795047682337289481173029420600978e76
+        4.8872619425351044789737136003456216558003431571495595735304579889190335288541e76]}]
        :comment "hello"
        :id 0.0
        :signature [:Signature
-       {:sign_r 1.01192636226738430105958167746173122946852303538902797009132349695443307988401e77
-        :sign_s 5.8543237989708509717277607902528553462065125985173573031888935675327120728182e76}]})
+       {:sign_r 3.9140880445471985335906606936076307906260215740163193220662256283296180902346e76
+        :sign_s 3.6877514585485540649992410063720939538566837330567392634242985890978532752798e76}]})
 
 Signing issues would be done in a similar way.

@@ -1,9 +1,14 @@
-;; (def chain-id "some-unique-name")
+(def chain-id "some-unique-name")
 
-;; (def make-comment
-;;   (fn [sk pk comment-id text]
-;;     (def msg (string-append chain-id (show comment-id) text))
-;;     {:id comment-id
-;;      :author pk
-;;      :comment text
-;;      :signature (gen-signature! sk msg)}))
+(def kp (gen-key-pair! (default-ecc-curve)))
+
+(def sk (lookup :private-key kp))
+(def pk (lookup :public-key  kp))
+
+(def make-comment
+  (fn [sk pk comment-id text]
+    (def msg (string-append chain-id (show comment-id) text))
+    {:id comment-id
+     :author pk
+     :comment text
+     :signature (gen-signature! sk msg)}))

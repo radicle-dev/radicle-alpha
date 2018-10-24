@@ -2,8 +2,10 @@
 -- runs the code inside code blocks (within three backticks).
 module Doc where
 
-import           Options.Applicative
 import           Protolude
+
+import qualified Data.Text as T
+import           Options.Applicative
 import           Radicle
 import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
@@ -23,14 +25,14 @@ run :: FilePath -> IO ()
 run f = do
     txt <- readFile f
     pand <- runIOorExplode $ readMarkdown def txt
-    res <- runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ getCode pand
+    res <- Protolude.trace (getCode pand) $ runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ getCode pand
     case res of
         (Left err, _) -> die . toS $ "Error: " ++ show err
         _             -> pure ()
 
 getCode :: Pandoc -> Text
 getCode (Pandoc _ blocks)
-    = toS $ mconcat [ content | CodeBlock _ content <- blocks ]
+    = T.intercalate "\n\n" [ toS content | CodeBlock _ content <- blocks ]
 
 newtype Opts = Opts
     { srcFile :: FilePath
