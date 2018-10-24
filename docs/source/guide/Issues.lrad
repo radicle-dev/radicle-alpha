@@ -65,7 +65,7 @@ key:
         (mod-issues
           (fn [is] (insert (new-issue-id) i is)))))
 
-Closing an issue is also easy, we just delete that issue from the dict:
+Closing an issue is also easy--we just delete that issue from the dict:
 
     (def close-issue
       (fn [id]
