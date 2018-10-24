@@ -88,17 +88,15 @@ executables:
   radicle-server:
     main: Server.hs
     source-dirs: exe/Server
-    other-modules: API
+    other-modules: [API, DB]
     when:
       - condition: impl(ghcjs)
         buildable: false
     dependencies:
     - radicle
-    - acid-state
     - bytestring
-    - cereal
     - optparse-applicative
-    - safecopy
+    - postgresql-simple
     - servant
     - servant-server
     - warp

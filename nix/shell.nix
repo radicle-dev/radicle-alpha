@@ -13,7 +13,7 @@ in
 
 stdenv.mkDerivation {
     name = "radicle-dev";
-    buildInputs = [ ghc zlib python3 wget stack ]
+    buildInputs = [ ghc zlib python3 wget stack postgresql ]
       ++ (if doc then [docstuffs postgresql] else [])
       ++ (if extras then [ vimPlugins.stylish-haskell haskellPackages.apply-refact hlint ] else []);
     libraryPkgconfigDepends = [ zlib ];

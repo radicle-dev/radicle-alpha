@@ -3,13 +3,11 @@ module Server where
 
 import           API
 import           Codec.Serialise
-import           Data.Acid
 import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map as Map
-import           Data.SafeCopy
 import qualified Data.Sequence as Seq
-import qualified Data.Serialize as S
+import           Control.Concurrent
 import           Network.Wai.Handler.Warp
 import           Network.Wai.Middleware.Cors
 import           Network.Wai.Middleware.Gzip
@@ -22,27 +20,20 @@ import           Servant
 newtype Exprs = Exprs { getExprs :: Seq Value }
     deriving (Generic, Eq, Ord)
 
-$(deriveSafeCopy 0 'base ''Exprs)
-
 data Chain = Chain
     { chainName  :: Text
     , chainState :: Bindings (PrimFns Identity)
-    , chainExprs :: Exprs
     } deriving (Generic)
 
-instance S.Serialize Value where
-    put = S.putLazyByteString . serialise
-
-instance SafeCopy Value where
-
-newtype Chains = Chains { getChains :: Map Text Chain }
+-- For efficiency we might want keys to also be mvars, but efficiency doesn't
+-- matter for a test server.
+newtype Chains = Chains { getChains :: MVar (Map Text Chain) }
 
 -- * Helpers
 
-insertExpr :: Text -> Value -> Update Exprs (Either Text ())
-insertExpr name val = do
-    st <- get
-    let x = Map.lookup name $ getChains st
+insertExpr :: Connection -> Chains -> Text -> Value -> IO (Either Text ())
+insertExpr conn chains name val = withMVar (getChains chains) $ \c ->
+    let x = Map.lookup name c
     let chain = fromMaybe (Chain name pureEnv mempty) x
     let (r, s) = runIdentity $ runLang (chainState chain) (eval val)
     case r of
@@ -53,6 +44,7 @@ insertExpr name val = do
                 (chain { chainState = s
                         , chainExprs = Exprs $ getExprs (chainExprs chain) Seq.|> (val, o) })
                 (getChains st)
+            insertExprDB conn name val
             pure $ Right ()
 
 getSince :: Text -> Int -> Query Exprs (Maybe [(Value, Value)])
@@ -60,10 +52,6 @@ getSince name index = do
     x <- Map.lookup name <$> asks getChains
     pure $ toList . Seq.drop index . chainExprs <$> x
 
-$(makeAcidic ''Exprs ['insertExpr, 'getSince])
-
-createOrLoadState :: IO (AcidState Chains)
-createOrLoadState = openLocalState $ Chains mempty
 
 -- * Handlers
 
