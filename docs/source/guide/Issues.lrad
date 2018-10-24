@@ -1,24 +1,26 @@
+# Issues chain
+
+## Adding an removing issues
+
 In this example we will create a chain which stores some issues about a code
-repository.
+repository. At the start it will only support adding a removing issues, but then
+we will add more features.
 
 This is a literate radicle file, which means you can run it like this: `stack
 exec doc -- docs/source/guide/Issues.lrad`.
 
-First we load the prelude, and load up a mode which makes it easy to define
-updatable chains:
+First we load the prelude:
 
     (load! "rad/prelude.rad")
 
-We'll use two refs, one to store the next issue ID, and one to store the issues
-themselves, as a dictionary from issue IDs to issues.
+We'll use a ref to store the issues, as a dictionary from issue IDs to issues.
     
     (def issues (ref {}))
 
-We'll need a way of creating new IDs for issues. Our IDs will just be
-incrementing integers. What we need is a function which returns these integers,
-one by one, as it is called. There is a function in the prelude for creating
-such functions called `make-counter`, so we can just create our counter like
-this:
+We need a way of creating new IDs for issues. Our IDs will just be incrementing
+integers. What we need is a function which returns these integers, one by one,
+as it is called. There is a function in the prelude for creating such functions
+called `make-counter`, so we can just create our counter like this:
 
     (def new-issue-id (make-counter))
     
@@ -32,11 +34,19 @@ The `make-counter` function is nothing special, it is defined like so:
 
 So every time it is called it creates a new reference `i` which is in the scope
 of the function that is returned. Every time `make-counter` is called, a new ref
-is created, so different counters count different things!
+is created, so different counters count different things! When we make a call to
+make-counter in our chain, the ref `i` that it creates and stores in the closure
+of `new-issue-id` becomes part of the _implicit_ state of the chain. We could
+keep track of the next issue ID to use explicitely in a top-level ref, but it's
+best to hide these sorts of details if they are not relevant to the domain.
 
-This function also uses the `modify-ref` function which takes a ref and a
-function. It updates the value held in the ref using the function and then
-returns the _new_ value.
+The `make-counter` function uses `modify-ref`, a function which takes a ref and
+a function. It updates the value held in the ref using the function and then
+returns the _new_ value. We'll be modifying `issues` a lot, so let's create a
+function for that:
+
+    (def mod-issues
+      (fn [f] (modify-ref issues f)))
 
 Next we'll define a function for creating a new issue. An issue is a dict which
 looks like:
@@ -51,41 +61,37 @@ key:
 
     (def new-issue
       (fn [i]
-        (modify-ref
-          issues
+        (mod-issues
           (fn [is] (insert (new-issue-id) i is)))))
 
 Closing an issue is also easy, we just delete that issue from the dict:
 
     (def close-issue
       (fn [id]
-        (modify-ref
-          issues
-          (fn [is] (delete id is)))))
+        (mod-issues (fn [is] (delete id is)))))
 
 The behaviour we want from our chain is to accept some commands to perform
 issue-related tasks. We'll store these commands in a dict, keyed by the command
-symbol. We put the whole thing in a ref so that we can add more commands later.
-Note that we'll also include a command to update the chain as we go along:
+symbol. We put the whole thing in a ref so that we can add more commands later,
+or even update existing commands.
 
     (def commands
       (ref
         {'create new-issue
          'close  close-issue}))
 
-Now we create a function for handling these commands.
+Now we create a function for handling these commands. We assume that the input
+is a list with at least 2 elements, the first of which is a symbol describing
+the command. We look up the command handler in the `commands` ref and then run
+it on the arguments using `apply`, which calls a function on a list of
+arguments. Finally we print the issues so that we can see how the state evolves.
 
     (def process-command
       (fn [expr]
-        ;; Inputs are lists of length 2.
-        ;; The command is the first element, the argument is the second.
-        (def command (nth 0 expr))
-        (def arg     (nth 1 expr))
-        ;; Lookup what the command is meant to do:
+        (def command (head expr))
+        (def args    (tail expr))
         (def do-this (lookup command (read-ref commands)))
-        ;; And do it!
-        (do-this arg)
-        ;; We print the issues just to see what's going on.
+        (apply do-this args)
         (print! (read-ref issues))
         :ok))
 
@@ -109,15 +115,17 @@ TODO: this eval is messy, use more/better helper functions.
               (eval-fn-app state 'process-command expr print!)))
           (fn [] (eval-fn-app state 'process-command expr print!)))))
 
-And test some inputs:
+Now we can start creating some issues:
 
-    (create {:author "James"
+    (create {:author "james"
              :title "Pattern matching"
              :body "Pleeease"})
     
-    (create {:author "Julian"
+    (create {:author "julian"
              :title "Better numbers"
              :body "The ids are floats!"})
+
+## Comments on issues
 
 Now it would be nice to be able to comment on issues. For this we'll just use a
 `:comment` field in the issue, which is just a vector of comments. The first
@@ -142,19 +150,17 @@ A more sophisticated handler might add an empty comments field if it doesn't
 exist.
 
 To add the commenting feature, first we will add a new function to add comments
-to issues. We'll assume the input is a dict with the `:id` of the issue it
-should be added to, and the `:comment` that should be added.
+to issues.
 
     (update
       (def add-comment
-        (fn [x]
-          (modify-ref
-            issues
+        (fn [issue-id comment]
+          (mod-issues
             (fn [is]
-              (modify-map (lookup :id x)
+              (modify-map issue-id
                           (fn [i]
                             (modify-map :comments
-                                        (fn [cs] (add-right (lookup :comment x) cs)) 
+                                        (fn [cs] (add-right comment cs)) 
                                         i))
                           is))))))
 
@@ -163,7 +169,8 @@ TODO: modify-map should be renamed to modify-dict
 You'll note that there is a lot of painful nested updating going on; later we
 will see how this can be made a lot easier with lenses.
 
-Adding this command to our commands dictionary will now make comments work:
+Adding this command to our comma
+nds dictionary will now make comments work:
 
     (update
       (modify-ref
@@ -172,8 +179,13 @@ Adding this command to our commands dictionary will now make comments work:
 
 Now we can comments on issues:
 
-    (comment
-      {:id 1
-       :comment {:author  "James"
-                 :comment "Yes that is a good idea."}})
+    (comment 1 {:author  "James"
+                :comment "Yes that is a good idea."})
 
+## Validating data
+
+It would be nice not to add invalid issues/comments
+
+## Verifying authors
+
+Using signatures
