@@ -89,7 +89,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ( "add-right"
       , twoArg "add-right" $ \case
           (x, Vec xs) -> pure $ Vec (xs Seq.:|> x)
-          _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
+          _ -> throwErrorHere $ TypeError "add-right: second argument must be a vector"
       )
 
     -- Lists
@@ -140,6 +140,10 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [_, _, _]                -> throwErrorHere
                                     $ TypeError "insert: third argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
+    , ("delete", \case
+          [k, Dict m] -> pure . Dict $ Map.delete k m
+          [_, _]      -> throwErrorHere $ TypeError "delete: second argument must be a dict"
+          xs          -> throwErrorHere $ WrongNumberOfArgs "delete" 2 (length xs))
     -- The semantics of + and - in Scheme is a little messed up. (+ 3)
     -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.
     -- But while (+ 3 2 1) evaluates to 6, (- 3 2 1) evaluates to 0. So with -
@@ -171,7 +175,8 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", \case
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
-          [_, _]        -> throwErrorHere $ TypeError "map: second argument should be a list"
+          [fn, Vec ls]  -> Vec <$> traverse (callFn fn) (pure <$> ls)
+          [_, _]        -> throwErrorHere $ TypeError "map: second argument should be a list or vector"
           xs            -> throwErrorHere $ WrongNumberOfArgs "map" 3 (length xs))
     , ("keyword?", oneArg "keyword?" $ \case
           Keyword _ -> pure tt
