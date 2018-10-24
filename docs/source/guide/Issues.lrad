@@ -129,7 +129,7 @@ Now we can start creating some issues:
 ## Comments on issues
 
 Now it would be nice to be able to comment on issues. For this we'll just use a
-`:comment` field in the issue, which is just a vector of comments. The first
+`:comment` field in the issue, which will be a vector of comments. The first
 thing we need to do therefore is add an empty vector of comments to all our
 current issues. To do this we'll use the update command which allows us to run
 some arbitrary updating code:
