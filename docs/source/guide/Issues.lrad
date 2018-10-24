@@ -36,7 +36,7 @@ The `make-counter` function is nothing special, it is defined like so:
 So every time it is called it creates a new reference `i` which is in the scope
 of the function that is returned. Every time `make-counter` is called, a new ref
 is created, so different counters count different things! When we make a call to
-make-counter in our chain, the ref `i` that it creates and stores in the closure
+`make-counter` in our chain, the ref `i` that it creates and stores in the closure
 of `new-issue-id` becomes part of the _implicit_ state of the chain. We could
 keep track of the next issue ID to use explicitely in a top-level ref, but it's
 best to hide these sorts of details if they are not relevant to the domain.
