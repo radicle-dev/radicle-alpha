@@ -12,6 +12,7 @@ radicle
    guide/index.rst
    guide/GettingStarted.rst
    guide/Basics.lrad
+   guide/Chains.lrad
 
 
 

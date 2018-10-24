@@ -55,6 +55,17 @@
           '(("chain" chain) ("chain-id" string) ("cb-expr" function) ("cb-res" function))
           "Updates 'chain' according to activity on the remote chain with ID 'chain-id', by pulling down and evaluating new inputs. Accepts two callbacks: 'cb-expr' is applied to the incoming expressions, and 'cb-res' is applied to the resulting values. Usually one uses 'print!' for both of these. If 'chain' is not a past version of the remote chain then the behaviour is unspecified.")
 
+;; update-chain
+
+(def update-chain
+  (fn [chain]
+    (def next (ref chain))
+    (update-chain-with chain (lookup :name chain) (fn [x] (modify-ref next (fn [r] (eval-in-chain x r)))) print!)))
+
+(document 'update-chain
+		  '(("chain" chain))
+		  "Return a version of 'chain' with new inputs and correspondingly updated state")
+
 ;; add-quit
 
 (def add-quit

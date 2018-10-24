@@ -1,5 +1,15 @@
 # Chains
 
+(N.B.: for this section, you should use the `radicle-client` executable rather
+than the `radicle` one. The simplest way to run it is to pass `radicle.xyz` as
+the `url` argument:
+
+```
+radicle-client --config rad/repl.rad --url radicle.xyz
+```
+
+In the future `radicle-client` and `radicle` will be folded into one.)
+
 By now you've seen some of `radicle`, but we haven't touched upon what makes it
 different from other languages.
 
@@ -10,47 +20,62 @@ particular machine. *Which* machine that is often matters to understanding how
 the program behaves; a program might after all read from a file, for example,
 and behave differently based on whether that file exists, and what it's
 contents are. But other machines may not have that file, or have one that
-differs in some way. 
+differs in some way.
 
 This aspect of program execution is often a source of headache for developers,
 as it leads to hard-to-reproduce or -predict behavior. But--and more
 importantly for our purposes--it also means we can't think of programs in the
 abstract
 
-In other words, we would like for programs to be *deterministic*. 
+In other words, we would like for programs to be *deterministic*.
 
 TODO: more.
 
-## Exploring chains
+## Chains
 
-Chains, then, are like environments.  You can enter an environment that
+### Remote chains
+
+The basic building blocks of interacting with remote chains are the `send!` and
+`receive!` operations. These send expressions to a remote chain, or receive new
+ones since a given index, respectively.
+
+These functions are, however, relatively low-level. Higher-level ones exist
+that do the grunt-work of only requesting data you don't already have, and of
+allowing interactive explorations of existing chains before submitting
+expressions. These are described in the next section.
+
+### Exploring chains
+
+Chains are a lot like shared environments.  You can enter an environment that
 corresponds to a chain and explore it:
 
 ```
-(def x 0) 
-x 			   ;; ==> 0
+(def x 0)
+x 			               ;; ==> 0
 (:enter-chain empty-chain) ;; ==> :ok
 (def x 1)
-x 			   ;; ==> 1
-:quit 			   ;; ==> :ok
-x 			   ;; ==> 0
+x 			   			   ;; ==> 1
+:quit 	       			   ;; ==> :ok
+x 						   ;; ==> 0
 ```
 
 As you can see, between entering a chain (with `:enter-chain`) and leaving it
 (with `:quit`), all inputs are evaluated in the context of that chain.
 
-(You may be wondering how `(:enter-chain empty-chain)` could possibly be valid, 
-as it contains a keyword apparently doing the job of a function application. 
+(You may be wondering how `(:enter-chain empty-chain)` could possibly be valid,
+as it contains a keyword apparently doing the job of a function application.
 The short answer is that we can define special macro-like operations, of which
 we will see more.)
 
 `:enter-chain` allows you to enter a local chain. More often, you'll want to
 explore and interact with chains that exist elsewhere--that are replicated in
 a distributed way, or exist in some centralized server. For that, you can use
-`:enter-remote-chain`. 
+`:enter-remote-chain`.
 
 `:enter-remote-chain` takes an argument just like `:enter-chain`, and indeed
 for the most part both behave identically. The main difference is that with
 `:enter-remote-chain`, you also have access to the special command `:send`,
 which sends all the inputs you have so far to the remote.
- 
+
+In order to receive new inputs and update the chain state accordingly, you
+can use the function `update-chain`.
