@@ -226,7 +226,7 @@ Now a comment will look like this:
         :comment   "some-text"
         :signature "signature here"})
 
-Signatures are creatied using the `gen-signature!` function, it takes a secret
+Signatures are created using the `gen-signature!` function, which takes a secret
 key `sk` and a string `msg`. The signature `sig` that it returns can be used
 with the function `verify-signature` as follows: `(verify-signature pk sig
 msg)`. If this returns `#t` then this tells us that the person who signed the
