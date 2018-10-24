@@ -3,6 +3,10 @@
     (fn [m]
       (maybe m :Nothing (fn [x] [:Just (f x)])))))
 
+(document 'map-maybe
+          '(("f" function))
+          "Functor mapping for Maybe values.")
+
 (should-be "map-maybe maps :Nothing"
            ((map-maybe (fn [x] (+ x 1))) :Nothing)
            :Nothing)
