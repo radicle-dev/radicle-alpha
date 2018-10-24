@@ -3,7 +3,7 @@
 ## Adding an removing issues
 
 In this example we will create a chain which stores some issues about a code
-repository. At the start it will only support adding a removing issues, but then
+repository. At the start it will only support adding and removing issues, but then
 we will add more features.
 
 This is a literate radicle file, which means you can run it like this: `stack
