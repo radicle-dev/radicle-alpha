@@ -22,7 +22,7 @@
   (fn [expr chain]
     (def x (eval expr (lookup :state chain)))
     (dict :chain (dict :state (head (tail x))
-                       :input (cons expr (lookup :logs chain))
+                       :input (cons expr (lookup :input chain))
                        :index (+ 1 (lookup :index chain)))
           :result (head x))))
 
@@ -37,34 +37,21 @@
   (~~> (.. (@ :chain) (@ :input)) '((+ 3 2)))
   (~~> (.. (@ :chain) (@ :index)) 1)))
 
-;; update-chain-with
-
-(def update-chain-with
-  (fn [chain remote-chain-id cb-expr cb-res]
-    (def new-inputs
-      (receive! remote-chain-id (lookup :index chain)))
-    (def upd-ch
-      (fn [ch expr]
-        (def x (eval-in-chain expr ch))
-        (cb-expr expr)
-        (cb-res (view (@ :result) x))
-        (view (@ :chain) x)))
-    (foldl upd-ch chain new-inputs)))
-
-(document 'update-chain-with
-          '(("chain" chain) ("chain-id" string) ("cb-expr" function) ("cb-res" function))
-          "Updates 'chain' according to activity on the remote chain with ID 'chain-id', by pulling down and evaluating new inputs. Accepts two callbacks: 'cb-expr' is applied to the incoming expressions, and 'cb-res' is applied to the resulting values. Usually one uses 'print!' for both of these. If 'chain' is not a past version of the remote chain then the behaviour is unspecified.")
-
 ;; update-chain
 
 (def update-chain
   (fn [chain]
-    (def next (ref chain))
-    (update-chain-with chain (lookup :name chain) (fn [x] (modify-ref next (fn [r] (eval-in-chain x r)))) print!)))
+    (def new-inputs
+      (receive! (lookup :name chain) (lookup :index chain)))
+    (def upd-ch
+      (fn [ch expr]
+        (def x (eval-in-chain expr ch))
+        (view (@ :chain) x)))
+    (foldl upd-ch chain new-inputs)))
 
 (document 'update-chain
-		  '(("chain" chain))
-		  "Return a version of 'chain' with new inputs and correspondingly updated state")
+          '(("chain" chain))
+          "Return a new chain updated with the new expressions from the remote chain")
 
 ;; add-quit
 
