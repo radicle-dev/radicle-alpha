@@ -97,29 +97,27 @@
 ;; enter-chain & enter-remote-chain
 
 (def eval__ eval)
-(def-rec eval
+(def eval
   (fn [expr env]
       ;; The horror, the horror
       (if (list? expr)
           (if (> (length expr) 0)
               (cond
                 (eq? (head expr) :enter-chain) (do
-                                                 (def arg_ (nth 1 expr))
-                                                 (def arg (head (eval arg_ env)))
+                                                 (def chain (head (eval__ (nth 1 expr) env)))
                                                  (def mod-state
                                                    (over (.. (@ :env) (@ 'eval))
                                                          (fn [x] (add-quit env x))
-                                                         (lookup :state arg)))
+                                                         (lookup :state chain)))
                                                  (list :ok mod-state))
                 (eq? (head expr) :enter-remote-chain) (do
-                                                        (def arg_ (nth 1 expr))
-                                                        (def arg (head (eval arg_ env)))
-                                                        (def state (lookup :state arg))
+                                                        (def chain (head (eval__ (nth 1 expr) env)))
+                                                        (def state (lookup :state chain))
                                                         (def mod-state1
                                                           (over (@ :env) (fn [x] (insert '_inputs [] x)) state))
                                                         (def mod-state2
                                                           (over (@ :env)
-                                                                (fn [x] (insert '_cur-chain (lookup :name arg) x))
+                                                                (fn [x] (insert '_cur-chain (lookup :name chain) x))
                                                                 mod-state1))
                                                         (def mod-state3
                                                           (over (.. (@ :env) (@ 'eval))
