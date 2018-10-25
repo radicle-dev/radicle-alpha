@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module API where
 
-import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
 import           Protolude
@@ -14,11 +13,13 @@ instance Show a => MimeRender PlainText a where
 instance Read a => MimeUnrender PlainText a where
     mimeUnrender _ x = readEither $ T.unpack $ decodeUtf8 $ LBS.toStrict x
 
-type API
-  =    "submit" :> ReqBody '[PlainText] Value :> Post '[PlainText] ()
-  :<|> "since"  :> Capture "chain" Text :> Capture "index" Int :> Get '[PlainText] [Value]
-  :<|> "outputs" :> Capture "chain" Text :> Get '[JSON, PlainText] [Maybe A.Value]
-  :<|> Raw
 
-api :: Proxy API
-api = Proxy
+type ChainSubmitEndpoint = "submit" :> ReqBody '[PlainText] Value :> Post '[PlainText] ()
+
+chainSubmitEndpoint :: Proxy ChainSubmitEndpoint
+chainSubmitEndpoint = Proxy
+
+type ChainSinceEndpoint = "since" :> Capture "index" Int :> Get '[PlainText] [Value]
+
+chainSinceEndpoint :: Proxy ChainSinceEndpoint
+chainSinceEndpoint = Proxy
