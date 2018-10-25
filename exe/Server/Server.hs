@@ -7,6 +7,7 @@ import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
+import           Database.PostgreSQL.Simple (Connection, connectPostgreSQL)
 import           Control.Concurrent
 import           Network.Wai.Handler.Warp
 import           Network.Wai.Middleware.Cors
@@ -14,6 +15,7 @@ import           Network.Wai.Middleware.Gzip
 import           Protolude hiding (fromStrict)
 import           Radicle
 import           Servant
+import           DB
 
 -- * Types
 
@@ -32,59 +34,46 @@ newtype Chains = Chains { getChains :: MVar (Map Text Chain) }
 -- * Helpers
 
 insertExpr :: Connection -> Chains -> Text -> Value -> IO (Either Text ())
-insertExpr conn chains name val = withMVar (getChains chains) $ \c ->
+insertExpr conn chains name val = withMVar (getChains chains) $ \c -> do
     let x = Map.lookup name c
-    let chain = fromMaybe (Chain name pureEnv mempty) x
+    let chain = fromMaybe (Chain name pureEnv) x
     let (r, s) = runIdentity $ runLang (chainState chain) (eval val)
     case r of
         Left e -> pure . Left $ "invalid expression: " <> show e
-        Right o -> do
-            put $ Chains $ Map.insert
-                name
-                (chain { chainState = s
-                        , chainExprs = Exprs $ getExprs (chainExprs chain) Seq.|> (val, o) })
-                (getChains st)
-            insertExprDB conn name val
-            pure $ Right ()
+        Right o -> liftIO $ Right <$> insertExprDB conn name val
 
-getSince :: Text -> Int -> Query Exprs (Maybe [(Value, Value)])
-getSince name index = do
-    x <- Map.lookup name <$> asks getChains
-    pure $ toList . Seq.drop index . chainExprs <$> x
-
+loadState :: Connection -> IO Chains
+loadState conn = do
+    createIfNotExists conn
+    res <- getAllDB conn
+    chainPairs <- forM res $ \(name, vals) -> do
+        let st = runIdentity $ runLang _ $ foldM_ (\_ x -> eval x) () vals
+        case st of
+            (Left err, _) -> panic $ show err
+            (Right _, st') -> do
+                let c = Chain { chainName = name, chainState = st' }
+                pure (name, c)
+    chains' <- newMVar $ Map.fromList chainPairs
+    pure $ Chains chains'
 
 -- * Handlers
 
 -- | Submit something to a chain. The value is expected to be a pair, with the
 -- first item specifying the chain the value is being submitted to, and the
 -- second the expression being submitted.
-submit :: AcidState Chains -> Value -> Handler ()
-submit st val = case val of
+submit :: Connection -> Chains -> Value -> Handler ()
+submit conn chains val = case val of
     List [String i, v] -> do
-        r <- liftIO $ update st $ InsertExpr i v
-        case r of
-            Right () -> pure ()
-            Left err -> throwError
-                      $ err400 { errBody = fromStrict $ encodeUtf8 err }
+        res <- liftIO $ insertExpr conn chains i val
+        case res of
+            Left err -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 err }
+            Right v  -> pure ()
     _ -> throwError
        $ err400 { errBody = "Expecting pair with chain name and val" }
 
-getActivitySince :: AcidState Chains -> Text -> Int -> Handler [(Value, Value)]
-getActivitySince st name index = do
-    r <- liftIO $ query st $ GetSince name index
-    case r of
-        Nothing -> throwError $ err400 { errBody = "No such chain/index" }
-        Just v  -> pure v
-
 -- | Get all expressions submitted to a chain since 'index'.
-since :: AcidState Chains -> Text -> Int -> Handler [Value]
-since st name index =
-    fmap fst <$> getActivitySince st name index
-
-jsonOutputs :: AcidState Chains -> Text -> Handler [Maybe A.Value]
-jsonOutputs st name = do
-  vs <- fmap snd <$> getActivitySince st name 0
-  pure (maybeJson <$> vs)
+since :: Connection -> Text -> Int -> Handler [Value]
+since conn name index = liftIO $ getSinceDB conn name index
 
 static :: Server Raw
 static = serveDirectoryFileServer "static/"
@@ -94,9 +83,10 @@ static = serveDirectoryFileServer "static/"
 
 main :: IO ()
 main = do
-    st <- createOrLoadState
+    conn <- connectPostgreSQL "blah"
+    st <- loadState conn
     let gzipSettings = def { gzipFiles = GzipPreCompressed GzipIgnore }
-        app = simpleCors $ gzip gzipSettings (serve api (server st))
+        app = simpleCors $ gzip gzipSettings (serve api (server conn st))
     args <- getArgs
     case args of
       [portStr] -> case readEither portStr of
@@ -106,5 +96,5 @@ main = do
       _ -> die "Expecting zero or one arguments (port)"
 
 
-server :: AcidState Chains -> Server API
-server st = submit st :<|> since st :<|> jsonOutputs st :<|> static
+server :: Connection -> Chains -> Server API
+server conn st = submit conn st :<|> since conn :<|> static
