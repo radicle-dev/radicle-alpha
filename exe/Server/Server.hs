@@ -5,8 +5,10 @@ module Server where
 
 import           Protolude hiding (fromStrict, option)
 
+import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 import           Database.PostgreSQL.Simple
                  (ConnectInfo(..), Connection, connect)
 import           Network.Wai.Handler.Warp (run)
@@ -51,8 +53,9 @@ newtype Exprs = Exprs { getExprs :: Seq Value }
     deriving (Generic, Eq, Ord)
 
 data Chain = Chain
-    { chainName  :: Text
-    , chainState :: Bindings (PrimFns Identity)
+    { chainName      :: Text
+    , chainState     :: Bindings (PrimFns Identity)
+    , chainEvalPairs :: Seq.Seq (Value, Value)
     } deriving (Generic)
 
 -- For efficiency we might want keys to also be mvars, but efficiency doesn't
@@ -62,13 +65,19 @@ newtype Chains = Chains { getChains :: MVar (Map Text Chain) }
 -- * Helpers
 
 insertExpr :: Connection -> Chains -> Text -> Value -> IO (Either Text ())
-insertExpr conn chains name val = withMVar (getChains chains) $ \c -> do
+insertExpr conn chains name val = modifyMVar (getChains chains) $ \c -> do
     let x = Map.lookup name c
-    let chain = fromMaybe (Chain name pureEnv) x
-    let (r, _) = runIdentity $ runLang (chainState chain) (eval val)
+    let chain = fromMaybe (Chain name pureEnv mempty) x
+    let (r, newSt) = runIdentity $ runLang (chainState chain) (eval val)
     case r of
-        Left e  -> pure . Left $ "invalid expression: " <> show e
-        Right _ -> liftIO $ Right <$> insertExprDB conn name val
+        Left e  -> pure . (c ,) . Left $ "invalid expression: " <> show e
+        Right valRes -> do
+             insertExprDB conn name val
+             let chain' = chain { chainState = newSt
+                                , chainEvalPairs = chainEvalPairs chain Seq.|> (val, valRes)
+                                }
+             pure (Map.insert name chain' c, Right ())
+
 
 loadState :: Connection -> IO Chains
 loadState conn = do
@@ -79,7 +88,10 @@ loadState conn = do
         case st of
             (Left err, _) -> panic $ show err
             (Right _, st') -> do
-                let c = Chain { chainName = name, chainState = st' }
+                let c = Chain { chainName = name
+                              , chainState = st'
+                              , chainEvalPairs = mempty
+                              }
                 pure (name, c)
     chains' <- newMVar $ Map.fromList chainPairs
     pure $ Chains chains'
@@ -103,6 +115,13 @@ submit conn chains val = case val of
 since :: Connection -> Text -> Int -> Handler [Value]
 since conn name index = liftIO $ getSinceDB conn name index
 
+jsonOutputs :: Chains -> Text -> Handler [Maybe A.Value]
+jsonOutputs st name = do
+    chains <- liftIO . readMVar $ getChains st
+    pure $ case Map.lookup name chains of
+        Nothing -> []
+        Just chain -> toList $ maybeJson . snd <$> chainEvalPairs chain
+
 static :: Server Raw
 static = serveDirectoryFileServer "static/"
 
@@ -110,7 +129,7 @@ static = serveDirectoryFileServer "static/"
 
 data Opts = Opts
     { connectionInfo :: ConnectInfo
-    , serverPort :: Int
+    , serverPort     :: Int
     } deriving (Eq, Show, Read)
 
 opts :: Parser Opts
@@ -181,4 +200,4 @@ main = do
 
 
 server :: Connection -> Chains -> Server API
-server conn st = submit conn st :<|> since conn :<|> static
+server conn st = submit conn st :<|> since conn :<|> jsonOutputs st :<|> static
