@@ -42,6 +42,7 @@ packages:
 extra-deps:
 - serialise-0.2.0.0
 - cborg-0.2.0.0
+- acid-state-0.14.3
 
 image:
   containers:

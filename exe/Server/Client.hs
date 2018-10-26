@@ -114,4 +114,4 @@ identV = Keyword . unsafeToIdent
 
 submit :: Value -> ClientM ()
 since :: Text -> Int -> ClientM [Value]
-submit :<|> since :<|> _ = client api
+submit :<|> since :<|> _ :<|> _ = client api

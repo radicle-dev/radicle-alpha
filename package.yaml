@@ -89,18 +89,17 @@ executables:
   radicle-server:
     main: Server.hs
     source-dirs: exe/Server
-    other-modules: API
+    other-modules: [API, DB]
     when:
       - condition: impl(ghcjs)
         buildable: false
     dependencies:
     - radicle
-    - optparse-applicative
     - bytestring
+    - optparse-applicative
+    - postgresql-simple
     - servant
     - servant-server
-    - stm-containers
-    - stm
     - warp
     - wai-extra
     - wai-cors
