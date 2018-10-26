@@ -16,6 +16,7 @@ steps:
     args:
     - '-c'
     - |
+      apt-get install postgresql
       stack config set system-ghc --global true
       stack config set install-ghc --global false
       stack install stylish-haskell hlint
