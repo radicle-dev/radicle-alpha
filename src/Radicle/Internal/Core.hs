@@ -30,6 +30,7 @@ import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
+import qualified Radicle.Internal.Doc as Doc
 import qualified Radicle.Internal.Identifier as Identifier
 import           Radicle.Internal.Orphans ()
 
@@ -143,7 +144,8 @@ data ValueF r =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
     | LambdaF [Ident] (NonEmpty r) (Env r)
-    deriving (Eq, Ord, Read, Show, Generic, Functor)
+    deriving (Eq, Ord, Show, Generic, Functor)
+
 
 instance Serialise r => Serialise (ValueF r)
 
@@ -287,16 +289,16 @@ unsafeToIdent :: Text -> Ident
 unsafeToIdent = Ident
 
 -- | The environment, which keeps all known bindings.
-newtype Env s = Env { fromEnv :: Map Ident s }
-    deriving (Eq, Semigroup, Monoid, Ord, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
+newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }
+    deriving (Eq, Ord, Semigroup, Monoid, Show, Generic, Functor, Foldable, Traversable, Serialise)
 
 instance GhcExts.IsList (Env s) where
-    type Item (Env s) = (Ident, s)
-    fromList = Env . Map.fromList
-    toList = GhcExts.toList . fromEnv
+    type Item (Env s) = (Ident, Maybe (Doc.Described Doc.Value), s)
+    fromList xs = Env . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
+    toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . fromEnv $ e]
 
--- | Primop mappings. The parameter specifies the monad the primops run in.
-newtype PrimFns m = PrimFns { getPrimFns :: Map Ident ([Value] -> Lang m Value) }
+-- | PrimFn mappings. The parameter specifies the monad the primops run in.
+newtype PrimFns m = PrimFns { getPrimFns :: Map Ident (Doc.Docd ([Value] -> Lang m Value)) }
   deriving (Semigroup)
 
 -- | Bindings, either from the env or from the primops.
@@ -359,24 +361,24 @@ withEnv modifier action = do
 
 -- * Functions
 
-addBinding :: Ident -> Value -> Bindings m -> Bindings m
-addBinding i v b = b
-    { bindingsEnv = Env . Map.insert i v . fromEnv $ bindingsEnv b }
+addBinding :: Ident -> Doc.DocVal -> Value -> Bindings m -> Bindings m
+addBinding i d v b = b
+    { bindingsEnv = Env . Map.insert i (Doc.Docd d v) . fromEnv $ bindingsEnv b }
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
 lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
-    Nothing -> throwErrorHere $ UnknownIdentifier i
-    Just v  -> pure v
+    Nothing             -> throwErrorHere $ UnknownIdentifier i
+    Just (Doc.Docd _ v) -> pure v
 
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
 lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns e of
     Nothing -> throwErrorHere $ Impossible "Unknown primop"
-    Just v  -> pure v
+    Just x  -> pure (copoint x)
 
-defineAtom :: Monad m => Ident -> Value -> Lang m ()
-defineAtom i v = modify $ addBinding i v
+defineAtom :: Monad m => Ident -> Doc.DocVal -> Value -> Lang m ()
+defineAtom i d v = modify $ addBinding i d v
 
 -- * Eval
 
@@ -432,7 +434,7 @@ specialForms = Map.fromList $ first Ident <$>
   , ("def", \case
           [Atom name, val] -> do
               val' <- baseEval val
-              defineAtom name val'
+              defineAtom name Nothing val'
               pure nil
           [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
           xs               -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
@@ -442,8 +444,8 @@ specialForms = Map.fromList $ first Ident <$>
             val' <- baseEval val
             case val' of
                 Lambda is b e -> do
-                    let v = Lambda is b (Env . Map.insert name v . fromEnv $ e)
-                    defineAtom name v
+                    let v = Lambda is b (Env . Map.insert name (Doc.Docd Nothing v) . fromEnv $ e)
+                    defineAtom name Nothing v
                     pure nil
                 _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
           [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
@@ -527,10 +529,11 @@ instance (CPA t, FromRad t a) => FromRad t [a] where
         Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
 instance FromRad Ann.WithPos (Env Value) where
+  -- TODO: the encoding to and from env should preserve docs
     fromRad x = case x of
         Dict d -> fmap (Env . Map.fromList)
                 $ forM (Map.toList d) $ \(k, v) -> case k of
-            Atom i -> pure (i, v)
+            Atom i -> pure (i, Doc.Docd Nothing v)
             k'     -> Left $ "Expecting atom keys. Got: " <> show k'
         _ -> Left "Expecting dict"
 instance FromRad Ann.WithPos (Bindings ()) where
@@ -577,7 +580,8 @@ instance (CPA t, ToRad t a) => ToRad t [a] where
 instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
 instance ToRad Ann.WithPos (Env Value) where
-    toRad x = Dict . Map.mapKeys Atom $ fromEnv x
+    -- TODO: to/from env should preserve docs
+    toRad x = Dict . Map.mapKeys Atom . Map.map copoint $ fromEnv x
 instance ToRad Ann.WithPos (Bindings m) where
     toRad x = Dict $ Map.fromList
         [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
@@ -594,7 +598,7 @@ callFn f vs = case f of
           then throwErrorHere $ WrongNumberOfArgs "lambda" (length bnds)
                                                            (length vs)
           else do
-              let mappings = GhcExts.fromList (zip bnds vs)
+              let mappings = GhcExts.fromList (Doc.noDocs $ zip bnds vs)
                   modEnv = mappings <> closure
               NonEmpty.last <$> withEnv (const modEnv)
                                         (traverse baseEval body)
