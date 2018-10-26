@@ -15,16 +15,17 @@ insertExprDB :: Connection -> Text -> Value -> IO ()
 insertExprDB conn name val
     = void $ execute conn sql (name, name, val)
   where
-     sql = "INSERT INTO txs VALUES (SELECT (SUCC(MAX(id)) WHERE name = ?) GROUP BY name, ?, ?)"
+     sql = "INSERT INTO txs (id, chain, expr)"
+        <> "VALUES ((SELECT (COALESCE(MAX(id),-1) + 1) FROM txs WHERE chain = ?), ?, ?)"
 
 getSinceDB :: Connection -> Text -> Int -> IO [Value]
 getSinceDB conn name index
-    = query conn "SELECT expr FROM txs WHERE chain == ? AND id > ?" (name, index)
+    = query conn "SELECT expr FROM txs WHERE chain = ? AND id >= ?" (name, index)
 
 -- | Get all txs in all chains. Useful after a server restart.
 getAllDB :: Connection -> IO [(Text, [Value])]
 getAllDB conn = do
-    res <- query_ conn "SELECT (chain, expr) FROM txs"
+    res <- query_ conn "SELECT chain, expr FROM txs"
     let grouped = groupBy (\l r -> fst l == fst r) res
     pure [ (fst (head each), snd <$> each) | each <- grouped ]
 
@@ -34,7 +35,7 @@ createIfNotExists :: Connection -> IO ()
 createIfNotExists conn = void $ execute_ conn sql
   where
     sql = "CREATE TABLE IF NOT EXISTS txs ("
-       <> " id text NOT NULL,"
+       <> " id integer NOT NULL,"
        <> " chain text NOT NULL,"
        <> " expr text NOT NULL)"
 
