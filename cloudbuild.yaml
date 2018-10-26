@@ -16,7 +16,6 @@ steps:
     args:
     - '-c'
     - |
-      apt-get install postgresql libpq-dev
       stack config set system-ghc --global true
       stack config set install-ghc --global false
       stack install stylish-haskell hlint
@@ -34,7 +33,12 @@ steps:
   - id: "Test & Build"
     name: 'haskell:8.4.3'
     env: ['STACK_ROOT=/workspace/.stack']
-    args: ['stack', 'build', '--fast', '--test', '--no-terminal', '--pedantic']
+    entrypoint: bash
+    args:
+    - '-c'
+    - |
+      apt-get install postgresql libpq-dev'
+      stack build --fast --test --no-terminal --pendantic
 
   - id: "Save cache"
     name: gcr.io/cloud-builders/gsutil
