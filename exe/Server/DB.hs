@@ -1,12 +1,12 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module DB where
 
-import           Protolude hiding (head)
-import Data.List (groupBy, head)
+import           Data.List (groupBy, head)
 import           Database.PostgreSQL.Simple
 import           Database.PostgreSQL.Simple.FromField (FromField(..))
-import           Database.PostgreSQL.Simple.ToField (ToField(..))
 import           Database.PostgreSQL.Simple.FromRow
+import           Database.PostgreSQL.Simple.ToField (ToField(..))
+import           Protolude hiding (head)
 import           Radicle
 
 -- | Insert a new value into the DB. Note that this should only be done after
@@ -44,7 +44,7 @@ instance ToField Value where
 
 instance FromField Value where
     fromField f bs = fromField f bs >>= \x -> case parse "DB" x of
-        Left _ -> mzero
+        Left _  -> mzero
         Right v -> pure v
 
 instance FromRow Value where

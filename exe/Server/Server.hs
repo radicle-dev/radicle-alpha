@@ -119,7 +119,7 @@ jsonOutputs :: Chains -> Text -> Handler [Maybe A.Value]
 jsonOutputs st name = do
     chains <- liftIO . readMVar $ getChains st
     pure $ case Map.lookup name chains of
-        Nothing -> []
+        Nothing    -> []
         Just chain -> toList $ maybeJson . snd <$> chainEvalPairs chain
 
 static :: Server Raw
