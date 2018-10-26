@@ -24,7 +24,7 @@ getSinceDB conn name index
 -- | Get all txs in all chains. Useful after a server restart.
 getAllDB :: Connection -> IO [(Text, [Value])]
 getAllDB conn = do
-    res <- query_ conn "SELECT (chain, expr) FROM txs GROUP BY chain"
+    res <- query_ conn "SELECT (chain, expr) FROM txs"
     let grouped = groupBy (\l r -> fst l == fst r) res
     pure [ (fst (head each), snd <$> each) | each <- grouped ]
 

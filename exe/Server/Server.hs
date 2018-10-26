@@ -1,21 +1,49 @@
+-- | This file defines a server that can be used as a *centralized* remote for
+-- chains.
 {-# LANGUAGE TemplateHaskell #-}
 module Server where
 
-import           API
-import           Codec.Serialise
-import qualified Data.Aeson as A
+import           Protolude hiding (fromStrict, option)
+
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map as Map
-import qualified Data.Sequence as Seq
-import           Database.PostgreSQL.Simple (Connection, connectPostgreSQL)
-import           Control.Concurrent
-import           Network.Wai.Handler.Warp
-import           Network.Wai.Middleware.Cors
+import           Database.PostgreSQL.Simple
+                 (ConnectInfo(..), Connection, connect)
+import           Network.Wai.Handler.Warp (run)
+import           Network.Wai.Middleware.Cors (simpleCors)
 import           Network.Wai.Middleware.Gzip
-import           Protolude hiding (fromStrict)
-import           Radicle
+                 (GzipFiles(..), def, gzip, gzipFiles)
+import           Options.Applicative
+                 ( Parser
+                 , auto
+                 , execParser
+                 , fullDesc
+                 , header
+                 , help
+                 , helper
+                 , info
+                 , long
+                 , metavar
+                 , option
+                 , progDesc
+                 , showDefault
+                 , strOption
+                 , value
+                 )
 import           Servant
+                 ( (:<|>)(..)
+                 , Handler
+                 , Raw
+                 , ServantErr(..)
+                 , Server
+                 , err400
+                 , serve
+                 , serveDirectoryFileServer
+                 )
+
+import           API
 import           DB
+import           Radicle
 
 -- * Types
 
@@ -37,17 +65,17 @@ insertExpr :: Connection -> Chains -> Text -> Value -> IO (Either Text ())
 insertExpr conn chains name val = withMVar (getChains chains) $ \c -> do
     let x = Map.lookup name c
     let chain = fromMaybe (Chain name pureEnv) x
-    let (r, s) = runIdentity $ runLang (chainState chain) (eval val)
+    let (r, _) = runIdentity $ runLang (chainState chain) (eval val)
     case r of
-        Left e -> pure . Left $ "invalid expression: " <> show e
-        Right o -> liftIO $ Right <$> insertExprDB conn name val
+        Left e  -> pure . Left $ "invalid expression: " <> show e
+        Right _ -> liftIO $ Right <$> insertExprDB conn name val
 
 loadState :: Connection -> IO Chains
 loadState conn = do
     createIfNotExists conn
     res <- getAllDB conn
     chainPairs <- forM res $ \(name, vals) -> do
-        let st = runIdentity $ runLang _ $ foldM_ (\_ x -> eval x) () vals
+        let st = runIdentity $ runLang pureEnv $ foldM_ (\_ x -> void $ eval x) () vals
         case st of
             (Left err, _) -> panic $ show err
             (Right _, st') -> do
@@ -64,10 +92,10 @@ loadState conn = do
 submit :: Connection -> Chains -> Value -> Handler ()
 submit conn chains val = case val of
     List [String i, v] -> do
-        res <- liftIO $ insertExpr conn chains i val
+        res <- liftIO $ insertExpr conn chains i v
         case res of
             Left err -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 err }
-            Right v  -> pure ()
+            Right _  -> pure ()
     _ -> throwError
        $ err400 { errBody = "Expecting pair with chain name and val" }
 
@@ -78,22 +106,78 @@ since conn name index = liftIO $ getSinceDB conn name index
 static :: Server Raw
 static = serveDirectoryFileServer "static/"
 
+-- * Opts
+
+data Opts = Opts
+    { connectionInfo :: ConnectInfo
+    , serverPort :: Int
+    } deriving (Eq, Show, Read)
+
+opts :: Parser Opts
+opts = mkOpts
+    <$> strOption
+        ( long "host"
+       <> help "postgres host"
+       <> metavar "HOST"
+       <> showDefault
+       <> value "localhost"
+        )
+    <*> option auto
+        ( long "pgport"
+       <> help "postgres port"
+       <> metavar "PGPORT"
+       <> showDefault
+       <> value 5432
+        )
+    <*> strOption
+        ( long "user"
+       <> help "postgres user"
+       <> metavar "USER"
+       <> showDefault
+       <> value "postgres"
+        )
+    <*> strOption
+        ( long "password"
+       <> help "postgres password"
+       <> metavar "PWD"
+       <> showDefault
+       <> value ""
+        )
+    <*> strOption
+        ( long "db"
+       <> help "postgres database name"
+       <> metavar "DB"
+       <> showDefault
+       <> value "radserver"
+        )
+    <*> option auto
+        ( long "ort"
+       <> help "server port"
+       <> metavar "PORT"
+       <> showDefault
+       <> value 8000
+        )
+  where
+    mkOpts h pgp u pw db p = Opts (ConnectInfo h pgp u pw db) p
+
 
 -- * Main
 
 main :: IO ()
 main = do
-    conn <- connectPostgreSQL "blah"
+    opts' <- execParser allOpts
+    conn <- connect $ connectionInfo opts'
     st <- loadState conn
     let gzipSettings = def { gzipFiles = GzipPreCompressed GzipIgnore }
         app = simpleCors $ gzip gzipSettings (serve api (server conn st))
-    args <- getArgs
-    case args of
-      [portStr] -> case readEither portStr of
-          Right port -> run port app
-          Left _     -> die "Expecting argument to be a port (integer)"
-      [] -> run 80 app
-      _ -> die "Expecting zero or one arguments (port)"
+    run (serverPort opts') app
+  where
+    allOpts = info (opts <**> helper)
+        ( fullDesc
+       <> progDesc "Run a centralized radicle server"
+       <> header "radicle-server"
+        )
+
 
 
 server :: Connection -> Chains -> Server API
