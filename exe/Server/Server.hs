@@ -1,6 +1,5 @@
 -- | This file defines a server that can be used as a *centralized* remote for
 -- chains.
-{-# LANGUAGE TemplateHaskell #-}
 module Server where
 
 import           Protolude hiding (fromStrict, option)
