@@ -11,6 +11,7 @@ import qualified System.FilePath.Find as FP
 import           Radicle
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
+import qualified Radicle.Internal.UUID as UUID
 
 import           Paths_radicle
 
@@ -19,7 +20,8 @@ data WorldState = WorldState
     , worldStateStdout :: [Text]
     , worldStateEnv    :: Env Value
     , worldStateFiles  :: Map Text Text
-    , worldDRG         :: CryptoRand.ChaChaDRG
+    , worldStateDRG    :: CryptoRand.ChaChaDRG
+    , worldStateUUID   :: Int
     }
 
 
@@ -38,7 +40,8 @@ runTestWithFiles bindings inputs files action =
             , worldStateStdout = []
             , worldStateEnv = bindingsEnv bindings
             , worldStateFiles = files
-            , worldDRG = CryptoRand.drgNewSeed (CryptoRand.seedFromInteger 4) -- chosen by fair dice roll
+            , worldStateDRG = CryptoRand.drgNewSeed (CryptoRand.seedFromInteger 4) -- chosen by fair dice roll
+            , worldStateUUID = 0
             }
     in case runState (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws of
         (val, st) -> (val, reverse $ worldStateStdout st)
@@ -97,7 +100,13 @@ instance {-# OVERLAPPING #-} ReadFile TestLang where
 
 instance MonadRandom (State WorldState) where
     getRandomBytes i = do
-      drg <- gets worldDRG
+      drg <- gets worldStateDRG
       let (a, drg') = CryptoRand.randomBytesGenerate i drg
-      modify $ \ws -> ws { worldDRG = drg' }
+      modify $ \ws -> ws { worldStateDRG = drg' }
       pure a
+
+instance UUID.MonadUUID (State WorldState) where
+    uuid = do
+      i <- gets worldStateUUID
+      modify $ \ws -> ws { worldStateUUID = i + 1 }
+      pure $ "uuid-" <> show i

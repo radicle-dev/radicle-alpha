@@ -17,34 +17,10 @@ We'll use a ref to store the issues, as a dictionary from issue IDs to issues.
     
     (def issues (ref {}))
 
-We need a way of creating new IDs for issues. Our IDs will just be incrementing
-integers. What we need is a function which returns these integers, one by one,
-as it is called. There is a function in the prelude for creating such functions
-called `make-counter`, so we can just create our counter like this:
-
-    (def issue-id-counter (make-counter))
-    (def new-issue-id (lookup :next issue-id-counter))
-    
-The `make-counter` function is nothing special; it is defined like so:
-
-     (def make-counter
-       (fn []
-         (def i (ref -1))
-         {:next-will-be (fn [] (+ 1 (read-ref i)))
-          :next         (fn [] (modify-ref i (fn [x] (+ x 1))))}))
-
-So every time it is called it creates a new reference `i` which is in the scope
-of the function that is returned. Every time `make-counter` is called, a new ref
-is created, so different counters count different things! When we make a call to
-`make-counter` in our chain, the ref `i` that it creates and stores in the closure
-of `new-issue-id` becomes part of the _implicit_ state of the chain. We could
-keep track of the next issue ID to use explicitely in a top-level ref, but it's
-best to hide these sorts of details if they are not relevant to the domain.
-
-The `make-counter` function uses `modify-ref`, a function which takes a ref and
-a function. It updates the value held in the ref using the function and then
-returns the _new_ value. We'll be modifying `issues` a lot, so let's create a
-function for that:
+To update the state of our issues we'll use `modify-ref`, a function which takes
+a ref and a function. It updates the value held in the ref using the function
+and then returns the _new_ value. We'll be modifying `issues` a lot, so let's
+create a function for that:
 
     (def mod-issues
       (fn [f] (modify-ref issues f)))
@@ -52,18 +28,29 @@ function for that:
 Next we'll define a function for creating a new issue. An issue is a dict which
 looks like:
     
-    { :author "xyz345" ;; user id / public key
+    { :id     "ab12-xy23"
+      :author "user-id-here"
       :title  "I want pattern matching"
       :body   "I can't continue using radicle without it."
     }
 
-To add an issue we just add it to the `issues` dict, using a new issue id as the
-key:
+The `:id` should be a valid UUID that is supplied by whoever submits the issue;
+we just check that the ID isn't already used for another issue:
+
+    (def id-valid-and-free?
+      (fn [id]
+        (and (uuid? id)
+             (not (member? id (read-ref issues))))))
+
+To add an issue we just add it to the `issues` dict, using the `:id` as the key. Note that in the case of an error we use `print!` in this tutorial, but in a real chain one would `throw` to refuse the transaction.
 
     (def new-issue
       (fn [i]
-        (mod-issues
-          (fn [is] (insert (new-issue-id) i is)))))
+        (def id (lookup :id i))
+        (if (id-valid-and-free? id)
+          (mod-issues
+            (fn [is] (insert id i is)))
+          (print! "Issue ID was not free or was invalid."))))
 
 Closing an issue is also easy--we just delete that issue from the dict:
 
@@ -109,15 +96,18 @@ later.
         (fn [expr state]
           (eval-fn-app state 'process-command expr print!))))
 
-Now we can start creating some issues:
+Now we can start creating some issues. To generate some UUIDs, use the `uuid!`
+function at the REPL.
 
-    (create {:author "james"
-             :title "Pattern matching"
-             :body "Pleeease"})
+    (create {:id     "f621caec-b0a3-4c5e-9fdd-147066a35af1"
+             :author "james"
+             :title  "Pattern matching"
+             :body   "Pleeease"})
     
-    (create {:author "julian"
-             :title "Better numbers"
-             :body "The ids are floats!"})
+    (create {:id     "a37e56bd-b66a-4f3f-af06-9eaeb4afdae9"
+             :author "julian"
+             :title  "Better numbers"
+             :body   "The ids are floats!"})
 
 ## Comments on issues
 
@@ -135,7 +125,8 @@ some arbitrary updating code:
 
 When creating issues we now need to be careful to add the comments:
 
-    (create {:author   "Alice"
+    (create {:id       "4a4d4479-468e-46e5-b026-1f84288aa682"
+             :author   "Alice"
              :title    "Can issues have comments please?"
              :body     "So that we can talk about them."
              :comments []})
@@ -172,8 +163,9 @@ Adding this command to our commands dictionary will now make comments work:
 
 Now we can comment on issues:
 
-    (comment 1 {:author  "James"
-                :comment "Yes that is a good idea."})
+    (comment "a37e56bd-b66a-4f3f-af06-9eaeb4afdae9"
+             {:author  "james"
+              :comment "Yes that is a good idea."})
 
 ## Validating data
 
@@ -196,27 +188,7 @@ to the chain and no one would know it wasn't Bob. To remedy this we will use
 signatures. First of all we will assume that this chain has a unique ID:
 
     (update
-      (def chain-id "some-unique-name"))
-
-Next, we will give all comments a unique ID, to avoid replay attacks. For this
-we use another counter:
-
-    (update
-      (do
-        (def comment-id-counter (make-counter))
-
-        (def new-comment-id  (lookup :next         comment-id-counter))
-        (def next-comment-id (lookup :next-will-be comment-id-counter))))
-
-This time we are also going to use `next-comment-id` which tells us what the
-next ID to be generated is, without incrementing the counter.
-
-Now a comment will look like this:
-
-    (update
-      { :author    "key here"
-        :comment   "some-text"
-        :signature "signature here"})
+      (def chain-id "some-unique-id"))
 
 Signatures are created using the `gen-signature!` function, which takes a secret
 key `sk` and a string `msg`. The signature `sig` that it returns can be used
@@ -224,41 +196,28 @@ with the function `verify-signature` as follows: `(verify-signature pk sig
 msg)`. If this returns `#t` then this tells us that the person who signed the
 message is the person who knows the secret key.
 
-So let's make a utility function for creating signed comments. Note that usually
-this function would _not_ be part of the chain, since it contains effectful
-code.
+We create a function to verify that issues are valid:
 
     (update
-      (def make-comment
-        (fn [sk pk text]
-          (def comment-id (next-comment-id))
-          (def msg (string-append chain-id comment-id text))
-          {:id comment-identifiers
-           :author pk
-           :comment text
-           :signature (gen-signature! sk msg)})))
+      (def issue-valid?
+        (fn [i]
+          (verify-signature (lookup :author i)
+                            (lookup :signature i)
+                            (string-append chain-id
+                                           (lookup :id i)
+                                           (lookup :title i)
+                                           (lookup :body i))))))
 
-On the chain we can create a function to verify comments are valid:
-
-    (update
-      (def comment-valid?
-        (fn [c]
-          (def id (next-comment-id))
-          (and (eq? (lookup :id c) id)
-               (verify-signature (lookup :author c)
-                                 (lookup :signature c)
-                                 (string-append chain-id (show id) (lookup :comment c)))))))
-
-Finally we modify the `add-comment` function. Note that we re-use our old
-`add-comment` function, just adding the extra layer of security:
+Finally we modify the `add-issue` function. Note that we re-use our old
+`add-issue` function, just adding the extra layer of security:
 
     (update
-      (def add-verified-comment
-        (fn [issue-id comment]
-          (if (comment-valid? comment)
-              (add-comment issue-id comment)
+      (def add-verified-issue
+        (fn [issue]
+          (if (issue-valid? issue)
+              (new-issue issue)
               ;; In a real chain we would throw, not print a message.
-              (print! "The comment was not valid.")
+              (print! "The issue was not valid.")
               ))))
 
 And we update our commands:
@@ -266,16 +225,41 @@ And we update our commands:
     (update
       (modify-ref
         commands
-        (fn [cs] (insert 'comment add-verified-comment cs))))
+        (fn [cs] (insert 'create add-verified-issue cs))))
 
-Comments have to be signed to be valid, here is some code one could run in
+Issues now have to be signed to be valid, here is some code one could run in
 another file to create such comments:
 
-To generate the first valid comment we can now call:
+    ;; (def chain-id "some-unique-id")
+
+    ;; (def kp (gen-key-pair! (default-ecc-curve)))
+
+    ;; (def sk (lookup :private-key kp))
+    ;; (def pk (lookup :public-key  kp))
+
+    ;; (def make-issue
+    ;;   (fn [title body]
+    ;;     (def id (uuid!))
+    ;;     (def msg
+    ;;          (string-append chain-id
+    ;;                         id
+    ;;                         title
+    ;;                         body))
+    ;;     {:id        id
+    ;;      :author    pk
+    ;;      :title     title
+    ;;      :body      body
+    ;;      :signature (gen-signature! sk msg)}))
+
+
+To generate a signed issue we can call, after loading that code into a REPL:
+
+    ;; (make-issue "This issue has a verified author"
+    ;;             "This is the body of the first issue with a verified author.")
 
 And submit the result to the chain:
 
-    (comment 0
+    (create
       {:author [:PublicKey
        {:public_curve [:CurveFP
         [:CurvePrime
@@ -289,12 +273,13 @@ And submit the result to the chain:
          :ecc_h 1.0
          :ecc_n 1.15792089237316195423570985008687907852837564279074904382605163141518161494337e77}]]]
         :public_q [:Point
-        5.3521771879680618093527944359691562654288805795047682337289481173029420600978e76
-        4.8872619425351044789737136003456216558003431571495595735304579889190335288541e76]}]
-       :comment "hello"
-       :id 0.0
+        1.11054692487265016800292649812157504820937148585989526304621614094061257232989e77
+        3.6059272479591624612420581719526072934261866833779446725219340058438651734523e76]}]
+       :body "This is the body of the first issue with a verified author."
+       :id "76dd218b-fbc1-4384-9962-8bfbec5da2a2"
        :signature [:Signature
-       {:sign_r 3.9140880445471985335906606936076307906260215740163193220662256283296180902346e76
-        :sign_s 3.6877514585485540649992410063720939538566837330567392634242985890978532752798e76}]})
+       {:sign_r 1.07685492960818947345554835683887719269111710108141784367526228085824476440077e77
+        :sign_s 3.740767076693925401519339475669557891360406440839428851888372253368058490896e76}]
+       :title "This issue has a verified author"})
 
-Signing issues would be done in a similar way.
+Signing comments would be done in a similar way.

@@ -22,6 +22,7 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
+import qualified Radicle.Internal.UUID as UUID
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
@@ -254,6 +255,8 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           _        -> pure ff)
     , ("member?", \case
           [x, List xs] -> pure . Boolean $ elem x xs
+          [x, Vec xs]  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
+          [x, Dict m]  -> pure . Boolean $ Map.member x m
           [_, _]       -> throwErrorHere
                         $ TypeError "member?: second argument must be list"
           xs           -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
@@ -301,6 +304,11 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
             pure . Boolean $ verifySignature key sig msg
           [_, _, _] -> throwErrorHere $ OtherError "verify-signature: message must be a string"
           xs -> throwErrorHere $ WrongNumberOfArgs "verify-signature" 3 (length xs)
+      )
+    , ( "uuid?"
+      , oneArg "uuid?" $ \case
+          String t -> pure . Boolean . UUID.isUUID $ t
+          _ -> throwErrorHere $ TypeError "uuid?: expects a string"
       )
     ]
   where
