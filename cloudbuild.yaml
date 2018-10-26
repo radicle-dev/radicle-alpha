@@ -37,7 +37,7 @@ steps:
     args:
     - '-c'
     - |
-      apt-get install postgresql libpq-dev'
+      apt-get install postgresql libpq-dev
       stack build --fast --test --no-terminal --pendantic
 
   - id: "Save cache"
