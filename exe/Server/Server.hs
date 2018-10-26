@@ -79,18 +79,21 @@ insertExpr conn chains name val = modifyMVar (getChains chains) $ \c -> do
              pure (Map.insert name chain' c, Right ())
 
 
+-- | Load the state from the DB, returning an MVar with resulting state
+-- and values.
 loadState :: Connection -> IO Chains
 loadState conn = do
     createIfNotExists conn
     res <- getAllDB conn
     chainPairs <- forM res $ \(name, vals) -> do
-        let st = runIdentity $ runLang pureEnv $ foldM_ (\_ x -> void $ eval x) () vals
+        let go acc x = eval x >>= \v -> pure (acc Seq.|> (x, v))
+        let st = runIdentity $ runLang pureEnv $ foldM go mempty vals
         case st of
             (Left err, _) -> panic $ show err
-            (Right _, st') -> do
+            (Right pairs, st') -> do
                 let c = Chain { chainName = name
                               , chainState = st'
-                              , chainEvalPairs = mempty
+                              , chainEvalPairs = pairs
                               }
                 pure (name, c)
     chains' <- newMVar $ Map.fromList chainPairs
