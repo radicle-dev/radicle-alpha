@@ -38,7 +38,7 @@ steps:
     - '-c'
     - |
       apt-get install postgresql libpq-dev
-      stack build --fast --test --no-terminal --pendantic
+      stack build --fast --test --no-terminal --pedantic
 
   - id: "Save cache"
     name: gcr.io/cloud-builders/gsutil
