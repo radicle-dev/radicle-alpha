@@ -16,7 +16,7 @@ steps:
     args:
     - '-c'
     - |
-      apt-get install postgresql
+      apt-get install postgresql libpq-dev
       stack config set system-ghc --global true
       stack config set install-ghc --global false
       stack install stylish-haskell hlint
