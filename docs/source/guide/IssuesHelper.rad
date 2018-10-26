@@ -1,0 +1,20 @@
+;; (def chain-id "some-unique-id")
+
+;; (def kp (gen-key-pair! (default-ecc-curve)))
+
+;; (def sk (lookup :private-key kp))
+;; (def pk (lookup :public-key  kp))
+
+;; (def make-issue
+;;   (fn [title body]
+;;     (def id (uuid!))
+;;     (def msg
+;;          (string-append chain-id
+;;                         id
+;;                         title
+;;                         body))
+;;     {:id        id
+;;      :author    pk
+;;      :title     title
+;;      :body      body
+;;      :signature (gen-signature! sk msg)}))

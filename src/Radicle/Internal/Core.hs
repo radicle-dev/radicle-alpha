@@ -570,6 +570,8 @@ instance CPA t => ToRad t Scientific where
     toRad = Number
 instance CPA t => ToRad t Text where
     toRad = String
+instance ToRad t (Ann.Annotated t ValueF) where
+    toRad = identity
 instance (CPA t, ToRad t a) => ToRad t [a] where
     toRad xs = Vec . Seq.fromList $ toRad <$> xs
 instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where

@@ -3,6 +3,7 @@
 (load! "rad/prelude/io.rad")
 (load! "rad/prelude/bool.rad")
 (load! "rad/prelude/recursion.rad")
+(load! "rad/prelude/maybe.rad")
 (load! "rad/prelude/list.rad")
 (load! "rad/prelude/dict.rad")
 (load! "rad/prelude/ref.rad")
@@ -46,3 +47,17 @@
 (document 'send-prelude!
           '(("chain-id" string))
 "Send the pure prelude to a chain.")
+
+(def make-counter
+  (fn []
+    (def i (ref -1))
+    {:next-will-be (fn [] (+ 1 (read-ref i)))
+     :next         (fn [] (modify-ref i (fn [x] (+ x 1))))}))
+
+(def list-with-head
+  (fn [x f g]
+    (if (list? x)
+      (if (> (length x) 0)
+        (f (head x))
+        (g))
+      (g))))

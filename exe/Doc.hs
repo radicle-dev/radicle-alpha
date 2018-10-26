@@ -2,8 +2,10 @@
 -- runs the code inside code blocks (within three backticks).
 module Doc where
 
-import           Options.Applicative
 import           Protolude
+
+import qualified Data.Text as T
+import           Options.Applicative
 import           Radicle
 import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
@@ -30,9 +32,7 @@ run f = do
 
 getCode :: Pandoc -> Text
 getCode (Pandoc _ blocks)
-    = toS $ mconcat [ content | CodeBlock attr content <- blocks, isRad attr ]
-  where
-    isRad (id, _, _) = id == "radicle"
+    = T.intercalate "\n\n" [ toS content | CodeBlock _ content <- blocks ]
 
 newtype Opts = Opts
     { srcFile :: FilePath

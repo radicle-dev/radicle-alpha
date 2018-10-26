@@ -29,6 +29,7 @@ dependencies:
 - unordered-containers
 - cryptonite
 - generics-eot
+- uuid
 when:
  - condition: impl(ghcjs)
    dependencies: ghcjs-dom

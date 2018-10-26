@@ -24,11 +24,12 @@ import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.PrimFns
+import qualified Radicle.Internal.UUID as UUID
 
 
 type ReplM m =
     ( Monad m, Stdout (Lang m), Stdin (Lang m)
-    , MonadRandom m
+    , MonadRandom m, UUID.MonadUUID m
     , ReadFile (Lang m)
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
@@ -37,6 +38,11 @@ instance MonadRandom (InputT IO) where
     getRandomBytes = liftIO . getRandomBytes
 instance MonadRandom m => MonadRandom (LangT (Bindings (PrimFns m)) m) where
     getRandomBytes = lift . getRandomBytes
+
+instance UUID.MonadUUID (InputT IO) where
+    uuid = liftIO UUID.uuid
+instance UUID.MonadUUID m => UUID.MonadUUID (LangT (Bindings (PrimFns m)) m) where
+    uuid = lift UUID.uuid
 
 repl :: Maybe FilePath -> Text -> Text -> Bindings (PrimFns (InputT IO)) -> IO ()
 repl histFile preFileName preCode bindings = do
@@ -151,5 +157,10 @@ replPrimFns = PrimFns . Map.fromList $ first unsafeToIdent <$>
             sk <- hoistEither . first (toLangError . OtherError) $ fromRad skv
             toRad <$> signText sk msg
           _ -> throwErrorHere $ TypeError "gen-signature!: expects a string."
+      )
+    , ( "uuid!"
+      , \case
+          [] -> String <$> UUID.uuid
+          xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
       )
     ]

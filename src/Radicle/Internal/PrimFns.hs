@@ -13,13 +13,16 @@ import qualified Data.Aeson as Aeson
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
+import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import           GHC.Exts (IsList(..))
 
+import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
+import qualified Radicle.Internal.UUID as UUID
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
@@ -64,6 +67,16 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ("get-current-env", \case
           [] -> toRad <$> get
           xs -> throwErrorHere $ WrongNumberOfArgs "get-current-env" 0 (length xs))
+    , ( "set-current-env"
+      , oneArg "set-current-env" $ \x -> do
+          e' :: Bindings () <- fromRadOtherErr x
+          e <- get
+          put e { bindingsEnv = bindingsEnv e'
+                , bindingsNextRef = bindingsNextRef e'
+                , bindingsRefs = bindingsRefs e'
+                }
+          pure ok
+      )
     , ("list", pure . List)
     , ("dict", (Dict . foldr (uncurry Map.insert) mempty <$>)
                         . evenArgs "dict")
@@ -75,6 +88,15 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [a, b] -> pure $ Boolean (a == b)
           xs     -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
 
+    -- Maybe
+    , ( "maybe"
+      , \case
+          [Keyword (Ident "Nothing"), nothing, _] -> pure nothing
+          [Vec (Keyword (Ident "Just") :<| v :<| Empty), _, just] -> callFn just [v]
+          [x, _, _] -> throwErrorHere $ TypeError $ "maybe: first argument should be a Maybe: " <> renderCompactPretty x
+          xs -> throwErrorHere $ WrongNumberOfArgs "maybe" 3 (length xs)
+      )
+
     -- Vectors
     , ( "<>"
       , twoArg "<>" $ \case
@@ -83,12 +105,12 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
       )
     , ( "add-left"
       , twoArg "add-left" $ \case
-          (x, Vec xs) -> pure $ Vec (x Seq.:<| xs)
+          (x, Vec xs) -> pure $ Vec (x :<| xs)
           _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
       )
     , ( "add-right"
       , twoArg "add-right" $ \case
-          (x, Vec xs) -> pure $ Vec (xs Seq.:|> x)
+          (x, Vec xs) -> pure $ Vec (xs :|> x)
           _ -> throwErrorHere $ TypeError "add-right: second argument must be a vector"
       )
 
@@ -126,8 +148,23 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
               -- Probably an exception is better, but that seems cruel
               -- when you have no exception handling facilities.
               Nothing -> nil
-          [_, _]      -> throwErrorHere $ TypeError "lookup: second argument must be map"
+          [_, _]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "lookup" 2 (length xs))
+    , ( "safe-lookup"
+      , twoArg "safe-lookup" $ \case
+          (a, Dict m) -> pure $ case Map.lookup a m of
+            Just v  -> toRad [kw "Just", v]
+            Nothing -> kw "Nothing"
+          _ -> throwErrorHere $ TypeError $ "safe-lookup: second argument must be a dict"
+      )
+    , ( "map-values"
+      , twoArg "map-values" $ \case
+          (f, Dict m) -> do
+            let kvs = Map.toList m
+            vs <- traverse (\v -> callFn f [v]) (snd <$> kvs)
+            pure (Dict (Map.fromList (zip (fst <$> kvs) vs)))
+          _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
+      )
     , ("string-append", \args ->
           let fromStr (String s) = Just s
               fromStr _          = Nothing
@@ -138,12 +175,14 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ("insert", \case
           [k, v, Dict m] -> pure . Dict $ Map.insert k v m
           [_, _, _]                -> throwErrorHere
-                                    $ TypeError "insert: third argument must be a dict"
+
+                                      $ TypeError "insert: third argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
-    , ("delete", \case
-          [k, Dict m] -> pure . Dict $ Map.delete k m
-          [_, _]      -> throwErrorHere $ TypeError "delete: second argument must be a dict"
-          xs          -> throwErrorHere $ WrongNumberOfArgs "delete" 2 (length xs))
+    , ( "delete"
+      , twoArg "delete" $ \case
+          (k, Dict m) -> pure . Dict $ Map.delete k m
+          _ -> throwErrorHere $ TypeError "delete: second argument must be a dict"
+      )
     -- The semantics of + and - in Scheme is a little messed up. (+ 3)
     -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.
     -- But while (+ 3 2 1) evaluates to 6, (- 3 2 1) evaluates to 0. So with -
@@ -164,14 +203,14 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [_, _]               -> throwErrorHere $ TypeError ">: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs ">" 2 (length xs))
     , ("foldl", \case
-          [fn, init', List ls] -> foldlM (\b a -> callFn fn [b, a]) init' ls
-          [_, _, _]            -> throwErrorHere
-                                $ TypeError "foldl: third argument should be a list"
+          [fn, init', v] -> do
+            ls :: [Value] <- fromRadOtherErr v
+            foldlM (\b a -> callFn fn [b, a]) init' ls
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldl" 3 (length xs))
     , ("foldr", \case
-          [fn, init', List ls] -> foldrM (\b a -> callFn fn [b, a]) init' ls
-          [_, _, _]            -> throwErrorHere
-                                $ TypeError "foldr: third argument should be a list"
+          [fn, init', v] -> do
+            ls :: [Value] <- fromRadOtherErr v
+            foldrM (\b a -> callFn fn [b, a]) init' ls
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ("map", \case
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
@@ -191,19 +230,19 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
                   Dict _ -> pure tt
                   _      -> pure ff)
     , ( "type"
-      , let kw = pure . Keyword . Ident
+      , let kw' = pure . Keyword . Ident
         in oneArg "type" $ \case
-             Atom _ -> kw "atom"
-             Keyword _ -> kw "keyword"
-             String _ -> kw "string"
-             Number _ -> kw "number"
-             Boolean _ -> kw "boolean"
-             List _ -> kw "list"
-             Vec _ -> kw "vector"
-             PrimFn _ -> kw "function"
-             Dict _ -> kw "dict"
-             Ref _ -> kw "ref"
-             Lambda{} -> kw "function"
+             Atom _ -> kw' "atom"
+             Keyword _ -> kw' "keyword"
+             String _ -> kw' "string"
+             Number _ -> kw' "number"
+             Boolean _ -> kw' "boolean"
+             List _ -> kw' "list"
+             Vec _ -> kw' "vector"
+             PrimFn _ -> kw' "function"
+             Dict _ -> kw' "dict"
+             Ref _ -> kw' "ref"
+             Lambda{} -> kw' "function"
       )
     , ("string?", oneArg "string?" $ \case
           String _ -> pure tt
@@ -216,6 +255,8 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           _        -> pure ff)
     , ("member?", \case
           [x, List xs] -> pure . Boolean $ elem x xs
+          [x, Vec xs]  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
+          [x, Dict m]  -> pure . Boolean $ Map.member x m
           [_, _]       -> throwErrorHere
                         $ TypeError "member?: second argument must be list"
           xs           -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
@@ -227,7 +268,7 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
           [Ref (Reference x), v] -> do
               st <- get
               put $ st { bindingsRefs = IntMap.insert x v $ bindingsRefs st }
-              pure nil
+              pure v
           [_, _]                 -> throwErrorHere
                                   $ TypeError "write-ref: first argument must be a ref"
           xs                     -> throwErrorHere
@@ -258,17 +299,29 @@ purePrimFns = PrimFns $ fromList $ first Ident <$>
     , ( "verify-signature"
       , \case
           [keyv, sigv, String msg] -> do
-            key <- hoistEither . first (toLangError . OtherError) $ fromRad keyv
-            sig <- hoistEither . first (toLangError . OtherError) $ fromRad sigv
+            key <- fromRadOtherErr keyv
+            sig <- fromRadOtherErr sigv
             pure . Boolean $ verifySignature key sig msg
           [_, _, _] -> throwErrorHere $ OtherError "verify-signature: message must be a string"
           xs -> throwErrorHere $ WrongNumberOfArgs "verify-signature" 3 (length xs)
       )
+    , ( "uuid?"
+      , oneArg "uuid?" $ \case
+          String t -> pure . Boolean . UUID.isUUID $ t
+          _ -> throwErrorHere $ TypeError "uuid?: expects a string"
+      )
     ]
   where
 
+    fromRadOtherErr :: (FromRad Ann.WithPos a) => Value -> Lang m a
+    fromRadOtherErr = hoistEither . first (toLangError . OtherError) . fromRad
+
     tt = Boolean True
     ff = Boolean False
+
+    ok = kw "ok"
+
+    kw = Keyword . Ident
 
     numBinop :: (Scientific -> Scientific -> Scientific)
              -> Text

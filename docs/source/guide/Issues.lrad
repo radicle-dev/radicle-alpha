@@ -1,0 +1,285 @@
+# Issues chain
+
+## Adding an removing issues
+
+In this example we will create a chain which stores some issues about a code
+repository. At the start it will only support adding and removing issues, but then
+we will add more features.
+
+This is a literate radicle file, which means you can run it like this: `stack
+exec doc -- docs/source/guide/Issues.lrad`.
+
+First we load the prelude:
+
+    (load! "rad/prelude.rad")
+
+We'll use a ref to store the issues, as a dictionary from issue IDs to issues.
+    
+    (def issues (ref {}))
+
+To update the state of our issues we'll use `modify-ref`, a function which takes
+a ref and a function. It updates the value held in the ref using the function
+and then returns the _new_ value. We'll be modifying `issues` a lot, so let's
+create a function for that:
+
+    (def mod-issues
+      (fn [f] (modify-ref issues f)))
+
+Next we'll define a function for creating a new issue. An issue is a dict which
+looks like:
+    
+    { :id     "ab12-xy23"
+      :author "user-id-here"
+      :title  "I want pattern matching"
+      :body   "I can't continue using radicle without it."
+    }
+
+The `:id` should be a valid UUID that is supplied by whoever submits the issue;
+we just check that the ID isn't already used for another issue:
+
+    (def id-valid-and-free?
+      (fn [id]
+        (and (uuid? id)
+             (not (member? id (read-ref issues))))))
+
+To add an issue we just add it to the `issues` dict, using the `:id` as the key. Note that in the case of an error we use `print!` in this tutorial, but in a real chain one would `throw` to refuse the transaction.
+
+    (def new-issue
+      (fn [i]
+        (def id (lookup :id i))
+        (if (id-valid-and-free? id)
+          (mod-issues
+            (fn [is] (insert id i is)))
+          (print! "Issue ID was not free or was invalid."))))
+
+Closing an issue is also easy--we just delete that issue from the dict:
+
+    (def close-issue
+      (fn [id]
+        (mod-issues (fn [is] (delete id is)))))
+
+The behaviour we want from our chain is to accept some commands to perform
+issue-related tasks. We'll store these commands in a dict, keyed by the command
+symbol. We put the whole thing in a ref so that we can add more commands later,
+or even update existing commands.
+
+    (def commands
+      (ref
+        {'create new-issue
+         'close  close-issue}))
+
+Now we create a function for handling these commands. We assume that the input
+is a list with at least 2 elements, the first of which is a symbol describing
+the command. We look up the command handler in the `commands` ref and then run
+it on the arguments using `apply`, which calls a function on a list of
+arguments. Finally we print the issues so that we can see how the state evolves.
+
+    (def process-command
+      (fn [expr]
+        (def command (head expr))
+        (def args    (tail expr))
+        (def do-this (lookup command (read-ref commands)))
+        (apply do-this args)
+        (print! (read-ref issues))
+        :ok))
+
+Now we update the eval. We will check for a special command `update` for
+updating the semantics of our chain (by executing arbitrary code), but otherwise
+we delegate to `process-command`. In general of course you wouldn't want to
+leave such an `update` command with no restrictions; we'll talk about that
+later.
+
+    (load! "rad/chain.rad")
+    
+    (def eval
+      (updatable-eval
+        (fn [expr state]
+          (eval-fn-app state 'process-command expr print!))))
+
+Now we can start creating some issues. To generate some UUIDs, use the `uuid!`
+function at the REPL.
+
+    (create {:id     "f621caec-b0a3-4c5e-9fdd-147066a35af1"
+             :author "james"
+             :title  "Pattern matching"
+             :body   "Pleeease"})
+    
+    (create {:id     "a37e56bd-b66a-4f3f-af06-9eaeb4afdae9"
+             :author "julian"
+             :title  "Better numbers"
+             :body   "The ids are floats!"})
+
+## Comments on issues
+
+Now it would be nice to be able to comment on issues. For this we'll just use a
+`:comment` field in the issue, which will be a vector of comments. The first
+thing we need to do therefore is add an empty vector of comments to all our
+current issues. To do this we'll use the update command which allows us to run
+some arbitrary updating code:
+
+    (update
+      (modify-ref issues
+                  (fn [is]
+                    (map-values (fn [i] (insert :comments [] i))
+                                is))))
+
+When creating issues we now need to be careful to add the comments:
+
+    (create {:id       "4a4d4479-468e-46e5-b026-1f84288aa682"
+             :author   "Alice"
+             :title    "Can issues have comments please?"
+             :body     "So that we can talk about them."
+             :comments []})
+
+A more sophisticated handler might add an empty comments field if it doesn't
+exist.
+
+To add the commenting feature, first we will add a new function to add comments
+to issues.
+
+    (update
+      (def add-comment
+        (fn [issue-id comment]
+          (mod-issues
+            (fn [is]
+              (modify-map issue-id
+                          (fn [i]
+                            (modify-map :comments
+                                        (fn [cs] (add-right comment cs)) 
+                                        i))
+                          is))))))
+
+TODO: modify-map should be renamed to modify-dict
+
+(You'll note that there is a lot of painful nested updating going on; later we
+will see how this can be made a lot easier with lenses.)
+
+Adding this command to our commands dictionary will now make comments work:
+
+    (update
+      (modify-ref
+        commands
+        (fn [cs] (insert 'comment add-comment cs))))
+
+Now we can comment on issues:
+
+    (comment "a37e56bd-b66a-4f3f-af06-9eaeb4afdae9"
+             {:author  "james"
+              :comment "Yes that is a good idea."})
+
+## Validating data
+
+It would be nice to validate issues and comments before they are added, e.g.
+checking if all the right keys exist.
+
+TODO
+
+## Verifying authors
+
+This chain has issues and comments coming from users but there is nothing that
+enforces that the issues and comments are actually submitted by these users. I
+(Alice) could easily submit the comment:
+
+   (update
+     { :author "bobs-id"
+       :comment "LGTM"})
+
+to the chain and no one would know it wasn't Bob. To remedy this we will use
+signatures. First of all we will assume that this chain has a unique ID:
+
+    (update
+      (def chain-id "some-unique-id"))
+
+Signatures are created using the `gen-signature!` function, which takes a secret
+key `sk` and a string `msg`. The signature `sig` that it returns can be used
+with the function `verify-signature` as follows: `(verify-signature pk sig
+msg)`. If this returns `#t` then this tells us that the person who signed the
+message is the person who knows the secret key.
+
+We create a function to verify that issues are valid:
+
+    (update
+      (def issue-valid?
+        (fn [i]
+          (verify-signature (lookup :author i)
+                            (lookup :signature i)
+                            (string-append chain-id
+                                           (lookup :id i)
+                                           (lookup :title i)
+                                           (lookup :body i))))))
+
+Finally we modify the `add-issue` function. Note that we re-use our old
+`add-issue` function, just adding the extra layer of security:
+
+    (update
+      (def add-verified-issue
+        (fn [issue]
+          (if (issue-valid? issue)
+              (new-issue issue)
+              ;; In a real chain we would throw, not print a message.
+              (print! "The issue was not valid.")
+              ))))
+
+And we update our commands:
+
+    (update
+      (modify-ref
+        commands
+        (fn [cs] (insert 'create add-verified-issue cs))))
+
+Issues now have to be signed to be valid, here is some code one could run in
+another file to create such comments:
+
+    ;; (def chain-id "some-unique-id")
+
+    ;; (def kp (gen-key-pair! (default-ecc-curve)))
+
+    ;; (def sk (lookup :private-key kp))
+    ;; (def pk (lookup :public-key  kp))
+
+    ;; (def make-issue
+    ;;   (fn [title body]
+    ;;     (def id (uuid!))
+    ;;     (def msg
+    ;;          (string-append chain-id
+    ;;                         id
+    ;;                         title
+    ;;                         body))
+    ;;     {:id        id
+    ;;      :author    pk
+    ;;      :title     title
+    ;;      :body      body
+    ;;      :signature (gen-signature! sk msg)}))
+
+
+To generate a signed issue we can call, after loading that code into a REPL:
+
+    ;; (make-issue "This issue has a verified author"
+    ;;             "This is the body of the first issue with a verified author.")
+
+And submit the result to the chain:
+
+    (create
+      {:author [:PublicKey
+       {:public_curve [:CurveFP
+        [:CurvePrime
+        1.15792089237316195423570985008687907853269984665640564039457584007908834671663e77
+        [:CurveCommon
+        {:ecc_a 0.0
+         :ecc_b 7.0
+         :ecc_g [:Point
+         5.506626302227734366957871889516853432625060345377759417550018736038911672924e76
+         3.2670510020758816978083085130507043184471273380659243275938904335757337482424e76]
+         :ecc_h 1.0
+         :ecc_n 1.15792089237316195423570985008687907852837564279074904382605163141518161494337e77}]]]
+        :public_q [:Point
+        1.11054692487265016800292649812157504820937148585989526304621614094061257232989e77
+        3.6059272479591624612420581719526072934261866833779446725219340058438651734523e76]}]
+       :body "This is the body of the first issue with a verified author."
+       :id "76dd218b-fbc1-4384-9962-8bfbec5da2a2"
+       :signature [:Signature
+       {:sign_r 1.07685492960818947345554835683887719269111710108141784367526228085824476440077e77
+        :sign_s 3.740767076693925401519339475669557891360406440839428851888372253368058490896e76}]
+       :title "This issue has a verified author"})
+
+Signing comments would be done in a similar way.
