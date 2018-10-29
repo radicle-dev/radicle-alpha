@@ -43,13 +43,13 @@ foreign import javascript unsafe "eval_fn_ = $1"
 -- with the result.
 --
 -- The IORef keeps the state/env of the REPL so far.
-jsEval :: IORef (Bindings (InputT IO)) -> JSVal -> IO ()
+jsEval :: IORef (Bindings (PrimFns (InputT IO))) -> JSVal -> IO ()
 jsEval bndsRef v = runInputT defaultSettings $ do
     let o = Object v
     ms <- liftIO $ fromJSVal =<< getProp "arg" o
     let s = case ms of
           Just s' -> s'
-          _       -> error "expecting 'arg' key"
+          _       -> panic "expecting 'arg' key"
     bnds <- liftIO $ readIORef bndsRef
     res <- runLang bnds $ interpretMany "[repl]" s
     out <- JSS.pack . T.unpack <$> case res of
@@ -62,48 +62,48 @@ jsEval bndsRef v = runInputT defaultSettings $ do
 
 -- * Primops
 
-bindings :: Bindings (InputT IO)
-bindings = e { bindingsPrimops = bindingsPrimops e <> primops }
+bindings :: Bindings (PrimFns (InputT IO))
+bindings = e { bindingsPrimFns = bindingsPrimFns e <> primops }
     where
-      e :: Bindings (InputT IO)
+      e :: Bindings (PrimFns (InputT IO))
       e = pureEnv
 
-primops :: Primops (InputT IO)
-primops = fromList [sendPrimop, receivePrimop] <> replPrimops
+primops :: PrimFns (InputT IO)
+primops = PrimFns (fromList [sendPrimop, receivePrimop]) <> replPrimFns
   where
     sendPrimop =
-      ( Ident "send!"
-      , evalArgs $ \case
+      ( unsafeToIdent "send!"
+      , \case
          [String name, v] -> do
              res <- liftIO $ runClientM (submit $ List $ [String name, v])
              case res of
-                 Left e   -> throwError . OtherError
+                 Left e   -> throwErrorHere . OtherError
                            $ "send!: failed:" <> show e
                  Right () -> pure $ List []
-         [_, _] -> throwError $ TypeError "send!: first argument should be a string"
-         xs     -> throwError $ WrongNumberOfArgs "send!" 2 (length xs)
+         [_, _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
+         xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
     receivePrimop =
-      ( Ident "receive!"
-      , evalArgs $ \case
+      ( unsafeToIdent "receive!"
+      , \case
           [String name, Number n] -> do
               case floatingOrInteger n of
-                  Left (_ :: Float) -> throwError . OtherError
+                  Left (_ :: Float) -> throwErrorHere . OtherError
                                      $ "receive!: expecting int argument"
                   Right r -> do
                       liftIO (runClientM (since name r)) >>= \case
-                          Left err -> throwError . OtherError
+                          Left err -> throwErrorHere . OtherError
                                     $ "receive!: request failed:" <> show err
                           Right v' -> pure $ List v'
-          [String _, _] -> throwError $ TypeError "receive!: expecting number as second arg"
-          [_, _]        -> throwError $ TypeError "receive!: expecting string as first arg"
-          xs            -> throwError $ WrongNumberOfArgs "receive!" 2 (length xs)
+          [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
+          [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
+          xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)
       )
 
 -- * Helpers
 
 identV :: Text -> Value
-identV = Keyword . Ident
+identV = Keyword . unsafeToIdent
 
 -- * Client functions
 
