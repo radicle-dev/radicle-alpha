@@ -5,7 +5,9 @@ module Radicle.Internal.CLI
 where
 
 import           Protolude
-import           System.Directory (XdgDirectory(..), getXdgDirectory)
+import           System.Directory
+                 (XdgDirectory(..), createDirectoryIfMissing, getXdgDirectory)
+import           System.FilePath (takeDirectory)
 
 -- | Location of the radicle file to interpret.
 -- Usually @~/.local/config/radicle/config.rad@.
@@ -15,10 +17,15 @@ import           System.Directory (XdgDirectory(..), getXdgDirectory)
 getConfigFile :: IO FilePath
 getConfigFile = getXdgDirectory XdgConfig "radicle/config.rad"
 
--- | Location of the radicle history. Usually
+-- | Location of the radicle history, usually
 -- @~/.local/share/radicle/history@.
+--
+-- Creates the parent directory if it does not exist.
 --
 -- See 'getXdgDirectory' 'XdgData' for how @~/.local/share@ is
 -- determined.
 getHistoryFile :: IO FilePath
-getHistoryFile = getXdgDirectory XdgData "radicle/history"
+getHistoryFile = do
+    file <- getXdgDirectory XdgData "radicle/history"
+    createDirectoryIfMissing True (takeDirectory file)
+    pure file
