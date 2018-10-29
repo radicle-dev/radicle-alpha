@@ -11,55 +11,75 @@ import           Data.Pointed (Pointed(..))
 import           Text.Pandoc
 
 type Blocks = [Block]
+type Inlines = [Inline]
 
-class ToBlocks a where
-  blocks :: a -> Blocks
+data Pan = Blocks Blocks | Inlines Inlines
+  deriving (Eq, Ord, Show, Read)
 
-instance ToBlocks Blocks where
-  blocks = identity
+instance Semigroup Pan where
+  Blocks x <> Blocks y = Blocks (x <> y)
+  Inlines x <> Inlines y = Inlines (x <> [Space] <> y)
+  Blocks x <> Inlines y = Blocks (x <> [Para y])
+  Inlines x <> Blocks y = Blocks (Para x : y)
 
-instance ToBlocks a => ToBlocks (Maybe a) where
-  blocks Nothing = []
-  blocks (Just x) = blocks x
+class ToPan a where
+  pan :: a -> Pan
 
-data Described a = Desc (Maybe Blocks) a
+instance ToPan Pan where
+  pan = identity
+
+blocks :: ToPan a => a -> Blocks
+blocks x = case pan x of
+  Blocks bs  -> bs
+  Inlines is -> [Para is]
+
+instance ToPan Blocks where
+  pan = Blocks
+
+instance ToPan a => ToPan (Maybe a) where
+  pan Nothing  = Inlines []
+  pan (Just x) = pan x
+
+data Described a = Desc (Maybe Pan) a
   deriving (Eq, Ord, Generic, Show, Read)
 
 instance Serialise (Described a) where
   encode = notImplemented
   decode = notImplemented
 
-instance ToBlocks a => ToBlocks (Described a) where
-  blocks (Desc (Just bs) x) = blocks x <> bs
-  blocks (Desc _ x)         = blocks x
+instance ToPan a => ToPan (Described a) where
+  pan (Desc (Just d) x) = d <> pan x
+  pan (Desc _ x)         = pan x
 
 data Value
   = Fun Function
   | String
   | Boolean
-  | Other Blocks
+  | Other Pan
   deriving (Eq, Ord, Generic, Show, Read)
 
-instance ToBlocks Value where
-  blocks = \case
-      Fun f -> blocks f
-      String -> ty "A string."
-      Boolean -> ty "A boolean."
+instance ToPan Value where
+  pan = \case
+      Fun f -> pan f
+      String -> typ "string"
+      Boolean -> typ "boolean"
       Other pd -> pd
     where
-      ty t = [Plain [Str t]]
+
+typ :: Text -> Pan
+typ t = Inlines [Str "A ", Code nullAttr (toS t), Str "."]
 
 data Function = Function
   { parameters :: Described Params
   , output     :: Described Value
   } deriving (Eq, Ord, Show, Read)
 
-instance ToBlocks Function where
-  blocks Function{..} =
-       [ Para [Str "A Function:"]
-       , BulletList
-         [ Para [Str "Parameters:"] : blocks parameters
-         , Para [Str "Returns:"] : blocks output
+instance ToPan Function where
+  pan Function{..} = Blocks $
+       blocks (typ "function") <>
+       [ BulletList
+         [ blocks (Inlines [Str "Parameters:"] <> pan parameters)
+         , blocks (Inlines [Str "Returns:"] <> pan output)
          ]
        ]
 
@@ -68,9 +88,9 @@ data Params
   | Variable
   deriving (Eq, Ord, Show, Read)
 
-instance ToBlocks Params where
-  blocks Variable = [] -- TODO
-  blocks (Fixed ps) = [ DefinitionList (definitionItem <$> ps) ]
+instance ToPan Params where
+  pan Variable   = notImplemented
+  pan (Fixed ps) = Blocks [ DefinitionList (definitionItem <$> ps) ]
 
 data Param = Param
   { name  :: Text
@@ -80,7 +100,7 @@ data Param = Param
 definitionItem :: Described Param -> ([Inline], [[Block]])
 definitionItem (Desc d_ Param{..}) =
   ( [Code nullAttr (toS name)]
-  , [blocks value, blocks d_]
+  , [blocks (pan d_ <> pan value)]
   )
 
 data Docd a = Docd (Maybe (Described Value)) a
@@ -120,7 +140,7 @@ fun1 :: Text
      -> Maybe (Described Value)
 fun1 name ds_ xDesc xName xDoc yDesc yDoc = do
   ds <- md ds_
-  let n = [Para [Str (toS name)]]
+  let n = Blocks [Para [Code nullAttr (toS name)]]
   pure $
     Desc (Just (n <> ds)) $ Fun $ Function
       (Desc Nothing
@@ -129,11 +149,12 @@ fun1 name ds_ xDesc xName xDoc yDesc yDoc = do
                               , value = xDoc}]))
       (Desc (md yDesc) yDoc)
 
-md :: Text -> Maybe Blocks
+md :: Text -> Maybe Pan
 md t = case runPure (readMarkdown Default.def t) of
-  Left _              -> Nothing
-  Right (Pandoc _ bs) -> Just bs
+  Left _                     -> Nothing
+  Right (Pandoc _ [Para is]) -> Just (Inlines is)
+  Right (Pandoc _ bs)        -> Just (Blocks bs)
 
-toMD :: ToBlocks d => d -> Either PandocError Text
+toMD :: ToPan d => d -> Either PandocError Text
 toMD dv = runPure $
   writeMarkdown Default.def (Pandoc nullMeta (blocks dv))
