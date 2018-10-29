@@ -11,6 +11,8 @@ import           Servant.API ((:<|>)(..))
 import           Servant.Client
 import           System.Console.Haskeline (InputT)
 
+import qualified Radicle.Internal.Doc as Doc
+
 main :: IO ()
 main = do
     opts' <- execParser allOpts
@@ -74,7 +76,7 @@ bindings cEnv
     prims = primops cEnv
 
 primops :: ClientEnv -> PrimFns (InputT IO)
-primops cEnv = PrimFns (fromList [sendPrimop, receivePrimop])
+primops cEnv = fromList $ Doc.noDocs $ [sendPrimop, receivePrimop]
   where
     sendPrimop =
       ( unsafeToIdent "send!"

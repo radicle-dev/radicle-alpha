@@ -7,6 +7,7 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc (pretty)
 import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc)
+import           GHC.Exts (IsList(..))
 import           System.Console.Haskeline
                  ( CompletionFunc
                  , InputT
@@ -18,6 +19,7 @@ import           System.Console.Haskeline
                  , simpleCompletion
                  )
 
+import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
@@ -79,17 +81,34 @@ replBindings = e { bindingsPrimFns = bindingsPrimFns e <> replPrimFns
       pfs = replPrimFns
 
 replPrimFns :: forall m. ReplM m => PrimFns m
-replPrimFns = PrimFns . Map.fromList $ first unsafeToIdent <$>
+replPrimFns = fromList $ Doc.noDocs $ first unsafeToIdent <$>
     [ ("print!", \case
         [x] -> do
             putStrS (renderPrettyDef x)
             pure nil
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
+    , ( "actual-doc"
+      , oneArg "actual-doc" $ \case
+          Atom i -> do
+            d_ <- lookupAtomDoc i
+            case d_ of
+              Nothing -> do
+                putStrS "No docs."
+                pure nil
+              Just d -> case Doc.toMD d of
+                Left e -> do
+                  putStrS (show e)
+                  pure nil
+                Right md -> do
+                  putStrS md
+                  pure nil
+          _ -> throwErrorHere $ TypeError "actual-doc: expects an atom"
+      )
 
     , ("set-env!", \case
         [Atom x, v] -> do
-            defineAtom x v
+            defineAtom x Nothing v
             pure nil
         [_, _] -> throwErrorHere $ TypeError "Expected atom as first arg"
         xs  -> throwErrorHere $ WrongNumberOfArgs "set-env!" 2 (length xs))

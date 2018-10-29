@@ -144,12 +144,13 @@ data ValueF r =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
     | LambdaF [Ident] (NonEmpty r) (Env r)
-    deriving (Eq, Ord, Show, Generic, Functor)
+    | DocF (Doc.Described Doc.Value)
+    deriving (Eq, Ord, Show, Read, Generic, Functor)
 
 
 instance Serialise r => Serialise (ValueF r)
 
-{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda #-}
+{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda, Doc #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -208,6 +209,10 @@ pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
     where
     Lambda vs exps env = Ann.annotate $ LambdaF vs exps env
 
+pattern Doc :: ValueConC t => Doc.Described Doc.Value -> Annotated t ValueF
+pattern Doc d <- (Ann.match -> DocF d)
+    where
+    Doc = Ann.annotate . DocF
 
 type UntaggedValue = Annotated Identity ValueF
 type Value = Annotated Ann.WithPos ValueF
@@ -290,7 +295,7 @@ unsafeToIdent = Ident
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }
-    deriving (Eq, Ord, Semigroup, Monoid, Show, Generic, Functor, Foldable, Traversable, Serialise)
+    deriving (Eq, Ord, Semigroup, Monoid, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
 
 instance GhcExts.IsList (Env s) where
     type Item (Env s) = (Ident, Maybe (Doc.Described Doc.Value), s)
@@ -300,6 +305,11 @@ instance GhcExts.IsList (Env s) where
 -- | PrimFn mappings. The parameter specifies the monad the primops run in.
 newtype PrimFns m = PrimFns { getPrimFns :: Map Ident (Doc.Docd ([Value] -> Lang m Value)) }
   deriving (Semigroup)
+
+instance GhcExts.IsList (PrimFns m) where
+    type Item (PrimFns m) = (Ident, Maybe (Doc.Described Doc.Value), [Value] -> Lang m Value)
+    fromList xs = PrimFns . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
+    toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . getPrimFns $ e]
 
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
@@ -365,11 +375,17 @@ addBinding :: Ident -> Doc.DocVal -> Value -> Bindings m -> Bindings m
 addBinding i d v b = b
     { bindingsEnv = Env . Map.insert i (Doc.Docd d v) . fromEnv $ bindingsEnv b }
 
+lookupAtomWithDoc :: Monad m => Ident -> Lang m (Doc.Docd Value)
+lookupAtomWithDoc i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
+    Nothing -> throwErrorHere $ UnknownIdentifier i
+    Just x  -> pure x
+
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
-lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
-    Nothing             -> throwErrorHere $ UnknownIdentifier i
-    Just (Doc.Docd _ v) -> pure v
+lookupAtom = fmap copoint . lookupAtomWithDoc
+
+lookupAtomDoc :: Monad m => Ident -> Lang m Doc.DocVal
+lookupAtomDoc = fmap Doc.doc . lookupAtomWithDoc
 
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
@@ -501,7 +517,7 @@ instance (CPA t, FromRad t a) => FromRad t (Maybe a) where
     fromRad (Vec (Keyword (Ident "Just") :<| x :<| Empty)) = Just <$> fromRad x
     fromRad (Keyword (Ident "Nothing")) = pure Nothing
     fromRad _ = Left "Expecting :Nothing or [:Just _]"
-instance FromRad Ann.WithPos Value where
+instance FromRad t (Annotated t ValueF) where
   fromRad = pure
 instance CPA t => FromRad t Scientific where
     fromRad x = case x of
@@ -528,12 +544,23 @@ instance (CPA t, FromRad t a) => FromRad t [a] where
         List xs -> traverse fromRad xs
         Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
+
+instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
+    fromRad v = do
+      (d, v') <- fromRad v
+      pure (Doc.Docd d v')
+instance CPA t => FromRad t (Doc.Described Doc.Value) where
+    fromRad (Doc d) = pure d
+    fromRad _ = Left "Expecting doc"
+
 instance FromRad Ann.WithPos (Env Value) where
   -- TODO: the encoding to and from env should preserve docs
     fromRad x = case x of
         Dict d -> fmap (Env . Map.fromList)
                 $ forM (Map.toList d) $ \(k, v) -> case k of
-            Atom i -> pure (i, Doc.Docd Nothing v)
+            Atom i -> do
+              docd <- fromRad v
+              pure (i, docd)
             k'     -> Left $ "Expecting atom keys. Got: " <> show k'
         _ -> Left "Expecting dict"
 instance FromRad Ann.WithPos (Bindings ()) where
@@ -579,9 +606,14 @@ instance (CPA t, ToRad t a) => ToRad t [a] where
     toRad xs = Vec . Seq.fromList $ toRad <$> xs
 instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
+
+instance CPA t => ToRad t (Doc.Docd (Annotated t ValueF)) where
+    toRad (Doc.Docd d v) = toRad (d, v)
+instance CPA t => ToRad t (Doc.Described Doc.Value) where
+    toRad = Doc
+
 instance ToRad Ann.WithPos (Env Value) where
-    -- TODO: to/from env should preserve docs
-    toRad x = Dict . Map.mapKeys Atom . Map.map copoint $ fromEnv x
+    toRad x = Dict . Map.mapKeys Atom . Map.map toRad $ fromEnv x
 instance ToRad Ann.WithPos (Bindings m) where
     toRad x = Dict $ Map.fromList
         [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
@@ -605,7 +637,7 @@ callFn f vs = case f of
   PrimFn i -> do
     fn <- lookupPrimop i
     fn vs
-  _ -> throwErrorHere . TypeError $ "Trying to call a non-function"
+  nf -> throwErrorHere . TypeError $ "Trying to call a non-function " <> show nf
 
 -- | Infix evaluation of application (of functions or special forms)
 infixr 1 $$
