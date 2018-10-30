@@ -78,7 +78,7 @@ module Radicle
     , PrimFns(..)
     , purePrimFns
     , replPrimFns
-    , primFnsEnv
+    , addPrimFns
     , ReplM
 
     -- * CLI
