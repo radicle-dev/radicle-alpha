@@ -7,7 +7,6 @@ where
 import           Protolude
 import           System.Directory (XdgDirectory(..), getXdgDirectory)
 
--- | Uses XDG_CONFIG_HOME if available.
 -- | Location of the radicle file to interpret.
 -- Usually @~/.local/config/radicle/config.rad@.
 --
