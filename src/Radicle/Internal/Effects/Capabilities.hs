@@ -17,13 +17,11 @@ import           GHCJS.DOM.XMLHttpRequest
 import           Radicle.Internal.Core
 
 class (Monad m) => Stdin m where
-    getLineS :: m Text
+    getLineS :: m (Maybe Text)  -- gives Nothing on EOF
 instance {-# OVERLAPPABLE #-} Stdin m => Stdin (Lang m) where
     getLineS = lift getLineS
-instance (MonadException m, Monad m) => Stdin (InputT m) where
-    getLineS = getInputLine "rad> " >>= \x -> case x of
-        Nothing -> panic "curious about why this would happen"
-        Just v  -> pure . toS $ v
+instance (MonadException m) => Stdin (InputT m) where
+    getLineS = (fmap.fmap) toS (getInputLine "rad> ")
 
 class (Monad m) => Stdout m where
     putStrS :: Text -> m ()

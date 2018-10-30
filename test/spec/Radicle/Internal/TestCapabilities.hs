@@ -84,8 +84,8 @@ instance {-# OVERLAPPING #-} Stdin TestLang where
     getLineS = do
         ws <- lift get
         case worldStateStdin ws of
-            []   -> throwErrorHere Exit
-            h:hs -> lift (put $ ws { worldStateStdin = hs }) >> pure h
+            []   -> pure Nothing
+            h:hs -> lift (put $ ws { worldStateStdin = hs }) >> pure (Just h)
 
 instance {-# OVERLAPPING #-} Stdout TestLang where
     putStrS t = lift $
