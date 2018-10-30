@@ -89,7 +89,7 @@ replPrimFns = fromList $ Doc.noDocs $ first unsafeToIdent <$>
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
     , ( "doc!"
-      , oneArg' "actual-doc" $ \case
+      , oneArg' "doc!" $ \case
           Atom i -> do
             d_ <- lookupAtomDoc i
             putStrS $ case d_ of
@@ -98,7 +98,7 @@ replPrimFns = fromList $ Doc.noDocs $ first unsafeToIdent <$>
                 Left e -> show e
                 Right md -> md
             pure nil
-          _ -> throwErrorHere $ TypeError "actual-doc: expects an atom"
+          _ -> throwErrorHere $ TypeError "doc!: expects an atom"
       )
 
     , ( "apropos!"

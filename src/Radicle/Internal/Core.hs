@@ -453,7 +453,14 @@ specialForms = Map.fromList $ first Ident <$>
               defineAtom name Nothing val'
               pure nil
           [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
-          xs               -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
+          [Atom name, d, val] -> do
+              val' <- baseEval val
+              case radToDoc d of
+                Left e -> throwErrorHere $ OtherError $ "def documentation was invalid: " <> e
+                Right doc ->
+                  do defineAtom name (Just (Doc.named (fromIdent name) doc)) val'
+                     pure nil
+          xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
     , ( "def-rec"
       , \case
           [Atom name, val] -> do
@@ -497,6 +504,52 @@ specialForms = Map.fromList $ first Ident <$>
         if b /= Boolean False
           then baseEval e
           else cond ps
+
+    radToDoc :: Value -> Either Text (Doc.Described Doc.Value)
+    radToDoc v = do
+      xs <- fromRad v
+      case xs of
+        Keyword (Ident i) : rest ->
+          case (i, rest) of
+            ("function", [d, ps, r]) -> do
+              desc <- mdInDoc d
+              params <- funParams ps
+              ret <- radToDoc r
+              pure $ Doc.Desc (Just desc) $ Doc.Fun Doc.Function
+                { parameters = Doc.Desc Nothing (Doc.Fixed params)
+                , output = ret
+                }
+            (_, [d]) -> do
+              desc <- mdInDoc d
+              tag <- docTag i
+              pure $ Doc.Desc (Just desc) tag
+            _ -> Left "Expecting a doc-tag and a description."
+        _ -> Left "Invalid documentation"
+
+    mdInDoc :: Value -> Either Text Doc.Pan
+    mdInDoc (String t) = Doc.mdPan t
+    mdInDoc _ = Left "Expecting a string"
+
+    docTag :: Text -> Either Text Doc.Value
+    docTag = \case
+      "number" -> pure Doc.Number
+      "other" -> pure Doc.Other
+      "string" -> pure Doc.String
+      "boolean" -> pure Doc.Boolean
+      "atom" -> pure Doc.Atom
+      "doc" -> pure Doc.Doc
+      _ -> Left "Expecting one of: :number, :string, :boolean, :atom, :doc, :other."
+
+    funParams :: Value -> Either Text [Doc.Described Doc.Param]
+    funParams v = do
+      vss :: [(Value, Value)] <- fromRad v
+      traverse param vss
+
+    param :: (Value, Value) -> Either Text (Doc.Described Doc.Param)
+    param (Atom (Ident i), v) = do
+      Doc.Desc desc pd <- radToDoc v
+      pure $ Doc.Desc desc Doc.Param{ name = i, value = pd }
+    param (v, _) = Left $ "Expecting a function input atom: " <> show v
 
 -- * From/ToRadicle
 

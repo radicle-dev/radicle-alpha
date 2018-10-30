@@ -73,3 +73,10 @@
      (doc-md 'eq?)
      "\n\n"
      (doc-md 'uuid?))))
+
+(def foo
+  [:function
+   "Adds 1 to numbers."
+   [[x [:number "Some number."]]]
+   [:number "The number `x` incremented by 1."]]
+  (fn [x] (+ x 1)))

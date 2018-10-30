@@ -56,22 +56,24 @@ instance ToPan a => ToPan (Described a) where
 data Value
   = Fun Function
   | String
+  | Number
   | Boolean
   | Atom
   | Doc
   | Any
-  | Other Pan
+  | Other
   deriving (Eq, Ord, Generic, Show, Read)
 
 instance ToPan Value where
   pan = \case
       Fun f -> pan f
       String -> typ "string"
+      Number -> typ "number"
       Boolean -> typ "boolean"
       Atom -> typ "atom"
       Doc -> typ "doc"
       Any -> typ "any"
-      Other pd -> pd
+      Other -> Inlines []
     where
 
 typ :: Text -> Pan
@@ -142,7 +144,7 @@ noDocs = fmap $ \(x,y) -> (x, Nothing, y)
 
 named :: Text -> Described Value -> Described Value
 named name (Desc d_ v) = Desc (n <> d_) v
-  where n = Just $ Inlines [Code nullAttr (toS name)]
+  where n = Just $ Blocks [Para [Code nullAttr (toS name)]]
 
 fun :: Text -> Pan -> Params -> Pan -> Value -> Described Value
 fun name desc params yDesc yDoc =
