@@ -56,21 +56,20 @@ purePrimFns = fromList $ allDocs $
            state. Return a list of length 2 consisting of the result of the
            evaluation and the new state.|]
       , \case
-          [expr, st] -> case (fromRad st :: Either Text (Bindings ())) of
-              Left e -> throwErrorHere $ OtherError e
-              Right st' -> do
-                prims <- gets bindingsPrimFns
-                withBindings (const $ fmap (const prims) st') $ do
-                  val <- baseEval expr
-                  st'' <- get
-                  pure $ List [val, toRad st'']
+          [expr, st] -> do
+              originalBindings <- get
+              setBindings st
+              val <- baseEval expr
+              st' <- get
+              put originalBindings
+              pure $ List [val, bindingsToRadicle st']
           xs -> throwErrorHere $ WrongNumberOfArgs "base-eval" 2 (length xs)
       )
     , ( "pure-env"
       , [md|Returns a pure initial radicle state. This is the state of a radicle
            chain before it has processed any inputs.|]
       , \case
-          [] -> pure $ toRad (pureEnv :: Bindings (PrimFns m))
+          [] -> pure $ bindingsToRadicle (pureEnv :: Bindings (PrimFns m))
           xs -> throwErrorHere $ WrongNumberOfArgs "pure-env" 0 (length xs)
       )
     , ("apply"
@@ -89,17 +88,12 @@ purePrimFns = fromList $ allDocs $
     , ("get-current-env"
       , [md|Returns the current radicle state.|]
       , \case
-          [] -> toRad <$> get
+          [] -> gets bindingsToRadicle
           xs -> throwErrorHere $ WrongNumberOfArgs "get-current-env" 0 (length xs))
     , ( "set-current-env"
       , [md|Replaces the radicle state with the one provided.|]
       , oneArg "set-current-env" $ \x -> do
-          e' :: Bindings () <- fromRadOtherErr x
-          e <- get
-          put e { bindingsEnv = bindingsEnv e'
-                , bindingsNextRef = bindingsNextRef e'
-                , bindingsRefs = bindingsRefs e'
-                }
+          setBindings x
           pure ok
       )
     , ("list"

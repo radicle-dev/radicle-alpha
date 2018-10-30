@@ -670,10 +670,6 @@ test_from_to_radicle =
         [ testForType (Proxy :: Proxy ()) ]
     , testGroup "(Foo, Foo)"
         [ testForType (Proxy :: Proxy (Foo, Foo)) ]
-    , testGroup "Env Value"
-        [ testForType (Proxy :: Proxy (Env Value)) ]
-    , testGroup "Bindings ()"
-        [ testForType (Proxy :: Proxy (Bindings ())) ]
     , testGroup "Scientific"
         [ testForType (Proxy :: Proxy Scientific) ]
     , testGroup "Text"
@@ -690,7 +686,7 @@ test_from_to_radicle =
         :: forall a. (Arbitrary a, Show a, ToRad Ann.WithPos a, FromRad Ann.WithPos a, Eq a)
         => Proxy a -> TestTree
     testForType _ =
-        testProperty "fromRadicle . toRadicle == id" $ \(v :: a ) -> do
+        testProperty "fromRadicle . toRadicle == Right" $ \(v :: a ) -> do
             let expected = Right v
                 got = fromRad (toRad v :: Value)
                 info = "Expected\n\t" <> show expected
