@@ -64,17 +64,10 @@ opts = Opts
 -- * Primops
 
 bindings :: ClientEnv -> Bindings (PrimFns (InputT IO))
-bindings cEnv
-    = e { bindingsPrimFns = bindingsPrimFns e <> prims
-        , bindingsEnv = bindingsEnv e <> primFnsEnv prims
-        }
-  where
-    e :: Bindings (PrimFns (InputT IO))
-    e = replBindings
-    prims = primops cEnv
+bindings cEnv = addPrimFns (replPrimFns <> clientPrimFns cEnv) pureEnv
 
-primops :: ClientEnv -> PrimFns (InputT IO)
-primops cEnv = PrimFns (fromList [sendPrimop, receivePrimop])
+clientPrimFns :: ClientEnv -> PrimFns (InputT IO)
+clientPrimFns cEnv = PrimFns (fromList [sendPrimop, receivePrimop])
   where
     sendPrimop =
       ( unsafeToIdent "send!"

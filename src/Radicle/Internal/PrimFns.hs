@@ -1,10 +1,10 @@
 module Radicle.Internal.PrimFns
   ( pureEnv
+  , addPrimFns
   , purePrimFns
   , oneArg
   , evenArgs
   , readValue
-  , primFnsEnv
   ) where
 
 import           Protolude hiding (TypeError)
@@ -26,13 +26,24 @@ import qualified Radicle.Internal.UUID as UUID
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
-pureEnv = Bindings e purePrimFns r 1
+pureEnv =
+    addPrimFns purePrimFns $ Bindings e mempty refs 1
   where
     e = fromList [ (unsafeToIdent "eval", PrimFn $ unsafeToIdent "base-eval")
                  , (unsafeToIdent "_doc-ref", Ref $ Reference 0)
                  ]
-        <> primFnsEnv (purePrimFns :: PrimFns m)
-    r = fromList [ (0, Dict mempty) ]
+    refs = fromList [ (0, Dict mempty) ]
+
+-- | The added primitives override previously defined primitives and
+-- variables with the same name.
+addPrimFns  :: PrimFns m -> Bindings (PrimFns m) -> Bindings (PrimFns m)
+addPrimFns primFns bindings =
+    bindings { bindingsPrimFns = primFns <> bindingsPrimFns bindings
+             , bindingsEnv = primFnsEnv <> bindingsEnv bindings
+             }
+
+  where
+    primFnsEnv = Env $ Map.mapWithKey (\k _ -> PrimFn k) (getPrimFns primFns)
 
 -- | The universal primops. These are available in chain evaluation, and are
 -- not shadowable via 'define'.
@@ -358,6 +369,3 @@ readValue s = do
     case p of
       Right v -> pure v
       Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String e)
-
-primFnsEnv :: PrimFns m -> Env Value
-primFnsEnv pfs = Env (Map.fromList [ (pf, PrimFn pf) | pf <- Map.keys (getPrimFns pfs)])

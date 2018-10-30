@@ -297,7 +297,7 @@ instance GhcExts.IsList (Env s) where
 
 -- | Primop mappings. The parameter specifies the monad the primops run in.
 newtype PrimFns m = PrimFns { getPrimFns :: Map Ident ([Value] -> Lang m Value) }
-  deriving (Semigroup)
+  deriving (Semigroup, Monoid)
 
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings

@@ -70,13 +70,7 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
         <> Map.keys (getPrimFns $ bindingsPrimFns bnds)
 
 replBindings :: forall m. ReplM m => Bindings (PrimFns m)
-replBindings = e { bindingsPrimFns = bindingsPrimFns e <> replPrimFns
-                 , bindingsEnv = bindingsEnv e <> primFnsEnv pfs }
-    where
-      e :: Bindings (PrimFns m)
-      e = pureEnv
-      pfs :: PrimFns m
-      pfs = replPrimFns
+replBindings = addPrimFns replPrimFns pureEnv
 
 replPrimFns :: forall m. ReplM m => PrimFns m
 replPrimFns = PrimFns . Map.fromList $ first unsafeToIdent <$>
