@@ -172,7 +172,7 @@ opts = mkOpts
        <> value "radserver"
         )
     <*> option auto
-        ( long "ort"
+        ( long "port"
        <> help "server port"
        <> metavar "PORT"
        <> showDefault
@@ -198,7 +198,6 @@ main = do
        <> progDesc "Run a centralized radicle server"
        <> header "radicle-server"
         )
-
 
 
 server :: Connection -> Chains -> Server API
