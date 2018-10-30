@@ -1,11 +1,6 @@
-module Radicle.Internal.PrimFns
-  ( pureEnv
-  , purePrimFns
-  , oneArg
-  , evenArgs
-  , readValue
-  , primFnsEnv
-  ) where
+{-# LANGUAGE QuasiQuotes #-}
+
+module Radicle.Internal.PrimFns where
 
 import           Protolude hiding (TypeError)
 
@@ -21,6 +16,7 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import qualified Radicle.Internal.Doc as D
+import Radicle.Internal.Doc (md)
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import qualified Radicle.Internal.UUID as UUID
@@ -42,18 +38,46 @@ purePrimFns :: forall m. (Monad m) => PrimFns m
 purePrimFns = docd <> unDocd
   where
     docd = fromList
-      [ ( Ident "uuid?"
-        , D.fun1 "uuid?"
-                 "Checks if a value is a string formatted as a UUID."
-                 "Potential UUID."
-                 "x"
-                 D.String
-                 "Indicates if `x` is a UUID."
-                 D.Boolean
-        , oneArg "uuid?" $ \case
-            String t -> pure . Boolean . UUID.isUUID $ t
-            _ -> throwErrorHere $ TypeError "uuid?: expects a string"
-        )
+      [ oneArg
+          "uuid?"
+          [md|Checks if a value is a string formatted as a UUID.|]
+          "x" [md|Potential UUID.|] D.String
+          [md|Indicates if `x` is a UUID.|]
+          D.Boolean $
+          \case
+              String t -> pure . Boolean . UUID.isUUID $ t
+              _ -> throwErrorHere $ TypeError "uuid?: expects a string"
+      , twoArg
+          "eq?"
+          [md|Checks if two values are equal.|]
+          "x" [md|First value.|]  D.Any
+          "y" [md|Second value.|] D.Any
+          [md|Indicates if `x = y`.|]
+          D.Boolean $
+          \(a,b) -> pure $ Boolean (a == b)
+      , oneArg
+          "doc-val"
+          [md|Fetches the doc object associated to an atom in the current environment. If the atom isn't defined or doesn't have docs, then throws.|]
+          "x" [md|Atom to retrive the doc for.|] D.Atom
+          [md|The doc-object for `x`.|]
+          D.Doc $
+          \case
+            Atom i -> do
+              d_ <- lookupAtomDoc i
+              d <- d_ ?? toLangError (OtherError ("Doc object does not exist for: " <> fromIdent i))
+              pure (Doc d)
+            _ -> throwErrorHere $ TypeError "doc-val: expects an atom"
+      , oneArg
+          "doc->md"
+          [md|Formats a doc as a markdown string.|]
+          "d" [md|The doc object to render to a markdown string.|] D.Doc
+          [md|The markdown for `d`.|]
+          D.String $
+          \case
+            Doc d -> case D.toMD d of
+              Left _ -> throwErrorHere $ OtherError "Error generating markdown."
+              Right s -> pure (String s)
+            _ -> throwErrorHere $ TypeError "doc->md: expects a doc"
       ]
     unDocd = fromList $ D.noDocs $ first Ident <$>
       [ ( "base-eval"
@@ -75,10 +99,11 @@ purePrimFns = docd <> unDocd
         )
       , ("apply", \case
             [fn, List args] -> callFn fn args
+            [fn, Vec args]  -> callFn fn (Protolude.toList args)
             [_, _]          -> throwErrorHere $ TypeError "apply: expecting list as second arg"
             xs -> throwErrorHere $ WrongNumberOfArgs "apply" 2 (length xs))
       , ( "read"
-        , oneArg "read" $ \case
+        , oneArg' "read" $ \case
             String s -> readValue s
             _ -> throwErrorHere $ TypeError "read: expects string"
         )
@@ -86,7 +111,7 @@ purePrimFns = docd <> unDocd
             [] -> toRad <$> get
             xs -> throwErrorHere $ WrongNumberOfArgs "get-current-env" 0 (length xs))
       , ( "set-current-env"
-        , oneArg "set-current-env" $ \x -> do
+        , oneArg' "set-current-env" $ \x -> do
             e' :: Bindings () <- fromRadOtherErr x
             e <- get
             put e { bindingsEnv = bindingsEnv e'
@@ -117,17 +142,17 @@ purePrimFns = docd <> unDocd
 
       -- Vectors
       , ( "<>"
-        , twoArg "<>" $ \case
+        , twoArg' "<>" $ \case
             (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
             _ -> throwErrorHere $ TypeError "<>: both arguments must be vectors"
         )
       , ( "add-left"
-        , twoArg "add-left" $ \case
+        , twoArg' "add-left" $ \case
             (x, Vec xs) -> pure $ Vec (x :<| xs)
             _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
         )
       , ( "add-right"
-        , twoArg "add-right" $ \case
+        , twoArg' "add-right" $ \case
             (x, Vec xs) -> pure $ Vec (xs :|> x)
             _ -> throwErrorHere $ TypeError "add-right: second argument must be a vector"
         )
@@ -137,11 +162,11 @@ purePrimFns = docd <> unDocd
             [x, List xs] -> pure $ List (x:xs)
             [_, _]       -> throwErrorHere $ TypeError "cons: second argument must be list"
             xs           -> throwErrorHere $ WrongNumberOfArgs "cons" 2 (length xs))
-      , ("head", oneArg "head" $ \case
+      , ("head", oneArg' "head" $ \case
             List (x:_) -> pure x
             List []    -> throwErrorHere $ OtherError "head: empty list"
             _          -> throwErrorHere $ TypeError "head: expects list argument")
-      , ("tail", oneArg "tail" $ \case
+      , ("tail", oneArg' "tail" $ \case
             List (_:xs) -> pure $ List xs
             List []     -> throwErrorHere $ OtherError "tail: empty list"
             _           -> throwErrorHere $ TypeError "tail: expects list argument")
@@ -169,14 +194,14 @@ purePrimFns = docd <> unDocd
             [_, _]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict"
             xs -> throwErrorHere $ WrongNumberOfArgs "lookup" 2 (length xs))
       , ( "safe-lookup"
-        , twoArg "safe-lookup" $ \case
+        , twoArg' "safe-lookup" $ \case
             (a, Dict m) -> pure $ case Map.lookup a m of
               Just v  -> toRad [kw "Just", v]
               Nothing -> kw "Nothing"
             _ -> throwErrorHere $ TypeError $ "safe-lookup: second argument must be a dict"
         )
       , ( "map-values"
-        , twoArg "map-values" $ \case
+        , twoArg' "map-values" $ \case
             (f, Dict m) -> do
               let kvs = Map.toList m
               vs <- traverse (\v -> callFn f [v]) (snd <$> kvs)
@@ -197,7 +222,7 @@ purePrimFns = docd <> unDocd
                                         $ TypeError "insert: third argument must be a dict"
             xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
       , ( "delete"
-        , twoArg "delete" $ \case
+        , twoArg' "delete" $ \case
             (k, Dict m) -> pure . Dict $ Map.delete k m
             _ -> throwErrorHere $ TypeError "delete: second argument must be a dict"
         )
@@ -235,21 +260,21 @@ purePrimFns = docd <> unDocd
             [fn, Vec ls]  -> Vec <$> traverse (callFn fn) (pure <$> ls)
             [_, _]        -> throwErrorHere $ TypeError "map: second argument should be a list or vector"
             xs            -> throwErrorHere $ WrongNumberOfArgs "map" 3 (length xs))
-      , ("keyword?", oneArg "keyword?" $ \case
+      , ("keyword?", oneArg' "keyword?" $ \case
             Keyword _ -> pure tt
             _         -> pure ff)
-      , ("atom?", oneArg "atom?" $ \case
+      , ("atom?", oneArg' "atom?" $ \case
                     Atom _ -> pure tt
                     _      -> pure ff)
-      , ("list?", oneArg "list?" $ \case
+      , ("list?", oneArg' "list?" $ \case
                     List _ -> pure tt
                     _      -> pure ff)
-      , ("dict?", oneArg "dict?" $ \case
+      , ("dict?", oneArg' "dict?" $ \case
                     Dict _ -> pure tt
                     _      -> pure ff)
       , ( "type"
         , let kw' = pure . Keyword . Ident
-          in oneArg "type" $ \case
+          in oneArg' "type" $ \case
                Atom _ -> kw' "atom"
                Keyword _ -> kw' "keyword"
                String _ -> kw' "string"
@@ -263,13 +288,13 @@ purePrimFns = docd <> unDocd
                Lambda{} -> kw' "function"
                Doc _ -> kw' "documentation"
         )
-      , ("string?", oneArg "string?" $ \case
+      , ("string?", oneArg' "string?" $ \case
             String _ -> pure tt
             _        -> pure ff)
-      , ("boolean?", oneArg "boolean?" $ \case
+      , ("boolean?", oneArg' "boolean?" $ \case
             Boolean _ -> pure tt
             _         -> pure ff)
-      , ("number?", oneArg "number?" $ \case
+      , ("number?", oneArg' "number?" $ \case
             Number _ -> pure tt
             _        -> pure ff)
       , ("member?", \case
@@ -279,8 +304,8 @@ purePrimFns = docd <> unDocd
             [_, _]       -> throwErrorHere
                           $ TypeError "member?: second argument must be list"
             xs           -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
-      , ("ref", oneArg "ref" newRef)
-      , ("read-ref", oneArg "read-ref" $ \case
+      , ("ref", oneArg' "ref" newRef)
+      , ("read-ref", oneArg' "read-ref" $ \case
             Ref ref -> readRef ref
             _       -> throwErrorHere $ TypeError "read-ref: argument must be a ref")
       , ("write-ref", \case
@@ -292,9 +317,9 @@ purePrimFns = docd <> unDocd
                                     $ TypeError "write-ref: first argument must be a ref"
             xs                     -> throwErrorHere
                                     $ WrongNumberOfArgs "write-ref" 2 (length xs))
-      , ("show", oneArg "show" (pure . String . renderPrettyDef))
+      , ("show", oneArg' "show" (pure . String . renderPrettyDef))
       , ( "seq"
-        , oneArg "seq" $
+        , oneArg' "seq" $
             \case
               x@(List _) -> pure x
               x@(Vec _) -> pure x
@@ -302,12 +327,12 @@ purePrimFns = docd <> unDocd
               _ -> throwErrorHere $ TypeError "seq: can only be used on a list, vector or dictionary"
         )
       , ( "from-just"
-        , oneArg "from-just" $ \case
+        , oneArg' "from-just" $ \case
             Vec (Keyword (Ident "Just") Seq.:<| x Seq.:<| Seq.Empty) -> pure x
             _ -> throwErrorHere $ TypeError "from-just: called on a non-just"
         )
       , ( "to-json"
-        , oneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
+        , oneArg' "to-json" $ \v -> String . toS . Aeson.encode <$>
             maybeJson v ?? toLangError (OtherError "Could not serialise value to JSON")
         )
       , ( "default-ecc-curve",
@@ -352,13 +377,56 @@ purePrimFns = docd <> unDocd
 -- * Helpers
 
 -- Many primFns have a single argument.
-oneArg :: Monad m => Text -> (Value -> Lang m Value) -> [Value] -> Lang m Value
-oneArg fname f = \case
-  [x] -> f x
-  xs -> throwErrorHere $ WrongNumberOfArgs fname 1 (length xs)
+oneArg :: Monad m =>
+          Text
+       -> D.Pan
+       -> Text
+       -> D.Pan
+       -> D.Value
+       -> D.Pan
+       -> D.Value
+       -> (Value -> Lang m Value)
+       -> (Ident, Maybe (D.Described D.Value), [Value] -> Lang m Value)
+oneArg name desc inName inDesc inDoc outDesc outDoc f =
+  ( Ident name
+  , Just $ D.funFixed name desc [(inName, inDesc, inDoc)] outDesc outDoc
+  , \case
+      [x] -> f x
+      xs -> throwErrorHere $ WrongNumberOfArgs name 1 (length xs)
+  )
 
-twoArg :: Monad m => Text -> ((Value, Value) -> Lang m Value) -> [Value] -> Lang m Value
-twoArg fname f = \case
+oneArg' :: Monad m => Text -> (Value -> Lang m Value) -> [Value] -> Lang m Value
+oneArg' name f =
+  \case
+      [x] -> f x
+      xs -> throwErrorHere $ WrongNumberOfArgs name 1 (length xs)
+
+twoArg :: Monad m =>
+          Text
+       -> D.Pan
+       -> Text
+       -> D.Pan
+       -> D.Value
+       -> Text
+       -> D.Pan
+       -> D.Value
+       -> D.Pan
+       -> D.Value
+       -> ((Value, Value) -> Lang m Value)
+       -> (Ident, Maybe (D.Described D.Value), [Value] -> Lang m Value)
+twoArg name desc inName1 inDesc1 inDoc1 inName2 inDesc2 inDoc2 outDesc outDoc f =
+  ( Ident name
+  , Just $
+    D.funFixed name desc
+    [(inName1, inDesc1, inDoc1), (inName2, inDesc2, inDoc2)]
+    outDesc outDoc
+  , \case
+      [x, y] -> f (x, y)
+      xs -> throwErrorHere $ WrongNumberOfArgs name 2 (length xs)
+  )
+
+twoArg' :: Monad m => Text -> ((Value, Value) -> Lang m Value) -> [Value] -> Lang m Value
+twoArg' fname f = \case
   [x, y] -> f (x, y)
   xs -> throwErrorHere $ WrongNumberOfArgs fname 2 (length xs)
 

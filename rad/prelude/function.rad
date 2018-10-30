@@ -1,0 +1,1 @@
+(def . (fn [f g] (fn [x] (f (g x)))))

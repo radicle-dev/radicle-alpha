@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Internal.Effects where
 
-import           Protolude hiding (TypeError)
+import           Protolude hiding (TypeError, toList)
 
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -88,22 +88,29 @@ replPrimFns = fromList $ Doc.noDocs $ first unsafeToIdent <$>
             pure nil
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
-    , ( "actual-doc"
-      , oneArg "actual-doc" $ \case
+    , ( "doc!"
+      , oneArg' "actual-doc" $ \case
           Atom i -> do
             d_ <- lookupAtomDoc i
-            case d_ of
-              Nothing -> do
-                putStrS "No docs."
-                pure nil
+            putStrS $ case d_ of
+              Nothing -> "No docs."
               Just d -> case Doc.toMD d of
-                Left e -> do
-                  putStrS (show e)
-                  pure nil
-                Right md -> do
-                  putStrS md
-                  pure nil
+                Left e -> show e
+                Right md -> md
+            pure nil
           _ -> throwErrorHere $ TypeError "actual-doc: expects an atom"
+      )
+
+    , ( "apropos!"
+      , \case
+          [] -> do
+            env <- gets bindingsEnv
+            let docs = [ doc | (_, Just doc, _) <- toList env ]
+            case Doc.toMD (foldMap Doc.blocks docs) of
+              Left _ -> throwErrorHere $ OtherError "Couldn't generate markdown for all the docs."
+              Right md -> do putStrS md
+                             pure nil
+          xs -> throwErrorHere $ WrongNumberOfArgs "apropos!" 0 (length xs)
       )
 
     , ("set-env!", \case
@@ -148,12 +155,12 @@ replPrimFns = fromList $ Doc.noDocs $ first unsafeToIdent <$>
                 _  -> throwErrorHere $ TypeError "subscribe-to!: Expected dict"
         xs  -> throwErrorHere $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
     , ( "read-file!"
-      , oneArg "read-file" $ \case
+      , oneArg' "read-file" $ \case
           String filename -> String <$> readFileS filename
           _ -> throwErrorHere $ TypeError "read-file: expects a string"
       )
     , ( "load!"
-      , oneArg "load!" $ \case
+      , oneArg' "load!" $ \case
           String filename -> readFileS filename >>= interpretMany ("[load! " <> filename <> "]")
           _ -> throwErrorHere $ TypeError "load: expects a string"
       )

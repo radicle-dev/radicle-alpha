@@ -1,13 +1,15 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TemplateHaskell       #-}
 
 module Radicle.Internal.Doc where
 
-import           Protolude
+import           Protolude hiding (Any)
 
 import           Codec.Serialise (Serialise(..))
 import           Data.Copointed (Copointed(..))
 import qualified Data.Default as Default
 import           Data.Pointed (Pointed(..))
+import           Language.Haskell.TH.Quote
 import           Text.Pandoc
 
 type Blocks = [Block]
@@ -49,12 +51,15 @@ instance Serialise (Described a) where
 
 instance ToPan a => ToPan (Described a) where
   pan (Desc (Just d) x) = d <> pan x
-  pan (Desc _ x)         = pan x
+  pan (Desc _ x)        = pan x
 
 data Value
   = Fun Function
   | String
   | Boolean
+  | Atom
+  | Doc
+  | Any
   | Other Pan
   deriving (Eq, Ord, Generic, Show, Read)
 
@@ -63,6 +68,9 @@ instance ToPan Value where
       Fun f -> pan f
       String -> typ "string"
       Boolean -> typ "boolean"
+      Atom -> typ "atom"
+      Doc -> typ "doc"
+      Any -> typ "any"
       Other pd -> pd
     where
 
@@ -78,8 +86,10 @@ instance ToPan Function where
   pan Function{..} = Blocks $
        blocks (typ "function") <>
        [ BulletList
-         [ blocks (Inlines [Str "Parameters:"] <> pan parameters)
-         , blocks (Inlines [Str "Returns:"] <> pan output)
+         [ blocks
+             (Inlines [Strong [Str "Parameters:"]] <> pan parameters)
+         , blocks
+             (Inlines [Strong [Str "Returns:"]] <> pan output)
          ]
        ]
 
@@ -130,31 +140,50 @@ instance Ord a => Ord (Docd a) where
 noDocs :: [(a,c)] -> [(a, Maybe b, c)]
 noDocs = fmap $ \(x,y) -> (x, Nothing, y)
 
-fun1 :: Text
-     -> Text
-     -> Text
-     -> Text
-     -> Value
-     -> Text
-     -> Value
-     -> Maybe (Described Value)
-fun1 name ds_ xDesc xName xDoc yDesc yDoc = do
-  ds <- md ds_
-  let n = Blocks [Para [Code nullAttr (toS name)]]
-  pure $
-    Desc (Just (n <> ds)) $ Fun $ Function
-      (Desc Nothing
-            (Fixed [Desc (md xDesc)
-                         Param{ name = xName
-                              , value = xDoc}]))
-      (Desc (md yDesc) yDoc)
+named :: Text -> Described Value -> Described Value
+named name (Desc d_ v) = Desc (n <> d_) v
+  where n = Just $ Inlines [Code nullAttr (toS name)]
 
-md :: Text -> Maybe Pan
-md t = case runPure (readMarkdown Default.def t) of
-  Left _                     -> Nothing
-  Right (Pandoc _ [Para is]) -> Just (Inlines is)
-  Right (Pandoc _ bs)        -> Just (Blocks bs)
+fun :: Text -> Pan -> Params -> Pan -> Value -> Described Value
+fun name desc params yDesc yDoc =
+  named name $
+    Desc (Just desc) $ Fun $ Function
+      (Desc Nothing params)
+      (Desc (Just yDesc) yDoc)
+
+funFixed :: Text
+         -> Pan
+         -> [(Text, Pan, Value)]
+         -> Pan
+         -> Value
+         -> Described Value
+funFixed name desc ps yDesc yDoc =
+  fun name desc (Fixed (para <$> ps)) yDesc yDoc
+  where
+    para (xName, xDesc, xDoc) =
+      Desc (Just xDesc)
+      Param{ name = xName
+           , value = xDoc
+           }
+
+mdPan :: Text -> Either Text Pan
+mdPan t = case runPure (readMarkdown Default.def t) of
+  Left e                     -> Left (show e)
+  Right (Pandoc _ [Para is]) -> Right $ Inlines is
+  Right (Pandoc _ bs)        -> Right $ Blocks bs
 
 toMD :: ToPan d => d -> Either PandocError Text
 toMD dv = runPure $
   writeMarkdown Default.def (Pandoc nullMeta (blocks dv))
+
+-- | A quasiquoter that produces 'Pan' from markdown.
+md :: QuasiQuoter
+md = QuasiQuoter
+    { quoteExp = \s -> [| case mdPan s of
+        Left e  -> panic $ "Not valid pandoc-markdown: " <> e
+        Right p -> p |]
+    , quoteType = err
+    , quotePat = err
+    , quoteDec = err
+    }
+  where err = panic "pan only works for expressions"

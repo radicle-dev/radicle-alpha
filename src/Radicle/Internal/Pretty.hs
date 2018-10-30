@@ -49,6 +49,7 @@ instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) wher
                         [ brackets . sep $ pretty <$> ids
                         , sep $ pretty <$> toList vals
                         ])
+        Doc _ -> angles "doc" -- TODO
       where
         -- We print string literals escaped just like Haskell does.
         escapeStr = T.init . T.tail . show

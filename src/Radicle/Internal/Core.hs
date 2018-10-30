@@ -544,7 +544,6 @@ instance (CPA t, FromRad t a) => FromRad t [a] where
         List xs -> traverse fromRad xs
         Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
-
 instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
     fromRad v = do
       (d, v') <- fromRad v
@@ -552,9 +551,7 @@ instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
 instance CPA t => FromRad t (Doc.Described Doc.Value) where
     fromRad (Doc d) = pure d
     fromRad _ = Left "Expecting doc"
-
 instance FromRad Ann.WithPos (Env Value) where
-  -- TODO: the encoding to and from env should preserve docs
     fromRad x = case x of
         Dict d -> fmap (Env . Map.fromList)
                 $ forM (Map.toList d) $ \(k, v) -> case k of
@@ -606,12 +603,10 @@ instance (CPA t, ToRad t a) => ToRad t [a] where
     toRad xs = Vec . Seq.fromList $ toRad <$> xs
 instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
-
 instance CPA t => ToRad t (Doc.Docd (Annotated t ValueF)) where
     toRad (Doc.Docd d v) = toRad (d, v)
 instance CPA t => ToRad t (Doc.Described Doc.Value) where
     toRad = Doc
-
 instance ToRad Ann.WithPos (Env Value) where
     toRad x = Dict . Map.mapKeys Atom . Map.map toRad $ fromEnv x
 instance ToRad Ann.WithPos (Bindings m) where
