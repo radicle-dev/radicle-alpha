@@ -15,11 +15,11 @@ main :: IO ()
 main = do
     opts' <- execParser allOpts
     cfgFile <- case configFile opts' of
-        Nothing  -> getConfig
+        Nothing  -> getConfigFile
         Just cfg -> pure cfg
     cfgSrc <- readFile cfgFile
     hist <- case histFile opts' of
-        Nothing -> getHistory
+        Nothing -> getHistoryFile
         Just h  -> pure h
     mgr <- newManager defaultManagerSettings
     let cEnv = mkClientEnv mgr (serverURL opts')
