@@ -15,6 +15,7 @@ dependencies:
 - containers
 - deriving-compat
 - directory
+- filepath
 - haskeline
 - megaparsec
 - mtl
@@ -30,6 +31,9 @@ dependencies:
 - cryptonite
 - generics-eot
 - uuid
+- data-default
+- pandoc-types
+- pandoc
 when:
  - condition: impl(ghcjs)
    dependencies: ghcjs-dom

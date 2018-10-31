@@ -649,24 +649,6 @@ test_repl =
                      ]
         (_, result) <- runInRepl input
         result @==> output
-
-    , testCase "'enter-chain' changes environment" $ do
-        let input = [ "(def x 0)"
-                    , "(:enter-chain empty-chain)"
-                    , "(def x 1)"
-                    , "x"
-                    , ":quit"
-                    , "x"
-                    ]
-            output = [ "()"
-                     , ":ok"
-                     , "()"
-                     , "1.0"
-                     , ":ok"
-                     , "0.0"
-                     ]
-        (_, result) <- runInRepl input
-        result @==> output
     ]
     where
       -- In addition to the output of the lines tested, 'should-be's get

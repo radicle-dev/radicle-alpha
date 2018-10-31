@@ -1,29 +1,35 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Client where
 
 import           API
+import           Control.Monad.Catch (MonadThrow)
 import           Data.Scientific (floatingOrInteger)
+import qualified Data.Text as T
 import           GHC.Exts (fromList)
 import           Network.HTTP.Client (defaultManagerSettings, newManager)
+import qualified Network.HTTP.Client as HttpClient
 import           Options.Applicative
 import           Protolude hiding (TypeError, option)
 import           Radicle
-import           Servant.API ((:<|>)(..))
 import           Servant.Client
 import           System.Console.Haskeline (InputT)
+
+import           Radicle.Internal.Doc (md)
+import qualified Radicle.Internal.PrimFns as PrimFns
 
 main :: IO ()
 main = do
     opts' <- execParser allOpts
     cfgFile <- case configFile opts' of
-        Nothing  -> getConfig
+        Nothing  -> getConfigFile
         Just cfg -> pure cfg
     cfgSrc <- readFile cfgFile
     hist <- case histFile opts' of
-        Nothing -> getHistory
+        Nothing -> getHistoryFile
         Just h  -> pure h
     mgr <- newManager defaultManagerSettings
-    let cEnv = mkClientEnv mgr (serverURL opts')
-    repl (Just hist) (toS cfgFile) cfgSrc (bindings cEnv)
+    repl (Just hist) (toS cfgFile) cfgSrc (bindings mgr)
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
@@ -35,7 +41,6 @@ main = do
 
 data Opts = Opts
     { configFile :: Maybe FilePath
-    , serverURL  :: BaseUrl
     , histFile   :: Maybe FilePath
     }
 
@@ -46,41 +51,27 @@ opts = Opts
        <> metavar "FILE"
        <> help "rad configuration file"
         ))
-    <*> option (str >>= parseBaseUrl')
-        ( long "url"
-       <> metavar "URL"
-       <> help "URL of server"
-        )
     <*> optional (strOption
         ( long "histfile"
        <> metavar "FILE"
        <> help "repl history file"
         ))
-  where
-    parseBaseUrl' x = case parseBaseUrl x of
-        Nothing -> readerError "can't parse URL"
-        Just v  -> pure v
 
 -- * Primops
 
-bindings :: ClientEnv -> Bindings (PrimFns (InputT IO))
-bindings cEnv
-    = e { bindingsPrimFns = bindingsPrimFns e <> prims
-        , bindingsEnv = bindingsEnv e <> primFnsEnv prims
-        }
-  where
-    e :: Bindings (PrimFns (InputT IO))
-    e = replBindings
-    prims = primops cEnv
+bindings :: HttpClient.Manager -> Bindings (PrimFns (InputT IO))
+bindings mgr = addPrimFns (replPrimFns <> clientPrimFns mgr) pureEnv
 
-primops :: ClientEnv -> PrimFns (InputT IO)
-primops cEnv = PrimFns (fromList [sendPrimop, receivePrimop])
+clientPrimFns :: HttpClient.Manager -> PrimFns (InputT IO)
+clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
   where
     sendPrimop =
-      ( unsafeToIdent "send!"
+      ( "send!"
+      , [md|Given a URL (string) and a value, sends the value `v` to the remote
+           chain located at the URL for evaluation.|]
       , \case
-         [String name, v] -> do
-             res <- liftIO $ runClientM (submit $ List $ [String name, v]) cEnv
+         [String url, v] -> do
+             res <- liftIO $ runClientM' url mgr (submit v)
              case res of
                  Left e   -> throwErrorHere . OtherError
                            $ "send!: failed:" <> show e
@@ -89,14 +80,16 @@ primops cEnv = PrimFns (fromList [sendPrimop, receivePrimop])
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
     receivePrimop =
-      ( unsafeToIdent "receive!"
+      ( "receive!"
+      , [md|Given a URL (string) and a integral number `n`, queries the remote chain
+           for the last `n` inputs that have been evaluated.|]
       , \case
-          [String name, Number n] -> do
+          [String url, Number n] -> do
               case floatingOrInteger n of
                   Left (_ :: Float) -> throwErrorHere . OtherError
                                      $ "receive!: expecting int argument"
                   Right r -> do
-                      liftIO (runClientM (since name r) cEnv) >>= \case
+                      liftIO (runClientM' url mgr (since r)) >>= \case
                           Left err -> throwErrorHere . OtherError
                                     $ "receive!: request failed:" <> show err
                           Right v' -> pure $ List v'
@@ -113,5 +106,12 @@ identV = Keyword . unsafeToIdent
 -- * Client functions
 
 submit :: Value -> ClientM ()
-since :: Text -> Int -> ClientM [Value]
-submit :<|> since :<|> _ :<|> _ = client api
+submit = client chainSubmitEndpoint
+
+since :: Int -> ClientM [Value]
+since = client chainSinceEndpoint
+
+runClientM' :: (MonadThrow m, MonadIO m) => Text -> HttpClient.Manager -> ClientM a -> m (Either ServantError a)
+runClientM' baseUrl manager endpoint = do
+    url <- parseBaseUrl $ T.unpack baseUrl
+    liftIO $ runClientM endpoint $ mkClientEnv manager url

@@ -33,7 +33,12 @@ import           Options.Applicative
                  )
 import           Servant
                  ( (:<|>)(..)
+                 , (:>)
+                 , Capture
+                 , Get
                  , Handler
+                 , JSON
+                 , PlainText
                  , Raw
                  , ServantErr(..)
                  , Server
@@ -60,6 +65,15 @@ data Chain = Chain
 -- For efficiency we might want keys to also be mvars, but efficiency doesn't
 -- matter for a test server.
 newtype Chains = Chains { getChains :: MVar (Map Text Chain) }
+
+type ServerApi
+    = "chains" :> Capture "chain" Text :> (ChainSubmitEndpoint :<|> ChainSinceEndpoint)
+ :<|> "outputs" :> Capture "chain" Text :> Get '[JSON, PlainText] [Maybe A.Value]
+ :<|> Raw
+
+serverApi :: Proxy ServerApi
+serverApi = Proxy
+
 
 -- * Helpers
 
@@ -98,20 +112,19 @@ loadState conn = do
     chains' <- newMVar $ Map.fromList chainPairs
     pure $ Chains chains'
 
+
 -- * Handlers
 
 -- | Submit something to a chain. The value is expected to be a pair, with the
 -- first item specifying the chain the value is being submitted to, and the
 -- second the expression being submitted.
-submit :: Connection -> Chains -> Value -> Handler ()
-submit conn chains val = case val of
-    List [String i, v] -> do
-        res <- liftIO $ insertExpr conn chains i v
-        case res of
-            Left err -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 err }
-            Right _  -> pure ()
-    _ -> throwError
-       $ err400 { errBody = "Expecting pair with chain name and val" }
+submit :: Connection -> Chains -> Text -> Value -> Handler ()
+submit conn chains name val = do
+    res <- liftIO $ insertExpr conn chains name val
+    case res of
+        Left err -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 err }
+        Right _  -> pure ()
+
 
 -- | Get all expressions submitted to a chain since 'index'.
 since :: Connection -> Text -> Int -> Handler [Value]
@@ -190,7 +203,7 @@ main = do
     conn <- connect $ connectionInfo opts'
     st <- loadState conn
     let gzipSettings = def { gzipFiles = GzipPreCompressed GzipIgnore }
-        app = simpleCors $ gzip gzipSettings (serve api (server conn st))
+        app = simpleCors $ gzip gzipSettings (serve serverApi (server conn st))
     run (serverPort opts') app
   where
     allOpts = info (opts <**> helper)
@@ -199,6 +212,7 @@ main = do
        <> header "radicle-server"
         )
 
-
-server :: Connection -> Chains -> Server API
-server conn st = submit conn st :<|> since conn :<|> jsonOutputs st :<|> static
+server :: Connection -> Chains -> Server ServerApi
+server conn chains = chainEndpoints :<|> jsonOutputs chains :<|> static
+  where
+    chainEndpoints chainName = submit conn chains chainName :<|> since conn chainName

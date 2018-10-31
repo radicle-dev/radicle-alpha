@@ -30,6 +30,7 @@ import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
+import qualified Radicle.Internal.Doc as Doc
 import qualified Radicle.Internal.Identifier as Identifier
 import           Radicle.Internal.Orphans ()
 
@@ -206,7 +207,6 @@ pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
     where
     Lambda vs exps env = Ann.annotate $ LambdaF vs exps env
 
-
 type UntaggedValue = Annotated Identity ValueF
 type Value = Annotated Ann.WithPos ValueF
 
@@ -287,17 +287,22 @@ unsafeToIdent :: Text -> Ident
 unsafeToIdent = Ident
 
 -- | The environment, which keeps all known bindings.
-newtype Env s = Env { fromEnv :: Map Ident s }
-    deriving (Eq, Semigroup, Monoid, Ord, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
+newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }
+    deriving (Eq, Ord, Semigroup, Monoid, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
 
 instance GhcExts.IsList (Env s) where
-    type Item (Env s) = (Ident, s)
-    fromList = Env . Map.fromList
-    toList = GhcExts.toList . fromEnv
+    type Item (Env s) = (Ident, Maybe Text, s)
+    fromList xs = Env . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
+    toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . fromEnv $ e]
 
--- | Primop mappings. The parameter specifies the monad the primops run in.
-newtype PrimFns m = PrimFns { getPrimFns :: Map Ident ([Value] -> Lang m Value) }
-  deriving (Semigroup)
+-- | PrimFn mappings. The parameter specifies the monad the primops run in.
+newtype PrimFns m = PrimFns { getPrimFns :: Map Ident (Doc.Docd ([Value] -> Lang m Value)) }
+  deriving (Semigroup, Monoid)
+
+instance GhcExts.IsList (PrimFns m) where
+    type Item (PrimFns m) = (Ident, Maybe Text, [Value] -> Lang m Value)
+    fromList xs = PrimFns . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
+    toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . getPrimFns $ e]
 
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
@@ -359,24 +364,30 @@ withEnv modifier action = do
 
 -- * Functions
 
-addBinding :: Ident -> Value -> Bindings m -> Bindings m
-addBinding i v b = b
-    { bindingsEnv = Env . Map.insert i v . fromEnv $ bindingsEnv b }
+addBinding :: Ident -> Maybe Text -> Value -> Bindings m -> Bindings m
+addBinding i d v b = b
+    { bindingsEnv = Env . Map.insert i (Doc.Docd d v) . fromEnv $ bindingsEnv b }
+
+lookupAtomWithDoc :: Monad m => Ident -> Lang m (Doc.Docd Value)
+lookupAtomWithDoc i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
+    Nothing -> throwErrorHere $ UnknownIdentifier i
+    Just x  -> pure x
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
-lookupAtom i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
-    Nothing -> throwErrorHere $ UnknownIdentifier i
-    Just v  -> pure v
+lookupAtom = fmap copoint . lookupAtomWithDoc
+
+lookupAtomDoc :: Monad m => Ident -> Lang m (Maybe Text)
+lookupAtomDoc = fmap Doc.doc . lookupAtomWithDoc
 
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
 lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns e of
-    Nothing -> throwErrorHere $ Impossible "Unknown primop"
-    Just v  -> pure v
+    Nothing -> throwErrorHere $ Impossible $ "Unknown primop " <> fromIdent i
+    Just v  -> pure (copoint v)
 
-defineAtom :: Monad m => Ident -> Value -> Lang m ()
-defineAtom i v = modify $ addBinding i v
+defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
+defineAtom i d v = modify $ addBinding i d v
 
 -- * Eval
 
@@ -432,18 +443,22 @@ specialForms = Map.fromList $ first Ident <$>
   , ("def", \case
           [Atom name, val] -> do
               val' <- baseEval val
-              defineAtom name val'
+              defineAtom name Nothing val'
               pure nil
           [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
-          xs               -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
+          [Atom name, String d, val] -> do
+              val' <- baseEval val
+              defineAtom name (Just d) val'
+              pure nil
+          xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
     , ( "def-rec"
       , \case
           [Atom name, val] -> do
             val' <- baseEval val
             case val' of
                 Lambda is b e -> do
-                    let v = Lambda is b (Env . Map.insert name v . fromEnv $ e)
-                    defineAtom name v
+                    let v = Lambda is b (Env . Map.insert name (Doc.Docd Nothing v) . fromEnv $ e)
+                    defineAtom name Nothing v
                     pure nil
                 _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
           [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
@@ -499,7 +514,7 @@ instance (CPA t, FromRad t a) => FromRad t (Maybe a) where
     fromRad (Vec (Keyword (Ident "Just") :<| x :<| Empty)) = Just <$> fromRad x
     fromRad (Keyword (Ident "Nothing")) = pure Nothing
     fromRad _ = Left "Expecting :Nothing or [:Just _]"
-instance FromRad Ann.WithPos Value where
+instance FromRad t (Annotated t ValueF) where
   fromRad = pure
 instance CPA t => FromRad t Scientific where
     fromRad x = case x of
@@ -526,11 +541,17 @@ instance (CPA t, FromRad t a) => FromRad t [a] where
         List xs -> traverse fromRad xs
         Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
+instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
+    fromRad v = do
+      (d, v') <- fromRad v
+      pure (Doc.Docd d v')
 instance FromRad Ann.WithPos (Env Value) where
     fromRad x = case x of
         Dict d -> fmap (Env . Map.fromList)
                 $ forM (Map.toList d) $ \(k, v) -> case k of
-            Atom i -> pure (i, v)
+            Atom i -> do
+              docd <- fromRad v
+              pure (i, docd)
             k'     -> Left $ "Expecting atom keys. Got: " <> show k'
         _ -> Left "Expecting dict"
 instance FromRad Ann.WithPos (Bindings ()) where
@@ -576,8 +597,10 @@ instance (CPA t, ToRad t a) => ToRad t [a] where
     toRad xs = Vec . Seq.fromList $ toRad <$> xs
 instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
+instance CPA t => ToRad t (Doc.Docd (Annotated t ValueF)) where
+    toRad (Doc.Docd d v) = toRad (d, v)
 instance ToRad Ann.WithPos (Env Value) where
-    toRad x = Dict . Map.mapKeys Atom $ fromEnv x
+    toRad x = Dict . Map.mapKeys Atom . Map.map toRad $ fromEnv x
 instance ToRad Ann.WithPos (Bindings m) where
     toRad x = Dict $ Map.fromList
         [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
@@ -594,7 +617,7 @@ callFn f vs = case f of
           then throwErrorHere $ WrongNumberOfArgs "lambda" (length bnds)
                                                            (length vs)
           else do
-              let mappings = GhcExts.fromList (zip bnds vs)
+              let mappings = GhcExts.fromList (Doc.noDocs $ zip bnds vs)
                   modEnv = mappings <> closure
               NonEmpty.last <$> withEnv (const modEnv)
                                         (traverse baseEval body)

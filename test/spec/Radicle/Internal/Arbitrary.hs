@@ -10,6 +10,7 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 import           Radicle
+import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
                  (isValidIdentFirst, isValidIdentRest)
 import           Radicle.Internal.PrimFns (purePrimFns)
@@ -64,3 +65,6 @@ instance Arbitrary a => Arbitrary (Bindings a) where
         env <- arbitrary
         prims <- arbitrary
         pure $ Bindings env prims (IntMap.fromList $ zip [0..] refs) (length refs)
+
+instance Arbitrary a => Arbitrary (Doc.Docd a) where
+    arbitrary = Doc.Docd Nothing <$> arbitrary
