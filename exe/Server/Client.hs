@@ -81,8 +81,8 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
       )
     receivePrimop =
       ( "receive!"
-      , [md|Given a URL and a integer `n`, queries the remote chain for the last `n`
-           inputs that have been evaluated.|]
+      , [md|Given a URL (string) and a integral number `n`, queries the remote chain
+           for the last `n` inputs that have been evaluated.|]
       , \case
           [String url, Number n] -> do
               case floatingOrInteger n of

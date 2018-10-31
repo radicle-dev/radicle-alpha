@@ -87,7 +87,8 @@ replPrimFns = fromList $ allDocs $
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
     , ( "doc!"
-      , [md|Prints the documentation attached to a value.|]
+      , [md|Prints the documentation attached to a value and returns `()`. To retreive
+           the docstring as a value use `doc` instead.|]
       , oneArg "doc!" $ \case
           Atom i -> do
             d <- lookupAtomDoc i
@@ -126,8 +127,8 @@ replPrimFns = fromList $ allDocs $
 
     , ("subscribe-to!"
       , [md|Expects a dict `s` (representing a subscription) and a function `f`. The dict
-           `s` should have a function `getter` at the key `:getter`. This function is called
-           repetitively (with no arguments), it's result is then evaluated and passed to `f`.|]
+           `s` should have a function `getter` at the key `:getter`. This function iscalled
+           repetitively (with no arguments), its result is then evaluated and passed to `f`.|]
       , \case
         [x, v] -> do
             e <- gets bindingsEnv
@@ -172,8 +173,8 @@ replPrimFns = fromList $ allDocs $
           _ -> throwErrorHere $ TypeError "load: expects a string"
       )
     , ( "gen-key-pair!"
-      , [md|Given an elliptic curve, generates a cryptographic key-pair. Use `default-ecc-curve`
-           for a default value for the elliptic curve.|]
+      , [md|Given an elliptic curve, generates a cryptographic key-pair. Use
+           `default-ecc-curve` for a default value for the elliptic curve.|]
       , \case
           [curvev] -> do
             curve <- hoistEither . first (toLangError . OtherError) $ fromRad curvev
