@@ -15,6 +15,7 @@ dependencies:
 - containers
 - deriving-compat
 - directory
+- filepath
 - haskeline
 - megaparsec
 - mtl
@@ -37,7 +38,7 @@ when:
  - condition: impl(ghcjs)
    dependencies: ghcjs-dom
 ghc-options:
-  -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wpartial-fields
+  -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 data-files:
 - rad/**/*.rad
@@ -92,18 +93,17 @@ executables:
   radicle-server:
     main: Server.hs
     source-dirs: exe/Server
-    other-modules: API
+    other-modules: [API, DB]
     when:
       - condition: impl(ghcjs)
         buildable: false
     dependencies:
     - radicle
-    - optparse-applicative
     - bytestring
+    - optparse-applicative
+    - postgresql-simple
     - servant
     - servant-server
-    - stm-containers
-    - stm
     - warp
     - wai-extra
     - wai-cors

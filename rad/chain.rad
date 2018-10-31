@@ -5,32 +5,39 @@
 ;;     == base-eval')
 ;;   - A sequence of inputs.
 
-(def empty-chain
-  {:state (pure-env)
-   :inputs (list)
-   :index 0})
+(def new-chain
+  (fn [url]
+    {:state (pure-env)
+     :inputs (list)
+     :url url
+     :index 0}))
 
-(def test-chain
-  {:state (pure-env)
-   :inputs (list)
-   :name "test"
-   :index 0})
+(document 'new-chain
+          '(("url" string))
+          "Return an empty chain dictionary with the given url.")
+
 
 ;; eval-in-chain
 
 (def eval-in-chain
   (fn [expr chain]
     (def x (eval expr (lookup :state chain)))
-    (dict :chain (dict :state (head (tail x))
-                       :input (cons expr (lookup :input chain))
-                       :index (+ 1 (lookup :index chain)))
-          :result (head x))))
+    (def result (nth 0 x))
+    (def new-state (nth 1 x))
+    (def new-chain
+      (insert :state new-state
+      (over (@ :input) (fn [input] (cons expr input))
+      (over (@ :index) (fn [index] (+ 1 index))
+      chain ))))
+    {:chain new-chain
+     :result result }))
 
 (document 'eval-in-chain
           '(("expr" any) ("chain" chain))
           "Evaluates 'expr' in the 'chain' and returns a dict with the ':result' and the resulting ':chain'.")
 
 ((fn []
+  (def empty-chain (new-chain ""))
   (def res (eval-in-chain '(+ 3 2) empty-chain))
   (def ~~> (fn [comp expected] (should-be "eval-in-chain" (view comp res) expected)))
   (~~> (@ :result) 5)
@@ -42,7 +49,7 @@
 (def update-chain
   (fn [chain]
     (def new-inputs
-      (receive! (lookup :name chain) (lookup :index chain)))
+      (receive! (lookup :url chain) (lookup :index chain)))
     (def upd-ch
       (fn [ch expr]
         (def x (eval-in-chain expr ch))
@@ -52,6 +59,14 @@
 (document 'update-chain
           '(("chain" chain))
           "Return a new chain updated with the new expressions from the remote chain")
+
+(def load-chain
+  (fn [url]
+    (update-chain (new-chain url))))
+
+(document 'load-chain
+          '(("url" string))
+          "Fetch the inputs of a remote chain and return a chain dictionary with the chain state.")
 
 ;; add-quit
 
@@ -94,40 +109,31 @@
           '(("eval-fn" fn))
           "Add a :send special form that sends the contents of _input to the chain _cur-chain")
 
-;; enter-chain & enter-remote-chain
+;; enter-remote-chain
+(def enter-remote-chain
+  (fn [url]
+    (def chain (load-chain url))
+    (def chain-state (lookup :state chain))
+    (def mod-state1
+      (over (@ :env) (fn [x] (insert '_inputs [] x)) chain-state))
+    (def mod-state2
+      (over (@ :env)
+            (fn [x] (insert '_cur-chain (lookup :url chain) x))
+            mod-state1))
+    (def mod-state3
+      (over (.. (@ :env) (@ 'eval))
+            (fn [x] (add-send (add-quit (get-current-env) x)))
+            mod-state2))
+    (list :ok mod-state3)))
 
 (def eval__ eval)
-(def-rec eval
+(def eval
   (fn [expr env]
-      ;; The horror, the horror
       (if (list? expr)
-          (if (> (length expr) 0)
-              (cond
-                (eq? (head expr) :enter-chain) (do
-                                                 (def arg_ (nth 1 expr))
-                                                 (def arg (head (eval arg_ env)))
-                                                 (def mod-state
-                                                   (over (.. (@ :env) (@ 'eval))
-                                                         (fn [x] (add-quit env x))
-                                                         (lookup :state arg)))
-                                                 (list :ok mod-state))
-                (eq? (head expr) :enter-remote-chain) (do
-                                                        (def arg_ (nth 1 expr))
-                                                        (def arg (head (eval arg_ env)))
-                                                        (def state (lookup :state arg))
-                                                        (def mod-state1
-                                                          (over (@ :env) (fn [x] (insert '_inputs [] x)) state))
-                                                        (def mod-state2
-                                                          (over (@ :env)
-                                                                (fn [x] (insert '_cur-chain (lookup :name arg) x))
-                                                                mod-state1))
-                                                        (def mod-state3
-                                                          (over (.. (@ :env) (@ 'eval))
-                                                                (fn [x] (add-send (add-quit (get-current-env) x)))
-                                                                mod-state2))
-                                                        (list :ok mod-state3))
-                :else (eval__ expr env))
-              (eval__ expr env))
+          (cond
+            (eq? (head expr) :enter-chain)
+              (enter-remote-chain (head (eval__ (nth 1 expr) env)))
+            :else (eval__ expr env))
           (eval__ expr env))))
 
 (def eval-fn-app

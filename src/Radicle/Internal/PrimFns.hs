@@ -23,17 +23,30 @@ import qualified Radicle.Internal.UUID as UUID
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
-pureEnv = Bindings e purePrimFns r 1
+pureEnv =
+    addPrimFns purePrimFns $ Bindings e mempty refs 1
   where
-    e = fromList
-          (allDocs [ ( "eval"
-                     , [md|The evaluation function used to evaluate inputs. Intially
-                          this is set to `base-eval`.|]
-                     , PrimFn $ unsafeToIdent "base-eval"
-                     )
-                   ])
-        <> primFnsEnv (purePrimFns :: PrimFns m)
-    r = fromList [ (0, Dict mempty) ]
+    e = fromList . allDocs $
+          [ ( "eval"
+            , [md|The evaluation function used to evaluate inputs. Intially
+                 this is set to `base-eval`.|]
+            , PrimFn $ unsafeToIdent "base-eval"
+            )
+          ]
+    refs = fromList [ (0, Dict mempty) ]
+
+-- | The added primitives override previously defined primitives and
+-- variables with the same name.
+addPrimFns  :: PrimFns m -> Bindings (PrimFns m) -> Bindings (PrimFns m)
+addPrimFns primFns bindings =
+    bindings { bindingsPrimFns = primFns <> bindingsPrimFns bindings
+             , bindingsEnv = primFnsEnv <> bindingsEnv bindings
+             }
+
+  where
+    primFnsEnv = --Env $ Map.mapWithKey (\k _ -> PrimFn k) (getPrimFns primFns)
+      Env (Map.fromList [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)])
+
 
 -- | The universal primops. These are available in chain evaluation.
 purePrimFns :: forall m. (Monad m) => PrimFns m
@@ -461,10 +474,6 @@ readValue s = do
     case p of
       Right v -> pure v
       Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String e)
-
-primFnsEnv :: PrimFns m -> Env Value
-primFnsEnv pfs =
-  Env (Map.fromList [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns pfs)])
 
 allDocs :: [(Text, Text, a)] -> [(Ident, Maybe Text, a)]
 allDocs = fmap $ \(x,y,z) -> (unsafeToIdent x, Just y, z)

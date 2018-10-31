@@ -298,7 +298,7 @@ instance GhcExts.IsList (Env s) where
 
 -- | PrimFn mappings. The parameter specifies the monad the primops run in.
 newtype PrimFns m = PrimFns { getPrimFns :: Map Ident (Doc.Docd ([Value] -> Lang m Value)) }
-  deriving (Semigroup)
+  deriving (Semigroup, Monoid)
 
 instance GhcExts.IsList (PrimFns m) where
     type Item (PrimFns m) = (Ident, Maybe Text, [Value] -> Lang m Value)
@@ -384,8 +384,8 @@ lookupAtomDoc = fmap Doc.doc . lookupAtomWithDoc
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
 lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns e of
-    Nothing -> throwErrorHere $ Impossible "Unknown primop"
-    Just x  -> pure (copoint x)
+    Nothing -> throwErrorHere $ Impossible $ "Unknown primop " <> fromIdent i
+    Just v  -> pure (copoint v)
 
 defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
 defineAtom i d v = modify $ addBinding i d v
