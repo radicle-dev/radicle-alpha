@@ -31,10 +31,6 @@ pureEnv = Bindings e purePrimFns r 1
                           this is set to `base-eval`.|]
                      , PrimFn $ unsafeToIdent "base-eval"
                      )
-                   , ( "_doc-ref"
-                     , [md|A ref used for the old documentation system.|]
-                     , Ref $ Reference 0
-                     )
                    ])
         <> primFnsEnv (purePrimFns :: PrimFns m)
     r = fromList [ (0, Dict mempty) ]
@@ -396,6 +392,24 @@ purePrimFns = fromList $ allDocs $
       , oneArg "uuid?" $ \case
           String t -> pure . Boolean . UUID.isUUID $ t
           _ -> throwErrorHere $ TypeError "uuid?: expects a string"
+      )
+    , ( "document"
+      , [md|Used to add documentation to variables.|]
+      , \case
+          [Atom i, List _, String desc] -> do
+            v <- lookupAtom i
+            defineAtom i (Just desc) v
+            pure nil
+          [_,_,_] -> throwErrorHere $ OtherError "document: expects an atom, a list of argument docs, and a string."
+          xs -> throwErrorHere $ WrongNumberOfArgs "document" 3 (length xs)
+      )
+    , ( "doc"
+      , [md|Returns the documentation string for a variable. To print it instead, use `doc!`.|]
+      , oneArg "doc" $ \case
+          Atom i -> do d <- lookupAtomDoc i
+                       pure . String $
+                         fromMaybe ("No documentation found for " <> fromIdent i <> ".") d
+          _ -> throwErrorHere $ OtherError "doc: expects an atom"
       )
     ]
   where
