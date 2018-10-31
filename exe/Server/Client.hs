@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Client where
 
 import           API
@@ -12,6 +14,9 @@ import           Protolude hiding (TypeError, option)
 import           Radicle
 import           Servant.Client
 import           System.Console.Haskeline (InputT)
+
+import           Radicle.Internal.Doc (md)
+import qualified Radicle.Internal.PrimFns as PrimFns
 
 main :: IO ()
 main = do
@@ -58,10 +63,12 @@ bindings :: HttpClient.Manager -> Bindings (PrimFns (InputT IO))
 bindings mgr = addPrimFns (replPrimFns <> clientPrimFns mgr) pureEnv
 
 clientPrimFns :: HttpClient.Manager -> PrimFns (InputT IO)
-clientPrimFns mgr = PrimFns (fromList [sendPrimop, receivePrimop])
+clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
   where
     sendPrimop =
-      ( unsafeToIdent "send!"
+      ( "send!"
+      , [md|Given a URL (string) and a value, sends the value `v` to the remote
+           chain located at the URL for evaluation.|]
       , \case
          [String url, v] -> do
              res <- liftIO $ runClientM' url mgr (submit v)
@@ -73,7 +80,9 @@ clientPrimFns mgr = PrimFns (fromList [sendPrimop, receivePrimop])
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
     receivePrimop =
-      ( unsafeToIdent "receive!"
+      ( "receive!"
+      , [md|Given a URL (string) and a integral number `n`, queries the remote chain
+           for the last `n` inputs that have been evaluated.|]
       , \case
           [String url, Number n] -> do
               case floatingOrInteger n of

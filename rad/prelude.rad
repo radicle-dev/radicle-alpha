@@ -1,9 +1,7 @@
-(load! "rad/prelude/doc.rad")
 (load! "rad/prelude/should-be.rad")
 (load! "rad/prelude/io.rad")
 (load! "rad/prelude/bool.rad")
 (load! "rad/prelude/recursion.rad")
-(load! "rad/prelude/maybe.rad")
 (load! "rad/prelude/list.rad")
 (load! "rad/prelude/dict.rad")
 (load! "rad/prelude/ref.rad")
@@ -13,7 +11,6 @@
 
 (def pure-prelude-files
   (list
-   "rad/prelude/doc.rad"
    "rad/prelude/pure-should-be.rad"
    "rad/prelude/recursion.rad"
    "rad/prelude/bool.rad"

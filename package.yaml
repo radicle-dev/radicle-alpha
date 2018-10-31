@@ -31,6 +31,9 @@ dependencies:
 - cryptonite
 - generics-eot
 - uuid
+- data-default
+- pandoc-types
+- pandoc
 when:
  - condition: impl(ghcjs)
    dependencies: ghcjs-dom
