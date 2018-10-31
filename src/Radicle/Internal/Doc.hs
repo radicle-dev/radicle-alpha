@@ -36,7 +36,7 @@ noDocs = fmap $ \(x,y) -> (x, Nothing, y)
 md :: QuasiQuoter
 md = QuasiQuoter
     { quoteExp = \s -> [| case checkPandocMd s of
-        Left e  -> panic $ "Not valid pandoc-markdown: " <> show e
+        Left e   -> panic $ "Not valid pandoc-markdown: " <> show e
         Right s' -> s' |]
     , quoteType = err
     , quotePat = err

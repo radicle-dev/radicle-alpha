@@ -52,9 +52,9 @@ addPrimFns primFns bindings =
 purePrimFns :: forall m. (Monad m) => PrimFns m
 purePrimFns = fromList $ allDocs $
     [ ( "base-eval"
-      , [md|The default evaluation function. Expects an expression and a
-           state. Should return a list of length 2 consisting of the result
-           of the evaluation and the new state.|]
+      , [md|The default evaluation function. Expects an expression and a radicle
+           state. Return a list of length 2 consisting of the result of the
+           evaluation and the new state.|]
       , \case
           [expr, st] -> case (fromRad st :: Either Text (Bindings ())) of
               Left e -> throwErrorHere $ OtherError e
@@ -67,7 +67,7 @@ purePrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "base-eval" 2 (length xs)
       )
     , ( "pure-env"
-      , [md|Returns a pure initial state. This is the state of a radicle
+      , [md|Returns a pure initial radicle state. This is the state of a radicle
            chain before it has processed any inputs.|]
       , \case
           [] -> pure $ toRad (pureEnv :: Bindings (PrimFns m))
@@ -80,7 +80,7 @@ purePrimFns = fromList $ allDocs $
           [_, _]          -> throwErrorHere $ TypeError "apply: expecting list as second arg"
           xs -> throwErrorHere $ WrongNumberOfArgs "apply" 2 (length xs))
     , ( "read"
-      , [md|Parses a string into radicle data. Does not evaluate.|]
+      , [md|Parses a string into a radicle value. Does not evaluate the value.|]
       , oneArg "read" $ \case
           String s -> readValue s
           _ -> throwErrorHere $ TypeError "read: expects string"
@@ -102,15 +102,15 @@ purePrimFns = fromList $ allDocs $
           pure ok
       )
     , ("list"
-      , "Turns the arguments into a list."
+      , [md|Turns the arguments into a list.|]
       , pure . List)
     , ("dict"
-      , [md|Given an even number `2n` of arguments, creates a dict where the `2i`-th argument
+      , [md|Given an even number of arguments, creates a dict where the `2i`-th argument
            is the key for the `2i+1`th argument.|]
       , (Dict . foldr (uncurry Map.insert) mempty <$>)
                         . evenArgs "dict")
     , ("throw"
-      , [md|Throws an error. The first argument should be an atom used as a label for
+      , [md|Throws an exception. The first argument should be an atom used as a label for
            the exception, the second should be a string.|]
       , \case
           [Atom label, exc] -> throwErrorHere $ ThrownError label exc

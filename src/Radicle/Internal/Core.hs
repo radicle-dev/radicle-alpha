@@ -144,8 +144,7 @@ data ValueF r =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
     | LambdaF [Ident] (NonEmpty r) (Env r)
-    deriving (Eq, Ord, Show, Read, Generic, Functor)
-
+    deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
 
@@ -625,7 +624,7 @@ callFn f vs = case f of
   PrimFn i -> do
     fn <- lookupPrimop i
     fn vs
-  nf -> throwErrorHere . TypeError $ "Trying to call a non-function " <> show nf
+  _ -> throwErrorHere . TypeError $ "Trying to call a non-function"
 
 -- | Infix evaluation of application (of functions or special forms)
 infixr 1 $$

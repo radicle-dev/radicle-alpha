@@ -21,7 +21,6 @@ main = do
       <> header "radlit"
        )
 
-
 run :: FilePath -> IO ()
 run f = do
     txt <- readFile f
