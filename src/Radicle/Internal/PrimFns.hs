@@ -151,7 +151,7 @@ purePrimFns = fromList $ allDocs $
           [_, _]       -> throwErrorHere $ TypeError "cons: second argument must be list"
           xs           -> throwErrorHere $ WrongNumberOfArgs "cons" 2 (length xs))
     , ("head"
-      , [md|Retreives the first element of a list if it exists. Otherwise throws an
+      , [md|Retrieves the first element of a list if it exists. Otherwise throws an
            exception.|]
       , oneArg "head" $ \case
           List (x:_) -> pure x
