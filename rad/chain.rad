@@ -128,6 +128,7 @@
 
 (def eval__ eval)
 (def eval
+  "An eval in which one can use :enter-chain and :send."
   (fn [expr env]
       (if (list? expr)
           (cond

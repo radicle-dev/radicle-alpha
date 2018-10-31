@@ -160,6 +160,17 @@ executables:
     - pandoc
     ghc-options: -main-is Doc
 
+  ref-doc:
+    main: ReferenceDoc.hs
+    source-dirs: exe/
+    other-modules: []
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    dependencies:
+    - radicle
+    ghc-options: -main-is ReferenceDoc
+
 default-extensions:
 - AutoDeriveTypeable
 - ConstraintKinds
