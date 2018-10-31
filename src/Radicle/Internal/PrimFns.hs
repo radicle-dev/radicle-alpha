@@ -43,7 +43,8 @@ addPrimFns primFns bindings =
              }
 
   where
-    primFnsEnv = Env $ Map.fromList $
+    primFnsEnv = Env $ Map.fromList
+      $
       [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)]
 
 
@@ -73,7 +74,8 @@ purePrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "pure-env" 0 (length xs)
       )
     , ("apply"
-      , [md|Applies a function to a list or arguments.|]
+      , [md|Calls the first argument (a function) using as arguments the
+           elements of the the second argument (a list).|]
       , \case
           [fn, List args] -> callFn fn args
           [_, _]          -> throwErrorHere $ TypeError "apply: expecting list as second arg"
@@ -90,7 +92,7 @@ purePrimFns = fromList $ allDocs $
           [] -> toRad <$> get
           xs -> throwErrorHere $ WrongNumberOfArgs "get-current-env" 0 (length xs))
     , ( "set-current-env"
-      , [md|Replaces the whole state with the one provided.|]
+      , [md|Replaces the radicle state with the one provided.|]
       , oneArg "set-current-env" $ \x -> do
           e' :: Bindings () <- fromRadOtherErr x
           e <- get
@@ -150,14 +152,14 @@ purePrimFns = fromList $ allDocs $
           xs           -> throwErrorHere $ WrongNumberOfArgs "cons" 2 (length xs))
     , ("head"
       , [md|Retreives the first element of a list if it exists. Otherwise throws an
-           error.|]
+           exception.|]
       , oneArg "head" $ \case
           List (x:_) -> pure x
           List []    -> throwErrorHere $ OtherError "head: empty list"
           _          -> throwErrorHere $ TypeError "head: expects list argument")
     , ("tail"
       , [md|Given a non-empty list, returns the list of all the elements but the
-           first. If the list is empty, throws an error.|]
+           first. If the list is empty, throws an exception.|]
       , oneArg "tail" $ \case
           List (_:xs) -> pure $ List xs
           List []     -> throwErrorHere $ OtherError "tail: empty list"
@@ -165,8 +167,10 @@ purePrimFns = fromList $ allDocs $
 
     -- Lists and Vecs
     , ( "nth"
-      , [md|Given a number `n` and `xs`, returns the `n`th element `xs` when `xs` is
-           a list or a vector; if not, an error is thrown.|]
+      , [md|Given an integral number `n` and `xs`, returns the `n`th element
+           (zero indexed) of `xs` when `xs` is a list or a vector. If `xs`
+           does not have an `n`-th element, or if it is not a list or vector, then
+           an exception is thrown.|]
       , \case
           [Number n, vs] -> case floatingOrInteger n of
             Left (_ :: Double) -> throwErrorHere $ OtherError "nth: first argument was not an integer"
@@ -182,7 +186,7 @@ purePrimFns = fromList $ allDocs $
     , ("lookup"
       , [md|Given a value `k` (the 'key') and a dict `d`, returns the value associated
            with `k` in `d`. If the key does not exist in `d` then `()` is returned
-           instead. If `d` is not a dict then an error is thrown.|]
+           instead. If `d` is not a dict then an exception is thrown.|]
       , \case
           [a, Dict m] -> pure $ case Map.lookup a m of
               Just v  -> v
@@ -202,8 +206,8 @@ purePrimFns = fromList $ allDocs $
           _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
       )
     , ("string-append"
-      , [md|Concatenates a variable number of string arguments. If an argument isn't
-           an error is thrown.|]
+      , [md|Concatenates a variable number of string arguments. If one of the arguments
+           isn't a string then an exception is thrown.|]
       , \args ->
           let fromStr (String s) = Just s
               fromStr _          = Nothing
@@ -213,7 +217,7 @@ purePrimFns = fromList $ allDocs $
               else throwErrorHere $ TypeError "string-append: non-string argument")
     , ( "insert"
       , [md|Given `k`, `v` and a dict `d`, returns a dict with the same associations
-           as `d` but with `k` associated to `d`. If `d` isn't a dict then an error
+           as `d` but with `k` associated to `d`. If `d` isn't a dict then an exception
            is thrown.|]
       , \case
           [k, v, Dict m] -> pure . Dict $ Map.insert k v m
@@ -222,8 +226,8 @@ purePrimFns = fromList $ allDocs $
                                       $ TypeError "insert: third argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
     , ( "delete"
-      , [md|Given `k` and `d`, returns a dict with the same associations as `d` but
-           without the key `k`.|]
+      , [md|Given `k` and a dict `d`, returns a dict with the same associations as `d` but
+           without the key `k`. If `d` isn't a dict then an exception is thrown.|]
       , twoArg "delete" $ \case
           (k, Dict m) -> pure . Dict $ Map.delete k m
           _ -> throwErrorHere $ TypeError "delete: second argument must be a dict"
@@ -254,7 +258,7 @@ purePrimFns = fromList $ allDocs $
     , ( "foldl"
       , [md|Given a function `f`, an initial value `i` and a sequence (list or vector)
            `xs`, reduces `xs` to a single value by starting with `i` and repetitively
-           combining elements with `f`, using elements of `xs` from left to right.|]
+           combining values with `f`, using elements of `xs` from left to right.|]
       , \case
           [fn, init', v] -> do
             ls :: [Value] <- fromRadOtherErr v
@@ -263,7 +267,7 @@ purePrimFns = fromList $ allDocs $
     , ( "foldr"
       , [md|Given a function `f`, an initial value `i` and a sequence (list or vector)
            `xs`, reduces `xs` to a single value by starting with `i` and repetitively
-           combining elements with `f`, using elements of `xs` from right to left.|]
+           combining values with `f`, using elements of `xs` from right to left.|]
       , \case
           [fn, init', v] -> do
             ls :: [Value] <- fromRadOtherErr v
