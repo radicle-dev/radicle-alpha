@@ -128,7 +128,7 @@ replPrimFns = fromList $ allDocs $
     , ("subscribe-to!"
       , [md|Expects a dict `s` (representing a subscription) and a function `f`. The dict
            `s` should have a function `getter` at the key `:getter`. This function is called
-           repetitively (with no arguments), its result is then evaluated and passed to `f`.|]
+           repeatedly (with no arguments), its result is then evaluated and passed to `f`.|]
       , \case
         [x, v] -> do
             e <- gets bindingsEnv
