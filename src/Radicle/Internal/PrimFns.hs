@@ -24,7 +24,7 @@ import qualified Radicle.Internal.UUID as UUID
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
 pureEnv =
-    addPrimFns purePrimFns $ Bindings e mempty refs 1
+    addPrimFns purePrimFns $ Bindings e mempty mempty 0
   where
     e = fromList . allDocs $
           [ ( "eval"
@@ -33,7 +33,6 @@ pureEnv =
             , PrimFn $ unsafeToIdent "base-eval"
             )
           ]
-    refs = fromList [ (0, Dict mempty) ]
 
 -- | The added primitives override previously defined primitives and
 -- variables with the same name.
@@ -44,8 +43,8 @@ addPrimFns primFns bindings =
              }
 
   where
-    primFnsEnv = --Env $ Map.mapWithKey (\k _ -> PrimFn k) (getPrimFns primFns)
-      Env (Map.fromList [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)])
+    primFnsEnv = Env $ Map.fromList $
+      [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)]
 
 
 -- | The universal primops. These are available in chain evaluation.
@@ -111,7 +110,7 @@ purePrimFns = fromList $ allDocs $
                         . evenArgs "dict")
     , ("throw"
       , [md|Throws an exception. The first argument should be an atom used as a label for
-           the exception, the second should be a string.|]
+           the exception, the second can be any value.|]
       , \case
           [Atom label, exc] -> throwErrorHere $ ThrownError label exc
           [_, _]            -> throwErrorHere $ TypeError "throw: first argument must be atom"
