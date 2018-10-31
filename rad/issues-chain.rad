@@ -1,0 +1,53 @@
+;; Issue chain
+;; Meant to be sent to a chain with send-code!
+
+(def issues (ref {}))
+
+(def mod-issues
+  (fn [f] (modify-ref issues f)))
+
+(def id-valid-and-free?
+  (fn [id]
+    (and (uuid? id)
+         (not (member? id (read-ref issues))))))
+
+(def issue-valid?
+  (fn [i]
+    (verify-signature (lookup :author i)
+                      (lookup :signature i)
+                      (string-append chain-id
+                                     (lookup :id i)
+                                     (lookup :title i)
+                                     (lookup :body i)))))
+
+(def new-issue
+  (fn [i]
+    (def id (lookup :id i))
+    (if (id-valid-and-free? id)
+      (mod-issues
+        (fn [is] (insert id i is)))
+      "Issue ID was not free or was invalid.")))
+
+(def close-issue
+  (fn [id]
+    (mod-issues (fn [is] (delete id is)))))
+
+(def add-comment
+    (fn [issue-id comment]
+      (mod-issues
+        (fn [is]
+          (modify-map issue-id
+                      (fn [i]
+                        (modify-map :comments
+                                    (fn [cs] (add-right comment cs))
+                                    i))
+                      is)))))
+
+(def process-command
+  (fn [expr]
+    (def command (head expr))
+    (def args    (tail expr))
+    (def do-this (lookup command (read-ref commands)))
+    (apply do-this args)
+    (read-ref issues)
+    :ok))

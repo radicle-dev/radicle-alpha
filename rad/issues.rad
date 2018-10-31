@@ -1,45 +1,34 @@
-;; Issues for rad prelude
-
-(def create-rad-issue-chain (fn []
-  (def issues (ref nil))
-  (def should-be (fn [name x y] (eq? x y)))
-  (def current-prelude (ref (dict :env (dict 'should-be should-be 'eval eval) :refs nil)))
+;; Helpers for setting up and interacting with issues chain (as defined in
+;; rad/issues-chain.rad)
 
 
-  (def failing? (fn [expr]
-    (def res (catch 'any
-                       (head (eval-with-env expr (read-ref current-prelude)))
-                       (fn [x] #f)))
-    (eq? res #f)))
 
-  (def new-issue (fn [creator title desc failing-test]
-    (if (failing? failing-test)
-        (modify-ref
-          issues
-          (fn [x]
-            (cons (dict
-              :creator creator
-              :title title
-              :description desc
-              :failing-test failing-test) x)))
-        "Test is not failing")))
+;; Create a remote issue chain. Returns a ref for the chain that you
+;; can assign to a variable.
 
-  (def list-issues (fn [] (read-ref issues)))
+(def create-issues-chain!
+  (fn [chain-name]
+    (send-prelude! chain-name)
+    (send-code! "rad/issues-chain.rad")
+    (ref (insert :name chain-name empty-chain))))
 
-  (def dispatch (fn [m]
-    (cond
-      (eq? m 'new-issue)   new-issue
-      (eq? m 'list-issues) list-issues
-      :else                "error: unknown message")))
+(new-issue!
+  (fn [chain-ref keys title body]
+   (def chain (read-ref chain-ref))
+   (def msg
+        (string-append chain-id
+                       id
+                       title
+                       body))
+   (send! (lookup :name chain)
+          {:id       id
+          :author    (lookup :public-key keys)
+          :title     title
+          :body      body
+          :signature (gen-signature! (lookup :private-key keys) msg)})))
 
-  dispatch))
+(list-issues!
+  (fn [chain-ref]
+    (update-chain-ref chain-ref)
+    (eval-in-chain 'list-issues (read-ref chain-ref))))
 
-(def rad-issue-chain (create-rad-issue-chain))
-
-(def rad-issue-chain-eval (fn [expr]
-     (if (eq? (head expr) 'new-issue)
-         (apply (rad-issue-chain 'new-issue) (tail expr))
-     (if (eq? (head expr) 'list-issues)
-         ((rad-issue-chain 'list-issues))
-         "must be one of: 'new-issue', 'list-issues'"))
-     ))

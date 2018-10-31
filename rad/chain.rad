@@ -17,6 +17,10 @@
           "Return an empty chain dictionary with the given url.")
 
 
+(def rad-issues
+  (new-chain "http://radicle.xyz/radissues"))
+
+
 ;; eval-in-chain
 
 (def eval-in-chain
@@ -67,6 +71,16 @@
 (document 'load-chain
           '(("url" string))
           "Fetch the inputs of a remote chain and return a chain dictionary with the chain state.")
+
+;; update-chain-ref
+
+(def update-chain-ref
+  (fn [chain-ref]
+    (modify-ref chain-ref update-chain)))
+
+(document 'update-chain-ref
+          '(("chain" chain))
+          "Update a ref containing a chain with the new expressions from the remote chain")
 
 ;; add-quit
 
