@@ -144,13 +144,12 @@ data ValueF r =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
     | LambdaF [Ident] (NonEmpty r) (Env r)
-    | DocF (Doc.Described Doc.Value)
     deriving (Eq, Ord, Show, Read, Generic, Functor)
 
 
 instance Serialise r => Serialise (ValueF r)
 
-{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda, Doc #-}
+{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -208,11 +207,6 @@ pattern Lambda :: ValueConC t => [Ident] -> NonEmpty (Annotated t ValueF) -> Env
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
     where
     Lambda vs exps env = Ann.annotate $ LambdaF vs exps env
-
-pattern Doc :: ValueConC t => Doc.Described Doc.Value -> Annotated t ValueF
-pattern Doc d <- (Ann.match -> DocF d)
-    where
-    Doc = Ann.annotate . DocF
 
 type UntaggedValue = Annotated Identity ValueF
 type Value = Annotated Ann.WithPos ValueF
@@ -298,7 +292,7 @@ newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }
     deriving (Eq, Ord, Semigroup, Monoid, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
 
 instance GhcExts.IsList (Env s) where
-    type Item (Env s) = (Ident, Maybe (Doc.Described Doc.Value), s)
+    type Item (Env s) = (Ident, Maybe Text, s)
     fromList xs = Env . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
     toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . fromEnv $ e]
 
@@ -307,7 +301,7 @@ newtype PrimFns m = PrimFns { getPrimFns :: Map Ident (Doc.Docd ([Value] -> Lang
   deriving (Semigroup)
 
 instance GhcExts.IsList (PrimFns m) where
-    type Item (PrimFns m) = (Ident, Maybe (Doc.Described Doc.Value), [Value] -> Lang m Value)
+    type Item (PrimFns m) = (Ident, Maybe Text, [Value] -> Lang m Value)
     fromList xs = PrimFns . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
     toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . getPrimFns $ e]
 
@@ -371,7 +365,7 @@ withEnv modifier action = do
 
 -- * Functions
 
-addBinding :: Ident -> Doc.DocVal -> Value -> Bindings m -> Bindings m
+addBinding :: Ident -> Maybe Text -> Value -> Bindings m -> Bindings m
 addBinding i d v b = b
     { bindingsEnv = Env . Map.insert i (Doc.Docd d v) . fromEnv $ bindingsEnv b }
 
@@ -384,7 +378,7 @@ lookupAtomWithDoc i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e 
 lookupAtom :: Monad m => Ident -> Lang m Value
 lookupAtom = fmap copoint . lookupAtomWithDoc
 
-lookupAtomDoc :: Monad m => Ident -> Lang m Doc.DocVal
+lookupAtomDoc :: Monad m => Ident -> Lang m (Maybe Text)
 lookupAtomDoc = fmap Doc.doc . lookupAtomWithDoc
 
 -- | Lookup a primop.
@@ -393,7 +387,7 @@ lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns 
     Nothing -> throwErrorHere $ Impossible "Unknown primop"
     Just x  -> pure (copoint x)
 
-defineAtom :: Monad m => Ident -> Doc.DocVal -> Value -> Lang m ()
+defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
 defineAtom i d v = modify $ addBinding i d v
 
 -- * Eval
@@ -453,13 +447,10 @@ specialForms = Map.fromList $ first Ident <$>
               defineAtom name Nothing val'
               pure nil
           [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
-          [Atom name, d, val] -> do
+          [Atom name, String d, val] -> do
               val' <- baseEval val
-              case radToDoc d of
-                Left e -> throwErrorHere $ OtherError $ "def documentation was invalid: " <> e
-                Right doc ->
-                  do defineAtom name (Just (Doc.named (fromIdent name) doc)) val'
-                     pure nil
+              defineAtom name (Just d) val'
+              pure nil
           xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
     , ( "def-rec"
       , \case
@@ -504,52 +495,6 @@ specialForms = Map.fromList $ first Ident <$>
         if b /= Boolean False
           then baseEval e
           else cond ps
-
-    radToDoc :: Value -> Either Text (Doc.Described Doc.Value)
-    radToDoc v = do
-      xs <- fromRad v
-      case xs of
-        Keyword (Ident i) : rest ->
-          case (i, rest) of
-            ("function", [d, ps, r]) -> do
-              desc <- mdInDoc d
-              params <- funParams ps
-              ret <- radToDoc r
-              pure $ Doc.Desc (Just desc) $ Doc.Fun Doc.Function
-                { parameters = Doc.Desc Nothing (Doc.Fixed params)
-                , output = ret
-                }
-            (_, [d]) -> do
-              desc <- mdInDoc d
-              tag <- docTag i
-              pure $ Doc.Desc (Just desc) tag
-            _ -> Left "Expecting a doc-tag and a description."
-        _ -> Left "Invalid documentation"
-
-    mdInDoc :: Value -> Either Text Doc.Pan
-    mdInDoc (String t) = Doc.mdPan t
-    mdInDoc _ = Left "Expecting a string"
-
-    docTag :: Text -> Either Text Doc.Value
-    docTag = \case
-      "number" -> pure Doc.Number
-      "other" -> pure Doc.Other
-      "string" -> pure Doc.String
-      "boolean" -> pure Doc.Boolean
-      "atom" -> pure Doc.Atom
-      "doc" -> pure Doc.Doc
-      _ -> Left "Expecting one of: :number, :string, :boolean, :atom, :doc, :other."
-
-    funParams :: Value -> Either Text [Doc.Described Doc.Param]
-    funParams v = do
-      vss :: [(Value, Value)] <- fromRad v
-      traverse param vss
-
-    param :: (Value, Value) -> Either Text (Doc.Described Doc.Param)
-    param (Atom (Ident i), v) = do
-      Doc.Desc desc pd <- radToDoc v
-      pure $ Doc.Desc desc Doc.Param{ name = i, value = pd }
-    param (v, _) = Left $ "Expecting a function input atom: " <> show v
 
 -- * From/ToRadicle
 
@@ -601,9 +546,6 @@ instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
     fromRad v = do
       (d, v') <- fromRad v
       pure (Doc.Docd d v')
-instance CPA t => FromRad t (Doc.Described Doc.Value) where
-    fromRad (Doc d) = pure d
-    fromRad _ = Left "Expecting doc"
 instance FromRad Ann.WithPos (Env Value) where
     fromRad x = case x of
         Dict d -> fmap (Env . Map.fromList)
@@ -658,8 +600,6 @@ instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
 instance CPA t => ToRad t (Doc.Docd (Annotated t ValueF)) where
     toRad (Doc.Docd d v) = toRad (d, v)
-instance CPA t => ToRad t (Doc.Described Doc.Value) where
-    toRad = Doc
 instance ToRad Ann.WithPos (Env Value) where
     toRad x = Dict . Map.mapKeys Atom . Map.map toRad $ fromEnv x
 instance ToRad Ann.WithPos (Bindings m) where

@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Client where
 
 import           API
@@ -11,7 +13,8 @@ import           Servant.API ((:<|>)(..))
 import           Servant.Client
 import           System.Console.Haskeline (InputT)
 
-import qualified Radicle.Internal.Doc as Doc
+import           Radicle.Internal.Doc (md)
+import qualified Radicle.Internal.PrimFns as PrimFns
 
 main :: IO ()
 main = do
@@ -76,10 +79,12 @@ bindings cEnv
     prims = primops cEnv
 
 primops :: ClientEnv -> PrimFns (InputT IO)
-primops cEnv = fromList $ Doc.noDocs $ [sendPrimop, receivePrimop]
+primops cEnv = fromList $ PrimFns.allDocs $ [sendPrimop, receivePrimop]
   where
     sendPrimop =
-      ( unsafeToIdent "send!"
+      ( "send!"
+      , [md|Given a URL (string) and a value, sends the value `v` to the remote
+           chain located at the URL for evaluation.|]
       , \case
          [String name, v] -> do
              res <- liftIO $ runClientM (submit $ List $ [String name, v]) cEnv
@@ -91,7 +96,9 @@ primops cEnv = fromList $ Doc.noDocs $ [sendPrimop, receivePrimop]
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
     receivePrimop =
-      ( unsafeToIdent "receive!"
+      ( "receive!"
+      , [md|Given a URL and a integer `n`, queries the remote chain for the last `n`
+           inputs that have been evaluated.|]
       , \case
           [String name, Number n] -> do
               case floatingOrInteger n of

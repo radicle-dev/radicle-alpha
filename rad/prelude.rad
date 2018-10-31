@@ -4,7 +4,6 @@
 (load! "rad/prelude/io.rad")
 (load! "rad/prelude/bool.rad")
 (load! "rad/prelude/recursion.rad")
-(load! "rad/prelude/maybe.rad")
 (load! "rad/prelude/list.rad")
 (load! "rad/prelude/dict.rad")
 (load! "rad/prelude/ref.rad")
@@ -62,21 +61,3 @@
         (f (head x))
         (g))
       (g))))
-
-(def doc-md (. doc->md doc-val))
-
-(def prelude-docs
-  (fn []
-    (string-append
-     "# Radicle Prelude\n\n"
-     "## Primitive functions\n\n"
-     (doc-md 'eq?)
-     "\n\n"
-     (doc-md 'uuid?))))
-
-(def foo
-  [:function
-   "Adds 1 to numbers."
-   [[x [:number "Some number."]]]
-   [:number "The number `x` incremented by 1."]]
-  (fn [x] (+ x 1)))
