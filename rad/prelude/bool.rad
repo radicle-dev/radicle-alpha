@@ -2,7 +2,8 @@
 
 ;; not
 
-(def not (fn [x] (if x #f #t)))
+(def not
+  (fn [x] (if x #f #t)))
 
 (document 'not
   '(("arg" any))
@@ -41,6 +42,7 @@
 ;; all
 
 (def all
+  "Checks that all the items of a list are truthy."
   (fn [xs] (foldr and #t xs)))
 
 (should-be "all" (all '()) #t)
@@ -52,6 +54,7 @@
 ;; some
 
 (def some
+  "Checks that there is a least one truthy value in a list."
   (fn [xs] (foldr or #f xs)))
 
 (should-be "some" (some '()) #f)

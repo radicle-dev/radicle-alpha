@@ -24,6 +24,7 @@ popd () {
 }
 
 build(){
+    stack exec ref-doc
     pushd "$PWD"/docs
     [ -z "$IS_NIX" ] && pip install -r requirements.txt
     make html

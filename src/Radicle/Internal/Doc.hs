@@ -35,7 +35,7 @@ noDocs = fmap $ \(x,y) -> (x, Nothing, y)
 -- returns the markdown with better formatting.
 md :: QuasiQuoter
 md = QuasiQuoter
-    { quoteExp = \s -> [| case checkPandocMd s of
+    { quoteExp = \s -> [| case cleanupPandocMd s of
         Left e   -> panic $ "Not valid pandoc-markdown: " <> show e
         Right s' -> s' |]
     , quoteType = err
@@ -45,7 +45,7 @@ md = QuasiQuoter
   where
     err = panic "pan only works for expressions"
 
-checkPandocMd :: Text -> Either PandocError Text
-checkPandocMd s = runPure $ do
+cleanupPandocMd :: Text -> Either PandocError Text
+cleanupPandocMd s = runPure $ do
   p <- readMarkdown Default.def s
   writeMarkdown Default.def p

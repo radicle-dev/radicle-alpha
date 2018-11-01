@@ -1,11 +1,13 @@
 ;; y-combinators ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def Y
+  "A combinator used to create recursive functions of one variable."
   (fn [h]
     ((fn [x] (x x))
      (fn [g]
        (h (fn [arg] ((g g) arg)))))))
 (def Y2
+  "A combinator used to create recursive functions of two variables."
   (fn [h]
     ((fn [x] (x x))
      (fn [g]

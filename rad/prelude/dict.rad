@@ -44,8 +44,10 @@
            {:b 5})
 
 ;; modify-map
-(def modify-map (fn [key f mp]
-  (insert key (f (lookup key mp)) mp)))
+(def modify-map
+  "Given a key, a function and a dict, applies the function to the value associated to that key."
+  (fn [key f mp]
+    (insert key (f (lookup key mp)) mp)))
 
 (should-be "modify-map"
   (modify-map 'a (fn [x] (+ x 1)) (dict 'a 5))
