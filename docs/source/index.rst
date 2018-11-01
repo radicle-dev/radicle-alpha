@@ -13,7 +13,7 @@ radicle
    guide/GettingStarted.rst
    guide/Basics.lrad
    guide/Chains.lrad
-   reference.md
+   reference.rst
 
 
 

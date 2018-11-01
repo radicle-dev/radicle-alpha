@@ -32,7 +32,6 @@ dependencies:
 - generics-eot
 - uuid
 - data-default
-- pandoc-types
 - pandoc
 when:
  - condition: impl(ghcjs)
@@ -169,7 +168,8 @@ executables:
         buildable: false
     dependencies:
     - radicle
-    - interpolate
+    - pandoc
+    - data-default
     ghc-options: -main-is ReferenceDoc
 
 default-extensions:
