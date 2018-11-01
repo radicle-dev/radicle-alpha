@@ -533,9 +533,11 @@ instance (CPA t, FromRad t a) => FromRad t [a] where
         Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
 instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
-    fromRad v = do
-      (d, v') <- fromRad v
-      pure (Doc.Docd d v')
+    fromRad (Dict d) = do
+      val <- kwLookup "val" d ?? "Expecting `:val` key"
+      doc <- traverse fromRad (kwLookup "doc" d)
+      pure (Doc.Docd doc val)
+    fromRad _ = Left "Expecting a dict."
 instance FromRad Ann.WithPos (Env Value) where
     fromRad x = case x of
         Dict d -> fmap (Env . Map.fromList)
@@ -589,7 +591,9 @@ instance (CPA t, ToRad t a) => ToRad t [a] where
 instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
 instance CPA t => ToRad t (Doc.Docd (Annotated t ValueF)) where
-    toRad (Doc.Docd d v) = toRad (d, v)
+    toRad (Doc.Docd d_ v) = Dict $ Map.fromList $ ( Keyword (Ident "val"), v) : case d_ of
+      Just d  -> [ (Keyword (Ident "doc"), toRad d) ]
+      Nothing -> []
 instance ToRad Ann.WithPos (Env Value) where
     toRad x = Dict . Map.mapKeys Atom . Map.map toRad $ fromEnv x
 instance ToRad Ann.WithPos (Bindings m) where
