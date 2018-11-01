@@ -169,6 +169,7 @@ executables:
         buildable: false
     dependencies:
     - radicle
+    - interpolate
     ghc-options: -main-is ReferenceDoc
 
 default-extensions:

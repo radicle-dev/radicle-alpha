@@ -8,6 +8,7 @@ import           Protolude
 
 import           Data.List
 import qualified Data.Map.Strict as Map
+import           Data.String.Interpolate
 import qualified Data.Text as T
 import qualified GHC.Exts as GhcExts
 import           Radicle
@@ -25,15 +26,15 @@ main = do
     res <- res_ `lPanic` "Error running the prelude."
     s :: Bindings () <- fromRad res `lPanic` "Couldn't convert radicle state."
     let vars = GhcExts.toList (bindingsEnv s)
-    let undocd = [ fromIdent i | (i, Nothing, _) <- vars ]
+    let undocd = [ fromIdent iden | (iden, Nothing, _) <- vars ]
     checkAllDocumented undocd
-    let e = Map.fromList [ (fromIdent i, d) | (i, Just d, _) <- vars ]
+    let e = Map.fromList [ (fromIdent iden, d) | (iden, Just d, _) <- vars ]
     checkAllInReference e
     d <- Doc.cleanupPandocMd (doc e) `lPanic` "Invalid markdown."
     writeFile "docs/source/reference.md" d
   where
     doc e =
-      let sec tit fns p = "## " <> tit <> "\n\n" <> p <> "\n\n" <> funs e fns in
+      let sec (tit :: Text) fns p = toS [i|## #{tit}\n\n#{p}\n\n#{funs e fns}|] in
       T.intercalate "\n\n"
       [ "# Radicle reference"
       , "These are the functions that are available in a new radicle chain after the prelude has been loaded."
@@ -101,7 +102,7 @@ main = do
       ++ doNotInclude
 
     -- Function symbol followed by a hard line break, followed by it's doc.
-    funs e fns = T.intercalate "\n\n\n" [ "`" <> f <> "`  \n" <> getDoc e f | f <- fns ]
+    funs e fns = T.intercalate "\n\n\n" $ [ toS [i|`#{f}`  \n#{getDoc e f}|] | f <- fns ]
 
     getDoc e f = case Map.lookup f e of
       Just d -> d
