@@ -73,10 +73,10 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
          $ (Map.keys . fromEnv $ bindingsEnv bnds)
         <> Map.keys (getPrimFns $ bindingsPrimFns bnds)
 
-replBindings :: forall m. ReplM m => Bindings (PrimFns m)
+replBindings :: ReplM m => Bindings (PrimFns m)
 replBindings = addPrimFns replPrimFns pureEnv
 
-replPrimFns :: forall m. ReplM m => PrimFns m
+replPrimFns :: ReplM m => PrimFns m
 replPrimFns = fromList $ allDocs $
     [ ("print!"
       , [md|Pretty-prints a value.|]
@@ -121,7 +121,7 @@ replPrimFns = fromList $ allDocs $
     , ( "get-line!"
       , [md|Reads a single line of input and returns it as a string.|]
       , \case
-          [] -> String <$> getLineS
+          [] -> maybe nil toRad <$> getLineS
           xs -> throwErrorHere $ WrongNumberOfArgs "get-line!" 0 (length xs)
       )
 
@@ -136,17 +136,20 @@ replPrimFns = fromList $ allDocs $
                 (Dict m, fn) -> case Map.lookup (Keyword $ unsafeToIdent "getter") m of
                     Nothing -> throwErrorHere
                         $ OtherError "subscribe-to!: Expected ':getter' key"
-                    Just g -> forever (protect go)
+                    Just g -> loop go
                       where
-                        protect action = do
+                        loop action = do
                             st <- get
-                            action `catchError`
+                            join $ (action >> pure (loop action)) `catchError`
                                 (\err -> case err of
-                                   LangError _ Exit -> throwError err
+                                   LangError _ Exit -> pure (pure nil)
                                    LangError _ (Impossible _) -> do
                                        putStrS (renderPrettyDef err)
                                        throwError err
-                                   _ -> putStrS (renderPrettyDef err) >> put st)
+                                   _ -> do
+                                       putStrS (renderPrettyDef err)
+                                       put st
+                                       pure (loop action))
                         go = do
                             -- We need to evaluate the getter in the original
                             -- environment in which it was defined, but the
@@ -201,5 +204,11 @@ replPrimFns = fromList $ allDocs $
       , \case
           [] -> String <$> UUID.uuid
           xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
+      )
+    , ( "exit!"
+      , [md|Exit the interpreter immediately.|]
+      , \case
+          [] -> throwErrorHere Exit
+          xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)
       )
     ]

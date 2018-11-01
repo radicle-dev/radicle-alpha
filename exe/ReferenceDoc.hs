@@ -90,7 +90,7 @@ main = do
     docs = ["doc", "doc!", "apropos!", "document", "should-be"]
     io =
       ["print!", "get-line!", "load!", "read-file!", "read-code!", "send-code!"
-      , "send-prelude!", "subscribe-to!", "uuid!", "read-line!"]
+      , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"]
     lens = ["@", "make-lens", "view", "view-ref", "set", "set-ref", "over", "over-ref", "id-lens", "..", "..."]
     crypto = ["verify-signature", "default-ecc-curve", "gen-key-pair!", "gen-signature!"]
     chainTools =
