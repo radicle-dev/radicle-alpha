@@ -6,15 +6,15 @@ module ReferenceDoc where
 
 import           Protolude
 
+import qualified Data.Default as Default
 import           Data.List
 import qualified Data.Map.Strict as Map
-import           Data.String.Interpolate
 import qualified Data.Text as T
 import qualified GHC.Exts as GhcExts
 import           Radicle
 import           Radicle.Internal.Doc (md)
-import qualified Radicle.Internal.Doc as Doc
 import           System.Console.Haskeline (defaultSettings, runInputT)
+import           Text.Pandoc
 
 main :: IO ()
 main = do
@@ -30,14 +30,20 @@ main = do
     checkAllDocumented undocd
     let e = Map.fromList [ (fromIdent iden, d) | (iden, Just d, _) <- vars ]
     checkAllInReference e
-    d <- Doc.cleanupPandocMd (doc e) `lPanic` "Invalid markdown."
-    writeFile "docs/source/reference.md" d
+    rst <- runPure (writeRST Default.def $ Pandoc nullMeta (doc e)) `lPanic` "Couldn't generate RST"
+    writeFile "docs/source/reference.rst" rst
   where
     doc e =
-      let sec (tit :: Text) fns p = toS [i|## #{tit}\n\n#{p}\n\n#{funs e fns}|] in
-      T.intercalate "\n\n"
-      [ "# Radicle reference"
-      , "These are the functions that are available in a new radicle chain after the prelude has been loaded."
+      let sec tit fns p =
+            [ Header 2 nullAttr (inlinePandoc tit)
+            , Para (inlinePandoc p)
+            ] ++ funs e fns in
+      mconcat
+      [ [ Header 1 nullAttr (inlinePandoc "Radicle Reference") ]
+      , [ Para $ inlinePandoc $
+             "These are the functions that are available in a new radicle chain after"
+          <> " the prelude has been loaded."
+        ]
       , sec "Basics" basics
             "Basic function used for checking equality, determining the type of a value, etc."
       , sec "Numerical functions" maths "Operations on numbers."
@@ -102,7 +108,13 @@ main = do
       ++ doNotInclude
 
     -- Function symbol followed by a hard line break, followed by it's doc.
-    funs e fns = T.intercalate "\n\n\n" $ [ toS [i|`#{f}`  \n#{getDoc e f}|] | f <- fns ]
+    funs :: Map Text Text -> [Text] -> [Block]
+    funs e fns = mconcat
+      [ [ Header 3 nullAttr [Code nullAttr (toS f) ]
+        , Para (inlinePandoc (getDoc e f))
+        ]
+      | f <- fns
+      ]
 
     getDoc e f = case Map.lookup f e of
       Just d -> d
@@ -120,3 +132,8 @@ main = do
 
     lPanic (Left _)  m = panic m
     lPanic (Right r) _ = pure r
+
+    inlinePandoc t = case runPure (readMarkdown Default.def t) of
+      Right (Pandoc _ [Para is]) -> is
+      Right _ -> panic $ "Expecting inline markdown but got blocks: " <> t
+      Left err -> panic $ "Invalid markdown: " <> show err
