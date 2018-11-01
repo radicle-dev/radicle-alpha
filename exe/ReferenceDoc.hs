@@ -16,7 +16,8 @@ import           Radicle.Internal.Doc (md)
 import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
 
-main :: IO ()
+main ::
+  IO ()
 main = do
     res_ <- runInputT defaultSettings $
              interpret
@@ -108,13 +109,10 @@ main = do
       ++ doNotInclude
 
     -- Function symbol followed by a hard line break, followed by it's doc.
-    funs :: Map Text Text -> [Text] -> [Block]
     funs e fns = mconcat
       [ [ Header 3 nullAttr [Code nullAttr (toS f) ]
-        , Para (inlinePandoc (getDoc e f))
-        ]
-      | f <- fns
-      ]
+        , Para (inlinePandoc (getDoc e f)) ]
+      | f <- fns ]
 
     getDoc e f = case Map.lookup f e of
       Just d -> d

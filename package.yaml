@@ -170,7 +170,6 @@ executables:
     - radicle
     - pandoc
     - data-default
-    - interpolate
     ghc-options: -main-is ReferenceDoc
 
 default-extensions:
