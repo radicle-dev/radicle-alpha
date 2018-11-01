@@ -73,10 +73,10 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
          $ (Map.keys . fromEnv $ bindingsEnv bnds)
         <> Map.keys (getPrimFns $ bindingsPrimFns bnds)
 
-replBindings :: forall m. ReplM m => Bindings (PrimFns m)
+replBindings :: ReplM m => Bindings (PrimFns m)
 replBindings = addPrimFns replPrimFns pureEnv
 
-replPrimFns :: forall m. ReplM m => PrimFns m
+replPrimFns :: ReplM m => PrimFns m
 replPrimFns = fromList $ allDocs $
     [ ("print!"
       , [md|Pretty-prints a value.|]
