@@ -51,3 +51,7 @@
     (apply do-this args)
     (read-ref issues)
     :ok))
+
+(def eval (updatable-eval
+    (fn [expr state]
+      (eval-fn-app state 'process-command expr print!))))
