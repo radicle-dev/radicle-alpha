@@ -48,8 +48,8 @@ import           Servant
                  )
 
 import           API
-import           Server.DB
 import           Radicle
+import           Server.DB
 
 -- * Types
 
