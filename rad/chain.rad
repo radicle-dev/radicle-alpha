@@ -111,6 +111,7 @@
 
 ;; enter-remote-chain
 (def enter-remote-chain
+  "Make the eval behave as that of a remote chain."
   (fn [url]
     (def chain (load-chain url))
     (def chain-state (lookup :state chain))
@@ -126,8 +127,12 @@
             mod-state2))
     (list :ok mod-state3)))
 
-(def eval__ eval)
+(def eval__ "The eval in place when `chain.rad` is loaded." eval)
+
 (def eval
+  "An eval in which one can use `(:enter-chain url)` to make the
+  eval behave as that of a remote chain, and `:send` to send all
+  enqueued expressions."
   (fn [expr env]
       (if (list? expr)
           (cond
@@ -137,12 +142,17 @@
           (eval__ expr env))))
 
 (def eval-fn-app
+  "Given a state, a function, an argument and a callback, returns
+  the result of evaluating the function call on the arg in the given
+  state, while also calling the callback on the result."
   (fn [state f arg cb]
     (def exec (base-eval (list f (list 'quote arg)) state))
     (cb (head exec))
     exec))
 
 (def updatable-eval
+  "Given an evaluation function `f`, returns a new one which augments `f` with a new
+  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
   (fn [sub-eval]
     (fn [expr state]
       (list-with-head

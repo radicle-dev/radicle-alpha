@@ -46,15 +46,10 @@
 "Send the pure prelude to a chain.")
 
 (def make-counter
+  "Creates a stateful counter. Returns a dict with two keys: the function at `:next-will-be`
+  will return the next number (without incrementing it), while the function at `:next`
+  increments the number and returns it."
   (fn []
     (def i (ref -1))
     {:next-will-be (fn [] (+ 1 (read-ref i)))
      :next         (fn [] (modify-ref i (fn [x] (+ x 1))))}))
-
-(def list-with-head
-  (fn [x f g]
-    (if (list? x)
-      (if (> (length x) 0)
-        (f (head x))
-        (g))
-      (g))))

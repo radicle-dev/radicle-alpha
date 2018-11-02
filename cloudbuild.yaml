@@ -41,6 +41,15 @@ steps:
       apt-get -y install postgresql libpq-dev
       stack build --fast --test --no-terminal --pedantic
 
+  - id: "Build reference document"
+    name: 'haskell:8.4.3'
+    env: ['STACK_ROOT=/workspace/.stack']
+    entrypoint: bash
+    args:
+    - '-c'
+    - |
+      stack exec ref-doc
+
   - id: "Save cache"
     name: gcr.io/cloud-builders/gsutil
     entrypoint: 'bash'

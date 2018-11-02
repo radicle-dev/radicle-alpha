@@ -32,7 +32,6 @@ dependencies:
 - generics-eot
 - uuid
 - data-default
-- pandoc-types
 - pandoc
 when:
  - condition: impl(ghcjs)
@@ -159,6 +158,19 @@ executables:
     - optparse-applicative
     - pandoc
     ghc-options: -main-is Doc
+
+  ref-doc:
+    main: ReferenceDoc.hs
+    source-dirs: exe/
+    other-modules: []
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    dependencies:
+    - radicle
+    - pandoc
+    - data-default
+    ghc-options: -main-is ReferenceDoc
 
 default-extensions:
 - AutoDeriveTypeable
