@@ -1,0 +1,56 @@
+(def val/=
+  "Given `x`, returns a validator that checks for equality with `x`."
+  (fn [x]
+    (fn [y]
+      (if (eq? x y)
+        x
+        (throw 'validation-failure (string-append "Not equal to: " (show x)))))))
+
+(def val/and
+  "Checks that a value conforms to all of a vector of validators."
+  (fn [vs]
+    (fn [x]
+      (map (fn [v] (v x)) vs)
+      x)))
+
+(def val/type
+  (fn [t]
+    (fn [x]
+      (if (eq? (type x) t)
+        x
+        (throw 'validation-failure (string-append "Did not have type " (show t) ": " (show x)))))))
+
+(def val/pred
+  "Given a name and a predicate, returns a validator that checks the predicate is true."
+  (fn [name p]
+    (fn [x]
+      (if (p x)
+        x
+        (throw 'validation-failure (string-append "Did not satisfy predicate: " name))))))
+
+(def val/key
+  "Given a key and a validator, returns a validator which checks for
+  the existence of that key and that the associated value conforms to the validator."
+  (fn [k v]
+    (fn [d]
+      (if (member? k d)
+        (v (lookup k d))
+        (throw 'validation-failure (string-append "Missing required key: " (show k)))))))
+
+(def val/keys
+  "Given a dict associating keys to validators, returns a validator which checks a dict
+  for the existence of those keys, and that they conform to the associated validators."
+  (fn [ks]
+    (fn [d]
+      (if (dict? d)
+        ((val/and
+          (map (fn [kv] (val/key (nth 0 kv) (nth 1 kv)))
+               (seq ks)))
+         d)
+        (throw 'validation-failure (string-append "Not a dict: " (show d)))))))
+
+(def val/all
+  "Check that all the items of a sequence match a validator."
+  (fn [v]
+    (fn [xs]
+      (map v xs))))
