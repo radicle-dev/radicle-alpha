@@ -10,6 +10,7 @@ import           GHC.Exts (fromList)
 import           Network.HTTP.Client (defaultManagerSettings, newManager)
 import qualified Network.HTTP.Client as HttpClient
 import           Options.Applicative
+import           Prelude (String)
 import           Protolude hiding (TypeError, option)
 import           Radicle
 import           Servant.Client
@@ -42,7 +43,7 @@ main = do
        <> header "The radicle intepreter"
         )
 
-radDesc :: [Char]
+radDesc :: String
 radDesc
     = "Interprets a radicle program.\n"
    <> "\n"

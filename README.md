@@ -15,7 +15,7 @@ Install [stack](https://docs.haskellstack.org/en/stable/install_and_upgrade/). T
 stack build
 ```
 
-(You'll need libpq-dev/postgresql to build the server.)
+(You'll need libpq-dev/postgresql to build the server. See [GettingStarted](https://radicle.readthedocs.io/en/latest/guide/GettingStarted.html) for more info.
 
 ## How to run tests
 
