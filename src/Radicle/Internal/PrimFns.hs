@@ -194,7 +194,7 @@ purePrimFns = fromList $ allDocs $
               case xs `atMay` i of
                 Just x  -> pure x
                 Nothing -> throwErrorHere $ OtherError "nth: index out of bounds"
-          [_,_] -> throwErrorHere $ TypeError "nth: expects a integer and a list"
+          [_,_] -> throwErrorHere $ TypeError "nth: expects a integer and a list or vector"
           xs -> throwErrorHere $ WrongNumberOfArgs "nth" 2 (length xs)
       )
 

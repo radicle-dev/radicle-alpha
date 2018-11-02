@@ -9,19 +9,20 @@
 (def create-issues-chain!
   (fn [chain-name]
     (send-prelude! chain-name)
-    (send-code! "rad/issues-chain.rad")
-    (ref (insert :name chain-name empty-chain))))
+    (send-code! chain-name "rad/chain.rad")
+    (send-code! chain-name "rad/issues-chain.rad")
+    (ref (new-chain chain-name))))
 
 (def new-issue!
   (fn [chain-ref keys title body]
    (def chain (read-ref chain-ref))
    (def id (uuid!))
    (def msg
-        (string-append (lookup :name chain)
+        (string-append (lookup :url chain)
                        id
                        title
                        body))
-   (send! (lookup :name chain)
+   (send! (lookup :url chain)
           {:id       id
           :author    (lookup :public-key keys)
           :title     title
@@ -30,8 +31,4 @@
 
 (def list-issues
   (fn [chain-ref]
-    (def chain (read-ref chain-ref))
-    (read-ref (view (... [(@ :state) (@ :env) (@ 'issues)]) chain))))
-
-(def rad-issues-ref
-  (ref (insert :name "radissues" empty-chain)))
+    (lookup :result (eval-in-chain '(list-issues) (read-ref chain-ref)))))

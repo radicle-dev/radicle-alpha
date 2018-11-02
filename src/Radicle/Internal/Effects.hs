@@ -170,11 +170,6 @@ replPrimFns = fromList $ allDocs $
               Right text -> pure $ String text
           _ -> throwErrorHere $ TypeError "read-file: expects a string"
       )
-    , ( "write-file!"
-      , oneArg "write-file" $ \case
-          String filename -> String <$> readFileS filename
-          _ -> throwErrorHere $ TypeError "write-file: expects a string"
-      )
     , ( "load!"
       , [md|Evaluates the contents of a file. Each seperate radicle expression is
            `eval`uated according to the current definition of `eval`.|]

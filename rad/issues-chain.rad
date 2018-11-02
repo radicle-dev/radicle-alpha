@@ -43,6 +43,13 @@
                                     i))
                       is)))))
 
+;; These are intended for clients to run locally with eval-in-chain
+
+(def list-issues
+  (fn [] (read-ref issues)))
+
+;; General logic
+
 (def process-command
   (fn [expr]
     (def command (head expr))
@@ -54,4 +61,4 @@
 
 (def eval (updatable-eval
     (fn [expr state]
-      (eval-fn-app state 'process-command expr print!))))
+      (eval-fn-app state 'process-command expr (fn [x] x)))))
