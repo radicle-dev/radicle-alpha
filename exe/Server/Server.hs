@@ -185,7 +185,7 @@ opts = mkOpts
        <> value "radserver"
         )
     <*> option auto
-        ( long "ort"
+        ( long "port"
        <> help "server port"
        <> metavar "PORT"
        <> showDefault
