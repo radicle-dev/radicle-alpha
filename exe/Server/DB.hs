@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module DB where
+module Server.DB where
 
 import           Data.List (groupBy, head)
 import           Database.PostgreSQL.Simple

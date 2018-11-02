@@ -1,6 +1,6 @@
 -- | This executable processes literate radicle files. It accepts Markdown, and
 -- runs the code inside code blocks (within three backticks).
-module Doc where
+module Doc (main) where
 
 import           Protolude
 

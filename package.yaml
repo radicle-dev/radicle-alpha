@@ -79,20 +79,27 @@ tests:
 
 executables:
   radicle:
-    main: Main.hs
-    source-dirs: exe/Repl
+    main: RadicleExe.hs
+    source-dirs: exe
+    other-modules: API
+    dependencies:
+    - radicle
+    - exceptions
+    - optparse-applicative
+    - bytestring
+    - servant
+    - http-media
+    - http-client
+    - servant-client
     when:
       - condition: impl(ghcjs)
         buildable: false
-    dependencies:
-    - radicle
-    - optparse-applicative
-    ghc-options: -threaded -O3
+    ghc-options: -main-is RadicleExe -O3 -threaded
 
   radicle-server:
     main: Server.hs
-    source-dirs: exe/Server
-    other-modules: [API, DB]
+    source-dirs: exe
+    other-modules: [API, Server.DB]
     when:
       - condition: impl(ghcjs)
         buildable: false
@@ -107,24 +114,6 @@ executables:
     - wai-extra
     - wai-cors
     ghc-options: -main-is Server -O3 -threaded
-
-  radicle-client:
-    main: Client.hs
-    source-dirs: exe/Server
-    other-modules: API
-    dependencies:
-    - radicle
-    - exceptions
-    - optparse-applicative
-    - bytestring
-    - servant
-    - http-media
-    - http-client
-    - servant-client
-    when:
-      - condition: impl(ghcjs)
-        buildable: false
-    ghc-options: -main-is Client -O3 -threaded
 
   radicle-client-ghcjs:
     main: GHCJS.hs
@@ -146,7 +135,7 @@ executables:
           buildable: false
     ghc-options: -main-is GHCJS -threaded
 
-  doc:
+  radicle-doc:
     main: Doc.hs
     source-dirs: exe/
     other-modules: []
@@ -159,7 +148,7 @@ executables:
     - pandoc
     ghc-options: -main-is Doc
 
-  ref-doc:
+  radicle-ref-doc:
     main: ReferenceDoc.hs
     source-dirs: exe/
     other-modules: []

@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 
-module Client where
+module RadicleExe (main) where
 
 import           API
 import           Control.Monad.Catch (MonadThrow)
@@ -14,6 +14,7 @@ import           Protolude hiding (TypeError, option)
 import           Radicle
 import           Servant.Client
 import           System.Console.Haskeline (InputT)
+import           System.Directory (doesFileExist)
 
 import           Radicle.Internal.Doc (md)
 import qualified Radicle.Internal.PrimFns as PrimFns
@@ -24,7 +25,11 @@ main = do
     cfgFile <- case configFile opts' of
         Nothing  -> getConfigFile
         Just cfg -> pure cfg
-    cfgSrc <- readFile cfgFile
+    cfgSrc <- do
+       exists <- doesFileExist cfgFile
+       if exists
+           then readFile cfgFile
+           else die $ "Could not find file: " <> toS cfgFile
     hist <- case histFile opts' of
         Nothing -> getHistoryFile
         Just h  -> pure h
@@ -33,9 +38,17 @@ main = do
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
-       <> progDesc "Run the radicle REPL"
-       <> header "rad - The radicle REPL"
+       <> progDesc radDesc
+       <> header "The radicle intepreter"
         )
+
+radDesc :: [Char]
+radDesc
+    = "Interprets a radicle program.\n"
+   <> "\n"
+   <> "This program can also be used as a REPL by providing a file "
+   <> "that defines a REPL. An example is the rad/repl.rad file included "
+   <> "in the distribution."
 
 -- * CLI Opts
 
@@ -46,15 +59,25 @@ data Opts = Opts
 
 opts :: Parser Opts
 opts = Opts
-    <$> optional (strOption
-        ( long "config"
-       <> metavar "FILE"
-       <> help "rad configuration file"
-        ))
+    <$> argument (optional str)
+        ( metavar "FILE"
+       <> help
+           ( "File to interpret."
+          <> "Defaults to $DIR/radicle/config.rad "
+          <> "where $DIR is $XDG_CONFIG_HOME (%APPDATA% on Windows "
+          <> "if that is set, or else ~/.config."
+           )
+        )
     <*> optional (strOption
         ( long "histfile"
+       <> short 'H'
        <> metavar "FILE"
-       <> help "repl history file"
+       <> help
+           ( "File used to store the REPL history."
+          <> "Defaults to $DIR/radicle/config.rad "
+          <> "where $DIR is $XDG_DATA_HOME (%APPDATA% on Windows "
+          <> "if that is set, or else ~/.local/share."
+           )
         ))
 
 -- * Primops
@@ -97,11 +120,6 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
           [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
           xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)
       )
-
--- * Helpers
-
-identV :: Text -> Value
-identV = Keyword . unsafeToIdent
 
 -- * Client functions
 

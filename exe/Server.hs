@@ -1,6 +1,6 @@
 -- | This file defines a server that can be used as a *centralized* remote for
 -- chains.
-module Server where
+module Server (main) where
 
 import           Protolude hiding (fromStrict, option)
 
@@ -48,7 +48,7 @@ import           Servant
                  )
 
 import           API
-import           DB
+import           Server.DB
 import           Radicle
 
 -- * Types
