@@ -96,7 +96,7 @@ main = do
       ["print!", "get-line!", "load!", "read-file!", "read-code!", "send-code!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"]
     lens = ["@", "make-lens", "view", "view-ref", "set", "set-ref", "over", "over-ref", "id-lens", "..", "..."]
-    validation = ["val/=", "val/type", "val/pred", "val/all", "val/and", "val/key", "val/keys"]
+    validation = ["val/=", "val/type", "val/pred", "val/every", "val/and", "val/key", "val/keys"]
     crypto = ["verify-signature", "default-ecc-curve", "gen-key-pair!", "gen-signature!"]
     chainTools =
       [ "new-chain", "eval-in-chain", "enter-remote-chain", "update-chain", "add-quit", "add-send"

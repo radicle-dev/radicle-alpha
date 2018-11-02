@@ -7,7 +7,8 @@
         (throw 'validation-failure (string-append "Not equal to: " (show x)))))))
 
 (def val/and
-  "Checks that a value conforms to all of a vector of validators."
+  "Given a sequence of validators `vs`, returns a new validator which, given a
+  value, checks if it conforms to all the validators in `vs`."
   (fn [vs]
     (fn [x]
       (map (fn [v] (v x)) vs)
@@ -50,8 +51,9 @@
          d)
         (throw 'validation-failure (string-append "Not a dict: " (show d)))))))
 
-(def val/all
-  "Check that all the items of a sequence match a validator."
+(def val/every
+  "Given a validator, creates a new validator which checks that all the items in
+  a sequence conform to it."
   (fn [v]
     (fn [xs]
       (map v xs))))
