@@ -14,6 +14,7 @@
       x)))
 
 (def val/type
+  "Checks that a value has a type. Expects a keyword describing the type, as returns by `type`."
   (fn [t]
     (fn [x]
       (if (eq? (type x) t)
