@@ -468,12 +468,13 @@ specialForms = Map.fromList $ first Ident <$>
     , ("catch", \case
           [l, form, handler] -> do
               mlabel <- baseEval l
+              handlerclo <- baseEval handler
               case mlabel of
                   -- TODO reify stack
                   Atom label -> baseEval form `catchError` \(LangError _stack e) -> do
                      (thrownLabel, thrownValue) <- errorDataToValue e
                      if thrownLabel == label || label == Ident "any"
-                         then handler $$ [thrownValue]
+                         then handlerclo $$ [thrownValue]
                          else baseEval form
                   _ -> throwErrorHere $ TypeError "catch: first argument must be atom"
           xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))

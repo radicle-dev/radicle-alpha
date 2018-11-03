@@ -6,6 +6,7 @@
 (load! "rad/prelude/dict.rad")
 (load! "rad/prelude/ref.rad")
 (load! "rad/prelude/lens.rad")
+(load! "rad/prelude/exception.rad")
 (load! "rad/chain.rad")
 (load! "rad/state-machine.rad")
 
@@ -18,6 +19,7 @@
    "rad/prelude/dict.rad"
    "rad/prelude/ref.rad"
    "rad/prelude/lens.rad"
+   "rad/prelude/exception.rad"
    "rad/state-machine.rad"
    ))
 
