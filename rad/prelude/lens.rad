@@ -107,6 +107,24 @@
                  {:a {:b {:c 0}}})
            {:a {:b {:c 1}}})
 
+;; @nth
+
+(def @nth
+  "Lenses into the nth element of a vector"
+  (fn [n]
+    (make-lens
+      (fn [s] (nth n s))
+      (fn [val s]
+         (<> (take n s) (add-left val (drop (+ n 1) s)))))))
+
+(should-be "@nth"
+           (view (@nth 1) [0 1])
+           1)
+
+(should-be "@nth"
+           (over (@nth 1) (fn [x] (+ x 1)) [0 1])
+           [0 2])
+
 ;; Lens access to refs
 
 ;; view-ref

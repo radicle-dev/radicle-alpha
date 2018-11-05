@@ -181,6 +181,18 @@ purePrimFns = fromList $ allDocs $
               _ -> throwErrorHere $ TypeError $ "drop: second argument must be a list of vector"
           _ -> throwErrorHere $ TypeError $ "drop: first argument must be a number"
       )
+    , ( "take"
+      , [md|Returns the first `n` items of a sequence, unless the sequence is too short,
+           in which case an exception is thrown.|]
+      , twoArg "take" $ \case
+          (Number n, vs) -> case floatingOrInteger n of
+            Left (_ :: Double) -> throwErrorHere $ OtherError "take: first argument must be an integer"
+            Right i -> case vs of
+              List xs -> pure . List $ take i xs
+              Vec xs -> pure . Vec $ Seq.take i xs
+              _ -> throwErrorHere $ TypeError $ "take: second argument must be a list of vector"
+          _ -> throwErrorHere $ TypeError $ "take: first argument must be a number"
+      )
     , ( "nth"
       , [md|Given an integral number `n` and `xs`, returns the `n`th element
            (zero indexed) of `xs` when `xs` is a list or a vector. If `xs`

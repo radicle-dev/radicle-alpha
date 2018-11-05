@@ -50,6 +50,12 @@
 
 ;; General logic
 
+(def commands
+  (ref
+    {'create-issue new-issue
+     'close-issue  close-issue
+     'list-issues  list-issues}))
+
 (def process-command
   (fn [expr]
     (def command (head expr))
