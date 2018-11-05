@@ -16,12 +16,13 @@ import qualified Radicle.Internal.UUID as UUID
 import           Paths_radicle
 
 data WorldState = WorldState
-    { worldStateStdin  :: [Text]
-    , worldStateStdout :: [Text]
-    , worldStateEnv    :: Env Value
-    , worldStateFiles  :: Map Text Text
-    , worldStateDRG    :: CryptoRand.ChaChaDRG
-    , worldStateUUID   :: Int
+    { worldStateStdin        :: [Text]
+    , worldStateStdout       :: [Text]
+    , worldStateEnv          :: Env Value
+    , worldStateFiles        :: Map Text Text
+    , worldStateDRG          :: CryptoRand.ChaChaDRG
+    , worldStateUUID         :: Int
+    , worldStateRemoteChains :: Map Text [Text]
     }
 
 
@@ -42,6 +43,7 @@ runTestWithFiles bindings inputs files action =
             , worldStateFiles = files
             , worldStateDRG = CryptoRand.drgNewSeed (CryptoRand.seedFromInteger 4) -- chosen by fair dice roll
             , worldStateUUID = 0
+            , worldStateRemoteChains = mempty
             }
     in case runState (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws of
         (val, st) -> (val, reverse $ worldStateStdout st)
@@ -110,3 +112,10 @@ instance UUID.MonadUUID (State WorldState) where
       i <- gets worldStateUUID
       modify $ \ws -> ws { worldStateUUID = i + 1 }
       pure $ "uuid-" <> show i
+
+instance {-# OVERLAPPING #-} ReceiveExpr TestLang where
+  receiveExprs ix chainName = do
+    fs <- lift $ gets worldStateRemoteChains
+    case Map.lookup fn fs of
+      Just f  -> pure f
+      Nothing -> throwErrorHere . OtherError $ "File not found: " <> fn

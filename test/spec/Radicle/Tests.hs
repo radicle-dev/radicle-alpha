@@ -690,15 +690,6 @@ test_repl =
       -- In addition to the output of the lines tested, 'should-be's get
       -- printed, so we take only the last few output lines.
       r @==> out = reverse (take (length out) $ reverse r) @?= out
-      -- Find repl.rad, give it all other files as possible imports, and run
-      -- it.
-      runInRepl inp = do
-        (dir, srcs) <- sourceFiles
-        srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
-        let replSrc = head [ src | (name, src) <- srcMap
-                                 , "repl.rad" `T.isSuffixOf` name
-                                 ]
-        pure $ runTestWithFiles replBindings inp (Map.fromList srcMap) (fromJust replSrc)
 
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
@@ -769,6 +760,26 @@ test_source_files = testGroup "Radicle source file tests" <$> do
         pure $ testGroup file
             $ [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]
 
+test_macros :: [TestTree]
+test_macros =
+    [ testCase ":enter-chain keeps old bindings" $ do
+        let input = [ "(def c (new-chain \"blah\")"
+                    , "(def x 0)"
+                    , "(:enter-chain c)"
+                    , "(def x 1)"
+                    , ":quit"
+                    , "x"
+                    ]
+            output = [ "0.0" ]
+        (_, result) <- runInRepl input
+        result @==> output
+    ]
+  where
+    -- In addition to the output of the lines tested, 'should-be's get
+    -- printed, so we take only the last few output lines.
+    r @==> out = reverse (take (length out) $ reverse r) @?= out
+
+
 -- * Utils
 
 kw :: Text -> Value
@@ -785,3 +796,14 @@ parseTest t = parse "(test)" t
 prettyEither :: Either (LangError Value) Value -> T.Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e
 prettyEither (Right v) = renderPrettyDef v
+
+-- Find repl.rad, give it all other files as possible imports, and run
+-- it.
+runInRepl :: [Text] -> IO (Either (LangError Value) Value, [Text])
+runInRepl inp = do
+        (dir, srcs) <- sourceFiles
+        srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
+        let replSrc = head [ src | (name, src) <- srcMap
+                                 , "repl.rad" `T.isSuffixOf` name
+                                 ]
+        pure $ runTestWithFiles replBindings inp (Map.fromList srcMap) (fromJust replSrc)
