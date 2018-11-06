@@ -28,7 +28,7 @@ getAllDB conn = do
     res :: [(Int, Text, Value)] <- query_ conn "SELECT id, chain, expr FROM txs"
     let  grouped :: [[(Text, Value)]]
          grouped
-            = (\(_, a, b) -> (a, b)) . fmap (sortOn (\(a,_,_) -> a))
+            = fmap (\(_, a, b) -> (a, b)) . sortOn (\(a,_,_) -> a)
             <$> groupBy (\(_, l, _) (_, r, _) -> l == r) res
     pure [ (fst (head each), snd <$> each) | each <- grouped ]
 

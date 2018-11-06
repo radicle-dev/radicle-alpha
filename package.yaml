@@ -13,28 +13,26 @@ dependencies:
 - protolude
 - aeson
 - containers
+- cryptonite
+- data-default
 - deriving-compat
 - directory
 - filepath
+- generics-eot
 - haskeline
-- http-client
 - megaparsec
 - mtl
+- pandoc
 - pointed
 - prettyprinter
 - prettyprinter-ansi-terminal
 - recursion-schemes
 - scientific
 - serialise
-- servant-client
 - template-haskell
 - text
 - unordered-containers
-- cryptonite
-- generics-eot
 - uuid
-- data-default
-- pandoc
 when:
  - condition: impl(ghcjs)
    dependencies: ghcjs-dom
@@ -86,11 +84,12 @@ executables:
     other-modules: API
     dependencies:
     - radicle
-    - exceptions
-    - optparse-applicative
     - bytestring
-    - servant
+    - exceptions
+    - http-client
     - http-media
+    - optparse-applicative
+    - servant
     - servant-client
     when:
       - condition: impl(ghcjs)
