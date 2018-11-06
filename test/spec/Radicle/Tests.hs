@@ -81,6 +81,16 @@ test_eval =
         "(nth 0 '(0 1 2))" `succeedsWith` Number 0
         "(nth 1 '(0 1 2))" `succeedsWith` Number 1
 
+    , testCase "'take n' takes n elements of a sequence" $ do
+        "(take 0 [0 1 2])" `succeedsWith` Vec (fromList [])
+        "(take 2 [0 1 2])" `succeedsWith` Vec (fromList [Number 0, Number 1])
+        "(take 2 (list 0 1 2))" `succeedsWith` List [Number 0, Number 1]
+
+    , testCase "'drop n' drops n elements of a sequence" $ do
+        "(drop 0 [0 1 2])" `succeedsWith` Vec (fromList [Number 0, Number 1, Number 2])
+        "(drop 2 [0 1 2])" `succeedsWith` Vec (fromList [Number 2])
+        "(drop 2 (list 0 1 2))" `succeedsWith` List [Number 2]
+
     , testProperty "'eq?' considers equal values equal" $ \(val :: Value) -> do
         let prog = [i|(eq? #{renderPrettyDef val} #{renderPrettyDef val})|]
             res  = runTest' $ toS prog
@@ -744,21 +754,29 @@ test_cbor =
             counterexample info $ got == expected
 
 
--- Tests all radicle files 'repl' dir. These should use the 'should-be'
--- function to ensure they are in the proper format.
+-- Tests radicle files. These should use the 'should-be' function to ensure
+-- they are in the proper format.
+-- Note that loaded files will also be tested, so there's no need to test files
+-- loaded by the prelude individually.
 test_source_files :: IO TestTree
-test_source_files = testGroup "Radicle source file tests" <$> do
-    (dir, files) <- sourceFiles
-    let radFiles = filter (\x -> ".rad" `isSuffixOf` x && "repl." `isInfixOf` x) files
-    sequence $ radFiles <&> \file -> do
+test_source_files = testGroup "Radicle source file tests" <$>
+    testOne "rad/prelude.rad"
+  where
+    testOne :: FilePath -> IO [TestTree]
+    testOne file = do
+        (dir, files) <- sourceFiles
+        allFiles <- forM files $ \f -> do
+            contents <- readFile (dir <> f)
+            pure (toS f, contents)
         contents <- readFile (dir <> file)
-        let (_, out) = runTestWith testBindings [] contents
+        let (r, out) = runTestWithFiles testBindings [] (fromList allFiles) contents
         let makeTest line = let (name, result) = T.span (/= '\'')
                                                $ T.drop 1
                                                $ T.dropWhile (/= '\'') line
                             in testCase (toS name) $ result @?= "' succeeded\""
-        pure $ testGroup file
-            $ [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]
+        pure $ [testGroup file
+            $ testCase "doesn't throw" (isRight r @?= True)
+            : [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]]
 
 test_macros :: [TestTree]
 test_macros =

@@ -11,6 +11,7 @@ import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
 
 import           Radicle
+import           Radicle.Internal.Core (addBinding)
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.PrimFns (allDocs)
@@ -85,9 +86,12 @@ sourceFiles = do
     allFiles <- FP.find FP.always (FP.extension FP.==? ".rad") dir
     pure (dir <> "/", drop (length dir + 1) <$> allFiles)
 
--- | Bindings with REPL and client stuff mocked
+-- | Bindings with REPL and client stuff mocked, and with -- a 'test-env__'
+-- variable set to true.
 testBindings :: Bindings (PrimFns (State WorldState))
-testBindings = addPrimFns clientPrimFns replBindings
+testBindings
+    = addBinding (unsafeToIdent "test-env__") Nothing (Boolean True)
+    $ addPrimFns clientPrimFns replBindings
 
 -- | Mocked versions of 'send!' and 'receive!'
 clientPrimFns :: PrimFns (State WorldState)
