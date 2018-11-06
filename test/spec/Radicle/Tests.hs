@@ -628,9 +628,9 @@ test_repl_primops =
         in run [] prog @?= Right (List [Boolean True, Boolean False])
     ]
   where
-    run stdin' prog = fst $ runTestWith replBindings stdin' prog
+    run stdin' prog = fst $ runTestWith testBindings stdin' prog
     runFiles :: Map Text Text -> Text -> Either (LangError Value) Value
-    runFiles files prog = fst $ runTestWithFiles replBindings [] files prog
+    runFiles files prog = fst $ runTestWithFiles testBindings [] files prog
 
 test_repl :: [TestTree]
 test_repl =
@@ -752,7 +752,7 @@ test_source_files = testGroup "Radicle source file tests" <$> do
     let radFiles = filter (\x -> ".rad" `isSuffixOf` x && "repl." `isInfixOf` x) files
     sequence $ radFiles <&> \file -> do
         contents <- readFile (dir <> file)
-        let (_, out) = runTestWith replBindings [] contents
+        let (_, out) = runTestWith testBindings [] contents
         let makeTest line = let (name, result) = T.span (/= '\'')
                                                $ T.drop 1
                                                $ T.dropWhile (/= '\'') line
@@ -763,15 +763,15 @@ test_source_files = testGroup "Radicle source file tests" <$> do
 test_macros :: [TestTree]
 test_macros =
     [ testCase ":enter-chain keeps old bindings" $ do
-        let input = [ "(def c (new-chain \"blah\")"
-                    , "(def x 0)"
-                    , "(:enter-chain c)"
+        let input = [ "(def x 0)"
+                    , "(:enter-chain \"blah\")"
                     , "(def x 1)"
                     , ":quit"
                     , "x"
                     ]
             output = [ "0.0" ]
-        (_, result) <- runInRepl input
+        (x, result) <- runInRepl input
+        -- x @?= Left (LangError [] (OtherError "blah"))
         result @==> output
     ]
   where
@@ -806,4 +806,4 @@ runInRepl inp = do
         let replSrc = head [ src | (name, src) <- srcMap
                                  , "repl.rad" `T.isSuffixOf` name
                                  ]
-        pure $ runTestWithFiles replBindings inp (Map.fromList srcMap) (fromJust replSrc)
+        pure $ runTestWithFiles testBindings inp (Map.fromList srcMap) (fromJust replSrc)

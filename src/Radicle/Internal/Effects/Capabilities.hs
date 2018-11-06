@@ -77,20 +77,6 @@ instance ReadFile (InputT IO) where
 instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
     readFileS = lift . readFileS
 
--- | A class for receiving remote expressions after a certain index
-class (Monad m) => ReceiveExpr m where
-    receiveS
-        :: Text -- ^ Chain name
-        -> Int  -- ^ Index
-        -> m [Text]
-
--- | A class for receiving remote expressions after a certain index
-class (Monad m) => SendExpr m where
-    sendS
-        :: Text  -- ^ Chain name
-        -> Value -- ^ Value to send
-        -> m [Text]
-
 putStrLnS :: (Stdout m) => Text -> m ()
 putStrLnS t = putStrS t >> putStrS "\n"
 

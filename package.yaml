@@ -17,6 +17,7 @@ dependencies:
 - directory
 - filepath
 - haskeline
+- http-client
 - megaparsec
 - mtl
 - pointed
@@ -25,6 +26,7 @@ dependencies:
 - recursion-schemes
 - scientific
 - serialise
+- servant-client
 - template-haskell
 - text
 - unordered-containers
@@ -89,7 +91,6 @@ executables:
     - bytestring
     - servant
     - http-media
-    - http-client
     - servant-client
     when:
       - condition: impl(ghcjs)

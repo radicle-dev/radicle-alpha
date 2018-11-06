@@ -129,8 +129,8 @@
 
 ;; enter-remote-chain
 (def enter-remote-chain
-  "Make the eval behave as that of a remote chain."
-  (fn [url]
+  "Make the eval behave as that of a remote chain. The second param is the env to return to after :quit."
+  (fn [url env]
     (def chain (load-chain url))
     (def chain-state (lookup :state chain))
     (def mod-state1
@@ -141,7 +141,7 @@
             mod-state1))
     (def mod-state3
       (over (... [(@ :env) (@ 'eval) (@nth 1)])
-            (fn [x] (add-send (add-quit (get-current-env) x)))
+            (fn [x] (add-send (add-quit env x)))
             mod-state2))
     (list :ok mod-state3)))
 
@@ -155,7 +155,7 @@
       (if (list? expr)
           (cond
             (eq? (head expr) :enter-chain)
-              (enter-remote-chain (head (eval__ (nth 1 expr) env)))
+              (enter-remote-chain (head (eval__ (nth 1 expr) env)) env)
             :else (eval__ expr env))
           (eval__ expr env))))
 

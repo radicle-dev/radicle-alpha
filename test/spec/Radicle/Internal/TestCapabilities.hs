@@ -2,18 +2,22 @@
 -- Radicle.Internal.Subscriber.Capabilities that may be used for testing.
 module Radicle.Internal.TestCapabilities where
 
-import           Protolude
+import           Protolude hiding (TypeError)
 
 import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
+import           Data.Scientific (floatingOrInteger)
+import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
 
 import           Radicle
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
+import           Radicle.Internal.PrimFns (allDocs)
 import qualified Radicle.Internal.UUID as UUID
 
 import           Paths_radicle
+
 
 data WorldState = WorldState
     { worldStateStdin        :: [Text]
@@ -22,7 +26,7 @@ data WorldState = WorldState
     , worldStateFiles        :: Map Text Text
     , worldStateDRG          :: CryptoRand.ChaChaDRG
     , worldStateUUID         :: Int
-    , worldStateRemoteChains :: Map Text [Text]
+    , worldStateRemoteChains :: Map Text [Value]
     }
 
 
@@ -81,6 +85,44 @@ sourceFiles = do
     allFiles <- FP.find FP.always (FP.extension FP.==? ".rad") dir
     pure (dir <> "/", drop (length dir + 1) <$> allFiles)
 
+-- | Bindings with REPL and client stuff mocked
+testBindings :: Bindings (PrimFns (State WorldState))
+testBindings = addPrimFns clientPrimFns replBindings
+
+-- | Mocked versions of 'send!' and 'receive!'
+clientPrimFns :: PrimFns (State WorldState)
+clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
+  where
+    sendPrimop =
+      ( "send!"
+      , ""
+      , \case
+         [String url, v] -> do
+             traceShowM v
+             lift . modify $ \s ->
+                s { worldStateRemoteChains
+                    = Map.insertWith (<>) url [v] $ worldStateRemoteChains s }
+             pure $ List []
+         [_, _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
+         xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
+      )
+    receivePrimop =
+      ( "receive!"
+      , ""
+      , \case
+          [String url, Number n] -> do
+              case floatingOrInteger n of
+                  Left (_ :: Float) -> throwErrorHere . OtherError
+                                     $ "receive!: expecting int argument"
+                  Right r -> do
+                      chains <- lift $ gets worldStateRemoteChains
+                      pure . List $ case Map.lookup url chains of
+                          Nothing  -> []
+                          Just res -> drop r res
+          [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
+          [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
+          xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)
+      )
 
 instance {-# OVERLAPPING #-} Stdin TestLang where
     getLineS = do
@@ -90,7 +132,8 @@ instance {-# OVERLAPPING #-} Stdin TestLang where
             h:hs -> lift (put $ ws { worldStateStdin = hs }) >> pure (Just h)
 
 instance {-# OVERLAPPING #-} Stdout TestLang where
-    putStrS t = lift $
+    putStrS t = lift $ do
+        traceShowM t
         modify (\ws -> ws { worldStateStdout = t:worldStateStdout ws })
 
 instance {-# OVERLAPPING #-} ReadFile TestLang where
@@ -112,10 +155,3 @@ instance UUID.MonadUUID (State WorldState) where
       i <- gets worldStateUUID
       modify $ \ws -> ws { worldStateUUID = i + 1 }
       pure $ "uuid-" <> show i
-
-instance {-# OVERLAPPING #-} ReceiveExpr TestLang where
-  receiveExprs ix chainName = do
-    fs <- lift $ gets worldStateRemoteChains
-    case Map.lookup fn fs of
-      Just f  -> pure f
-      Nothing -> throwErrorHere . OtherError $ "File not found: " <> fn
