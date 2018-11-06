@@ -7,6 +7,7 @@
 ;; can assign to a variable.
 
 (def create-issues-chain!
+  "Create a remote issue chain with the given url. Returns a ref with the chain."
   (fn [chain-name]
     (send-prelude! chain-name)
     (send-code! chain-name "rad/chain.rad")
@@ -14,6 +15,7 @@
     (ref (new-chain chain-name))))
 
 (def new-issue!
+  "Create a new remote issue. Takes a chain ref, a keypair, an issue title and an issue body."
   (fn [chain-ref keys title body]
    (def chain (read-ref chain-ref))
    (def id (uuid!))
@@ -32,5 +34,6 @@
           (list 'create-issue arg))))
 
 (def list-issues
+  "Given an issues ref `x`, returns its issues. Does not itself update the chain."
   (fn [chain-ref]
     (lookup :result (eval-in-chain '(list-issues) (read-ref chain-ref)))))
