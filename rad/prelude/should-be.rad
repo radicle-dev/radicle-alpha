@@ -1,6 +1,8 @@
 ;; should-be - testing functions
 
-(def is-test-env (catch 'any (eq? test-env__ #t) (fn [x] #f)))
+(def is-test-env
+  "True iff file is being run as part of the Haskell suite"
+  (catch 'any (eq? test-env__ #t) (fn [x] #f)))
 
 (def should-be
   (fn [name x y]

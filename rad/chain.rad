@@ -16,15 +16,6 @@
           '(("url" string))
           "Return an empty chain dictionary with the given url.")
 
-
-(def list-with-head
-  (fn [x f g]
-    (if (list? x)
-      (if (> (length x) 0)
-        (f (head x))
-        (g))
-      (g))))
-
 ;; eval-in-chain
 
 (def eval-in-chain
