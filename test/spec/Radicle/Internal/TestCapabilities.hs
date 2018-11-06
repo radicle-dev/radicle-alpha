@@ -98,7 +98,6 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
       , ""
       , \case
          [String url, v] -> do
-             traceShowM v
              lift . modify $ \s ->
                 s { worldStateRemoteChains
                     = Map.insertWith (<>) url [v] $ worldStateRemoteChains s }
@@ -132,8 +131,7 @@ instance {-# OVERLAPPING #-} Stdin TestLang where
             h:hs -> lift (put $ ws { worldStateStdin = hs }) >> pure (Just h)
 
 instance {-# OVERLAPPING #-} Stdout TestLang where
-    putStrS t = lift $ do
-        traceShowM t
+    putStrS t = lift $
         modify (\ws -> ws { worldStateStdout = t:worldStateStdout ws })
 
 instance {-# OVERLAPPING #-} ReadFile TestLang where

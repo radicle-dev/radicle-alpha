@@ -770,8 +770,7 @@ test_macros =
                     , "x"
                     ]
             output = [ "0.0" ]
-        (x, result) <- runInRepl input
-        -- x @?= Left (LangError [] (OtherError "blah"))
+        (_, result) <- runInRepl input
         result @==> output
     ]
   where
