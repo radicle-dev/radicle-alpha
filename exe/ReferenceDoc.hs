@@ -108,7 +108,7 @@ main = do
     typ s = "Functions for manipulating " <> s <> "."
 
     -- Functions which shouldn't be in the reference docs.
-    doNotInclude = ["head-shots", "get-head-shot", "eval__", "kim-trans", "pr-thread", "pr-trans"]
+    doNotInclude = ["head-shots", "get-head-shot", "eval__", "kim-trans", "list-with-head", "pr-thread", "pr-trans"]
 
     allFns =
          basics ++ maths ++ evalFns ++ envStuff ++ seqs ++ lists ++ vecs
