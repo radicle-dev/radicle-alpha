@@ -86,7 +86,8 @@
 
 (def update-chain-ref
   (fn [chain-ref]
-    (modify-ref chain-ref update-chain)))
+    (modify-ref chain-ref update-chain)
+    :ok))
 
 (document 'update-chain-ref
           '(("chain" chain))

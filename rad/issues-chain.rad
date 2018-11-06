@@ -61,9 +61,7 @@
     (def command (head expr))
     (def args    (tail expr))
     (def do-this (lookup command (read-ref commands)))
-    (apply do-this args)
-    (read-ref issues)
-    :ok))
+    (apply do-this args)))
 
 (def eval (updatable-eval
     (fn [expr state]
