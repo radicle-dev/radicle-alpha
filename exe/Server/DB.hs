@@ -20,13 +20,19 @@ insertExprDB conn name val
 
 getSinceDB :: Connection -> Text -> Int -> IO [Value]
 getSinceDB conn name index
-    = query conn "SELECT expr FROM txs WHERE chain = ? AND id >= ?" (name, index)
+    = query conn "SELECT expr FROM txs WHERE chain = ? AND id >= ? ORDER BY id ASC" (name, index)
 
 -- | Get all txs in all chains. Useful after a server restart.
 getAllDB :: Connection -> IO [(Text, [Value])]
 getAllDB conn = do
-    res <- query_ conn "SELECT chain, expr FROM txs"
-    let grouped = groupBy (\l r -> fst l == fst r) res
+    res :: [(Int, Text, Value)] <- query_ conn "SELECT id, chain, expr FROM txs"
+    let  grouped :: [[(Text, Value)]]
+         -- grouped
+         --    = groupBy (\(l, _) (r, _) -> l == r) res
+         grouped
+            = fmap (fmap (\(_, a, b) -> (a, b)))
+            $ fmap (sortOn (\(a,_,_) -> a))
+            $ groupBy (\(_, l, _) (_, r, _) -> l == r) res
     pure [ (fst (head each), snd <$> each) | each <- grouped ]
 
 

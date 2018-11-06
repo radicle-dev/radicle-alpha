@@ -8,7 +8,7 @@
 (def new-chain
   (fn [url]
     {:state (pure-env)
-     :inputs (list)
+     :inputs []
      :url url
      :index 0}))
 
@@ -29,14 +29,19 @@
 
 (def eval-in-chain
   (fn [expr chain]
-    (def x (eval expr (lookup :state chain)))
+    (def chain-eval (view (... [(@ :state) (@ :env) (@ 'eval) (@nth 1)]) chain))
+    (def x (apply chain-eval (list expr (lookup :state chain))))
     (def result (nth 0 x))
     (def new-state (nth 1 x))
     (def new-chain
-      (insert :state new-state
-      (over (@ :input) (fn [input] (cons expr input))
-      (over (@ :index) (fn [index] (+ 1 index))
-      chain ))))
+      (insert
+        :state
+        new-state
+        (over (@ :inputs)
+              (fn [inputs] (add-right expr inputs))
+              (over (@ :index)
+                    (fn [index] (+ 1 index))
+                    chain))))
     {:chain new-chain
      :result result }))
 
@@ -46,11 +51,12 @@
 
 ((fn []
   (def empty-chain (new-chain ""))
-  (def res (eval-in-chain '(+ 3 2) empty-chain))
+  (def res1 (eval-in-chain '(+ 1 2) empty-chain))
+  (def res (eval-in-chain '(+ 3 2) (lookup :chain res1)))
   (def ~~> (fn [comp expected] (should-be "eval-in-chain" (view comp res) expected)))
   (~~> (@ :result) 5)
-  (~~> (.. (@ :chain) (@ :input)) '((+ 3 2)))
-  (~~> (.. (@ :chain) (@ :index)) 1)))
+  (~~> (.. (@ :chain) (@ :inputs)) ['(+ 1 2) '(+ 3 2)])
+  (~~> (.. (@ :chain) (@ :index)) 2)))
 
 ;; update-chain
 

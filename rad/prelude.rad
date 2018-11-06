@@ -19,7 +19,6 @@
    "rad/prelude/dict.rad"
    "rad/prelude/ref.rad"
    "rad/prelude/lens.rad"
-   "rad/prelude/exception.rad"
    "rad/state-machine.rad"
    "rad/prelude/validation.rad"
    ))

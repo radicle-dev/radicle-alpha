@@ -22,12 +22,14 @@
                        id
                        title
                        body))
+   (def arg
+        {:id        id
+         :author    (lookup :public-key keys)
+         :title     title
+         :body      body
+         :signature (gen-signature! (lookup :private-key keys) msg)})
    (send! (lookup :url chain)
-          {:id       id
-          :author    (lookup :public-key keys)
-          :title     title
-          :body      body
-          :signature (gen-signature! (lookup :private-key keys) msg)})))
+          (list 'create-issue arg))))
 
 (def list-issues
   (fn [chain-ref]
