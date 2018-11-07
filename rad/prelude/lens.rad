@@ -81,31 +81,29 @@
   '(("key" any))
   " Returns a lens targetting keys of dicts.")
 
-(should-be "view lens"
-           (view (@ :one) {:one 1 :two 2})
-           1)
+(:test "view lens"
+  [ (view (@ :one) {:one 1 :two 2}) ==> 1 ])
 
-(should-be "set lens"
-           (set (@ :two) 42 {:one 1 :two 2})
-           {:one 1 :two 42})
+(:test "set lens"
+  [ (set (@ :two) 42 {:one 1 :two 2}) ==> {:one 1 :two 42} ])
 
-(should-be "over lens"
-           (over (@ :one)
-                 (fn [x] (+ x 1))
-                 {:one 1 :two 2})
-           {:one 2 :two 2})
+(:test "over lens"
+  [ (over (@ :one)
+          (fn [x] (+ x 1))
+          {:one 1 :two 2})
+    ==> {:one 2 :two 2} ])
 
-(should-be "lens composition"
-           (over (.. (@ :a) (@ :b))
-                 (fn [x] (+ x 1))
-                 {:a {:b 2}})
-           {:a {:b 3}})
+(:test "lens composition"
+  [ (over (.. (@ :a) (@ :b))
+          (fn [x] (+ x 1))
+          {:a {:b 2}})
+     ==> {:a {:b 3}} ])
 
-(should-be "deep lenses"
-           (over (... (list (@ :a) (@ :b) (@ :c)))
-                 (fn [x] (+ x 1))
-                 {:a {:b {:c 0}}})
-           {:a {:b {:c 1}}})
+(:test "deep lenses"
+  [ (over (... (list (@ :a) (@ :b) (@ :c)))
+          (fn [x] (+ x 1))
+          {:a {:b {:c 0}}})
+     ==> {:a {:b {:c 1}}} ])
 
 ;; @nth
 
@@ -117,13 +115,9 @@
       (fn [val s]
          (<> (take n s) (add-left val (drop (+ n 1) s)))))))
 
-(should-be "@nth"
-           (view (@nth 1) [0 1])
-           1)
-
-(should-be "@nth"
-           (over (@nth 1) (fn [x] (+ x 1)) [0 1])
-           [0 2])
+(:test "@nth"
+  [ (view (@nth 1) [0 1]) ==> 1 ]
+  [ (over (@nth 1) (fn [x] (+ x 1)) [0 1]) ==> [0 2] ])
 
 ;; Lens access to refs
 
@@ -136,9 +130,8 @@
   '(("ref" ref) ("lens" dict))
   "Like 'view', but for refs.")
 
-(should-be "view-ref"
-           (view-ref (ref {:key 1}) (@ :key))
-           1)
+(:test "view-ref"
+  [ (view-ref (ref {:key 1}) (@ :key)) ==> 1 ])
 
 ;; set-ref
 
@@ -150,12 +143,12 @@
   '(("ref" ref) ("lens" dict) ("new-value" any))
   "Like 'set', but for refs.")
 
-(should-be "set-ref"
-           ((fn [r]
-              (set-ref r (@ :a) 2)
-              (view-ref r (@ :a)))
-            (ref {:a 1}))
-           2)
+(:test "set-ref"
+  [ ((fn [r]
+       (set-ref r (@ :a) 2)
+       (view-ref r (@ :a)))
+     (ref {:a 1}))
+    ==> 2 ])
 
 ;; over-ref
 
@@ -167,9 +160,9 @@
   '(("ref" ref) ("lens" dict) ("fn" function))
   "Like 'over', but for refs.")
 
-(should-be "over-ref"
-           ((fn [r]
-              (over-ref r (@ :a) (fn [x] (* x 2)))
-              (view-ref r (@ :a)))
-            (ref {:a 2}))
-           4)
+(:test "over-ref"
+  [ ((fn [r]
+      (over-ref r (@ :a) (fn [x] (* x 2)))
+      (view-ref r (@ :a)))
+    (ref {:a 2}))
+    ==> 4 ])

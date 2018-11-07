@@ -4,18 +4,48 @@
   "True iff file is being run as part of the Haskell suite"
   (catch 'any (eq? test-env__ #t) (fn [x] #f)))
 
-(def should-be
-  (fn [name x y]
-    (if is-test-env
-        (if (eq? x y)
-            (print! (string-append "Test '" name "' succeeded"))
-            (do
-              (print! (string-append "Test '" name "' failed"))
-              (print! (string-append "LHS:\n\t" (show x) "\nRHS:\n\t" (show y)))))
-        '())))
+(def eval
+  (fn [expr env]
+    ;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
+    (if (list? expr)
+        (if (> (foldr (fn [x acc] (+ acc 1)) 0 expr) 0)
+            (if (eq? (head expr) :test)
+                (if is-test-env
+                  (do
+                    (def test-name (nth 1 expr))
+                    (def error
+                      (fn [msg]
+                        (print! (string-append "Test " test-name ": " msg))))
+                    ;; Check a single test in a given env
+                    (def check-single
+                      (fn [single ix senv]
+                        (def lhs (nth 0 single))
+                        (def marker (nth 1 single))
+                        (def rhs (nth 2 single))
+                        (if (eq? marker '==>)
+                            (do
+                              (def lhs-res (head (eval lhs senv)))
+                              (if (eq? lhs-res rhs)
+                                  (print! (string-append "Test '" test-name "' succeeded (" (show ix) ")"))
+                                  (error (string-append "failed: got " (show lhs-res) " but expected " (show rhs)))))
+                            (error "Expected and actual not separate by ==>"))
+                        (+ ix 1)))
+                    (def test-contents (drop 2 expr))
+                    (def maybe-setup (nth 0 test-contents))
+                    ;; If first block starts with :setup, run tests in that env
+                    (if (eq? (nth 0 maybe-setup) :setup)
+                        (foldl (fn [ix x] (check-single x ix (nth 1 (eval (nth 1 maybe-setup) env)))) 1 (tail test-contents))
+                        (foldl (fn [ix x] (check-single x ix env)) 1 test-contents))
+                    (list :ok env))
+                  (list :ok env))
+                (eval expr env))
+            (eval expr env))
+        (eval expr env))))
 
-(document 'should-be
-  '(("test-name" string) ("actual" any) ("expected" any))
-  "Checks that 'actual' equals 'expected'. Used for tests")
-
-(should-be "doc" (string? (doc 'doc)) #t)
+(:test "'test' works (including :setup)"
+    [:setup
+       (def x 3)
+    ]
+    [(+ 3 2) ==> 5]
+    [x       ==> 3]
+)

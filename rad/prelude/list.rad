@@ -12,8 +12,9 @@
   '(("list" list))
   "True if 'list' is empty, false otherwise.")
 
-(should-be "empty" (empty? (list 2)) #f)
-
+(:test "empty"
+  [ (empty? (list 2)) ==> #f ]
+)
 
 ;; length
 
@@ -25,8 +26,10 @@
   '(("list" list))
   "Returns the length of 'list'.")
 
-(should-be "length" (length nil) 0)
-(should-be "length" (length (list 2)) 1)
+(:test "length"
+  [ (length nil) ==> 0]
+  [ (length (list 2)) ==> 1]
+)
 
 ;; reverse
 
@@ -42,7 +45,10 @@
   '(("list" list))
   "Returns the reversed 'list'.")
 
-(should-be "reverse" (reverse (list 1 2 3)) (list 3 2 1))
+
+(:test "reverse"
+  [ (reverse (list 1 2 3)) ==> (3 2 1) ]
+)
 
 ;; range
 
@@ -55,7 +61,9 @@
   '(("start" number) ("end" number))
   "Returns a list with all integers from 'start' to 'end', inclusive.")
 
-(should-be "range" (range 1 5) (list 1 2 3 4 5))
+(:test "range"
+  [ (range 1 5) ==> (1 2 3 4 5) ]
+)
 
 ;; concat
 
@@ -66,8 +74,9 @@
   '(("list1" list) ("list2" list))
   "Concatenates 'list1' and 'list2'.")
 
-(should-be "concat" (concat '(1 2 3) '(4 5 6)) '(1 2 3 4 5 6))
-
+(:test "concat"
+  [ (concat '(1 2 3) '(4 5 6)) ==> (1 2 3 4 5 6) ]
+)
 
 ;; filter
 
@@ -82,9 +91,10 @@
   '(("filter-cond" function) ("list" list))
   "Returns 'list' with only the elements that satisfy 'filter-cond'.")
 
-(should-be "filter"
-  (filter (fn [x] (< x 10)) (list 3 10 11))
-  (list 3))
+(:test "filter"
+  [ (filter (fn [x] (< x 10)) (list 3 10 11))
+     ==> (3) ]
+)
 
 (def list-with-head
   "Given a value `x`, and two functions `f` and `g`, checks if `x` is a list with a

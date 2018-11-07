@@ -7,8 +7,7 @@
 (def create-issues-chain!
   "Create a remote issue chain with the given url. Returns a ref with the chain."
   (fn [chain-name]
-    (send-prelude! chain-name)
-    (send-code! chain-name "rad/chain.rad")
+    (send-code! chain-name "rad/prelude.rad")
     (send-code! chain-name "rad/issues-chain.rad")
     (ref (new-chain chain-name))))
 
@@ -35,3 +34,18 @@
   "Given an issues ref `x`, returns its issues. Does not itself update the chain."
   (fn [chain-ref]
     (lookup :result (eval-in-chain '(list-issues) (read-ref chain-ref)))))
+
+;; (should-be
+;;   "creating chains and issues works"
+;;   (do
+;;     (def pk (gen-key-pair! (default-ecc-curve)))
+;;     (def chain-name (uuid!))
+;;     (def chain-ref (create-issues-chain! chain-name))
+;;     (new-issue! chain-ref pk "Ah!" "if thou issueless shall hap to die")
+;;     (update-chain-ref chain-ref)
+;;     (def issues (list-issues chain-ref))
+;;     [(length issues)
+;;      (view (... [(@ :title) (@nth 0)]) issues)
+;;      (view (... [(@ :body) (@nth 0)]) issues)
+;;     ])
+;;   [1 "Ah!" "if thouse issueless shall hap to die"])

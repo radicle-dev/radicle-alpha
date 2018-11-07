@@ -40,14 +40,16 @@
           '(("expr" any) ("chain" chain))
           "Evaluates 'expr' in the 'chain' and returns a dict with the ':result' and the resulting ':chain'.")
 
-((fn []
-  (def empty-chain (new-chain ""))
-  (def res1 (eval-in-chain '(+ 1 2) empty-chain))
-  (def res (eval-in-chain '(+ 3 2) (lookup :chain res1)))
-  (def ~~> (fn [comp expected] (should-be "eval-in-chain" (view comp res) expected)))
-  (~~> (@ :result) 5)
-  (~~> (.. (@ :chain) (@ :inputs)) ['(+ 1 2) '(+ 3 2)])
-  (~~> (.. (@ :chain) (@ :index)) 2)))
+(:test "eval-in-chain"
+  [:setup
+    (do (def empty-chain (new-chain ""))
+        (def res1 (eval-in-chain '(+ 1 2) empty-chain))
+        (def res (eval-in-chain '(+ 3 2) (lookup :chain res1))))
+  ]
+  [ (view (@ :result) res)                 ==> 5                 ]
+  [ (view (.. (@ :chain) (@ :inputs)) res) ==> [(+ 1 2) (+ 3 2)] ]
+  [ (view (.. (@ :chain) (@ :index)) res)  ==> 2                 ]
+)
 
 ;; update-chain
 

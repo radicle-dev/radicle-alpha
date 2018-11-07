@@ -1,5 +1,4 @@
 (load! "rad/prelude.rad")
-(load! "rad/issues.rad")
 
 ;; The Repl
 

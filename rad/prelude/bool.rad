@@ -19,10 +19,12 @@
   '(("arg1" any) ("arg2" any))
   "Returns 'arg2' if 'arg1' is not #f, otherwise returns 'arg1'")
 
-(should-be "and" (and #t #t) #t)
-(should-be "and" (and #t #f) #f)
-(should-be "and" (and #f #t) #f)
-(should-be "and" (and #f #f) #f)
+(:test "and"
+  [ (and #t #t) ==> #t ]
+  [ (and #t #f) ==> #f ]
+  [ (and #f #t) ==> #f ]
+  [ (and #f #f) ==> #f ]
+)
 
 ;; or
 
@@ -34,10 +36,12 @@
   '(("arg1" any) ("arg2" any))
   "Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'")
 
-(should-be "or" (or #t #t) #t)
-(should-be "or" (or #t #f) #t)
-(should-be "or" (or #f #t) #t)
-(should-be "or" (or #f #f) #f)
+(:test "or"
+  [ (or #t #t) ==> #t ]
+  [ (or #t #f) ==> #t ]
+  [ (or #f #t) ==> #t ]
+  [ (or #f #f) ==> #f ]
+)
 
 ;; all
 
@@ -45,11 +49,13 @@
   "Checks that all the items of a list are truthy."
   (fn [xs] (foldr and #t xs)))
 
-(should-be "all" (all '()) #t)
-(should-be "all" (all '(#t)) #t)
-(should-be "all" (all '(#f)) #f)
-(should-be "all" (all '(#t #t #t #t)) #t)
-(should-be "all" (all '(#t #t #f #t)) #f)
+(:test "all"
+  [ (all '())            ==> #t ]
+  [ (all '(#t))          ==> #t ]
+  [ (all '(#f))          ==> #f ]
+  [ (all '(#t #t #t #t)) ==> #t ]
+  [ (all '(#t #t #f #t)) ==> #f ]
+)
 
 ;; some
 
@@ -57,9 +63,11 @@
   "Checks that there is a least one truthy value in a list."
   (fn [xs] (foldr or #f xs)))
 
-(should-be "some" (some '()) #f)
-(should-be "some" (some '(#t)) #t)
-(should-be "some" (some '(#f)) #f)
-(should-be "some" (some '(#f #f #f)) #f)
-(should-be "some" (some '(#t #t #t #t)) #t)
-(should-be "some" (some '(#t #t #f #t)) #t)
+(:test "some"
+  [ (some '())            ==> #f ]
+  [ (some '(#t))          ==> #t ]
+  [ (some '(#f))          ==> #f ]
+  [ (some '(#f #f #f))    ==> #f ]
+  [ (some '(#t #t #t #t)) ==> #t ]
+  [ (some '(#t #t #f #t)) ==> #t ]
+)

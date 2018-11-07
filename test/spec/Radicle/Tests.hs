@@ -774,8 +774,11 @@ test_source_files = testGroup "Radicle source file tests" <$>
                                                $ T.drop 1
                                                $ T.dropWhile (/= '\'') line
                             in testCase (toS name) $ result @?= "' succeeded\""
+        let doesntThrow = if isRight r
+                then pure ()
+                else assertFailure $ "Expected Right, got: " <> toS (prettyEither r)
         pure $ [testGroup file
-            $ testCase "doesn't throw" (isRight r @?= True)
+            $ testCase "doesn't throw" doesntThrow
             : [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]]
 
 test_macros :: [TestTree]

@@ -7,6 +7,7 @@
 (load! "rad/prelude/ref.rad")
 (load! "rad/prelude/lens.rad")
 (load! "rad/chain.rad")
+(load! "rad/chains/issues.rad")
 (load! "rad/state-machine.rad")
 (load! "rad/prelude/validation.rad")
 
