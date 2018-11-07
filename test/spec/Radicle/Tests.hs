@@ -697,7 +697,7 @@ test_repl =
         last result @?= "#t"
     ]
     where
-      -- In addition to the output of the lines tested, 'should-be's get
+      -- In addition to the output of the lines tested, tests get
       -- printed, so we take only the last few output lines.
       r @==> out = reverse (take (length out) $ reverse r) @?= out
 
@@ -754,7 +754,7 @@ test_cbor =
             counterexample info $ got == expected
 
 
--- Tests radicle files. These should use the 'should-be' function to ensure
+-- Tests radicle files. These should use the ':test' macro to ensure
 -- they are in the proper format.
 -- Note that loaded files will also be tested, so there's no need to test files
 -- loaded by the prelude individually.
@@ -773,7 +773,10 @@ test_source_files = testGroup "Radicle source file tests" <$>
         let makeTest line = let (name, result) = T.span (/= '\'')
                                                $ T.drop 1
                                                $ T.dropWhile (/= '\'') line
-                            in testCase (toS name) $ result @?= "' succeeded\""
+                            in testCase (toS name) $
+                                if " succeeded" `T.isInfixOf` result
+                                    then pure ()
+                                    else assertFailure "test failed"
         let doesntThrow = if isRight r
                 then pure ()
                 else assertFailure $ "Expected Right, got: " <> toS (prettyEither r)

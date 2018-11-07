@@ -1,12 +1,12 @@
-;; should-be - testing functions
+;; testing functions
 
 (def is-test-env
   "True iff file is being run as part of the Haskell suite"
   (catch 'any (eq? test-env__ #t) (fn [x] #f)))
 
+;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
 (def eval
   (fn [expr env]
-    ;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
     (if (list? expr)
         (if (> (foldr (fn [x acc] (+ acc 1)) 0 expr) 0)
             (if (eq? (head expr) :test)
