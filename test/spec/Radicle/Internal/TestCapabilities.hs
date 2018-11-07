@@ -105,6 +105,7 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
              lift . modify $ \s ->
                 s { worldStateRemoteChains
                     = Map.insertWith (<>) url [v] $ worldStateRemoteChains s }
+             traceShowM $ renderPrettyDef v
              pure $ List []
          [_, _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)

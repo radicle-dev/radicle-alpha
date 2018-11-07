@@ -776,7 +776,7 @@ test_source_files = testGroup "Radicle source file tests" <$>
                             in testCase (toS name) $
                                 if " succeeded" `T.isInfixOf` result
                                     then pure ()
-                                    else assertFailure "test failed"
+                                    else assertFailure . toS $ "test failed: " <> result
         let doesntThrow = if isRight r
                 then pure ()
                 else assertFailure $ "Expected Right, got: " <> toS (prettyEither r)

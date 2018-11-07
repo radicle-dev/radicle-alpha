@@ -15,7 +15,7 @@
                     (def test-name (nth 1 expr))
                     (def error
                       (fn [msg]
-                        (print! (string-append "Test " test-name ": " msg))))
+                        (print! (string-append "Test '" test-name "' failed: " msg))))
                     ;; Check a single test in a given env
                     (def check-single
                       (fn [single ix senv]

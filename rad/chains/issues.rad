@@ -7,8 +7,8 @@
 (def create-issues-chain!
   "Create a remote issue chain with the given url. Returns a ref with the chain."
   (fn [chain-name]
-    (send-code! chain-name "rad/prelude.rad")
-    (send-code! chain-name "rad/issues-chain.rad")
+    (send-prelude! chain-name)
+    (send-code! chain-name "rad/chains/issue-remote.rad")
     (ref (new-chain chain-name))))
 
 (def new-issue!
@@ -35,17 +35,20 @@
   (fn [chain-ref]
     (lookup :result (eval-in-chain '(list-issues) (read-ref chain-ref)))))
 
-;; (should-be
-;;   "creating chains and issues works"
-;;   (do
-;;     (def pk (gen-key-pair! (default-ecc-curve)))
-;;     (def chain-name (uuid!))
-;;     (def chain-ref (create-issues-chain! chain-name))
-;;     (new-issue! chain-ref pk "Ah!" "if thou issueless shall hap to die")
-;;     (update-chain-ref chain-ref)
-;;     (def issues (list-issues chain-ref))
-;;     [(length issues)
-;;      (view (... [(@ :title) (@nth 0)]) issues)
-;;      (view (... [(@ :body) (@nth 0)]) issues)
-;;     ])
-;;   [1 "Ah!" "if thouse issueless shall hap to die"])
+(:test
+  "creating, manipulating and querying issue chains"
+  [:setup
+     (do
+       (def pk (gen-key-pair! (default-ecc-curve)))
+       (def chain-name (uuid!))
+       (def chain-ref (create-issues-chain! chain-name))
+       (new-issue! chain-ref pk "Ah!" "if thou issueless shall hap to die")
+       (def issues1 (list-issues chain-ref))
+       (update-chain-ref chain-ref)
+       (def issues2 (list-issues chain-ref)))
+   ]
+   [ (length issues1) ==> 0 ]
+   [ (length issues2) ==> 1 ]
+   [ (view (... [(@ :title) (@nth 0)]) issues2) ==> "Ah" ]
+   [ (view (... [(@ :body) (@nth 0)]) issues2) ==> "if thou issueless shall hap to die"]
+)

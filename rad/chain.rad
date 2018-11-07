@@ -21,7 +21,7 @@
 (def eval-in-chain
   (fn [expr chain]
     (def chain-eval (view (... [(@ :state) (@ :env) (@ 'eval) (@nth 1)]) chain))
-    (def x (apply chain-eval (list expr (lookup :state chain))))
+    (def x (chain-eval expr (lookup :state chain)))
     (def result (nth 0 x))
     (def new-state (nth 1 x))
     (def new-chain
@@ -43,12 +43,12 @@
 (:test "eval-in-chain"
   [:setup
     (do (def empty-chain (new-chain ""))
-        (def res1 (eval-in-chain '(+ 1 2) empty-chain))
-        (def res (eval-in-chain '(+ 3 2) (lookup :chain res1))))
+        (def res1 (eval-in-chain '(def x 3) empty-chain))
+        (def res (eval-in-chain '(+ x 2) (lookup :chain res1))))
   ]
-  [ (view (@ :result) res)                 ==> 5                 ]
-  [ (view (.. (@ :chain) (@ :inputs)) res) ==> [(+ 1 2) (+ 3 2)] ]
-  [ (view (.. (@ :chain) (@ :index)) res)  ==> 2                 ]
+  [ (view (@ :result) res)                 ==> 5                   ]
+  [ (view (.. (@ :chain) (@ :inputs)) res) ==> [(def x 3) (+ x 2)] ]
+  [ (view (.. (@ :chain) (@ :index)) res)  ==> 2                   ]
 )
 
 ;; update-chain
