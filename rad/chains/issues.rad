@@ -1,8 +1,6 @@
 ;; Helpers for setting up and interacting with issues chain (as defined in
 ;; rad/issues-chain.rad)
 
-
-
 ;; Create a remote issue chain. Returns a ref for the chain that you
 ;; can assign to a variable.
 
