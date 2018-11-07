@@ -99,7 +99,7 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
              case res of
                  Left e   -> throwErrorHere . OtherError
                            $ "send!: failed:" <> show e
-                 Right () -> pure $ List []
+                 Right r  -> pure r
          [_, _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
@@ -116,7 +116,7 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
                       liftIO (runClientM' url mgr (since r)) >>= \case
                           Left err -> throwErrorHere . OtherError
                                     $ "receive!: request failed:" <> show err
-                          Right v' -> pure $ List v'
+                          Right v' -> pure v'
           [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
           [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
           xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)
@@ -124,10 +124,10 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
 
 -- * Client functions
 
-submit :: Value -> ClientM ()
+submit :: Value -> ClientM Value
 submit = client chainSubmitEndpoint
 
-since :: Int -> ClientM [Value]
+since :: Int -> ClientM Value
 since = client chainSinceEndpoint
 
 runClientM' :: (MonadThrow m, MonadIO m) => Text -> HttpClient.Manager -> ClientM a -> m (Either ServantError a)
