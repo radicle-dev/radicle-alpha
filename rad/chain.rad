@@ -54,6 +54,7 @@
 ;; update-chain
 
 (def update-chain
+  "Takes a `url`, and returns a new chain updated with the new expressions from the remote chain"
   (fn [chain]
     (def new-inputs
       (receive! (lookup :url chain) (lookup :index chain)))
@@ -63,17 +64,22 @@
         (view (@ :chain) x)))
     (foldl upd-ch chain new-inputs)))
 
-(document 'update-chain
-          '(("chain" chain))
-          "Return a new chain updated with the new expressions from the remote chain")
+(:test "update-chain"
+  [:setup
+    (do
+       (def chain-name (uuid!))
+       (def chain (new-chain chain-name))
+       (send! chain-name ['(+ 3 2)])
+       (send! chain-name ['(+ 3 3)])
+       (def chain (update-chain chain)))
+  ]
+  [ (lookup :inputs chain) ==> [(+ 3 2) (+ 3 3)]]
+)
 
 (def load-chain
+  "Takes a `url`, and fetches the inputs of a remote chain and return a chain dictionary with the chain state."
   (fn [url]
     (update-chain (new-chain url))))
-
-(document 'load-chain
-          '(("url" string))
-          "Fetch the inputs of a remote chain and return a chain dictionary with the chain state.")
 
 ;; update-chain-ref
 
@@ -85,6 +91,18 @@
 (document 'update-chain-ref
           '(("chain" chain))
           "Update a ref containing a chain with the new expressions from the remote chain")
+
+(:test "update-chain-ref"
+  [:setup
+    (do
+       (def chain-name (uuid!))
+       (def chain (ref (new-chain chain-name)))
+       (send! chain-name ['(+ 3 2)])
+       (send! chain-name ['(+ 3 3)])
+       (update-chain-ref chain))
+  ]
+  [ (lookup :inputs (read-ref chain)) ==> [(+ 3 2) (+ 3 3)]]
+)
 
 ;; add-quit
 

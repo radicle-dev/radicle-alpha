@@ -35,21 +35,20 @@
   (fn [chain-ref]
     (lookup :result (eval-in-chain '(list-issues) (read-ref chain-ref)))))
 
-;; (:test
-;;   "creating, manipulating and querying issue chains"
-;;   [:setup
-;;      (do
-;;        (def pk (gen-key-pair! (default-ecc-curve)))
-;;        (def chain-name (uuid!))
-;;        (def chain-ref (create-issues-chain! chain-name))
-;;        (update-chain-ref chain-ref)
-;;        (def issues1 (list-issues chain-ref))
-;;        (new-issue! chain-ref pk "Ah!" "if thou issueless shall hap to die")
-;;        (update-chain-ref chain-ref)
-;;        (def issues2 (list-issues chain-ref)))
-;;    ]
-;;    [ (length issues1) ==> 0 ]
-;;    [ (length issues2) ==> 1 ]
-;;    [ (view (... [(@ :title) (@nth 0)]) issues2) ==> "Ah" ]
-;;    [ (view (... [(@ :body) (@nth 0)]) issues2) ==> "if thou issueless shall hap to die"]
-;; )
+(:test
+  "creating, manipulating and querying issue chains"
+  [:setup
+     (do
+       (def pk (gen-key-pair! (default-ecc-curve)))
+       (def chain-name (uuid!))
+       (def chain-ref (create-issues-chain! chain-name))
+       (new-issue! chain-ref pk "Ah!" "if thou issueless shall hap to die")
+       (update-chain-ref chain-ref)
+       (def res (read-ref chain-ref))
+       (def issues (list-issues chain-ref)))
+   ]
+   [ res ==> "blahhh" ]
+   [ "how the hell is the above succeeding?" ==> "blahhh" ]
+)
+   ;; [ (view (... [(@ :title) (@nth 0)]) issues) ==> "Ah" ]
+   ;; [ (view (... [(@ :body) (@nth 0)]) issues) ==> "if thou issueless shall hap to die"]
