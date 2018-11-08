@@ -11,7 +11,7 @@ import           Network.HTTP.Client (defaultManagerSettings, newManager)
 import qualified Network.HTTP.Client as HttpClient
 import           Options.Applicative
 import           Prelude (String)
-import           Protolude hiding (TypeError, option)
+import           Protolude hiding (TypeError, option, sourceFile)
 import           Radicle
 import           Servant.Client
 import           System.Console.Haskeline (InputT)
@@ -23,19 +23,16 @@ import qualified Radicle.Internal.PrimFns as PrimFns
 main :: IO ()
 main = do
     opts' <- execParser allOpts
-    cfgFile <- case configFile opts' of
-        Nothing  -> getConfigFile
-        Just cfg -> pure cfg
-    cfgSrc <- do
-       exists <- doesFileExist cfgFile
+    src <- do
+       exists <- doesFileExist (sourceFile opts')
        if exists
-           then readFile cfgFile
-           else die $ "Could not find file: " <> toS cfgFile
+           then readFile (sourceFile opts')
+           else die $ "Could not find file: " <> toS (sourceFile opts')
     hist <- case histFile opts' of
         Nothing -> getHistoryFile
         Just h  -> pure h
     mgr <- newManager defaultManagerSettings
-    repl (Just hist) (toS cfgFile) cfgSrc (bindings mgr)
+    repl (Just hist) (toS $ sourceFile opts') src (bindings mgr)
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
@@ -54,20 +51,15 @@ radDesc
 -- * CLI Opts
 
 data Opts = Opts
-    { configFile :: Maybe FilePath
+    { sourceFile :: FilePath
     , histFile   :: Maybe FilePath
     }
 
 opts :: Parser Opts
 opts = Opts
-    <$> argument (optional str)
+    <$> strArgument
         ( metavar "FILE"
-       <> help
-           ( "File to interpret."
-          <> "Defaults to $DIR/radicle/config.rad "
-          <> "where $DIR is $XDG_CONFIG_HOME (%APPDATA% on Windows "
-          <> "if that is set, or else ~/.config."
-           )
+       <> help "File to interpret."
         )
     <*> optional (strOption
         ( long "histfile"

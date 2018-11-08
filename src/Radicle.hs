@@ -82,7 +82,6 @@ module Radicle
     , ReplM
 
     -- * CLI
-    , getConfigFile
     , getHistoryFile
 
     -- * Helpers
