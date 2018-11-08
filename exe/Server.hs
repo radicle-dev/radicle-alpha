@@ -38,7 +38,6 @@ import           Servant
                  , Get
                  , Handler
                  , JSON
-                 , PlainText
                  , Raw
                  , ServantErr(..)
                  , Server
@@ -68,7 +67,7 @@ newtype Chains = Chains { getChains :: MVar (Map Text Chain) }
 
 type ServerApi
     = "chains" :> Capture "chain" Text :> (ChainSubmitEndpoint :<|> ChainSinceEndpoint)
- :<|> "outputs" :> Capture "chain" Text :> Get '[JSON, PlainText] [Maybe A.Value]
+ :<|> "outputs" :> Capture "chain" Text :> Get '[JSON] [Maybe A.Value]
  :<|> Raw
 
 serverApi :: Proxy ServerApi
@@ -118,17 +117,17 @@ loadState conn = do
 -- | Submit something to a chain. The value is expected to be a pair, with the
 -- first item specifying the chain the value is being submitted to, and the
 -- second the expression being submitted.
-submit :: Connection -> Chains -> Text -> Value -> Handler ()
+submit :: Connection -> Chains -> Text -> Value -> Handler Value
 submit conn chains name val = do
     res <- liftIO $ insertExpr conn chains name val
     case res of
         Left err -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 err }
-        Right _  -> pure ()
+        Right _  -> pure $ Keyword $ unsafeToIdent "ok"
 
 
 -- | Get all expressions submitted to a chain since 'index'.
-since :: Connection -> Text -> Int -> Handler [Value]
-since conn name index = liftIO $ getSinceDB conn name index
+since :: Connection -> Text -> Int -> Handler Value
+since conn name index = liftIO $ List <$> getSinceDB conn name index
 
 jsonOutputs :: Chains -> Text -> Handler [Maybe A.Value]
 jsonOutputs st name = do
