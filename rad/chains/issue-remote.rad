@@ -63,6 +63,31 @@
     (def do-this (lookup command (read-ref commands)))
     (apply do-this args)))
 
+;; Move to eval-fn-app & updatable-eval from chain.rad to a pure file so it may
+;; be imported
+
+(def eval-fn-app
+  "Given a state, a function, an argument and a callback, returns
+  the result of evaluating the function call on the arg in the given
+  state, while also calling the callback on the result."
+  (fn [state f arg cb]
+    (def exec (base-eval (list f (list 'quote arg)) state))
+    (cb (head exec))
+    exec))
+
+(def updatable-eval
+  "Given an evaluation function `f`, returns a new one which augments `f` with a new
+  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
+  (fn [sub-eval]
+    (fn [expr state]
+      (list-with-head
+       expr
+       (fn [cmd]
+         (if (eq? cmd 'update)
+           (base-eval (nth 1 expr) state)
+           (sub-eval expr state)))
+       (fn [] (sub-eval expr state))))))
+
 (def eval (updatable-eval
     (fn [expr state]
       (eval-fn-app state 'process-command expr (fn [x] x)))))

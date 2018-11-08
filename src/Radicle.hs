@@ -62,6 +62,7 @@ module Radicle
 
     -- * Parsing
     , parse
+    , parseValues
 
     -- * Pretty-printing
     , renderPretty

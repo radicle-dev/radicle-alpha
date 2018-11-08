@@ -8,6 +8,7 @@ import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
 import           Data.Scientific (floatingOrInteger)
 import           GHC.Exts (fromList)
+import qualified Data.Sequence as Seq
 import qualified System.FilePath.Find as FP
 
 import           Radicle
@@ -27,7 +28,7 @@ data WorldState = WorldState
     , worldStateFiles        :: Map Text Text
     , worldStateDRG          :: CryptoRand.ChaChaDRG
     , worldStateUUID         :: Int
-    , worldStateRemoteChains :: Map Text [Value]
+    , worldStateRemoteChains :: Map Text (Seq.Seq Value)
     }
 
 
@@ -51,7 +52,7 @@ runTestWithFiles bindings inputs files action =
             , worldStateRemoteChains = mempty
             }
     in case runState (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws of
-        (val, st) -> (val, reverse $ worldStateStdout st)
+        (val, st) -> (val, worldStateStdout st)
 
 -- | Run a possibly side-effecting program with the given stdin input lines.
 runTestWith
@@ -101,13 +102,13 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
       ( "send!"
       , ""
       , \case
-         [String url, v] -> do
+         [String url, Vec v] -> do
              lift . modify $ \s ->
                 s { worldStateRemoteChains
-                    = Map.insertWith (<>) url [v] $ worldStateRemoteChains s }
-             traceShowM $ renderPrettyDef v
+                    = Map.insertWith (\new old -> old Seq.>< new) url v $ worldStateRemoteChains s }
              pure $ List []
-         [_, _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
+         [_, Vec _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
+         [String _, _] -> throwErrorHere $ TypeError "send!: second argument should be a vector"
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
     receivePrimop =
@@ -122,7 +123,7 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
                       chains <- lift $ gets worldStateRemoteChains
                       pure . List $ case Map.lookup url chains of
                           Nothing  -> []
-                          Just res -> drop r res
+                          Just res -> toList $ Seq.drop r res
           [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
           [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
           xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)

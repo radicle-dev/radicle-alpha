@@ -699,7 +699,7 @@ test_repl =
     where
       -- In addition to the output of the lines tested, tests get
       -- printed, so we take only the last few output lines.
-      r @==> out = reverse (take (length out) $ reverse r) @?= out
+      r @==> out = reverse (take (length out) r) @?= out
 
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
@@ -800,7 +800,7 @@ test_macros =
   where
     -- In addition to the output of the lines tested, 'should-be's get
     -- printed, so we take only the last few output lines.
-    r @==> out = reverse (take (length out) $ reverse r) @?= out
+    r @==> out = reverse (take (length out) r) @?= out
 
 
 -- * Utils

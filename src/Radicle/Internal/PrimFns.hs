@@ -14,6 +14,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import           GHC.Exts (IsList(..))
 import qualified Text.Pandoc as Pandoc
+import           Text.Megaparsec (parseErrorPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
@@ -87,6 +88,12 @@ purePrimFns = fromList $ allDocs $
       , [md|Parses a string into a radicle value. Does not evaluate the value.|]
       , oneArg "read" $ \case
           String s -> readValue s
+          _ -> throwErrorHere $ TypeError "read: expects string"
+      )
+    , ( "read-many"
+      , [md|Parses a string into a vector of radicle values. Does not evaluate the value.|]
+      , oneArg "read" $ \case
+          String s -> readValues s
           _ -> throwErrorHere $ TypeError "read: expects string"
       )
     , ("get-current-env"
@@ -533,6 +540,16 @@ readValue s = do
     case p of
       Right v -> pure v
       Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String e)
+
+readValues
+    :: (MonadError (LangError Value) m)
+    => Text
+    -> m Value
+readValues s = do
+    let p = parseValues "[read-many-primop]" s
+    case p of
+      Right v -> pure . Vec $ Seq.fromList v
+      Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String . toS $ parseErrorPretty e)
 
 allDocs :: [(Text, Text, a)] -> [(Ident, Maybe Text, a)]
 allDocs = fmap $ \(x,y,z) -> (unsafeToIdent x, Just y, z)

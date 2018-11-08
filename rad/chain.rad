@@ -118,7 +118,7 @@
           (if (eq? expr :send)
               (do (def inpl (... [(@ :env) (@ '_inputs) (@nth 1)]))
                   (def chainl (... [(@ :env) (@ '_cur-chain) (@nth 1)]))
-                  (map (fn [e] (send! (view chainl env) e)) (view inpl env))
+                  (send! (view chainl env) map (view inpl env))
                   (def env_ (set inpl [] env))
                   (list :ok env_))
               ((store-exprs oeval) expr env)))))

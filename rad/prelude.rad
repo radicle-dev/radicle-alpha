@@ -29,12 +29,9 @@
           "List of files which together define the pure prelude.")
 
 (def pure-prelude-code
-  (read
-   (string-append
-    "(do "
+  (read-many
     (apply string-append
-           (map (fn [f] (read-file! f)) pure-prelude-files))
-    ")")))
+           (map (fn [f] (read-file! f)) pure-prelude-files))))
 
 (document 'pure-prelude-code
           '()

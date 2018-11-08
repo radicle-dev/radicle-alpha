@@ -2,22 +2,16 @@ module Radicle.Internal.Parse where
 
 import           Protolude hiding (SrcLoc, try)
 
-import           Data.List.NonEmpty (NonEmpty((:|)))
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
-import qualified Data.Text as T
 import           GHC.Exts (IsString(..))
 import           Text.Megaparsec
                  ( ParsecT
-                 , State(..)
                  , between
                  , choice
-                 , defaultTabWidth
                  , eof
                  , getPosition
-                 , initialPos
                  , manyTill
-                 , runParserT'
                  , sepBy
                  , try
                  , (<?>)
@@ -144,20 +138,9 @@ valueP = do
 parseValues
     :: Text    -- ^ Name of source file (for error reporting)
     -> Text    -- ^ Source code to be parsed
-    -> [Either (Par.ParseError Char Void) Value]
-parseValues sourceName srcCode = withoutLeadingSpaces
-  where
-    initial = State
-        { stateInput = srcCode
-        , statePos = initialPos (toS sourceName) :| []
-        , stateTokensProcessed = 0
-        , stateTabWidth = defaultTabWidth
-        }
-    withoutLeadingSpaces =
-      let (s', _) = runIdentity (runParserT' spaceConsumer initial)
-      in if T.null (stateInput s') then [] else go s'
-    go s = let (s', v) = runIdentity (runParserT' valueP s)
-           in if T.null (stateInput s') then [v] else v:go s'
+    -> Either (Par.ParseError Char Void) [Value]
+parseValues sourceName srcCode
+    = M.parse (spaceConsumer *> many valueP <* eof) (toS sourceName) srcCode
 
 -- | Parse a single value.
 --
