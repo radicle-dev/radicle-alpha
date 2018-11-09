@@ -13,6 +13,7 @@ radicle
    guide/GettingStarted.rst
    guide/Basics.lrad
    guide/Chains.lrad
+   guide/DataValidation.rst
    reference.rst
 
 
