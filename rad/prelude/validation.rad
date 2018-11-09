@@ -1,4 +1,4 @@
-(def val/=
+(def validator/=
   "Given `x`, returns a validator that checks for equality with `x`."
   (fn [x]
     (fn [y]
@@ -6,7 +6,7 @@
         x
         (throw 'validation-failure (string-append "Not equal to: " (show x)))))))
 
-(def val/and
+(def validator/and
   "Given a sequence of validators `vs`, returns a new validator which, given a
   value, checks if it conforms to all the validators in `vs`."
   (fn [vs]
@@ -14,23 +14,25 @@
       (map (fn [v] (v x)) vs)
       x)))
 
-(def val/type
-  "Checks that a value has a type. Expects a keyword describing the type, as returns by `type`."
+(def validator/type
+  "Checks that a value has a type. Expects a keyword describing the type, as
+  returned by the `type` function."
   (fn [t]
     (fn [x]
       (if (eq? (type x) t)
         x
         (throw 'validation-failure (string-append "Did not have type " (show t) ": " (show x)))))))
 
-(def val/pred
-  "Given a name and a predicate, returns a validator that checks the predicate is true."
+(def validator/pred
+  "Given a description and a predicate, returns a validator that checks if the
+  predicate is true."
   (fn [name p]
     (fn [x]
       (if (p x)
         x
         (throw 'validation-failure (string-append "Did not satisfy predicate: " name))))))
 
-(def val/key
+(def validator/key
   "Given a key and a validator, returns a validator which checks for
   the existence of that key and that the associated value conforms to the validator."
   (fn [k v]
@@ -39,19 +41,19 @@
         (v (lookup k d))
         (throw 'validation-failure (string-append "Missing required key: " (show k)))))))
 
-(def val/keys
+(def validator/keys
   "Given a dict associating keys to validators, returns a validator which checks a dict
   for the existence of those keys, and that they conform to the associated validators."
   (fn [ks]
     (fn [d]
       (if (dict? d)
-        ((val/and
-          (map (fn [kv] (val/key (nth 0 kv) (nth 1 kv)))
+        ((validator/and
+          (map (fn [kv] (validator/key (nth 0 kv) (nth 1 kv)))
                (seq ks)))
          d)
         (throw 'validation-failure (string-append "Not a dict: " (show d)))))))
 
-(def val/every
+(def validator/every
   "Given a validator, creates a new validator which checks that all the items in
   a sequence conform to it."
   (fn [v]
