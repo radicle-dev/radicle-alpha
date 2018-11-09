@@ -5,12 +5,15 @@ module Radicle.Internal.PrimFns where
 import           Protolude hiding (TypeError)
 
 import qualified Data.Aeson as Aeson
+import qualified Data.Default as Default
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
+import qualified Data.Text as T
 import           GHC.Exts (IsList(..))
+import qualified Text.Pandoc as Pandoc
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
@@ -166,6 +169,18 @@ purePrimFns = fromList $ allDocs $
           _           -> throwErrorHere $ TypeError "tail: expects list argument")
 
     -- Lists and Vecs
+    , ( "drop"
+      , [md|Returns all but the first `n` items of a sequence, unless the sequence is empty,
+           in which case an exception is thrown.|]
+      , twoArg "drop" $ \case
+          (Number n, vs) -> case floatingOrInteger n of
+            Left (_ :: Double) -> throwErrorHere $ OtherError "drop: first argument must be an integer"
+            Right i -> case vs of
+              List xs -> pure . List $ drop i xs
+              Vec xs -> pure . Vec $ Seq.drop i xs
+              _ -> throwErrorHere $ TypeError $ "drop: second argument must be a list of vector"
+          _ -> throwErrorHere $ TypeError $ "drop: first argument must be a number"
+      )
     , ( "nth"
       , [md|Given an integral number `n` and `xs`, returns the `n`th element
            (zero indexed) of `xs` when `xs` is a list or a vector. If `xs`
@@ -205,7 +220,13 @@ purePrimFns = fromList $ allDocs $
             pure (Dict (Map.fromList (zip (fst <$> kvs) vs)))
           _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
       )
-    , ("string-append"
+    , ( "string-length"
+      , [md|Returns the length of a string.|]
+      , oneArg "string-length" $ \case
+          String s -> pure . Number . fromIntegral . T.length $ s
+          _ -> throwErrorHere $ TypeError "string-length: expecting string"
+      )
+    , ( "string-append"
       , [md|Concatenates a variable number of string arguments. If one of the arguments
            isn't a string then an exception is thrown.|]
       , \args ->
@@ -214,7 +235,15 @@ purePrimFns = fromList $ allDocs $
               ss = fromStr <$> args
           in if all isJust ss
               then pure . String . mconcat $ catMaybes ss
-              else throwErrorHere $ TypeError "string-append: non-string argument")
+              else throwErrorHere $ TypeError "string-append: non-string argument"
+      )
+    , ( "markdown?"
+      , [md|Checks that the input string is valid Markdown according
+           to the [CommonMark spec](commonmark.org).|]
+      , oneArg "markdown?" $ \case
+          String s -> pure . Boolean . isRight $ Pandoc.runPure (Pandoc.readCommonMark Default.def s)
+          _ -> throwErrorHere $ TypeError "markdown?: expects string"
+      )
     , ( "insert"
       , [md|Given `k`, `v` and a dict `d`, returns a dict with the same associations
            as `d` but with `k` associated to `d`. If `d` isn't a dict then an exception
@@ -255,6 +284,14 @@ purePrimFns = fromList $ allDocs $
           [Number x, Number y] -> pure $ Boolean (x > y)
           [_, _]               -> throwErrorHere $ TypeError ">: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs ">" 2 (length xs))
+    , ( "integral?"
+      , [md|Checks if a number is an integer.|]
+      , oneArg "integral?" $ \case
+          Number n -> case floatingOrInteger n of
+            Left (_ :: Double)   -> pure $ Boolean False
+            Right (_ :: Integer) -> pure $ Boolean True
+          _ -> throwErrorHere $ TypeError "integral?: expecting number"
+      )
     , ( "foldl"
       , [md|Given a function `f`, an initial value `i` and a sequence (list or vector)
            `xs`, reduces `xs` to a single value by starting with `i` and repetitively
@@ -370,14 +407,14 @@ purePrimFns = fromList $ allDocs $
       , oneArg "show" (pure . String . renderPrettyDef))
     , ( "seq"
       , [md|Given a structure `s`, returns a sequence. Lists and vectors are returned
-           without modification while for dicts a list of key-value-pairs is returned:
-           these are lists of length 2 whose first item is a key and whose second item
+           without modification while for dicts a vector of key-value-pairs is returned:
+           these are vectors of length 2 whose first item is a key and whose second item
            is the associated value.|]
       , oneArg "seq" $
           \case
             x@(List _) -> pure x
             x@(Vec _) -> pure x
-            Dict kvs -> pure $ List [List [k, v] | (k,v) <- Map.toList kvs ]
+            Dict kvs -> pure . Vec . Seq.fromList $ [Vec (Seq.fromList [k, v]) | (k,v) <- Map.toList kvs ]
             _ -> throwErrorHere $ TypeError "seq: can only be used on a list, vector or dictionary"
       )
     , ( "to-json"
@@ -402,6 +439,13 @@ purePrimFns = fromList $ allDocs $
             pure . Boolean $ verifySignature key sig msg
           [_, _, _] -> throwErrorHere $ OtherError "verify-signature: message must be a string"
           xs -> throwErrorHere $ WrongNumberOfArgs "verify-signature" 3 (length xs)
+      )
+    , ( "public-key?"
+      , [md|Checks if a value represents a valid public key.|]
+      , oneArg "public-key?" $
+          \v -> case fromRad v of
+                  Right (_ :: PublicKey) -> pure $ Boolean True
+                  Left _                 -> pure $ Boolean False
       )
     , ( "uuid?"
       , [md|Checks if a string has the format of a UUID.|]

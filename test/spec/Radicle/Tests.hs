@@ -71,6 +71,10 @@ test_eval =
         let prog = [s|(tail (list #t #f #t))|]
         prog `succeedsWith` List [Boolean False, Boolean True]
 
+    , testCase "'drop' drops" $ do
+        "(drop 1 (list #t #f #t))" `succeedsWith` List [Boolean False, Boolean True]
+        "(drop 2 [1 2 3 4])" `succeedsWith` toRad [3 :: Int, 4]
+
     , testCase "'nth' extracts elements from lists and vectors" $ do
         "(nth 0 [0 1 2])" `succeedsWith` Number 0
         "(nth 1 [0 1 2])" `succeedsWith` Number 1
@@ -95,6 +99,11 @@ test_eval =
             res  = runTest' $ toS prog
         -- Either evaluation failed or their equal.
         counterexample prog $ isLeft res || res == Right (Boolean False)
+
+    , testCase "'integral?' returns true for whole numbers and false fractional numbers" $ do
+        "(integral? 0)" `succeedsWith` Boolean True
+        "(integral? 1)" `succeedsWith` Boolean True
+        "(integral? 3.14159265359)" `succeedsWith` Boolean False
 
     , testCase "'member?' returns true if list contains element" $ do
         let prog = [s|(member? #t (list #f #t))|]
@@ -135,6 +144,14 @@ test_eval =
             expected = Right . String $ mconcat ss
             info = "Expected:\n" <> prettyEither expected <>
                    "Got:\n" <> prettyEither res
+        counterexample (toS info) $ res == expected
+
+    , testProperty "'string-length' returns length of a string" $ \x -> do
+        let prog = "(string-length " <> renderPrettyDef (asValue (String x)) <> ")"
+            res  = runTest' prog
+            expected = Right $ Number $ fromIntegral $ T.length x
+            info = "Expected:\n" <> prettyEither (Right (String x)) <>
+                   "Got:\n" <> prettyEither (runTest' prog)
         counterexample (toS info) $ res == expected
 
     , testCase "'foldl' foldls the list" $ do

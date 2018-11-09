@@ -9,6 +9,7 @@
 (load! "rad/prelude/exception.rad")
 (load! "rad/chain.rad")
 (load! "rad/state-machine.rad")
+(load! "rad/prelude/validation.rad")
 
 (def pure-prelude-files
   (list
@@ -21,6 +22,7 @@
    "rad/prelude/lens.rad"
    "rad/prelude/exception.rad"
    "rad/state-machine.rad"
+   "rad/prelude/validation.rad"
    ))
 
 (document 'pure-prelude-files

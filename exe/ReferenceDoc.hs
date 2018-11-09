@@ -16,8 +16,7 @@ import           Radicle.Internal.Doc (md)
 import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
 
-main ::
-  IO ()
+main :: IO ()
 main = do
     res_ <- runInputT defaultSettings $
              interpret
@@ -62,6 +61,10 @@ main = do
             "Effectful functions. These functions are not available in 'pure' chains, but are available in the local REPL."
       , sec "Lenses" lens
             "Functional references into radicle values."
+      , sec "Validation" validation
+            [md|Functions for creating or combining *validators*, which are functions which return the
+               input unchanged or throw with an error message. These can be used for checking data before
+               accepting it onto a chain.|]
       , sec "Cryptography" crypto
             "Tools for creating and verifying cryptographic signatures, and generating private/public key pairs."
       , sec "Chain tools" chainTools
@@ -71,13 +74,14 @@ main = do
       ]
 
     basics =
-      [ "eq?", "not", "and", "or", "all", "some", "show", "string-append", "apply", "type", "atom?"
-      , "boolean?", "string?", "number?", "keyword?", "list?", "dict?", "read", "throw"
-      , "Y", "Y2", "to-json", "uuid?", "make-counter" ]
-    maths = ["+", "*", "-", "<", ">"]
+      [ "eq?", "not", "and", "or", "all", "some", "show", "string-append", "string-length"
+      , "apply", "type", "atom?", "boolean?", "string?", "number?", "keyword?", "list?"
+      , "dict?", "read", "throw", "Y", "Y2", "to-json", "uuid?", "make-counter", "markdown?"
+      , "public-key?" ]
+    maths = ["+", "*", "-", "<", ">", "integral?"]
     evalFns = ["base-eval", "eval", "updatable-eval"]
     envStuff = ["pure-env", "get-current-env", "set-current-env", "set-env!"]
-    seqs = ["nth", "foldl", "foldr", "map", "seq"]
+    seqs = ["nth", "foldl", "foldr", "map", "drop", "seq"]
     lists =
       [ "list", "nil", "head", "tail", "empty?", "cons", "reverse", "length", "concat"
       , "filter", "range", "list-with-head" ]
@@ -92,6 +96,9 @@ main = do
       ["print!", "get-line!", "load!", "read-file!", "read-code!", "send-code!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"]
     lens = ["@", "make-lens", "view", "view-ref", "set", "set-ref", "over", "over-ref", "id-lens", "..", "..."]
+    validation =
+      [ "validator/=", "validator/member", "validator/type", "validator/pred", "validator/every"
+      , "validator/and", "validator/or", "validator/key", "validator/keys"]
     crypto = ["verify-signature", "default-ecc-curve", "gen-key-pair!", "gen-signature!"]
     chainTools =
       [ "new-chain", "eval-in-chain", "enter-remote-chain", "update-chain", "add-quit", "add-send"
@@ -105,7 +112,7 @@ main = do
 
     allFns =
          basics ++ maths ++ evalFns ++ envStuff ++ seqs ++ lists ++ vecs
-      ++ dicts ++ structs ++ refs ++ docs ++ io ++ lens ++ crypto ++ chainTools
+      ++ dicts ++ structs ++ refs ++ docs ++ io ++ lens ++ validation ++ crypto ++ chainTools
       ++ doNotInclude
 
     -- Function symbol followed by a hard line break, followed by it's doc.
@@ -128,7 +135,7 @@ main = do
         then pure ()
         else panic $ "The following functions need to be added to the reference doc: " <> T.intercalate ", " notDocumented
 
-    lPanic (Left _)  m = panic m
+    lPanic (Left e)  m = panic $ m <> ": " <> show e
     lPanic (Right r) _ = pure r
 
     inlinePandoc t = case runPure (readMarkdown Default.def t) of
