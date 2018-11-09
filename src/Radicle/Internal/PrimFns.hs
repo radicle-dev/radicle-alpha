@@ -170,7 +170,7 @@ purePrimFns = fromList $ allDocs $
 
     -- Lists and Vecs
     , ( "drop"
-      , [md|Returns all but the first item of a sequence, unless the sequence is empty,
+      , [md|Returns all but the first `n` items of a sequence, unless the sequence is empty,
            in which case an exception is thrown.|]
       , twoArg "drop" $ \case
           (Number n, vs) -> case floatingOrInteger n of
