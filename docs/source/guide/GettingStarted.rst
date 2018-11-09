@@ -20,6 +20,9 @@ In order to build from source, you'll need stack_:
 
     curl -sSL https://get.haskellstack.org/ | sh
 
+The centralized server also requires PostgreSQL libs. On Ubuntu, you can
+`apt-get install libpq-dev`. On MacOS, you can `brew install postgresql'.
+
 You can then download and build the latest source code for `radicle` from
 http://git.oscoin.io/radicle:
 

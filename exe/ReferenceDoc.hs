@@ -2,7 +2,7 @@
 -- | This executable generates the radicle reference docs. This is a markdown
 -- document which contains documentation for all the primitive functions and all
 -- the functions defined in the prelude.
-module ReferenceDoc where
+module ReferenceDoc (main) where
 
 import           Protolude
 

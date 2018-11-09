@@ -1,15 +1,5 @@
 # Chains
 
-(N.B.: for this section, you should use the `radicle-client` executable rather
-than the `radicle` one. The simplest way to run it is to pass `radicle.xyz` as
-the `url` argument:
-
-```
-radicle-client --config rad/repl.rad --url radicle.xyz
-```
-
-In the future `radicle-client` and `radicle` will be folded into one.)
-
 By now you've seen some of `radicle`, but we haven't touched upon what makes it
 different from other languages.
 
@@ -36,14 +26,14 @@ TODO: more.
 First we start up a simple server that hosts remote chains on port 8000.
 
 ```
-stack exec -- radicle-server
+stack run -- radicle-server
 ```
 
 Now we can start a radicle REPL that will be able to communicate with
 the remote chain.
 
 ```
-stack exec -- radicle-client --config rad/repl.rad
+stack run -- radicle-client rad/repl.rad
 ```
 
 We start of by sending an expression to the chain that defines the atom `foo`.
@@ -73,7 +63,7 @@ Next we will use `:enter-chain` to evaluate and send expressions to the
 remote chain.
 
 ```
-(:enter-chain "http://localhost:8023/chains/my-first-chain")
+(:enter-chain "http://localhost:8000/chains/my-first-chain")
 (def bar foo)
 (def quux 4)
 :send  ;; ==> :ok

@@ -48,7 +48,7 @@ steps:
     args:
     - '-c'
     - |
-      stack exec ref-doc
+      stack exec radicle-ref-doc
 
   - id: "Save cache"
     name: gcr.io/cloud-builders/gsutil

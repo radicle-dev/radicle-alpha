@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 
-module Client where
+module RadicleExe (main) where
 
 import           API
 import           Control.Monad.Catch (MonadThrow)
@@ -10,10 +10,12 @@ import           GHC.Exts (fromList)
 import           Network.HTTP.Client (defaultManagerSettings, newManager)
 import qualified Network.HTTP.Client as HttpClient
 import           Options.Applicative
+import           Prelude (String)
 import           Protolude hiding (TypeError, option)
 import           Radicle
 import           Servant.Client
 import           System.Console.Haskeline (InputT)
+import           System.Directory (doesFileExist)
 
 import           Radicle.Internal.Doc (md)
 import qualified Radicle.Internal.PrimFns as PrimFns
@@ -24,7 +26,11 @@ main = do
     cfgFile <- case configFile opts' of
         Nothing  -> getConfigFile
         Just cfg -> pure cfg
-    cfgSrc <- readFile cfgFile
+    cfgSrc <- do
+       exists <- doesFileExist cfgFile
+       if exists
+           then readFile cfgFile
+           else die $ "Could not find file: " <> toS cfgFile
     hist <- case histFile opts' of
         Nothing -> getHistoryFile
         Just h  -> pure h
@@ -33,9 +39,17 @@ main = do
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
-       <> progDesc "Run the radicle REPL"
-       <> header "rad - The radicle REPL"
+       <> progDesc radDesc
+       <> header "The radicle intepreter"
         )
+
+radDesc :: String
+radDesc
+    = "Interprets a radicle program.\n"
+   <> "\n"
+   <> "This program can also be used as a REPL by providing a file "
+   <> "that defines a REPL. An example is the rad/repl.rad file included "
+   <> "in the distribution."
 
 -- * CLI Opts
 
@@ -46,15 +60,25 @@ data Opts = Opts
 
 opts :: Parser Opts
 opts = Opts
-    <$> optional (strOption
-        ( long "config"
-       <> metavar "FILE"
-       <> help "rad configuration file"
-        ))
+    <$> argument (optional str)
+        ( metavar "FILE"
+       <> help
+           ( "File to interpret."
+          <> "Defaults to $DIR/radicle/config.rad "
+          <> "where $DIR is $XDG_CONFIG_HOME (%APPDATA% on Windows "
+          <> "if that is set, or else ~/.config."
+           )
+        )
     <*> optional (strOption
         ( long "histfile"
+       <> short 'H'
        <> metavar "FILE"
-       <> help "repl history file"
+       <> help
+           ( "File used to store the REPL history."
+          <> "Defaults to $DIR/radicle/config.rad "
+          <> "where $DIR is $XDG_DATA_HOME (%APPDATA% on Windows "
+          <> "if that is set, or else ~/.local/share."
+           )
         ))
 
 -- * Primops
@@ -75,7 +99,7 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
              case res of
                  Left e   -> throwErrorHere . OtherError
                            $ "send!: failed:" <> show e
-                 Right () -> pure $ List []
+                 Right r  -> pure r
          [_, _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
@@ -92,23 +116,18 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
                       liftIO (runClientM' url mgr (since r)) >>= \case
                           Left err -> throwErrorHere . OtherError
                                     $ "receive!: request failed:" <> show err
-                          Right v' -> pure $ List v'
+                          Right v' -> pure v'
           [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
           [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
           xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)
       )
 
--- * Helpers
-
-identV :: Text -> Value
-identV = Keyword . unsafeToIdent
-
 -- * Client functions
 
-submit :: Value -> ClientM ()
+submit :: Value -> ClientM Value
 submit = client chainSubmitEndpoint
 
-since :: Int -> ClientM [Value]
+since :: Int -> ClientM Value
 since = client chainSinceEndpoint
 
 runClientM' :: (MonadThrow m, MonadIO m) => Text -> HttpClient.Manager -> ClientM a -> m (Either ServantError a)

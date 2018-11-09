@@ -14,6 +14,7 @@ radicle
    guide/Basics.lrad
    guide/Chains.lrad
    guide/DataValidation.rst
+   guide/Issues.lrad
    reference.rst
 
 
