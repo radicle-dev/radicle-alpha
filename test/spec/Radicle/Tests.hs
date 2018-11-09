@@ -538,6 +538,11 @@ test_parser =
 
     , testCase "a dict litteral with an odd number of forms is a syntax error" $
         assertBool "succesfully parsed a dict with 3 forms" (isLeft $ parseTest "{:foo 3 4}")
+
+    , testCase "mkIdent does not accept identifiers with numeric prefixes" $ do
+        assertBool "not for -93G" (isNothing (mkIdent "-93G"))
+        assertBool "not for +0X, no sir" (isNothing (mkIdent "+0X"))
+        assertBool "5 is right out" (isNothing (mkIdent "5"))
     ]
   where
     x ~~> y = parseTest x @?= Right y
