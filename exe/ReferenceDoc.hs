@@ -96,7 +96,9 @@ main = do
       ["print!", "get-line!", "load!", "read-file!", "read-code!", "send-code!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"]
     lens = ["@", "make-lens", "view", "view-ref", "set", "set-ref", "over", "over-ref", "id-lens", "..", "..."]
-    validation = ["validator/=", "validator/type", "validator/pred", "validator/every", "validator/and", "validator/key", "validator/keys"]
+    validation =
+      [ "validator/=", "validator/member", "validator/type", "validator/pred", "validator/every"
+      , "validator/and", "validator/or", "validator/key", "validator/keys"]
     crypto = ["verify-signature", "default-ecc-curve", "gen-key-pair!", "gen-signature!"]
     chainTools =
       [ "new-chain", "eval-in-chain", "enter-remote-chain", "update-chain", "add-quit", "add-send"
@@ -133,7 +135,7 @@ main = do
         then pure ()
         else panic $ "The following functions need to be added to the reference doc: " <> T.intercalate ", " notDocumented
 
-    lPanic (Left _)  m = panic m
+    lPanic (Left e)  m = panic $ m <> ": " <> show e
     lPanic (Right r) _ = pure r
 
     inlinePandoc t = case runPure (readMarkdown Default.def t) of
