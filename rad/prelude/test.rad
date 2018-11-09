@@ -26,7 +26,7 @@
                             (do
                               (def lhs-res (head (eval lhs senv)))
                               (if (eq? lhs-res rhs)
-                                  (print! (string-append "Test '" test-name "' succeeded (" (show ix) ")"))
+                                  (print! (string-append "Test '" test-name " (" (show ix) ")' succeeded"))
                                   (error (string-append "failed: got " (show lhs-res) " but expected " (show rhs)))))
                             (error "Expected and actual not separate by ==>"))
                         (+ ix 1)))

@@ -774,7 +774,7 @@ test_source_files = testGroup "Radicle source file tests" <$>
                                                $ T.drop 1
                                                $ T.dropWhile (/= '\'') line
                             in testCase (toS name) $
-                                if " succeeded" `T.isInfixOf` result
+                                if "' succeeded\"" `T.isSuffixOf` line
                                     then pure ()
                                     else assertFailure . toS $ "test failed: " <> result
         let doesntThrow = if isRight r
