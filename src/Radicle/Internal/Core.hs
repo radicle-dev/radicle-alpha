@@ -441,27 +441,15 @@ specialForms = Map.fromList $ first Ident <$>
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
   , ("def", \case
-          [Atom name, val] -> do
-              val' <- baseEval val
-              defineAtom name Nothing val'
-              pure nil
+          [Atom name, val] -> def name Nothing val
           [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
-          [Atom name, String d, val] -> do
-              val' <- baseEval val
-              defineAtom name (Just d) val'
-              pure nil
+          [Atom name, String d, val] -> def name (Just d) val
           xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
     , ( "def-rec"
       , \case
-          [Atom name, val] -> do
-            val' <- baseEval val
-            case val' of
-                Lambda is b e -> do
-                    let v = Lambda is b (Env . Map.insert name (Doc.Docd Nothing v) . fromEnv $ e)
-                    defineAtom name Nothing v
-                    pure nil
-                _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
+          [Atom name, val] -> defRec name Nothing val
           [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
+          [Atom name, String d, val] -> defRec name (Just d) val
           xs               -> throwErrorHere $ WrongNumberOfArgs "def-rec" 2 (length xs)
       )
     , ("do", (lastDef nil <$>) . traverse baseEval)
@@ -495,6 +483,20 @@ specialForms = Map.fromList $ first Ident <$>
         if b /= Boolean False
           then baseEval e
           else cond ps
+
+    def name doc_ val = do
+      val' <- baseEval val
+      defineAtom name doc_ val'
+      pure nil
+
+    defRec name doc_ val = do
+      val' <- baseEval val
+      case val' of
+        Lambda is b e -> do
+          let v = Lambda is b (Env . Map.insert name (Doc.Docd doc_ v) . fromEnv $ e)
+          defineAtom name doc_ v
+          pure nil
+        _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
 
 -- * From/ToRadicle
 
