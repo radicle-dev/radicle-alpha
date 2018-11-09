@@ -6,6 +6,14 @@
         x
         (throw 'validation-failure (string-append "Not equal to: " (show x)))))))
 
+(def validator/member
+  "Given a structure, returns a validator which checks for membership in the structure."
+  (fn [xs]
+    (fn [x]
+      (if (member? x xs)
+        x
+        (throw 'validation-failure (string-append "Not a member of: " (show xs)))))))
+
 (def validator/and
   "Given a sequence of validators `vs`, returns a new validator which, given a
   value, checks if it conforms to all the validators in `vs`."
@@ -13,6 +21,18 @@
     (fn [x]
       (map (fn [v] (v x)) vs)
       x)))
+
+(def-rec validator/or
+  "Given a vector of validators `vs`, returns a new validator which, given a
+  value, checks if it conforms to at least one of the `vs`."
+  (fn [vs]
+    (fn [x]
+      (if (eq? vs [])
+        (throw 'validation-failure "validation/or: didn't satisfy any of the validators")
+        (catch
+          'validation-failure
+          ((nth 0 vs) x)
+          (fn [y] ((validator/or (drop 1 vs)) x)))))))
 
 (def validator/type
   "Checks that a value has a type. Expects a keyword describing the type, as
