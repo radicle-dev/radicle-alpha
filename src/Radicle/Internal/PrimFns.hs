@@ -91,10 +91,10 @@ purePrimFns = fromList $ allDocs $
           _ -> throwErrorHere $ TypeError "read: expects string"
       )
     , ( "read-many"
-      , [md|Parses a string into a vector of radicle values. Does not evaluate the value.|]
-      , oneArg "read" $ \case
+      , [md|Parses a string into a vector of radicle values. Does not evaluate the values.|]
+      , oneArg "read-many" $ \case
           String s -> readValues s
-          _ -> throwErrorHere $ TypeError "read: expects string"
+          _ -> throwErrorHere $ TypeError "read-many: expects string"
       )
     , ("get-current-env"
       , [md|Returns the current radicle state.|]
