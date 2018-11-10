@@ -23,9 +23,9 @@ import qualified Text.Megaparsec as M
 
 -- | Smart constructor for Ident.
 mkIdent :: Text -> Maybe Ident
-mkIdent t = case runIdentity (M.runParserT identP "" t) of
-    Left _  -> Nothing
-    Right v -> pure v
+mkIdent t = case runIdentity (M.runParserT valueP "" t) of
+    Right (Atom i) -> pure i
+    _              -> Nothing
 
 -- | A quasiquoter that checks that an identifier is valid at compile-time.
 ident :: QuasiQuoter
