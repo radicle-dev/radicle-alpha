@@ -11,15 +11,17 @@
 
   Type (doc '<name>) for further documentation of <name>."))
 
-(def read-line-or-exit! (fn []
-  (def line (get-line!))
-  (if (eq? line nil)
-      (exit!)
-      (read line))))
+(def repl (fn []
+  (def-rec repl-rec (fn [st]
+    (def line (get-expression! (keys (lookup :env st))))
+    (def cur-eval (nth 1 (lookup 'eval (lookup :env st))))
+    (if (eq? line nil)
+        nil
+        (catch 'any (do (def ret (cur-eval (read line) st))
+                        (print! (head ret))
+                        (repl-rec (head (tail ret))))
+                (fn [e] (put-str! (string-append "Exception " (show e)))
+                        (repl-rec st))))))
+  (repl-rec (get-current-env))))
 
-(def repl
-  {:name "repl"
-   ;; Parse errors are thrown here
-   :getter read-line-or-exit!})
-
-(subscribe-to! repl print!)
+(repl)

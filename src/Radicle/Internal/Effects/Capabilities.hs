@@ -2,33 +2,44 @@
 --
 -- The intent is that any set of primops may wear on their sleaves (i.e.
 -- constraints) what effects they do.
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP              #-}
+{-# LANGUAGE TypeApplications #-}
 module Radicle.Internal.Effects.Capabilities where
 
 import           Protolude
 
+import qualified Data.Map as Map
 import           Data.Text.Prettyprint.Doc (PageWidth)
-import           System.Console.Haskeline
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
 #endif
 
 import           Radicle.Internal.Core
+import qualified Radicle.Internal.Input as Input
 
 class (Monad m) => Stdin m where
     getLineS :: m (Maybe Text)  -- gives Nothing on EOF
+    getLineCompletionS :: [Text] -> m (Maybe Text)
 instance {-# OVERLAPPABLE #-} Stdin m => Stdin (Lang m) where
     getLineS = lift getLineS
-instance (MonadException m) => Stdin (InputT m) where
-    getLineS = (fmap.fmap) toS (getInputLine "rad> ")
+    getLineCompletionS = lift . getLineCompletionS
+instance (Input.MonadException m) => Stdin (Input.InputT m) where
+    getLineS = Input.getInputLine Input.noCompletions "rad> "
+    getLineCompletionS compl = Input.getInputLine (radicleCompletion compl) "rad> "
+
+
+radicleCompletion :: (Monad m) => [Text] -> Input.Completions m
+radicleCompletion = Input.wordCompletions ['(', ')', ' ', '\n'] . (specials <>)
+    where
+    specials = fromIdent <$> Map.keys (specialForms @Identity)
 
 class (Monad m) => Stdout m where
     putStrS :: Text -> m ()
 instance {-# OVERLAPPABLE #-} Stdout m => Stdout (Lang m) where
     putStrS = lift . putStrS
-instance (MonadException m, Monad m) => Stdout (InputT m) where
-    putStrS = outputStrLn . toS
+instance (Input.MonadException m, Monad m) => Stdout (Input.InputT m) where
+    putStrS = Input.outputStrLn . toS
 
 class (Monad m) => Exit m where
     exitS :: m ()
@@ -57,7 +68,7 @@ class (Monad m) => SetSubs m where
 class (Monad m) => ReadFile m where
     readFileS :: Text -> m Text
 #ifdef ghcjs_HOST_OS
-instance ReadFile (InputT IO) where
+instance ReadFile (Input.InputT IO) where
     readFileS = lift . requestFile
       where
         requestFile :: Text -> IO Text
@@ -70,7 +81,7 @@ instance ReadFile (InputT IO) where
                 Nothing -> ""
                 Just v  -> v
 #else
-instance ReadFile (InputT IO) where
+instance ReadFile (Input.InputT IO) where
     readFileS = lift . readFile . toS
 #endif
 instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where

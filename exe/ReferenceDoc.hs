@@ -13,12 +13,12 @@ import qualified Data.Text as T
 import qualified GHC.Exts as GhcExts
 import           Radicle
 import           Radicle.Internal.Doc (md)
-import           System.Console.Haskeline (defaultSettings, runInputT)
+import qualified Radicle.Internal.Input as Input
 import           Text.Pandoc
 
 main :: IO ()
 main = do
-    res_ <- runInputT defaultSettings $
+    res_ <- Input.runInputT Nothing $
              interpret
                "reference-doc"
                "(do (load! \"rad/prelude.rad\") (get-current-env))"

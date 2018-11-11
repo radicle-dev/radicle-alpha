@@ -519,6 +519,9 @@ instance (CPA t, FromRad t a) => FromRad t (Maybe a) where
     fromRad _ = Left "Expecting :Nothing or [:Just _]"
 instance FromRad t (Annotated t ValueF) where
   fromRad = pure
+instance (CPA t) => FromRad t Ident where
+    fromRad (Atom i) = pure i
+    fromRad _        = Left "Expecting identifier"
 instance CPA t => FromRad t Scientific where
     fromRad x = case x of
         Number n -> pure n
