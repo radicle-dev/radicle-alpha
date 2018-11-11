@@ -27,6 +27,7 @@ import qualified Data.Sequence as Seq
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified Text.Megaparsec.Error as Par
+import           Text.Megaparsec.Pos (sourcePosPretty)
 
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
@@ -458,11 +459,10 @@ specialForms = Map.fromList $ first Ident <$>
               mlabel <- baseEval l
               handlerclo <- baseEval handler
               case mlabel of
-                  -- TODO reify stack
-                  Atom label -> baseEval form `catchError` \(LangError _stack e) -> do
+                  Atom label -> baseEval form `catchError` \(LangError stack e) -> do
                      (thrownLabel, thrownValue) <- errorDataToValue e
                      if thrownLabel == label || label == Ident "any"
-                         then handlerclo $$ [thrownValue]
+                         then handlerclo $$ [thrownValue, toRad stack]
                          else baseEval form
                   _ -> throwErrorHere $ TypeError "catch: first argument must be atom"
           xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
@@ -612,10 +612,13 @@ instance ToRad Ann.WithPos (Bindings m) where
         [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
         , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs x))
         ]
+instance (CPA t) => ToRad t Ann.SrcPos where
+    toRad (Ann.SrcPos p)      = toRad (toS (sourcePosPretty p) :: Text)
+    toRad (Ann.InternalPos p) = toRad p
+
 
 -- * Helpers
 
--- Loc is the source location of the application.
 callFn :: Monad m => Value -> [Value] -> Lang m Value
 callFn f vs = case f of
   Lambda bnds body closure ->
