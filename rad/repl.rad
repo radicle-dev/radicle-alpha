@@ -3,7 +3,8 @@
 ;; The Repl
 
 (def render-exception! (fn [e stack]
-  (put-str! (string-append "Exception: " (show e)))
+  (def show-e (if (eq? (type e) :string) e (show e)))
+  (put-str! (string-append "Exception: " show-e))
   (for-each-vec stack put-str!)))
 
 (def repl (fn []
@@ -12,11 +13,13 @@
     (def cur-eval (lookup :val (lookup 'eval (lookup :env st))))
     (if (eq? line nil)
         nil
-        (catch 'any (do (def ret (cur-eval (read line) st))
-                        (print! (head ret))
-                        (repl-rec (head (tail ret))))
-                (fn [e stack] (render-exception! e stack)
-                              (repl-rec st))))))
+        (do 
+          (def new-st (catch 'any (do (def ret (cur-eval (read line) st))
+                                      (print! (head ret))
+                                      (head (tail ret)))
+                             (fn [e stack] (render-exception! e stack)
+                                           st)))
+          (repl-rec new-st)))))
   (repl-rec (get-current-env))))
 
 (repl)

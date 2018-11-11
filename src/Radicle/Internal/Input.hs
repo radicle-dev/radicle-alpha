@@ -42,7 +42,7 @@ wordCompletions whitespace words = Completions $ H.completeWord Nothing whitespa
     go s = pure . fmap H.simpleCompletion
          . filter (s `isPrefixOf`)
          $ map T.unpack words
-{-# ANN wordCompletions ("HLint: ignore Use String" :: [Char]) #-}
+{-# ANN module ("HLint: ignore Use String" :: [Char]) #-}
 
 getInputLine :: (Monad m, MonadException m) => Completions m -> Text -> InputT m (Maybe Text)
 getInputLine compl prompt = InputT $

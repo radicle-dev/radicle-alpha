@@ -52,15 +52,7 @@ replBindings = addPrimFns replPrimFns pureEnv
 
 replPrimFns :: ReplM m => PrimFns m
 replPrimFns = fromList $ allDocs $
-    [ ( "print!"
-      , "Pretty-prints a value."
-      , \case
-        [x] -> do
-            putStrS (renderPrettyDef x)
-            pure nil
-        xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
-
-    , ( "put-str!"
+    [ ( "put-str!"
       , "Outputs a string verbatim."
       , oneArg "put-str!" $ \case
           String str -> putStrS str >> pure nil

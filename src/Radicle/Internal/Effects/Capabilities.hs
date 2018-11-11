@@ -2,8 +2,7 @@
 --
 -- The intent is that any set of primops may wear on their sleaves (i.e.
 -- constraints) what effects they do.
-{-# LANGUAGE CPP              #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE CPP #-}
 module Radicle.Internal.Effects.Capabilities where
 
 import           Protolude

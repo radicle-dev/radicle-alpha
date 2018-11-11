@@ -175,6 +175,12 @@ Multiplies two numbers together.
 
 Substracts one number from another.
 
+``/``
+~~~~~
+
+Divides one number by another. Throws an exception if the second
+argument is 0.
+
 ``<``
 ~~~~~
 
@@ -259,6 +265,12 @@ Given a value ``x``, and two functions ``f`` and ``g``, checks if ``x``
 is a list with a head. If so applies ``f`` to the head, otherwise calls
 ``g`` with no args.
 
+``for-each``
+~~~~~~~~~~~~
+
+(for-each ls cb) calls ``cb`` for each element in the list ``ls``, for
+its side effect. always returns ``nil``.
+
 Vectors
 -------
 
@@ -278,6 +290,12 @@ Adds an element to the left side of a vector.
 ~~~~~~~~~~~~~
 
 Adds an element to the right side of a vector.
+
+``for-each-vec``
+~~~~~~~~~~~~~~~~
+
+(for-each-vec v cb) calls ``cb`` for each element in ``v``, for its side
+effect. always returns ``nil``.
 
 Sequences
 ---------
@@ -344,7 +362,8 @@ Functions for manipulating dicts.
 ~~~~~~~~
 
 Given an even number of arguments, creates a dict where the ``2i``-th
-argument is the key for the ``2i+1``\ th argument.
+argument is the key for the ``2i+1``\ th argument. If one of the even
+indexed arguments is not hashable then an exception is thrown.
 
 ``lookup``
 ~~~~~~~~~~
@@ -359,7 +378,7 @@ thrown.
 
 Given ``k``, ``v`` and a dict ``d``, returns a dict with the same
 associations as ``d`` but with ``k`` associated to ``d``. If ``d`` isn't
-a dict then an exception is thrown.
+a dict or if ``k`` isn't hashable then an exception is thrown.
 
 ``delete``
 ~~~~~~~~~~
@@ -537,6 +556,11 @@ Input/Output
 Effectful functions. These functions are not available in 'pure' chains,
 but are available in the local REPL.
 
+``put-str!``
+~~~~~~~~~~~~
+
+Outputs a string verbatim.
+
 ``print!``
 ~~~~~~~~~~
 
@@ -546,6 +570,12 @@ Pretty-prints a value.
 ~~~~~~~~~~~~~
 
 Reads a single line of input and returns it as a string.
+
+``get-expression!``
+~~~~~~~~~~~~~~~~~~~
+
+Reads a line of input and returns it as a string. Takes a list of
+completion words.
 
 ``load!``
 ~~~~~~~~~
@@ -765,6 +795,11 @@ functions before sending these to a remote chain.
 ~~~~~~~~~~~~~
 
 Return an empty chain dictionary with the given url.
+
+``@var``
+~~~~~~~~
+
+A lens for variables in states of chains.
 
 ``eval-in-chain``
 ~~~~~~~~~~~~~~~~~

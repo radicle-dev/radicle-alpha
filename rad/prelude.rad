@@ -1,5 +1,5 @@
-(load! "rad/prelude/test.rad")
 (load! "rad/prelude/io.rad")
+(load! "rad/prelude/test.rad")
 (load! "rad/prelude/bool.rad")
 (load! "rad/prelude/recursion.rad")
 (load! "rad/prelude/list.rad")

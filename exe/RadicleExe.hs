@@ -13,8 +13,8 @@ import           Radicle
 import           Servant.Client
 import           System.Directory (doesFileExist)
 
-import qualified Radicle.Internal.Number as Num
 import qualified Radicle.Internal.Input as Input
+import qualified Radicle.Internal.Number as Num
 import qualified Radicle.Internal.PrimFns as PrimFns
 
 main :: IO ()

@@ -6,4 +6,4 @@
 BASEDIR=$(dirname $BASH_SOURCE)/..
 
 cd $BASEDIR
-hothasktags -XLambdaCase -XTypeFamilies -XScopedTypeVariables -XFunctionalDependencies -XTupleSections -XExplicitNamespaces -XStandaloneDeriving -XDefaultSignatures -R src > TAGS
+hothasktags -XLambdaCase -XTypeFamilies -XScopedTypeVariables -XFunctionalDependencies -XTupleSections -XExplicitNamespaces -XStandaloneDeriving -XDefaultSignatures -XTypeApplications -R src > TAGS

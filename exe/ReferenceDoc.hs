@@ -84,8 +84,8 @@ main = do
     seqs = ["nth", "foldl", "foldr", "map", "seq", "take", "drop"]
     lists =
       [ "list", "nil", "head", "tail", "empty?", "cons", "reverse", "length", "concat"
-      , "filter", "range", "list-with-head" ]
-    vecs = ["<>", "add-left", "add-right"]
+      , "filter", "range", "list-with-head", "for-each" ]
+    vecs = ["<>", "add-left", "add-right", "for-each-vec" ]
     dicts =
       ["dict", "lookup", "insert", "delete", "dict-from-list", "keys", "values", "rekey"
       , "map-values", "modify-map"]
@@ -93,7 +93,8 @@ main = do
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
     docs = ["help", "doc", "doc!", "apropos!", "document", "is-test-env"]
     io =
-      ["print!", "get-line!", "load!", "read-file!", "read-code!", "send-code!"
+      ["put-str!", "print!", "get-line!", "get-expression!"
+      , "load!", "read-file!", "read-code!", "send-code!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"]
     lens = ["@", "@nth", "make-lens", "view", "view-ref", "set", "set-ref", "over", "over-ref", "id-lens", "..", "..."]
     validation =
