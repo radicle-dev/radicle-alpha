@@ -8,7 +8,7 @@ module Radicle.Internal.Effects.Capabilities where
 import           Protolude
 
 import           Data.Text.Prettyprint.Doc (PageWidth)
-import           System.Console.Haskeline
+import           System.Console.Haskeline hiding (catch)
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
@@ -55,7 +55,7 @@ class (Monad m) => SetSubs m where
     setSubS :: Text -> (Value -> m ()) -> m ()
 
 class (Monad m) => ReadFile m where
-    readFileS :: Text -> m Text
+    readFileS :: Text -> m (Either Text Text)  -- ^ Left error or Right contents
 #ifdef ghcjs_HOST_OS
 instance ReadFile (InputT IO) where
     readFileS = lift . requestFile
@@ -67,11 +67,12 @@ instance ReadFile (InputT IO) where
             send req
             resp <- getResponseText req
             pure $ case resp of
-                Nothing -> ""
-                Just v  -> v
+                Nothing -> Left "no response from server"
+                Just v  -> Right v
 #else
 instance ReadFile (InputT IO) where
-    readFileS = lift . readFile . toS
+    readFileS fname = lift $ (Right <$> readFile (toS fname))
+                               `catch` (\(e :: IOException) -> pure (Left (show e)))
 #endif
 instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
     readFileS = lift . readFileS

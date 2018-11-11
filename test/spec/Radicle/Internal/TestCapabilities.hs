@@ -95,8 +95,8 @@ instance {-# OVERLAPPING #-} ReadFile TestLang where
   readFileS fn = do
     fs <- lift $ gets worldStateFiles
     case Map.lookup fn fs of
-      Just f  -> pure f
-      Nothing -> throwErrorHere . OtherError $ "File not found: " <> fn
+      Just f  -> pure $ Right f
+      Nothing -> pure . Left $ "File not found: " <> fn
 
 instance MonadRandom (State WorldState) where
     getRandomBytes i = do

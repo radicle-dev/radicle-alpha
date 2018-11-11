@@ -4,7 +4,7 @@ module Radicle.Tests where
 import           Protolude hiding (toList)
 
 import           Codec.Serialise (Serialise, deserialise, serialise)
-import           Data.List (isInfixOf, isSuffixOf)
+import           Data.List (isInfixOf, isSuffixOf, last)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromJust)
 import           Data.Scientific (Scientific)
@@ -671,6 +671,20 @@ test_repl =
                      ]
         (_, result) <- runInRepl input
         result @==> output
+
+    , testCase "exceptions are non-fatal" $ do
+        let input = [ "(throw 'something \"something happened\")"
+                    , "#t"
+                    ]
+        (_, result) <- runInRepl input
+        last result @?= "#t"
+
+    , testCase "load! a non-existent file is a non-fatal exception" $ do
+        let input = [ "(load! \"not-a-thing.rad\")"
+                    , "#t"
+                    ]
+        (_, result) <- runInRepl input
+        last result @?= "#t"
     ]
     where
       -- In addition to the output of the lines tested, 'should-be's get

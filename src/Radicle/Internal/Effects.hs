@@ -165,14 +165,18 @@ replPrimFns = fromList $ allDocs $
     , ( "read-file!"
       , [md|Reads the contents of a file and returns it as a string.|]
       , oneArg "read-file" $ \case
-          String filename -> String <$> readFileS filename
+          String filename -> readFileS filename >>= \case
+              Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
+              Right text -> pure $ String text
           _ -> throwErrorHere $ TypeError "read-file: expects a string"
       )
     , ( "load!"
       , [md|Evaluates the contents of a file. Each seperate radicle expression is
            `eval`uated according to the current definition of `eval`.|]
       , oneArg "load!" $ \case
-          String filename -> readFileS filename >>= interpretMany ("[load! " <> filename <> "]")
+          String filename -> readFileS filename >>= \case
+              Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
+              Right text -> interpretMany ("[load! " <> filename <> "]") text
           _ -> throwErrorHere $ TypeError "load: expects a string"
       )
     , ( "gen-key-pair!"
