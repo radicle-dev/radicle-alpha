@@ -164,6 +164,7 @@ executables:
 default-extensions:
 - AutoDeriveTypeable
 - ConstraintKinds
+- CPP
 - DataKinds
 - DefaultSignatures
 - DeriveDataTypeable
