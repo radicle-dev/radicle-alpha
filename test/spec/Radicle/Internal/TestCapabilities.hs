@@ -121,7 +121,7 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
                                      $ "receive!: expecting int argument"
                   Right r -> do
                       chains <- lift $ gets worldStateRemoteChains
-                      pure . List case Map.lookup url chains of
+                      pure . List $ case Map.lookup url chains of
                               Nothing  -> []
                               Just res -> toList $ Seq.drop r res
           [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
