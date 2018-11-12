@@ -108,7 +108,7 @@ main = do
       , "state-machine-eval", "state-machine-input", "state-machine-new-trans"
       , "state-machine-agree", "state-machine-disagree", "simple-trans", "update-chain-ref"]
 
-    issueChain = ["create-issues-chain!", "list-issues", "new-issue"]
+    issueChain = ["create-issues-chain!", "list-issues", "new-issue!"]
 
     typ s = "Functions for manipulating " <> s <> "."
 
@@ -118,7 +118,7 @@ main = do
     allFns =
          basics ++ maths ++ evalFns ++ envStuff ++ seqs ++ lists ++ vecs
       ++ dicts ++ structs ++ refs ++ docs ++ io ++ lens ++ validation ++ crypto ++ chainTools
-      ++ doNotInclude
+      ++ issueChain ++ doNotInclude
 
     -- Function symbol followed by a hard line break, followed by it's doc.
     funs e fns = mconcat
