@@ -8,7 +8,6 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Default as Default
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
-import           Data.Scientific (Scientific, floatingOrInteger)
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
@@ -20,6 +19,7 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Doc (md)
 import qualified Radicle.Internal.Doc as Doc
+import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import qualified Radicle.Internal.UUID as UUID
@@ -160,6 +160,7 @@ purePrimFns = fromList $ allDocs $
           List (x:_) -> pure x
           List []    -> throwErrorHere $ OtherError "head: empty list"
           _          -> throwErrorHere $ TypeError "head: expects list argument")
+
     , ("tail"
       , [md|Given a non-empty list, returns the list of all the elements but the
            first. If the list is empty, throws an exception.|]
@@ -173,9 +174,9 @@ purePrimFns = fromList $ allDocs $
       , [md|Returns all but the first `n` items of a sequence, unless the sequence is empty,
            in which case an exception is thrown.|]
       , twoArg "drop" $ \case
-          (Number n, vs) -> case floatingOrInteger n of
-            Left (_ :: Double) -> throwErrorHere $ OtherError "drop: first argument must be an integer"
-            Right i -> case vs of
+          (Number n, vs) -> case Num.isInt n of
+            Nothing -> throwErrorHere $ OtherError "drop: first argument must be an int"
+            Just i -> case vs of
               List xs -> pure . List $ drop i xs
               Vec xs -> pure . Vec $ Seq.drop i xs
               _ -> throwErrorHere $ TypeError $ "drop: second argument must be a list of vector"
@@ -187,9 +188,9 @@ purePrimFns = fromList $ allDocs $
            does not have an `n`-th element, or if it is not a list or vector, then
            an exception is thrown.|]
       , \case
-          [Number n, vs] -> case floatingOrInteger n of
-            Left (_ :: Double) -> throwErrorHere $ OtherError "nth: first argument was not an integer"
-            Right i -> do
+          [Number n, vs] -> case Num.isInt n of
+            Nothing -> throwErrorHere $ OtherError "nth: first argument was not an integer"
+            Just i -> do
               xs <- hoistEitherWith (const (toLangError . OtherError $ "nth: first argument must be sequential")) $ fromRad vs
               case xs `atMay` i of
                 Just x  -> pure x
@@ -223,7 +224,7 @@ purePrimFns = fromList $ allDocs $
     , ( "string-length"
       , [md|Returns the length of a string.|]
       , oneArg "string-length" $ \case
-          String s -> pure . Number . fromIntegral . T.length $ s
+          String s -> pure . Number . Num.Int . fromIntegral . T.length $ s
           _ -> throwErrorHere $ TypeError "string-length: expecting string"
       )
     , ( "string-append"
@@ -269,27 +270,27 @@ purePrimFns = fromList $ allDocs $
     --
     -- In order to avoid this sort of thing, we don't allow +,*,- and / to be
     -- applied to a single argument.
-    , numBinop (+) "+" [md|Adds two numbers together.|]
-    , numBinop (*) "*" [md|Multiplies two numbers together.|]
-    , numBinop (-) "-" [md|Substracts one number from another.|]
+    , numBinop (Num.op (+)) "+" [md|Adds two numbers together.|]
+    , numBinop (Num.op (*)) "*" [md|Multiplies two numbers together.|]
+    , numBinop (Num.op (-)) "-" [md|Substracts one number from another.|]
     , ( "<"
       , [md|Checks if a number is strictly less than another.|]
       , \case
-          [Number x, Number y] -> pure $ Boolean (x < y)
+          [Number x, Number y] -> pure $ Boolean (Num.comp (<) x y)
           [_, _]               -> throwErrorHere $ TypeError "<: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs "<" 2 (length xs))
     , ( ">"
       , [md|Checks if a number is strictly greater than another.|]
       , \case
-          [Number x, Number y] -> pure $ Boolean (x > y)
+          [Number x, Number y] -> pure $ Boolean (Num.comp (>) x y)
           [_, _]               -> throwErrorHere $ TypeError ">: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs ">" 2 (length xs))
     , ( "integral?"
       , [md|Checks if a number is an integer.|]
       , oneArg "integral?" $ \case
-          Number n -> case floatingOrInteger n of
-            Left (_ :: Double)   -> pure $ Boolean False
-            Right (_ :: Integer) -> pure $ Boolean True
+          Number n -> case Num.isInt n of
+            Nothing -> pure $ Boolean False
+            Just _  -> pure $ Boolean True
           _ -> throwErrorHere $ TypeError "integral?: expecting number"
       )
     , ( "foldl"
@@ -485,7 +486,7 @@ purePrimFns = fromList $ allDocs $
 
     kw = Keyword . Ident
 
-    numBinop :: (Scientific -> Scientific -> Scientific)
+    numBinop :: (Num.Number -> Num.Number -> Num.Number)
              -> Text
              -> Text
              -> (Text, Text, [Value] -> Lang m Value)

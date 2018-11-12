@@ -24,6 +24,7 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Foo)
+import           Radicle.Internal.Number
 import           Radicle.Internal.TestCapabilities
 
 test_eval :: [TestTree]
@@ -43,21 +44,21 @@ test_eval =
 
     , testCase "vector syntax creates vectors" $ do
         "[]" `succeedsWith` Vec Empty
-        "[1 2]" `succeedsWith` Vec (fromList [Number 1, Number 2])
-        "[1 :a [:b 2]]" `succeedsWith` Vec (fromList [Number 1, kw "a", Vec (fromList [kw "b", Number 2])])
+        "[1 2]" `succeedsWith` Vec (fromList [int 1, int 2])
+        "[1 :a [:b 2]]" `succeedsWith` Vec (fromList [int 1, kw "a", Vec (fromList [kw "b", int 2])])
 
     , testCase "vectors evaluate their elements" $
-        "[(+ 1 2) (* 3 4)]" `succeedsWith` Vec (fromList [Number 3, Number 12])
+        "[(+ 1 2) (* 3 4)]" `succeedsWith` Vec (fromList [int 3, int 12])
 
     , testCase "'dict' creates a Dict with given key/vals" $ do
         let prog1 = [s|(dict 'why "not")|]
         prog1 `succeedsWith` Dict (fromList [(Atom $ [ident|why|], String "not")])
         let prog2 = [s|(dict 3 1)|]
-        prog2 `succeedsWith` Dict (fromList [(Number 3, Number 1)])
+        prog2 `succeedsWith` Dict (fromList [(int 3, int 1)])
 
     , testCase "Dicts evaluate both keys are arguments" $ do
-        "{(+ 1 1) (+ 1 1)}" `succeedsWith` Dict (fromList [(Number 2, Number 2)])
-        "{(+ 1 1) :a (+ 0 2) :b}" `succeedsWith` Dict (fromList [(Number 2, kw "a")])
+        "{(+ 1 1) (+ 1 1)}" `succeedsWith` Dict (fromList [(int 2, int 2)])
+        "{(+ 1 1) :a (+ 0 2) :b}" `succeedsWith` Dict (fromList [(int 2, kw "a")])
 
     , testCase "'cons' conses an element" $ do
         let prog = [s|(cons #t (list #f))|]
@@ -76,10 +77,10 @@ test_eval =
         "(drop 2 [1 2 3 4])" `succeedsWith` toRad [3 :: Int, 4]
 
     , testCase "'nth' extracts elements from lists and vectors" $ do
-        "(nth 0 [0 1 2])" `succeedsWith` Number 0
-        "(nth 1 [0 1 2])" `succeedsWith` Number 1
-        "(nth 0 '(0 1 2))" `succeedsWith` Number 0
-        "(nth 1 '(0 1 2))" `succeedsWith` Number 1
+        "(nth 0 [0 1 2])" `succeedsWith` int 0
+        "(nth 1 [0 1 2])" `succeedsWith` int 1
+        "(nth 0 '(0 1 2))" `succeedsWith` int 0
+        "(nth 1 '(0 1 2))" `succeedsWith` int 1
 
     , testProperty "'eq?' considers equal values equal" $ \(val :: Value) -> do
         let prog = [i|(eq? #{renderPrettyDef val} #{renderPrettyDef val})|]
@@ -149,27 +150,27 @@ test_eval =
     , testProperty "'string-length' returns length of a string" $ \x -> do
         let prog = "(string-length " <> renderPrettyDef (asValue (String x)) <> ")"
             res  = runTest' prog
-            expected = Right $ Number $ fromIntegral $ T.length x
+            expected = Right $ int $ fromIntegral $ T.length x
             info = "Expected:\n" <> prettyEither (Right (String x)) <>
                    "Got:\n" <> prettyEither (runTest' prog)
         counterexample (toS info) $ res == expected
 
     , testCase "'foldl' foldls the list" $ do
         let prog = [s|(foldl (fn [x y] (- x y)) 0 (list 1 2 3))|]
-        prog `succeedsWith` Number (-6)
+        prog `succeedsWith` int (-6)
 
     , testCase "'foldr' foldrs the list" $ do
         let prog = [s|(foldr (fn [x y] (- x y)) 0 (list 1 2 3))|]
-        prog `succeedsWith` Number 2
+        prog `succeedsWith` int 2
 
     , testCase "'map' maps over the list" $ do
         let prog = [s|(map (fn [x] (+ x 1)) (list 1 2))|]
-        prog `succeedsWith` List [Number 2, Number 3]
+        prog `succeedsWith` List [int 2, int 3]
 
     , testCase "'map' (and co.) don't over-eval elements of argument list" $ do
         let prog = [s|(map (fn [x] (cons 1 x)) (list (list 1)))
                    |]
-        prog `succeedsWith` List [List [Number 1, Number 1]]
+        prog `succeedsWith` List [List [int 1, int 1]]
 
     , testCase "'eval' evaluates the list" $ do
         let prog = [s|(head (eval (quote #t) (get-current-env)))|]
@@ -210,7 +211,7 @@ test_eval =
                   (def y 3)
                   y))
               |]
-        prog `succeedsWith` Number 3
+        prog `succeedsWith` int 3
 
     , testCase "lambdas throw WrongNumberOfArgs if given wrong number of args" $ do
         let prog = [s| ((fn [x] 3)) |]
@@ -245,8 +246,8 @@ test_eval =
         "(do)" `succeedsWith` List []
 
     , testCase "'do' returns the result of the last argument" $ do
-        "(do 1)" `succeedsWith` Number 1
-        "(do 1 2 3)" `succeedsWith` Number 3
+        "(do 1)" `succeedsWith` int 1
+        "(do 1 2 3)" `succeedsWith` int 3
 
     , testCase "'do' runs effects in order" $ do
         let prog = [s|
@@ -255,7 +256,7 @@ test_eval =
                        (write-ref r 2))
                    (read-ref r)
                    |]
-        prog `succeedsWith` Number 2
+        prog `succeedsWith` int 2
 
     , testCase "'string?' is true for strings" $ do
         let prog = [s|(string? "hi")|]
@@ -306,19 +307,19 @@ test_eval =
 
     , testCase "'+' sums the list of numbers" $ do
         let prog1 = [s|(+ 2 (+ 2 3))|]
-        prog1 `succeedsWith` Number 7
+        prog1 `succeedsWith` int 7
         let prog2 = [s|(+ -1 -2 -3)|]
-        prog2 `succeedsWith` Number (- 6)
+        prog2 `succeedsWith` int (- 6)
 
     , testCase "'-' subtracts the list of numbers" $ do
         let prog1= [s|(- (+ 2 3) 1)|]
-        prog1 `succeedsWith` Number 4
+        prog1 `succeedsWith` int 4
         let prog2 = [s|(- -1 -2 -3)|]
-        prog2 `succeedsWith` Number 4
+        prog2 `succeedsWith` int 4
 
     , testCase "'*' multiplies the list of numbers" $ do
         let prog = [s|(* 2 3)|]
-        prog `succeedsWith` Number 6
+        prog `succeedsWith` int 6
 
     , testProperty "'>' works" $ \(x, y) -> do
         let prog = [i|(> #{renderPrettyDef . asValue $ Number x} #{renderPrettyDef . asValue $ Number y})|]
@@ -376,7 +377,7 @@ test_eval =
                 (read-ref x)
                 |]
             res = runTest' prog
-        res @?= Right (Number 6)
+        res @?= Right (int 6)
 
     , testCase "mutations to refs are persisted beyond a lambda's scope" $ do
         let prog = [s|
@@ -400,8 +401,8 @@ test_eval =
             (ref-incer foo)
             (read-ref foo)
             |]
-        runTest' prog @?= Right (Number 1)
-        runTest' prog2 @?= Right (Number 1)
+        runTest' prog @?= Right (int 1)
+        runTest' prog2 @?= Right (int 1)
 
     , testCase "muliple refs mutated in multiple lambdas" $ do
         let prog = [s|
@@ -420,7 +421,7 @@ test_eval =
             (c1)
             (list (c1) (c2))
             |]
-        runTest' prog @?= Right (List [Number 3, Number 1])
+        runTest' prog @?= Right (List [int 3, int 1])
 
     , testProperty "read-ref . ref == id" $ \(v :: Value) -> do
         let derefed = runTest' $ toS [i|(read-ref (ref #{renderPrettyDef v}))|]
@@ -442,7 +443,7 @@ test_eval =
         runTest' "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
     , testCase "'read' works" $
-        runTest' "(read \"(:hello 42)\")" @?= Right (List [Keyword [ident|hello|], Number 42])
+        runTest' "(read \"(:hello 42)\")" @?= Right (List [Keyword [ident|hello|], int 42])
 
     , testCase "'to-json' works" $ do
         runTest' "(to-json (dict \"foo\" #t))" @?= Right (String "{\"foo\":true}")
@@ -458,7 +459,7 @@ test_eval =
                     (+ n (triangular (- n 1))))))
             (triangular 10)
             |]
-        runTest' prog @?= Right (Number 55)
+        runTest' prog @?= Right (int 55)
 
     , testCase "def-rec errors when defining a non-function" $
         failsWith "(def-rec x 42)" (OtherError "def-rec can only be used to define functions")
@@ -523,8 +524,8 @@ test_parser =
         "(++ \"merge\" \"d\")" ~~> List [Atom [ident|++|], String "merge", String "d"]
 
     , testCase "parses numbers" $ do
-        "0.15" ~~> Number 0.15
-        "2000" ~~> Number 2000
+        "0.15" ~~> Number (Sci 0.15)
+        "2000" ~~> Number (Int 2000)
 
     , testCase "parses identifiers" $ do
         "++" ~~> Atom [ident|++|]
@@ -534,7 +535,7 @@ test_parser =
         "evaluate" ~~> Atom [ident|evaluate|]
 
     , testCase "parses dicts" $ do
-        "{:foo 3}" ~~> Dict (Map.singleton (Keyword [ident|foo|]) (Number 3))
+        "{:foo 3}" ~~> Dict (Map.singleton (Keyword [ident|foo|]) (int 3))
 
     , testCase "a dict litteral with an odd number of forms is a syntax error" $
         assertBool "succesfully parsed a dict with 3 forms" (isLeft $ parseTest "{:foo 3 4}")
@@ -566,16 +567,16 @@ test_pretty =
         r @?= "(fn arg1 arg2)"
 
     , testCase "dicts try to fit on one line" $ do
-        let r = renderPretty (apl 80) (asValue (Dict $ Map.fromList [ (kw "k1", Number 1)
-                                                                    , (kw "k2", Number 2)
+        let r = renderPretty (apl 80) (asValue (Dict $ Map.fromList [ (kw "k1", int 1)
+                                                                    , (kw "k2", int 2)
                                                                     ]))
-        r @?= "{:k1 1.0 :k2 2.0}"
+        r @?= "{:k1 1 :k2 2}"
 
     , testCase "dicts split with key-val pairs" $ do
-        let r = renderPretty (apl 5) (asValue (Dict $ Map.fromList [ (kw "k1", Number 1)
-                                                                   , (kw "k2", Number 2)
+        let r = renderPretty (apl 5) (asValue (Dict $ Map.fromList [ (kw "k1", int 1)
+                                                                   , (kw "k2", int 2)
                                                                    ]))
-        r @?= "{:k1 1.0\n :k2 2.0}"
+        r @?= "{:k1 1\n :k2 2}"
     , testProperty "read . pprint == identity for strings" $ \(t :: Text) ->
         let v = asValue (String t)
             pp = renderPrettyDef v
@@ -615,7 +616,7 @@ test_repl_primops =
                    (+ foo bar)
                    |]
             files = Map.singleton "foo.rad" "(def foo 42) (def bar 8)"
-        runFiles files prog @?= Right (Number 50)
+        runFiles files prog @?= Right (int 50)
     , testCase "generating and verifying cryptographic signatures works" $
         let prog = [s|
                    (def my-keys (gen-key-pair! (default-ecc-curve)))
@@ -776,6 +777,9 @@ kw = Keyword . unsafeToIdent
 
 atom :: Text -> Value
 atom = Atom . unsafeToIdent
+
+int :: Integer -> Value
+int = Number . Int
 
 -- -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- -- primops.

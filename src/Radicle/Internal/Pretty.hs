@@ -13,6 +13,7 @@ import           Text.Megaparsec.Error (parseErrorPretty)
 import           Text.Megaparsec.Pos (sourcePosPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
+import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Core
 
 -- | We can't just pretty print the pointer id since that would break
@@ -29,7 +30,7 @@ instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) wher
         Keyword i -> ":" <> pretty i
         Ref i -> pretty i
         String t -> "\"" <> pretty (escapeStr t) <> "\""
-        Number n -> pretty (show n :: Text)
+        Number n -> pretty (Num.pretty n)
         Boolean True -> "#t"
         Boolean False -> "#f"
         List vs -> case vs of
