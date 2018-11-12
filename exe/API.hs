@@ -3,7 +3,7 @@ module API where
 
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
-import GHC.Exts (IsList(..))
+import           GHC.Exts (IsList(..))
 import           Protolude
 import           Radicle
 import           Radicle.Internal.Annotation (thisPos)

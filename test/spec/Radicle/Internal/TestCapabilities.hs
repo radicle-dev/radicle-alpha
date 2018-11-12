@@ -7,8 +7,8 @@ import           Protolude hiding (TypeError)
 import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
 import           Data.Scientific (floatingOrInteger)
-import           GHC.Exts (fromList)
 import qualified Data.Sequence as Seq
+import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
 
 import           Radicle
@@ -105,7 +105,7 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
          [String url, Vec v] -> do
              lift . modify $ \s ->
                 s { worldStateRemoteChains
-                    = Map.insertWith (\new old -> old Seq.>< new) url v $ worldStateRemoteChains s }
+                    = Map.insertWith (flip (Seq.><)) url v $ worldStateRemoteChains s }
              pure $ List []
          [_, Vec _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
          [String _, _] -> throwErrorHere $ TypeError "send!: second argument should be a vector"

@@ -86,7 +86,7 @@ insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
     case r of
         Left e  -> pure . (c ,) . Left $ "invalid expression: " <> show e
         Right valsRes -> do
-             void $ traverse (insertExprDB conn name) vals
+             traverse_ (insertExprDB conn name) vals
              let news = Seq.fromList $ zip vals valsRes
              let chain' = chain { chainState = newSt
                                 , chainEvalPairs = chainEvalPairs chain Seq.>< news
