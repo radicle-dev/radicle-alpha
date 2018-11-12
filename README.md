@@ -37,6 +37,6 @@ stack exec radicle-client -- --config rad/repl.rad
 
 ## More
 
-Radicle has a [webpage](radicle.xyz), and a [guide](docs.radicle.xyz) which
+Radicle has a [webpage](http://radicle.xyz/), and a [guide](http://docs.radicle.xyz) which
 contain a lot more information on `radicle`.
 
