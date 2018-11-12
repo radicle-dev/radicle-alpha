@@ -4,7 +4,6 @@ module Radicle.Tests where
 import           Protolude hiding (toList)
 
 import           Codec.Serialise (Serialise, deserialise, serialise)
-import           Data.List (isInfixOf, isSuffixOf, last)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromJust)
 import           Data.Scientific (Scientific)
@@ -687,14 +686,14 @@ test_repl =
                     , "#t"
                     ]
         (_, result) <- runInRepl input
-        last result @?= "#t"
+        result @==> ["#t"]
 
     , testCase "load! a non-existent file is a non-fatal exception" $ do
         let input = [ "(load! \"not-a-thing.rad\")"
                     , "#t"
                     ]
         (_, result) <- runInRepl input
-        last result @?= "#t"
+        result @==> ["#t"]
     ]
     where
       -- In addition to the output of the lines tested, tests get
@@ -770,19 +769,19 @@ test_source_files = testGroup "Radicle source file tests" <$>
             pure (toS f, contents)
         contents <- readFile (dir <> file)
         let (r, out) = runTestWithFiles testBindings [] (fromList allFiles) contents
-        let makeTest line = let (name, result) = T.span (/= '\'')
-                                               $ T.drop 1
-                                               $ T.dropWhile (/= '\'') line
-                            in testCase (toS name) $
-                                if "' succeeded\"" `T.isSuffixOf` line
-                                    then pure ()
-                                    else assertFailure . toS $ "test failed: " <> result
+        let makeTest line =
+                let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
+                         $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line
+                in testCase (toS name) $
+                    if "' succeeded\"" `T.isSuffixOf` line
+                        then pure ()
+                        else assertFailure . toS $ "test failed: " <> line
         let doesntThrow = if isRight r
                 then pure ()
                 else assertFailure $ "Expected Right, got: " <> toS (prettyEither r)
         pure $ [testGroup file
             $ testCase "doesn't throw" doesntThrow
-            : [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]]
+            : [ makeTest ln | ln <- reverse out, "\"Test" `T.isPrefixOf` ln ]]
 
 test_macros :: [TestTree]
 test_macros =
@@ -792,20 +791,6 @@ test_macros =
                     , "(def x 1)"
                     , ":quit"
                     , "x"
-                    ]
-            output = [ "0.0" ]
-        (_, result) <- runInRepl input
-        result @==> output
-    , testCase "am I going crazy?" $ do
-        let input = [ "(do"
-                   <>  "(def pk (gen-key-pair! (default-ecc-curve)))"
-                   <>  "(def chain-name (uuid!))"
-                   <>  "(def chain-ref (create-issues-chain! chain-name))"
-                   <>  "(new-issue! chain-ref pk \"Ah!\" \"if thou issueless shall hap to die\")"
-                   <>  "(update-chain-ref chain-ref)"
-                   <>  "(def res (read-ref chain-ref))"
-                   <>  "(def issues (list-issues chain-ref)))"
-                   ,   "issues"
                     ]
             output = [ "0.0" ]
         (_, result) <- runInRepl input

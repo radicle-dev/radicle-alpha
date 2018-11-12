@@ -144,18 +144,21 @@ instance {-# OVERLAPPING #-} ReadFile TestLang where
   readFileS fn = do
     fs <- lift $ gets worldStateFiles
     case Map.lookup fn fs of
-      Just f  -> pure $ Right f
-      Nothing -> pure . Left $ "File not found: " <> fn
+        Just f  -> pure $ Right f
+        Nothing -> throwErrorHere . OtherError $ "File not found: " <> fn
 
 instance MonadRandom (State WorldState) where
     getRandomBytes i = do
-      drg <- gets worldStateDRG
-      let (a, drg') = CryptoRand.randomBytesGenerate i drg
-      modify $ \ws -> ws { worldStateDRG = drg' }
-      pure a
+        drg <- gets worldStateDRG
+        let (a, drg') = CryptoRand.randomBytesGenerate i drg
+        modify $ \ws -> ws { worldStateDRG = drg' }
+        pure a
 
 instance UUID.MonadUUID (State WorldState) where
     uuid = do
-      i <- gets worldStateUUID
-      modify $ \ws -> ws { worldStateUUID = i + 1 }
-      pure $ "uuid-" <> show i
+        i <- gets worldStateUUID
+        modify $ \ws -> ws { worldStateUUID = i + 1 }
+        pure . pad $ show i
+      where
+        prefix = "00000000-0000-0000-0000-"
+        pad i = toS $ prefix <> replicate (12 - length i) '0' <> i

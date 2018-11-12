@@ -26,7 +26,7 @@
     (if (id-valid-and-free? id)
       (mod-issues
         (fn [is] (insert id i is)))
-      "Issue ID was not free or was invalid.")))
+      (throw 'bad-command "Issue ID was not free or was invalid."))))
 
 (def close-issue
   (fn [id]

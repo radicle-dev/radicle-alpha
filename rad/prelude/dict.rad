@@ -17,18 +17,22 @@
 ;; keys
 
 (def keys
+  "Given a `dict`, returns a vector of its keys."
   (fn [d]
     (map head (seq d))))
 
-(document 'keys
-  '(("dict" dict))
-  "Returns the list of keys in a dictionary.")
+(:test "keys"
+  [ (keys {:one 1 :two 2}) ==> [:one :two] ]
+)
 
-;; Uncomment this test once map is fixed.
-;; (should-be "keys"
-;;            (keys (dict :one 1 :two 2))
-;;            '(:one :two))
+(def values
+  "Given a `dict`, returns a vector of its values."
+  (fn [d]
+    (map (fn [x] (nth 1 x)) (seq d))))
 
+(:test "values"
+  [ (values {:a 0 :b 1}) ==> [0 1] ]
+)
 
 ;; rekey
 (def rekey (fn [old-key new-key mp]
