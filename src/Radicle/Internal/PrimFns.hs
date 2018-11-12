@@ -13,8 +13,8 @@ import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import           GHC.Exts (IsList(..))
-import qualified Text.Pandoc as Pandoc
 import           Text.Megaparsec (parseErrorPretty)
+import qualified Text.Pandoc as Pandoc
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
