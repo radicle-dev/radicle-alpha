@@ -93,7 +93,7 @@ main = do
       , "map-values", "modify-map"]
     structs = ["member?"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
-    docs = ["doc", "doc!", "apropos!", "document", "should-be", "is-test-env"]
+    docs = ["doc", "doc!", "apropos!", "document", "is-test-env"]
     io =
       ["print!", "get-line!", "load!", "read-file!", "read-code!", "send-code!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"]
