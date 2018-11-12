@@ -796,6 +796,20 @@ test_macros =
             output = [ "0.0" ]
         (_, result) <- runInRepl input
         result @==> output
+    , testCase "am I going crazy?" $ do
+        let input = [ "(do"
+                   <>  "(def pk (gen-key-pair! (default-ecc-curve)))"
+                   <>  "(def chain-name (uuid!))"
+                   <>  "(def chain-ref (create-issues-chain! chain-name))"
+                   <>  "(new-issue! chain-ref pk \"Ah!\" \"if thou issueless shall hap to die\")"
+                   <>  "(update-chain-ref chain-ref)"
+                   <>  "(def res (read-ref chain-ref))"
+                   <>  "(def issues (list-issues chain-ref)))"
+                   ,   "issues"
+                    ]
+            output = [ "0.0" ]
+        (_, result) <- runInRepl input
+        result @==> output
     ]
   where
     -- In addition to the output of the lines tested, 'should-be's get
