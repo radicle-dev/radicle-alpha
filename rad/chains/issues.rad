@@ -47,8 +47,10 @@
        (def res (read-ref chain-ref))
        (def issues (list-issues chain-ref)))
    ]
-   [ res ==> "blahhh" ]
-   [ "how the hell is the above succeeding?" ==> "blahhh" ]
-)
+   ;; [ (lookup :inputs res) ==> "blahhh" ]
+   ;; [ (eval-in-chain '(list-issues) (read-ref chain-ref)) ==> "blahhh" ]
+   [ (head (reverse (lookup :inputs (read-ref chain-ref)))) ==> "b"]
+   [ (type (lookup :result (eval-in-chain '(list-issues) (read-ref chain-ref)))) ==> "b"]
    ;; [ (view (... [(@ :title) (@nth 0)]) issues) ==> "Ah" ]
    ;; [ (view (... [(@ :body) (@nth 0)]) issues) ==> "if thou issueless shall hap to die"]
+)

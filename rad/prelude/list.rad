@@ -6,14 +6,16 @@
 
 ;; empty?
 
-(def empty? (fn [ls] (eq? ls nil)))
+(def empty? (fn [ls] (or (eq? ls nil) (eq? ls []))))
 
 (document 'empty?
-  '(("list" list))
-  "True if 'list' is empty, false otherwise.")
+  '(("seq" sequence))
+  "True if 'seq' is empty, false otherwise.")
 
 (:test "empty"
   [ (empty? (list 2)) ==> #f ]
+  [ (empty? [2]) ==> #f ]
+  [ (empty? []) ==> #t ]
 )
 
 ;; length

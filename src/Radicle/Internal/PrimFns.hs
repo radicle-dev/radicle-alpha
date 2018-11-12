@@ -161,19 +161,23 @@ purePrimFns = fromList $ allDocs $
           [_, _]       -> throwErrorHere $ TypeError "cons: second argument must be list"
           xs           -> throwErrorHere $ WrongNumberOfArgs "cons" 2 (length xs))
     , ("head"
-      , [md|Retrieves the first element of a list if it exists. Otherwise throws an
+      , [md|Retrieves the first element of a sequence if it exists. Otherwise throws an
            exception.|]
       , oneArg "head" $ \case
-          List (x:_) -> pure x
-          List []    -> throwErrorHere $ OtherError "head: empty list"
-          _          -> throwErrorHere $ TypeError "head: expects list argument")
+          List (x:_)        -> pure x
+          List []           -> throwErrorHere $ OtherError "head: empty list"
+          Vec (x Seq.:<| _) -> pure x
+          Vec Seq.Empty     -> throwErrorHere $ OtherError "head: empty vector"
+          _                 -> throwErrorHere $ TypeError "head: expects sequence argument")
     , ("tail"
-      , [md|Given a non-empty list, returns the list of all the elements but the
-           first. If the list is empty, throws an exception.|]
+      , [md|Given a non-empty sequence, returns the sequence of all the elements but the
+           first. If the sequence is empty, throws an exception.|]
       , oneArg "tail" $ \case
-          List (_:xs) -> pure $ List xs
-          List []     -> throwErrorHere $ OtherError "tail: empty list"
-          _           -> throwErrorHere $ TypeError "tail: expects list argument")
+          List (_:xs)        -> pure $ List xs
+          List []            -> throwErrorHere $ OtherError "tail: empty list"
+          Vec (_ Seq.:<| xs) -> pure $ Vec xs
+          Vec Seq.Empty      -> throwErrorHere $ OtherError "tail: empty vector"
+          _                  -> throwErrorHere $ TypeError "tail: expects sequence argument")
 
     -- Lists and Vecs
     , ( "drop"
