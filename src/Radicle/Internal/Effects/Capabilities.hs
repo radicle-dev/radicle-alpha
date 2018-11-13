@@ -60,7 +60,7 @@ class (Monad m) => ReadFile m where
 instance ReadFile (InputT IO) where
     readFileS = lift . requestFile
       where
-        requestFile :: Text -> IO Text
+        requestFile :: Text -> IO (Either Text Text)
         requestFile filename = do
             req <- newXMLHttpRequest
             openSimple req ("GET" :: Text) filename

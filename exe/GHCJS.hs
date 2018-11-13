@@ -4,6 +4,7 @@ module GHCJS where
 import           Protolude hiding (TypeError)
 
 import           API
+import           Control.Monad.Catch (MonadThrow)
 import           Data.IORef
 import qualified Data.JSString as JSS
 import           Data.Scientific (floatingOrInteger)
@@ -15,8 +16,9 @@ import           GHCJS.Types
 import           JavaScript.Object (getProp, setProp)
 import           JavaScript.Object.Internal (Object(..))
 import           Radicle
-import           Servant.API ((:<|>)(..))
+import           Radicle.Internal.PrimFns (allDocs)
 import           Servant.Client.Ghcjs
+import           Servant.Client.Internal.XhrClient (runClientMOrigin)
 import           System.Console.Haskeline (InputT, defaultSettings, runInputT)
 
 main :: IO ()
@@ -66,35 +68,39 @@ bindings :: Bindings (PrimFns (InputT IO))
 bindings = e { bindingsPrimFns = bindingsPrimFns e <> primops }
     where
       e :: Bindings (PrimFns (InputT IO))
-      e = pureEnv
+      e = replBindings
 
 primops :: PrimFns (InputT IO)
-primops = PrimFns (fromList [sendPrimop, receivePrimop]) <> replPrimFns
+primops = fromList $ allDocs [sendPrimop, receivePrimop]
   where
     sendPrimop =
-      ( unsafeToIdent "send!"
+      ( "send!"
+      , "Given a URL (string) and a value, sends the value `v` to the remote\
+        \ chain located at the URL for evaluation."
       , \case
-         [String name, v] -> do
-             res <- liftIO $ runClientM (submit $ List $ [String name, v])
+         [String name, Vec v] -> do
+             res <- liftIO $ runClientM' name (submit $ toList v)
              case res of
                  Left e   -> throwErrorHere . OtherError
                            $ "send!: failed:" <> show e
-                 Right () -> pure $ List []
+                 Right _ -> pure $ List []
          [_, _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
     receivePrimop =
-      ( unsafeToIdent "receive!"
+      ( "receive!"
+      , "Given a URL (string) and a integral number `n`, queries the remote chain\
+        \ for the last `n` inputs that have been evaluated."
       , \case
           [String name, Number n] -> do
               case floatingOrInteger n of
                   Left (_ :: Float) -> throwErrorHere . OtherError
                                      $ "receive!: expecting int argument"
                   Right r -> do
-                      liftIO (runClientM (since name r)) >>= \case
+                      liftIO (runClientM' name (since r)) >>= \case
                           Left err -> throwErrorHere . OtherError
                                     $ "receive!: request failed:" <> show err
-                          Right v' -> pure $ List v'
+                          Right v' -> pure v'
           [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
           [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
           xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)
@@ -107,6 +113,13 @@ identV = Keyword . unsafeToIdent
 
 -- * Client functions
 
-submit :: Value -> ClientM ()
-since :: Text -> Int -> ClientM [Value]
-submit :<|> since :<|> _ = client api
+submit :: [Value] -> ClientM Value
+submit = client chainSubmitEndpoint . Values
+
+since :: Int -> ClientM Value
+since = client chainSinceEndpoint
+
+runClientM' :: (MonadThrow m, MonadIO m) => Text -> ClientM a -> m (Either ServantError a)
+runClientM' baseUrl endpoint = do
+    url <- parseBaseUrl $ T.unpack baseUrl
+    liftIO $ runClientMOrigin endpoint $ ClientEnv url

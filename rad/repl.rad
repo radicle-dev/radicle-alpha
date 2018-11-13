@@ -2,15 +2,6 @@
 
 ;; The Repl
 
-
-(def _initial_prompt-text
-  "Welcome to radicle. Type (help) for help.")
-
-(def help (fn []
-  "radicle is a LISP-like language intended for programming chains, and interacting with those chains.
-
-  Type (doc '<name>) for further documentation of <name>."))
-
 (def read-line-or-exit! (fn []
   (def line (get-line!))
   (if (eq? line nil)
