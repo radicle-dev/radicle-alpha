@@ -6,6 +6,7 @@ module Radicle.Internal
     , kword
     ) where
 
+import           Prelude (String)
 import           Protolude
 
 import           Language.Haskell.TH.Quote
@@ -28,7 +29,7 @@ mkIdent t = case runIdentity (M.runParserT valueP "" t) of
     Right (Atom i) -> pure i
     _              -> Nothing
 
-expQuot :: Text -> ([Char] -> Syntax.Q Syntax.Exp) -> QuasiQuoter
+expQuot :: Text -> (String -> Syntax.Q Syntax.Exp) -> QuasiQuoter
 expQuot name e = QuasiQuoter
     { quoteExp = e
     , quoteType = panic err
@@ -49,4 +50,4 @@ kword :: QuasiQuoter
 kword =
   expQuot "kword" $ \s -> [| case mkIdent s of
     Nothing -> panic $ "Not a valid keyword: " <> s
-    Just i -> Keyword i |]
+    Just i  -> Keyword i |]

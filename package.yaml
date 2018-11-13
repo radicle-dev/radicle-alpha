@@ -173,6 +173,7 @@ executables:
     - errors
     - time
     - github
+    - optparse-applicative
     ghc-options: -main-is GithubIssues
 
 default-extensions:
