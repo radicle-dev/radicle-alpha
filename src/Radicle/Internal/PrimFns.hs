@@ -295,6 +295,13 @@ purePrimFns = fromList $ allDocs $
     , numBinop (+) "+" [md|Adds two numbers together.|]
     , numBinop (*) "*" [md|Multiplies two numbers together.|]
     , numBinop (-) "-" [md|Substracts one number from another.|]
+    , ( "/"
+      , [md|Divides one number by another. Throws an exception if the second argument is 0.|]
+      , twoArg "/" $ \case
+          (Number x, Number y) | y /= 0 -> pure $ Number (x / y)
+          (Number _, Number _) -> throwErrorHere $ OtherError "Can't divide by 0"
+          _ -> throwErrorHere $ TypeError "/: expects two numbers"
+      )
     , ( "<"
       , [md|Checks if a number is strictly less than another.|]
       , \case
