@@ -47,13 +47,11 @@ interpretMany
     => Text  -- ^ Name of source file (for error reporting)
     -> Text  -- ^ Source code to be interpreted
     -> Lang m Value
-interpretMany sourceName src = do
-    let parsed = parseValues sourceName src
-    case partitionEithers parsed of
-        ([], vs) -> do
-          es <- mapM eval vs
-          case lastMay es of
-             Just e -> pure e
-             _ -> throwErrorHere
-                $ OtherError "InterpretMany should be called with at least one expression."
-        (e:_, _) -> throwErrorHere $ ParseError e
+interpretMany sourceName src = case parseValues sourceName src of
+    Left err -> throwErrorHere $ ParseError err
+    Right vs -> do
+        es <- mapM eval vs
+        case lastMay es of
+            Just e -> pure e
+            _ -> throwErrorHere
+               $ OtherError "InterpretMany should be called with at least one expression."

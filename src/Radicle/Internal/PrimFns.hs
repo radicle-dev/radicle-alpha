@@ -13,6 +13,7 @@ import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import           GHC.Exts (IsList(..))
+import           Text.Megaparsec (parseErrorPretty)
 import qualified Text.Pandoc as Pandoc
 
 import qualified Radicle.Internal.Annotation as Ann
@@ -89,6 +90,12 @@ purePrimFns = fromList $ allDocs $
           String s -> readValue s
           _ -> throwErrorHere $ TypeError "read: expects string"
       )
+    , ( "read-many"
+      , [md|Parses a string into a vector of radicle values. Does not evaluate the values.|]
+      , oneArg "read-many" $ \case
+          String s -> readValues s
+          _ -> throwErrorHere $ TypeError "read-many: expects string"
+      )
     , ("get-current-env"
       , [md|Returns the current radicle state.|]
       , \case
@@ -154,19 +161,23 @@ purePrimFns = fromList $ allDocs $
           [_, _]       -> throwErrorHere $ TypeError "cons: second argument must be list"
           xs           -> throwErrorHere $ WrongNumberOfArgs "cons" 2 (length xs))
     , ("head"
-      , [md|Retrieves the first element of a list if it exists. Otherwise throws an
+      , [md|Retrieves the first element of a sequence if it exists. Otherwise throws an
            exception.|]
       , oneArg "head" $ \case
-          List (x:_) -> pure x
-          List []    -> throwErrorHere $ OtherError "head: empty list"
-          _          -> throwErrorHere $ TypeError "head: expects list argument")
+          List (x:_)        -> pure x
+          List []           -> throwErrorHere $ OtherError "head: empty list"
+          Vec (x Seq.:<| _) -> pure x
+          Vec Seq.Empty     -> throwErrorHere $ OtherError "head: empty vector"
+          _                 -> throwErrorHere $ TypeError "head: expects sequence argument")
     , ("tail"
-      , [md|Given a non-empty list, returns the list of all the elements but the
-           first. If the list is empty, throws an exception.|]
+      , [md|Given a non-empty sequence, returns the sequence of all the elements but the
+           first. If the sequence is empty, throws an exception.|]
       , oneArg "tail" $ \case
-          List (_:xs) -> pure $ List xs
-          List []     -> throwErrorHere $ OtherError "tail: empty list"
-          _           -> throwErrorHere $ TypeError "tail: expects list argument")
+          List (_:xs)        -> pure $ List xs
+          List []            -> throwErrorHere $ OtherError "tail: empty list"
+          Vec (_ Seq.:<| xs) -> pure $ Vec xs
+          Vec Seq.Empty      -> throwErrorHere $ OtherError "tail: empty vector"
+          _                  -> throwErrorHere $ TypeError "tail: expects sequence argument")
 
     -- Lists and Vecs
     , ( "drop"
@@ -181,6 +192,18 @@ purePrimFns = fromList $ allDocs $
               _ -> throwErrorHere $ TypeError $ "drop: second argument must be a list of vector"
           _ -> throwErrorHere $ TypeError $ "drop: first argument must be a number"
       )
+    , ( "take"
+      , [md|Returns the first `n` items of a sequence, unless the sequence is too short,
+           in which case an exception is thrown.|]
+      , twoArg "take" $ \case
+          (Number n, vs) -> case floatingOrInteger n of
+            Left (_ :: Double) -> throwErrorHere $ OtherError "take: first argument must be an integer"
+            Right i -> case vs of
+              List xs -> pure . List $ take i xs
+              Vec xs -> pure . Vec $ Seq.take i xs
+              _ -> throwErrorHere $ TypeError $ "take: second argument must be a list of vector"
+          _ -> throwErrorHere $ TypeError $ "take: first argument must be a number"
+      )
     , ( "nth"
       , [md|Given an integral number `n` and `xs`, returns the `n`th element
            (zero indexed) of `xs` when `xs` is a list or a vector. If `xs`
@@ -194,7 +217,7 @@ purePrimFns = fromList $ allDocs $
               case xs `atMay` i of
                 Just x  -> pure x
                 Nothing -> throwErrorHere $ OtherError "nth: index out of bounds"
-          [_,_] -> throwErrorHere $ TypeError "nth: expects a integer and a list"
+          [_,_] -> throwErrorHere $ TypeError "nth: expects a integer and a list or vector"
           xs -> throwErrorHere $ WrongNumberOfArgs "nth" 2 (length xs)
       )
 
@@ -521,6 +544,16 @@ readValue s = do
     case p of
       Right v -> pure v
       Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String e)
+
+readValues
+    :: (MonadError (LangError Value) m)
+    => Text
+    -> m Value
+readValues s = do
+    let p = parseValues "[read-many-primop]" s
+    case p of
+      Right v -> pure . Vec $ Seq.fromList v
+      Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String . toS $ parseErrorPretty e)
 
 allDocs :: [(Text, Text, a)] -> [(Ident, Maybe Text, a)]
 allDocs = fmap $ \(x,y,z) -> (unsafeToIdent x, Just y, z)

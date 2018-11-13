@@ -77,7 +77,6 @@ instance ReadFile (InputT IO) where
 instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
     readFileS = lift . readFileS
 
-
 putStrLnS :: (Stdout m) => Text -> m ()
 putStrLnS t = putStrS t >> putStrS "\n"
 

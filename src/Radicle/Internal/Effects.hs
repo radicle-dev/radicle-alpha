@@ -182,8 +182,8 @@ replPrimFns = fromList $ allDocs $
     , ( "gen-key-pair!"
       , [md|Given an elliptic curve, generates a cryptographic key-pair. Use
            `default-ecc-curve` for a default value for the elliptic curve.|]
-      , \case
-          [curvev] -> do
+      , oneArg "gen-key-pair!" $ \case
+          curvev -> do
             curve <- hoistEither . first (toLangError . OtherError) $ fromRad curvev
             (pk, sk) <- generateKeyPair curve
             let pkv = toRad pk
@@ -192,7 +192,6 @@ replPrimFns = fromList $ allDocs $
               [ (Keyword (Ident "private-key"), skv)
               , (Keyword (Ident "public-key"), pkv)
               ]
-          xs -> throwErrorHere $ WrongNumberOfArgs "gen-key-pair!" 0 (length xs)
       )
     , ( "gen-signature!"
       , [md|Given a private key and a message (a string), generates a cryptographic

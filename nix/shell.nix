@@ -25,6 +25,8 @@ stdenv.mkDerivation {
       alias sbs="stack build --fast --system-ghc --nix-packages zlib radicle:exe:radicle-server"
       alias sbc="stack build --fast --system-ghc --nix-packages zlib radicle:exe:radicle-client"
       alias st="stack test --fast --system-ghc --nix-packages zlib"
+      alias sts="stack test --fast --system-ghc --nix-packages zlib radicle:spec"
+      alias str="stack test --fast --system-ghc --nix-packages zlib radicle:spec --ta '--pattern \"Radicle source file tests\"'"
       alias server="stack exec radicle-server -- "
       alias client="stack exec radicle -- rad/repl.rad"
     '';

@@ -4,7 +4,6 @@ module Radicle.Tests where
 import           Protolude hiding (toList)
 
 import           Codec.Serialise (Serialise, deserialise, serialise)
-import           Data.List (isInfixOf, isSuffixOf, last)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromJust)
 import           Data.Scientific (Scientific)
@@ -80,6 +79,16 @@ test_eval =
         "(nth 1 [0 1 2])" `succeedsWith` Number 1
         "(nth 0 '(0 1 2))" `succeedsWith` Number 0
         "(nth 1 '(0 1 2))" `succeedsWith` Number 1
+
+    , testCase "'take n' takes n elements of a sequence" $ do
+        "(take 0 [0 1 2])" `succeedsWith` Vec (fromList [])
+        "(take 2 [0 1 2])" `succeedsWith` Vec (fromList [Number 0, Number 1])
+        "(take 2 (list 0 1 2))" `succeedsWith` List [Number 0, Number 1]
+
+    , testCase "'drop n' drops n elements of a sequence" $ do
+        "(drop 0 [0 1 2])" `succeedsWith` Vec (fromList [Number 0, Number 1, Number 2])
+        "(drop 2 [0 1 2])" `succeedsWith` Vec (fromList [Number 2])
+        "(drop 2 (list 0 1 2))" `succeedsWith` List [Number 2]
 
     , testProperty "'eq?' considers equal values equal" $ \(val :: Value) -> do
         let prog = [i|(eq? #{renderPrettyDef val} #{renderPrettyDef val})|]
@@ -626,11 +635,14 @@ test_repl_primops =
                    (list tt ff)
                    |]
         in run [] prog @?= Right (List [Boolean True, Boolean False])
+    , testCase "uuid! generates a valid uuid" $
+        let prog = [s| (uuid? (uuid!)) |]
+        in run [] prog @?= Right (Boolean True)
     ]
   where
-    run stdin' prog = fst $ runTestWith replBindings stdin' prog
+    run stdin' prog = fst $ runTestWith testBindings stdin' prog
     runFiles :: Map Text Text -> Text -> Either (LangError Value) Value
-    runFiles files prog = fst $ runTestWithFiles replBindings [] files prog
+    runFiles files prog = fst $ runTestWithFiles testBindings [] files prog
 
 test_repl :: [TestTree]
 test_repl =
@@ -677,28 +689,19 @@ test_repl =
                     , "#t"
                     ]
         (_, result) <- runInRepl input
-        last result @?= "#t"
+        result @==> ["#t"]
 
     , testCase "load! a non-existent file is a non-fatal exception" $ do
         let input = [ "(load! \"not-a-thing.rad\")"
                     , "#t"
                     ]
         (_, result) <- runInRepl input
-        last result @?= "#t"
+        result @==> ["#t"]
     ]
     where
-      -- In addition to the output of the lines tested, 'should-be's get
+      -- In addition to the output of the lines tested, tests get
       -- printed, so we take only the last few output lines.
-      r @==> out = reverse (take (length out) $ reverse r) @?= out
-      -- Find repl.rad, give it all other files as possible imports, and run
-      -- it.
-      runInRepl inp = do
-        (dir, srcs) <- sourceFiles
-        srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
-        let replSrc = head [ src | (name, src) <- srcMap
-                                 , "repl.rad" `T.isSuffixOf` name
-                                 ]
-        pure $ runTestWithFiles replBindings inp (Map.fromList srcMap) (fromJust replSrc)
+      r @==> out = reverse (take (length out) r) @?= out
 
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
@@ -753,21 +756,54 @@ test_cbor =
             counterexample info $ got == expected
 
 
--- Tests all radicle files 'repl' dir. These should use the 'should-be'
--- function to ensure they are in the proper format.
+-- Tests radicle files. These should use the ':test' macro to ensure
+-- they are in the proper format.
+-- Note that loaded files will also be tested, so there's no need to test files
+-- loaded by the prelude individually.
 test_source_files :: IO TestTree
-test_source_files = testGroup "Radicle source file tests" <$> do
-    (dir, files) <- sourceFiles
-    let radFiles = filter (\x -> ".rad" `isSuffixOf` x && "repl." `isInfixOf` x) files
-    sequence $ radFiles <&> \file -> do
+test_source_files = testGroup "Radicle source file tests" <$>
+    testOne "rad/prelude.rad"
+  where
+    testOne :: FilePath -> IO [TestTree]
+    testOne file = do
+        (dir, files) <- sourceFiles
+        allFiles <- forM files $ \f -> do
+            contents <- readFile (dir <> f)
+            pure (toS f, contents)
         contents <- readFile (dir <> file)
-        let (_, out) = runTestWith replBindings [] contents
-        let makeTest line = let (name, result) = T.span (/= '\'')
-                                               $ T.drop 1
-                                               $ T.dropWhile (/= '\'') line
-                            in testCase (toS name) $ result @?= "' succeeded\""
-        pure $ testGroup file
-            $ [ makeTest ln | ln <- out, "\"Test" `T.isPrefixOf` ln ]
+        let (r, out) = runTestWithFiles testBindings [] (fromList allFiles) contents
+        let makeTest line =
+                let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
+                         $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line
+                in testCase (toS name) $
+                    if "' succeeded\"" `T.isSuffixOf` line
+                        then pure ()
+                        else assertFailure . toS $ "test failed: " <> line
+        let doesntThrow = if isRight r
+                then pure ()
+                else assertFailure $ "Expected Right, got: " <> toS (prettyEither r)
+        pure $ [testGroup file
+            $ testCase "doesn't throw" doesntThrow
+            : [ makeTest ln | ln <- reverse out, "\"Test" `T.isPrefixOf` ln ]]
+
+test_macros :: [TestTree]
+test_macros =
+    [ testCase ":enter-chain keeps old bindings" $ do
+        let input = [ "(def x 0)"
+                    , "(:enter-chain \"blah\")"
+                    , "(def x 1)"
+                    , ":quit"
+                    , "x"
+                    ]
+            output = [ "0.0" ]
+        (_, result) <- runInRepl input
+        result @==> output
+    ]
+  where
+    -- In addition to the output of the lines tested, 'should-be's get
+    -- printed, so we take only the last few output lines.
+    r @==> out = reverse (take (length out) r) @?= out
+
 
 -- * Utils
 
@@ -785,3 +821,14 @@ parseTest t = parse "(test)" t
 prettyEither :: Either (LangError Value) Value -> T.Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e
 prettyEither (Right v) = renderPrettyDef v
+
+-- Find repl.rad, give it all other files as possible imports, and run
+-- it.
+runInRepl :: [Text] -> IO (Either (LangError Value) Value, [Text])
+runInRepl inp = do
+        (dir, srcs) <- sourceFiles
+        srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
+        let replSrc = head [ src | (name, src) <- srcMap
+                                 , "repl.rad" `T.isSuffixOf` name
+                                 ]
+        pure $ runTestWithFiles testBindings inp (Map.fromList srcMap) (fromJust replSrc)
