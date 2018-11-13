@@ -86,8 +86,8 @@ replPrimFns = fromList $ allDocs $
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
     , ( "doc!"
-      , "Prints the documentation attached to a value and returns `()`. To retreive\
-        \the docstring as a value use `doc` instead."
+      , "Prints the documentation attached to a value and returns `()`. To retrieve\
+        \ the docstring as a value use `doc` instead."
       , oneArg "doc!" $ \case
           Atom i -> do
             d <- lookupAtomDoc i
@@ -109,7 +109,7 @@ replPrimFns = fromList $ allDocs $
 
     , ( "set-env!"
       , "Given an atom `x` and a value `v`, sets the value associated to `x` in\
-        \the current environemtn to be `v`. Doesn't evaluate `v`."
+        \ the current environemtn to be `v`. Doesn't evaluate `v`."
       , \case
         [Atom x, v] -> do
             defineAtom x Nothing v
@@ -126,8 +126,8 @@ replPrimFns = fromList $ allDocs $
 
     , ("subscribe-to!"
       , "Expects a dict `s` (representing a subscription) and a function `f`. The dict\
-        \`s` should have a function `getter` at the key `:getter`. This function is called\
-        \repeatedly (with no arguments), its result is then evaluated and passed to `f`."
+        \ `s` should have a function `getter` at the key `:getter`. This function is called\
+        \ repeatedly (with no arguments), its result is then evaluated and passed to `f`."
       , \case
         [x, v] -> do
             e <- gets bindingsEnv
@@ -171,7 +171,7 @@ replPrimFns = fromList $ allDocs $
       )
     , ( "load!"
       , "Evaluates the contents of a file. Each seperate radicle expression is\
-        \`eval`uated according to the current definition of `eval`."
+        \ `eval`uated according to the current definition of `eval`."
       , oneArg "load!" $ \case
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
@@ -180,7 +180,7 @@ replPrimFns = fromList $ allDocs $
       )
     , ( "gen-key-pair!"
       , "Given an elliptic curve, generates a cryptographic key-pair. Use\
-        \`default-ecc-curve` for a default value for the elliptic curve."
+        \ `default-ecc-curve` for a default value for the elliptic curve."
       , oneArg "gen-key-pair!" $ \case
           curvev -> do
             curve <- hoistEither . first (toLangError . OtherError) $ fromRad curvev
@@ -194,7 +194,7 @@ replPrimFns = fromList $ allDocs $
       )
     , ( "gen-signature!"
       , "Given a private key and a message (a string), generates a cryptographic\
-        \signature for the message."
+        \ signature for the message."
       , \case
           [skv, String msg] -> do
             sk <- hoistEither . first (toLangError . OtherError) $ fromRad skv

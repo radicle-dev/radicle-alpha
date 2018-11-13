@@ -62,14 +62,14 @@ main = do
             "Functional references into radicle values."
       , sec "Validation" validation
             "Functions for creating or combining *validators*, which are functions which return the\
-            \input unchanged or throw with an error message. These can be used for checking data before\
-            \accepting it onto a chain."
+            \ input unchanged or throw with an error message. These can be used for checking data before\
+            \ accepting it onto a chain."
       , sec "Cryptography" crypto
             "Tools for creating and verifying cryptographic signatures, and generating private/public key pairs."
       , sec "Chain tools" chainTools
             "These functions can be used to simulate remote chains in the local REPL.\
-            \This is useful for experimenting with inputs or even new evaluation functions\
-            \before sending these to a remote chain."
+            \ This is useful for experimenting with inputs or even new evaluation functions\
+            \ before sending these to a remote chain."
       , sec "Issue chain" issueChain
             "These functions allow creating and interacting with the default issues chain."
       ]
@@ -77,7 +77,7 @@ main = do
     basics =
       [ "eq?", "not", "and", "or", "all", "some", "show", "string-append", "string-length"
       , "apply", "type", "atom?", "boolean?", "string?", "number?", "keyword?", "list?"
-      , "dict?", "read", "read-many", "throw", "Y", "Y2", "to-json", "uuid?", "make-counter", "markdown?"
+      , "dict?", "read", "read-many", "throw", "Y", "Y2", "to-json", "uuid?", "make-counter"
       , "public-key?" ]
     maths = ["+", "*", "-", "<", ">", "integral?"]
     evalFns = ["base-eval", "eval", "updatable-eval"]

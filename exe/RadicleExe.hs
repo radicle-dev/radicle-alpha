@@ -83,7 +83,7 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
     sendPrimop =
       ( "send!"
       , "Given a URL (string) and a value, sends the value `v` to the remote\
-        \chain located at the URL for evaluation."
+        \ chain located at the URL for evaluation."
       , \case
          [String url, Vec v] -> do
              res <- liftIO $ runClientM' url mgr (submit $ toList v)
@@ -98,7 +98,7 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
     receivePrimop =
       ( "receive!"
       , "Given a URL (string) and a integral number `n`, queries the remote chain\
-        \for the last `n` inputs that have been evaluated."
+        \ for the last `n` inputs that have been evaluated."
       , \case
           [String url, Number n] -> do
               case floatingOrInteger n of

@@ -54,8 +54,8 @@ purePrimFns :: forall m. (Monad m) => PrimFns m
 purePrimFns = fromList $ allDocs $
     [ ( "base-eval"
       , "The default evaluation function. Expects an expression and a radicle\
-        \state. Return a list of length 2 consisting of the result of the\
-        \evaluation and the new state."
+        \ state. Return a list of length 2 consisting of the result of the\
+        \ evaluation and the new state."
       , \case
           [expr, st] -> case (fromRad st :: Either Text (Bindings ())) of
               Left e -> throwErrorHere $ OtherError e
@@ -69,14 +69,14 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "pure-env"
       , "Returns a pure initial radicle state. This is the state of a radicle\
-        \chain before it has processed any inputs."
+        \ chain before it has processed any inputs."
       , \case
           [] -> pure $ toRad (pureEnv :: Bindings (PrimFns m))
           xs -> throwErrorHere $ WrongNumberOfArgs "pure-env" 0 (length xs)
       )
     , ("apply"
       , "Calls the first argument (a function) using as arguments the\
-        \elements of the the second argument (a list)."
+        \ elements of the the second argument (a list)."
       , \case
           [fn, List args] -> callFn fn args
           [_, _]          -> throwErrorHere $ TypeError "apply: expecting list as second arg"
@@ -114,12 +114,12 @@ purePrimFns = fromList $ allDocs $
       , pure . List)
     , ("dict"
       , "Given an even number of arguments, creates a dict where the `2i`-th argument\
-        \is the key for the `2i+1`th argument."
+        \ is the key for the `2i+1`th argument."
       , (Dict . foldr (uncurry Map.insert) mempty <$>)
                         . evenArgs "dict")
     , ("throw"
       , "Throws an exception. The first argument should be an atom used as a label for\
-        \the exception, the second can be any value."
+        \ the exception, the second can be any value."
       , \case
           [Atom label, exc] -> throwErrorHere $ ThrownError label exc
           [_, _]            -> throwErrorHere $ TypeError "throw: first argument must be atom"
@@ -159,7 +159,7 @@ purePrimFns = fromList $ allDocs $
           xs           -> throwErrorHere $ WrongNumberOfArgs "cons" 2 (length xs))
     , ("head"
       , "Retrieves the first element of a sequence if it exists. Otherwise throws an\
-        \exception."
+        \ exception."
       , oneArg "head" $ \case
           List (x:_)        -> pure x
           List []           -> throwErrorHere $ OtherError "head: empty list"
@@ -168,7 +168,7 @@ purePrimFns = fromList $ allDocs $
           _                 -> throwErrorHere $ TypeError "head: expects sequence argument")
     , ("tail"
       , "Given a non-empty sequence, returns the sequence of all the elements but the\
-        \first. If the sequence is empty, throws an exception."
+        \ first. If the sequence is empty, throws an exception."
       , oneArg "tail" $ \case
           List (_:xs)        -> pure $ List xs
           List []            -> throwErrorHere $ OtherError "tail: empty list"
@@ -179,7 +179,7 @@ purePrimFns = fromList $ allDocs $
     -- Lists and Vecs
     , ( "drop"
       , "Returns all but the first `n` items of a sequence, unless the sequence is empty,\
-        \in which case an exception is thrown."
+        \ in which case an exception is thrown."
       , twoArg "drop" $ \case
           (Number n, vs) -> case floatingOrInteger n of
             Left (_ :: Double) -> throwErrorHere $ OtherError "drop: first argument must be an integer"
@@ -191,7 +191,7 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "take"
       , "Returns the first `n` items of a sequence, unless the sequence is too short,\
-        \in which case an exception is thrown."
+        \ in which case an exception is thrown."
       , twoArg "take" $ \case
           (Number n, vs) -> case floatingOrInteger n of
             Left (_ :: Double) -> throwErrorHere $ OtherError "take: first argument must be an integer"
@@ -203,9 +203,9 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "nth"
       , "Given an integral number `n` and `xs`, returns the `n`th element\
-        \(zero indexed) of `xs` when `xs` is a list or a vector. If `xs`\
-        \does not have an `n`-th element, or if it is not a list or vector, then\
-        \an exception is thrown."
+        \ (zero indexed) of `xs` when `xs` is a list or a vector. If `xs`\
+        \ does not have an `n`-th element, or if it is not a list or vector, then\
+        \ an exception is thrown."
       , \case
           [Number n, vs] -> case floatingOrInteger n of
             Left (_ :: Double) -> throwErrorHere $ OtherError "nth: first argument was not an integer"
@@ -220,8 +220,8 @@ purePrimFns = fromList $ allDocs $
 
     , ("lookup"
       , "Given a value `k` (the 'key') and a dict `d`, returns the value associated\
-        \with `k` in `d`. If the key does not exist in `d` then `()` is returned\
-        \instead. If `d` is not a dict then an exception is thrown."
+        \ with `k` in `d`. If the key does not exist in `d` then `()` is returned\
+        \ instead. If `d` is not a dict then an exception is thrown."
       , \case
           [a, Dict m] -> pure $ case Map.lookup a m of
               Just v  -> v
@@ -232,7 +232,7 @@ purePrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ( "map-values"
       , "Given a function `f` and a dict `d`, returns a dict with the same keys as `d`\
-        \but `f` applied to all the associated values."
+        \ but `f` applied to all the associated values."
       , twoArg "map-values" $ \case
           (f, Dict m) -> do
             let kvs = Map.toList m
@@ -248,7 +248,7 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "string-append"
       , "Concatenates a variable number of string arguments. If one of the arguments\
-        \isn't a string then an exception is thrown."
+        \ isn't a string then an exception is thrown."
       , \args ->
           let fromStr (String s) = Just s
               fromStr _          = Nothing
@@ -259,8 +259,8 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "insert"
       , "Given `k`, `v` and a dict `d`, returns a dict with the same associations\
-        \as `d` but with `k` associated to `d`. If `d` isn't a dict then an exception\
-        \is thrown."
+        \ as `d` but with `k` associated to `d`. If `d` isn't a dict then an exception\
+        \ is thrown."
       , \case
           [k, v, Dict m] -> pure . Dict $ Map.insert k v m
           [_, _, _]                -> throwErrorHere
@@ -269,7 +269,7 @@ purePrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
     , ( "delete"
       , "Given `k` and a dict `d`, returns a dict with the same associations as `d` but\
-        \without the key `k`. If `d` isn't a dict then an exception is thrown."
+        \ without the key `k`. If `d` isn't a dict then an exception is thrown."
       , twoArg "delete" $ \case
           (k, Dict m) -> pure . Dict $ Map.delete k m
           _ -> throwErrorHere $ TypeError "delete: second argument must be a dict"
@@ -307,8 +307,8 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "foldl"
       , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
-        \`xs`, reduces `xs` to a single value by starting with `i` and repetitively\
-        \combining values with `f`, using elements of `xs` from left to right."
+        \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
+        \ combining values with `f`, using elements of `xs` from left to right."
       , \case
           [fn, init', v] -> do
             ls :: [Value] <- fromRadOtherErr v
@@ -316,8 +316,8 @@ purePrimFns = fromList $ allDocs $
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldl" 3 (length xs))
     , ( "foldr"
       , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
-        \`xs`, reduces `xs` to a single value by starting with `i` and repetitively\
-        \combining values with `f`, using elements of `xs` from right to left."
+        \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
+        \ combining values with `f`, using elements of `xs` from right to left."
       , \case
           [fn, init', v] -> do
             ls :: [Value] <- fromRadOtherErr v
@@ -325,7 +325,7 @@ purePrimFns = fromList $ allDocs $
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ( "map"
       , "Given a function `f` and a sequence (list or vector) `xs`, returns a sequence\
-        \of the same size and type as `xs` but with `f` applied to all the elements."
+        \ of the same size and type as `xs` but with `f` applied to all the elements."
       , \case
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
           [fn, Vec ls]  -> Vec <$> traverse (callFn fn) (pure <$> ls)
@@ -353,8 +353,8 @@ purePrimFns = fromList $ allDocs $
                   _      -> pure ff)
     , ( "type"
       , "Returns a keyword representing the type of the argument; one of:\
-        \`:atom`, `:keyword`, `:string`, `:number`, `:boolean`, `:list`,\
-        \`:vector`, `:function`, `:dict`, `:ref`, `:function`."
+        \ `:atom`, `:keyword`, `:string`, `:number`, `:boolean`, `:list`,\
+        \ `:vector`, `:function`, `:dict`, `:ref`, `:function`."
       , let kw' = pure . Keyword . Ident
         in oneArg "type" $ \case
              Atom _ -> kw' "atom"
@@ -386,8 +386,8 @@ purePrimFns = fromList $ allDocs $
           _        -> pure ff)
     , ( "member?"
       , "Given `v` and structure `s`, checks if `x` exists in `s`. The structure `s`\
-        \may be a list, vector or dict. If it is a list or a vector, it checks if `v`\
-        \is one of the items. If `s` is a dict, it checks if `v` is one of the keys."
+        \ may be a list, vector or dict. If it is a list or a vector, it checks if `v`\
+        \ is one of the items. If `s` is a dict, it checks if `v` is one of the keys."
       , \case
           [x, List xs] -> pure . Boolean $ elem x xs
           [x, Vec xs]  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
@@ -405,7 +405,7 @@ purePrimFns = fromList $ allDocs $
           _       -> throwErrorHere $ TypeError "read-ref: argument must be a ref")
     , ( "write-ref"
       , "Given a reference `r` and a value `v`, updates the value stored in `r` to be\
-        \`v` and returns `v`."
+        \ `v` and returns `v`."
       , \case
           [Ref (Reference x), v] -> do
               st <- get
@@ -420,9 +420,9 @@ purePrimFns = fromList $ allDocs $
       , oneArg "show" (pure . String . renderPrettyDef))
     , ( "seq"
       , "Given a structure `s`, returns a sequence. Lists and vectors are returned\
-        \without modification while for dicts a vector of key-value-pairs is returned:\
-        \these are vectors of length 2 whose first item is a key and whose second item\
-        \is the associated value."
+        \ without modification while for dicts a vector of key-value-pairs is returned:\
+        \ these are vectors of length 2 whose first item is a key and whose second item\
+        \ is the associated value."
       , oneArg "seq" $
           \case
             x@(List _) -> pure x
@@ -444,7 +444,7 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "verify-signature"
       , "Given a public key `pk`, a signature `s` and a message (string) `m`, checks\
-        \that `s` is a signature of `m` for the public key `pk`."
+        \ that `s` is a signature of `m` for the public key `pk`."
       , \case
           [keyv, sigv, String msg] -> do
             key <- fromRadOtherErr keyv

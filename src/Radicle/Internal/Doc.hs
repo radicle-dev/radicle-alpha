@@ -7,7 +7,6 @@ import           Protolude hiding (Any)
 
 import           Codec.Serialise (Serialise(..))
 import           Data.Copointed (Copointed(..))
-import qualified Data.Default as Default
 
 data Docd a = Docd (Maybe Text) a
   deriving (Show, Read, Functor, Foldable, Traversable, Generic)
