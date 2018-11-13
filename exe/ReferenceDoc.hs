@@ -78,7 +78,7 @@ main = do
       , "apply", "type", "atom?", "boolean?", "string?", "number?", "keyword?", "list?"
       , "dict?", "read", "read-many", "throw", "Y", "Y2", "to-json", "uuid?", "make-counter"
       , "public-key?" ]
-    maths = ["+", "*", "-", "<", ">", "integral?"]
+    maths = ["+", "*", "-", "/", "<", ">", "integral?"]
     evalFns = ["base-eval", "eval", "updatable-eval"]
     envStuff = ["pure-env", "get-current-env", "set-current-env", "set-env!"]
     seqs = ["nth", "foldl", "foldr", "map", "seq", "take", "drop"]

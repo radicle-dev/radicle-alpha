@@ -6,7 +6,6 @@ import           Protolude hiding (TypeError)
 
 import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
-import           Data.Scientific (floatingOrInteger)
 import qualified Data.Sequence as Seq
 import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
@@ -15,6 +14,7 @@ import           Radicle
 import           Radicle.Internal.Core (addBinding)
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
+import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.PrimFns (allDocs)
 import qualified Radicle.Internal.UUID as UUID
 
@@ -116,8 +116,8 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
       , "Mocked version of `receive!` that retrieves values from a map with chains as keys."
       , \case
           [String url, Number n] -> do
-              case floatingOrInteger n of
-                  Left (_ :: Float) -> throwErrorHere . OtherError
+              case Num.isInt n of
+                  Left _ -> throwErrorHere . OtherError
                                      $ "receive!: expecting int argument"
                   Right r -> do
                       chains <- lift $ gets worldStateRemoteChains

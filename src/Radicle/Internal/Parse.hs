@@ -71,8 +71,16 @@ boolLiteralP = lexeme $ tag =<< BooleanF <$> (char '#' >>
         (char 't' >> pure True) <|> (char 'f' >> pure False))
 
 numLiteralP :: VParser
-numLiteralP = tag =<< NumberF <$> signed L.scientific
+numLiteralP = tag =<< NumberF <$> signed pos
   where
+    posrat =
+      do n <- L.decimal
+         _ <- char '/'
+         d <- L.decimal
+         pure (n % d)
+
+    pos = try posrat <|> fromIntegral <$> (L.decimal :: Parser Integer)
+
     -- We don't allow spaces between the sign and digits so that we can remain
     -- consistent with the general Scheme of things.
     signed p = M.option identity ((identity <$ char '+') <|> (negate <$ char '-')) <*> p

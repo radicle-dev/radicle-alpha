@@ -19,8 +19,7 @@ import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
-import           Data.Scientific
-                 (Scientific, floatingOrInteger, toBoundedInteger)
+import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
@@ -32,6 +31,7 @@ import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
 import qualified Radicle.Internal.Doc as Doc
 import qualified Radicle.Internal.Identifier as Identifier
+import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Orphans ()
 
 
@@ -131,7 +131,7 @@ data ValueF r =
     -- | Symbolic identifiers that evaluate to themselves.
     | KeywordF Ident
     | StringF Text
-    | NumberF Scientific
+    | NumberF Rational
     | BooleanF Bool
     | ListF [r]
     | VecF (Seq r)
@@ -167,7 +167,7 @@ pattern String i <- (Ann.match -> StringF i)
     where
     String = Ann.annotate . StringF
 
-pattern Number :: ValueConC t => Scientific -> Annotated t ValueF
+pattern Number :: ValueConC t => Rational -> Annotated t ValueF
 pattern Number i <- (Ann.match -> NumberF i)
     where
     Number = Ann.annotate . NumberF
@@ -219,14 +219,9 @@ isAtom :: Value -> Maybe Ident
 isAtom (Atom i) = pure i
 isAtom _        = Nothing
 
--- should be a prism
-isInt :: Value -> Maybe Integer
-isInt (Number s) = either (const Nothing :: Double -> Maybe Integer) pure (floatingOrInteger s)
-isInt _ = Nothing
-
 instance A.FromJSON Value where
   parseJSON = \case
-    A.Number n -> pure $ Number n
+    A.Number n -> pure $ Number (toRational n)
     A.String s -> pure $ String s
     A.Array ls -> List . toList <$> traverse parseJSON ls
     A.Bool b -> pure $ Boolean b
@@ -255,7 +250,7 @@ instance A.FromJSON Value where
 -- "null"
 maybeJson :: Value -> Maybe A.Value
 maybeJson = \case
-    Number n -> pure $ A.Number n
+    Number n -> A.Number <$> hush (Num.isSci n)
     String s -> pure $ A.String s
     Boolean b -> pure $ A.Bool b
     List ls -> toJSON <$> traverse maybeJson ls
@@ -519,22 +514,15 @@ instance (CPA t, FromRad t a) => FromRad t (Maybe a) where
     fromRad _ = Left "Expecting :Nothing or [:Just _]"
 instance FromRad t (Annotated t ValueF) where
   fromRad = pure
+instance CPA t => FromRad t Rational where
+  fromRad (Number n) = pure n
+  fromRad _          = Left "Not a number"
 instance CPA t => FromRad t Scientific where
-    fromRad x = case x of
-        Number n -> pure n
-        _        -> Left "Expecting number"
+  fromRad = fromRad >=> Num.isSci
 instance CPA t => FromRad t Int where
-    fromRad = \case
-      Number s -> case toBoundedInteger s of
-        Just i  -> pure i
-        Nothing -> Left "Number was not a bounded int"
-      _ -> Left "Expecting number"
+    fromRad = fromRad >=> Num.isInt
 instance CPA t => FromRad t Integer where
-    fromRad = \case
-      Number s -> case floatingOrInteger s of
-        Left (_ :: Double) -> Left "Expecting whole number"
-        Right i            -> pure i
-      _ -> Left "Expecting number"
+    fromRad = fromRad >=> Num.isInteger
 instance CPA t => FromRad t Text where
     fromRad x = case x of
         String n -> pure n
@@ -591,7 +579,7 @@ instance CPA t => ToRad t Int where
 instance CPA t => ToRad t Integer where
     toRad = Number . fromIntegral
 instance CPA t => ToRad t Scientific where
-    toRad = Number
+    toRad = Number . toRational
 instance CPA t => ToRad t Text where
     toRad = String
 instance ToRad t (Ann.Annotated t ValueF) where

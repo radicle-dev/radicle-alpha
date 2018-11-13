@@ -2,7 +2,6 @@ module RadicleExe (main) where
 
 import           API
 import           Control.Monad.Catch (MonadThrow)
-import           Data.Scientific (floatingOrInteger)
 import qualified Data.Text as T
 import           GHC.Exts (fromList)
 import           Network.HTTP.Client (defaultManagerSettings, newManager)
@@ -15,6 +14,7 @@ import           Servant.Client
 import           System.Console.Haskeline (InputT)
 import           System.Directory (doesFileExist)
 
+import qualified Radicle.Internal.Number as Num
 import qualified Radicle.Internal.PrimFns as PrimFns
 
 main :: IO ()
@@ -99,8 +99,8 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
         \ for the last `n` inputs that have been evaluated."
       , \case
           [String url, Number n] -> do
-              case floatingOrInteger n of
-                  Left (_ :: Float) -> throwErrorHere . OtherError
+              case Num.isInt n of
+                  Left _ -> throwErrorHere . OtherError
                                      $ "receive!: expecting int argument"
                   Right r -> do
                       liftIO (runClientM' url mgr (since r)) >>= \case

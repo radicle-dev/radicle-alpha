@@ -5,7 +5,6 @@ import           Protolude hiding (TypeError)
 import qualified Data.Aeson as Aeson
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
-import           Data.Scientific (Scientific, floatingOrInteger)
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
@@ -16,6 +15,7 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import qualified Radicle.Internal.Doc as Doc
+import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import qualified Radicle.Internal.UUID as UUID
@@ -179,8 +179,8 @@ purePrimFns = fromList $ allDocs $
       , "Returns all but the first `n` items of a sequence, unless the sequence is empty,\
         \ in which case an exception is thrown."
       , twoArg "drop" $ \case
-          (Number n, vs) -> case floatingOrInteger n of
-            Left (_ :: Double) -> throwErrorHere $ OtherError "drop: first argument must be an integer"
+          (Number n, vs) -> case Num.isInt n of
+            Left _ -> throwErrorHere $ OtherError "drop: first argument must be an int"
             Right i -> case vs of
               List xs -> pure . List $ drop i xs
               Vec xs -> pure . Vec $ Seq.drop i xs
@@ -191,8 +191,8 @@ purePrimFns = fromList $ allDocs $
       , "Returns the first `n` items of a sequence, unless the sequence is too short,\
         \ in which case an exception is thrown."
       , twoArg "take" $ \case
-          (Number n, vs) -> case floatingOrInteger n of
-            Left (_ :: Double) -> throwErrorHere $ OtherError "take: first argument must be an integer"
+          (Number n, vs) -> case Num.isInt n of
+            Left _ -> throwErrorHere $ OtherError "take: first argument must be an integer"
             Right i -> case vs of
               List xs -> pure . List $ take i xs
               Vec xs -> pure . Vec $ Seq.take i xs
@@ -205,8 +205,8 @@ purePrimFns = fromList $ allDocs $
         \ does not have an `n`-th element, or if it is not a list or vector, then\
         \ an exception is thrown."
       , \case
-          [Number n, vs] -> case floatingOrInteger n of
-            Left (_ :: Double) -> throwErrorHere $ OtherError "nth: first argument was not an integer"
+          [Number n, vs] -> case Num.isInt n of
+            Left _ -> throwErrorHere $ OtherError "nth: first argument was not an integer"
             Right i -> do
               xs <- hoistEitherWith (const (toLangError . OtherError $ "nth: first argument must be sequential")) $ fromRad vs
               case xs `atMay` i of
@@ -283,6 +283,13 @@ purePrimFns = fromList $ allDocs $
     , numBinop (+) "+" "Adds two numbers together."
     , numBinop (*) "*" "Multiplies two numbers together."
     , numBinop (-) "-" "Substracts one number from another."
+    , ( "/"
+      , "Divides one number by another. Throws an exception if the second argument is 0."
+      , twoArg "/" $ \case
+          (Number x, Number y) | y /= 0 -> pure $ Number (x / y)
+          (Number _, Number _) -> throwErrorHere $ OtherError "Can't divide by 0"
+          _ -> throwErrorHere $ TypeError "/: expects two numbers"
+      )
     , ( "<"
       , "Checks if a number is strictly less than another."
       , \case
@@ -298,9 +305,9 @@ purePrimFns = fromList $ allDocs $
     , ( "integral?"
       , "Checks if a number is an integer."
       , oneArg "integral?" $ \case
-          Number n -> case floatingOrInteger n of
-            Left (_ :: Double)   -> pure $ Boolean False
-            Right (_ :: Integer) -> pure $ Boolean True
+          Number n -> case Num.isInteger n of
+            Left _  -> pure $ Boolean False
+            Right _ -> pure $ Boolean True
           _ -> throwErrorHere $ TypeError "integral?: expecting number"
       )
     , ( "foldl"
@@ -496,7 +503,7 @@ purePrimFns = fromList $ allDocs $
 
     kw = Keyword . Ident
 
-    numBinop :: (Scientific -> Scientific -> Scientific)
+    numBinop :: (Rational -> Rational -> Rational)
              -> Text
              -> Text
              -> (Text, Text, [Value] -> Lang m Value)

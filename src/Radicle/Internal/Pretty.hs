@@ -29,7 +29,7 @@ instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) wher
         Keyword i -> ":" <> pretty i
         Ref i -> pretty i
         String t -> "\"" <> pretty (escapeStr t) <> "\""
-        Number n -> pretty (show n :: Text)
+        Number (a :% b) -> pretty a <> if b == 1 then "" else "/" <> pretty b
         Boolean True -> "#t"
         Boolean False -> "#f"
         List vs -> case vs of
