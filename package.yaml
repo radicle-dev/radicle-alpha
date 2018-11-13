@@ -170,6 +170,8 @@ executables:
         buildable: false
     dependencies:
     - radicle
+    - errors
+    - time
     - github
     ghc-options: -main-is GithubIssues
 
