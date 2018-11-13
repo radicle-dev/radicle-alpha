@@ -119,7 +119,7 @@ loadState conn = do
 
 -- | Submit something to a chain. The value is expected to be a pair, with the
 -- first item specifying the chain the value is being submitted to, and the
--- second the expression being submitted.
+-- second the expressions being submitted.
 submit :: Connection -> Chains -> Text -> Values -> Handler Value
 submit conn chains name (Values vals) = do
     res <- liftIO $ insertExpr conn chains name vals
