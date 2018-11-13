@@ -14,8 +14,8 @@ import           Servant.Client
 import           System.Console.Haskeline (InputT)
 import           System.Directory (doesFileExist)
 
-import qualified Radicle.Internal.PrimFns as PrimFns
 import qualified Radicle.Internal.Number as Num
+import qualified Radicle.Internal.PrimFns as PrimFns
 
 main :: IO ()
 main = do
