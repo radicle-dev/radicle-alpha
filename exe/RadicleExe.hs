@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module RadicleExe (main) where
 
 import           API
@@ -16,9 +14,8 @@ import           Servant.Client
 import           System.Console.Haskeline (InputT)
 import           System.Directory (doesFileExist)
 
-import           Radicle.Internal.Doc (md)
-import qualified Radicle.Internal.Number as Num
 import qualified Radicle.Internal.PrimFns as PrimFns
+import qualified Radicle.Internal.Number as Num
 
 main :: IO ()
 main = do
@@ -83,8 +80,8 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
   where
     sendPrimop =
       ( "send!"
-      , [md|Given a URL (string) and a value, sends the value `v` to the remote
-           chain located at the URL for evaluation.|]
+      , "Given a URL (string) and a value, sends the value `v` to the remote\
+        \ chain located at the URL for evaluation."
       , \case
          [String url, Vec v] -> do
              res <- liftIO $ runClientM' url mgr (submit $ toList v)
@@ -98,8 +95,8 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
       )
     receivePrimop =
       ( "receive!"
-      , [md|Given a URL (string) and a integral number `n`, queries the remote chain
-           for the last `n` inputs that have been evaluated.|]
+      , "Given a URL (string) and a integral number `n`, queries the remote chain\
+        \ for the last `n` inputs that have been evaluated."
       , \case
           [String url, Number n] -> do
               case Num.isInt n of

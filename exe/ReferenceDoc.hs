@@ -1,4 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
 -- | This executable generates the radicle reference docs. This is a markdown
 -- document which contains documentation for all the primitive functions and all
 -- the functions defined in the prelude.
@@ -12,7 +11,6 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified GHC.Exts as GhcExts
 import           Radicle
-import           Radicle.Internal.Doc (md)
 import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
 
@@ -62,23 +60,23 @@ main = do
       , sec "Lenses" lens
             "Functional references into radicle values."
       , sec "Validation" validation
-            [md|Functions for creating or combining *validators*, which are functions which return the
-               input unchanged or throw with an error message. These can be used for checking data before
-               accepting it onto a chain.|]
+            "Functions for creating or combining *validators*, which are functions which return the\
+            \ input unchanged or throw with an error message. These can be used for checking data before\
+            \ accepting it onto a chain."
       , sec "Cryptography" crypto
             "Tools for creating and verifying cryptographic signatures, and generating private/public key pairs."
       , sec "Chain tools" chainTools
-            [md|These functions can be used to simulate remote chains in the local REPL.
-               This is useful for experimenting with inputs or even new evaluation functions
-               before sending these to a remote chain.|]
+            "These functions can be used to simulate remote chains in the local REPL.\
+            \ This is useful for experimenting with inputs or even new evaluation functions\
+            \ before sending these to a remote chain."
       , sec "Issue chain" issueChain
-            [md|These functions allow creating and interacting with the default issues chain.|]
+            "These functions allow creating and interacting with the default issues chain."
       ]
 
     basics =
       [ "eq?", "not", "and", "or", "all", "some", "show", "string-append", "string-length"
       , "apply", "type", "atom?", "boolean?", "string?", "number?", "keyword?", "list?"
-      , "dict?", "read", "read-many", "throw", "Y", "Y2", "to-json", "uuid?", "make-counter", "markdown?"
+      , "dict?", "read", "read-many", "throw", "Y", "Y2", "to-json", "uuid?", "make-counter"
       , "public-key?" ]
     maths = ["+", "*", "-", "/", "<", ">", "integral?"]
     evalFns = ["base-eval", "eval", "updatable-eval"]
