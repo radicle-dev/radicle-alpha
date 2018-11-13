@@ -239,7 +239,7 @@ instance A.FromJSON Value where
 -- | Convert a radicle `Value` into an 'aeson' value, if possible.
 --
 -- >>> import Data.Aeson (encode)
--- >>> encode $ maybeJson $ List [Number 3, String "hi"]
+-- >>> encode $ maybeJson $ List [Number (Num.Int 3), String "hi"]
 -- "[3,\"hi\"]"
 --
 -- >>> import Data.Aeson (encode)
@@ -251,7 +251,7 @@ instance A.FromJSON Value where
 -- non-string keys.
 --
 -- >>> import Data.Aeson (encode)
--- >>> encode $ maybeJson $ Dict $ Map.fromList [(Number 3, String "bar")]
+-- >>> encode $ maybeJson $ Dict $ Map.fromList [(Number (Num.Int 3), String "bar")]
 -- "null"
 maybeJson :: Value -> Maybe A.Value
 maybeJson = \case

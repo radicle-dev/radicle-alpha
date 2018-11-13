@@ -434,12 +434,14 @@ test_eval =
         runTest' "(show 'a)" @?= Right (String "a")
         runTest' "(show ''a)" @?= Right (String "(quote a)")
         runTest' "(show \"hello\")" @?= Right (String "\"hello\"")
-        runTest' "(show 42)" @?= Right (String "42.0")
+        runTest' "(show 42)" @?= Right (String "42")
+        runTest' "(show 42.1)" @?= Right (String "42.1")
         runTest' "(show #t)" @?= Right (String "#t")
         runTest' "(show #f)" @?= Right (String "#f")
-        runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1.0 \"foo\" (b (quote x) 2.0 \"bar\"))")
+        runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1 \"foo\" (b (quote x) 2 \"bar\"))")
+        runTest' "(show [1 :a])" @?= Right (String "[1 :a]")
         runTest' "eval" @?= Right (PrimFn [ident|base-eval|])
-        runTest' "(show (dict 'a 1))" @?= Right (String "{a 1.0}")
+        runTest' "(show (dict 'a 1))" @?= Right (String "{a 1}")
         runTest' "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
     , testCase "'read' works" $

@@ -276,13 +276,13 @@ purePrimFns = fromList $ allDocs $
     , ( "<"
       , [md|Checks if a number is strictly less than another.|]
       , \case
-          [Number x, Number y] -> pure $ Boolean (Num.comp (<) x y)
+          [Number x, Number y] -> pure $ Boolean (x < y)
           [_, _]               -> throwErrorHere $ TypeError "<: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs "<" 2 (length xs))
     , ( ">"
       , [md|Checks if a number is strictly greater than another.|]
       , \case
-          [Number x, Number y] -> pure $ Boolean (Num.comp (>) x y)
+          [Number x, Number y] -> pure $ Boolean (x > y)
           [_, _]               -> throwErrorHere $ TypeError ">: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs ">" 2 (length xs))
     , ( "integral?"

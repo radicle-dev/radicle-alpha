@@ -10,10 +10,10 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 import           Radicle
-import qualified Radicle.Internal.Number as Num
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
                  (isValidIdentFirst, isValidIdentRest)
+import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.PrimFns (purePrimFns)
 
 instance Arbitrary r => Arbitrary (Env r) where

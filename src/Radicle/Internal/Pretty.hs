@@ -13,8 +13,8 @@ import           Text.Megaparsec.Error (parseErrorPretty)
 import           Text.Megaparsec.Pos (sourcePosPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
-import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Core
+import qualified Radicle.Internal.Number as Num
 
 -- | We can't just pretty print the pointer id since that would break
 -- referential transparency, so instead we just label refs as '<ref>'

@@ -27,7 +27,6 @@ import qualified Text.Megaparsec as M
 import           Text.Megaparsec.Char (char, satisfy, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Text.Megaparsec.Error as Par
-import qualified Data.Text as T
 
 import           Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
@@ -82,9 +81,10 @@ boolLiteralP = lexeme $ tag =<< BooleanF <$> (char '#' >>
 numLiteralP :: VParser
 numLiteralP = tag =<< NumberF <$> num
   where
-    num =
-      
-      try (Num.Int <$> signed L.decimal) -- <|> (Num.Sci <$> signed L.scientific)
+    num = do s <- signed L.scientific
+             pure $ case floatingOrInteger s of
+               Left (_ :: Double) -> Num.Sci s
+               Right i            -> Num.Int i
     -- We don't allow spaces between the sign and digits so that we can remain
     -- consistent with the general Scheme of things.
     signed p = M.option identity ((identity <$ char '+') <|> (negate <$ char '-')) <*> p

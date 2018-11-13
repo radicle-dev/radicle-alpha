@@ -11,7 +11,19 @@ import           Radicle.Internal.Orphans ()
 data Number
   = Int Integer
   | Sci Scientific
-  deriving (Eq, Ord, Show, Read, Generic)
+  deriving (Show, Read, Generic)
+
+fun2 :: (forall a. Ord a => a -> a -> b) -> Number -> Number -> b
+fun2 c (Int x) (Int y) = x `c` y
+fun2 c (Sci x) (Sci y) = x `c` y
+fun2 c (Int x) (Sci y) = fromIntegral x `c` y
+fun2 c (Sci x) (Int y) = x `c` fromIntegral y
+
+instance Eq Number where
+  x == y = fun2 (==) x y
+
+instance Ord Number where
+  compare x y = fun2 compare x y
 
 instance Serialise Number
 
@@ -28,7 +40,7 @@ toSci (Int i) = fromIntegral i
 
 fromSci :: Scientific -> Number
 fromSci s = case sciInteger s of
-  Just i -> Int i
+  Just i  -> Int i
   Nothing -> Sci s
 
 isInteger :: Number -> Maybe Integer
@@ -47,16 +59,10 @@ isInt (Sci s) = toBoundedInteger s
 sciInteger :: Scientific -> Maybe Integer
 sciInteger s = case floatingOrInteger s of
   Left (_ :: Double) -> Nothing
-  Right i -> Just i
+  Right i            -> Just i
 
 op :: (forall a. Num a => a -> a -> a) -> Number -> Number -> Number
 op o (Int x) (Int y) = Int (x `o` y)
 op o (Sci x) (Sci y) = Sci (x `o` y)
 op o (Int x) (Sci y) = Sci (fromIntegral x `o` y)
 op o (Sci x) (Int y) = Sci (x `o` fromIntegral y)
-
-comp :: (forall a. Ord a => a -> a -> Bool) -> Number -> Number -> Bool
-comp c (Int x) (Int y) = x `c` y
-comp c (Sci x) (Sci y) = x `c` y
-comp c (Int x) (Sci y) = fromIntegral x `c` y
-comp c (Sci x) (Int y) = x `c` fromIntegral y
