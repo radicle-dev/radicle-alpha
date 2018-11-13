@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module RadicleExe (main) where
 
 import           API

@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE QuasiQuotes #-}
 
 module Radicle.Internal.Effects where
 

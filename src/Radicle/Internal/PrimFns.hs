@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Radicle.Internal.PrimFns where
 
 import           Protolude hiding (TypeError)
