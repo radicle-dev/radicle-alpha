@@ -54,7 +54,7 @@
 ;; update-chain
 
 (def update-chain
-  "Takes a `url`, and returns a new chain updated with the new expressions from the remote chain"
+  "Takes a chain, and returns a new chain updated with the new expressions from the remote chain"
   (fn [chain]
     (def new-inputs
       (receive! (lookup :url chain) (lookup :index chain)))

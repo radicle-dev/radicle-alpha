@@ -635,6 +635,9 @@ test_repl_primops =
                    (list tt ff)
                    |]
         in run [] prog @?= Right (List [Boolean True, Boolean False])
+    , testCase "uuid! generates a valid uuid" $
+        let prog = [s| (uuid? (uuid!)) |]
+        in run [] prog @?= Right (Boolean True)
     ]
   where
     run stdin' prog = fst $ runTestWith testBindings stdin' prog

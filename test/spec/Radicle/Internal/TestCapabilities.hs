@@ -100,7 +100,7 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
   where
     sendPrimop =
       ( "send!"
-      , ""
+      , "Mocked version of `send!` that stores sent values in a map with chains as keys."
       , \case
          [String url, Vec v] -> do
              lift . modify $ \s ->
@@ -113,7 +113,7 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
       )
     receivePrimop =
       ( "receive!"
-      , ""
+      , "Mocked version of `receive!` that retrieves values from a map with chains as keys."
       , \case
           [String url, Number n] -> do
               case floatingOrInteger n of

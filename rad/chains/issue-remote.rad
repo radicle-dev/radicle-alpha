@@ -4,14 +4,17 @@
 (def issues (ref {}))
 
 (def mod-issues
+  "A helper to apply a function to `issues`"
   (fn [f] (modify-ref issues f)))
 
 (def id-valid-and-free?
+  "Checks that its argument is a `uuid` that hasn't yet been used."
   (fn [id]
     (and (uuid? id)
          (not (member? id (read-ref issues))))))
 
 (def issue-valid?
+  "Verifies the signature of an issue."
   (fn [i]
     (verify-signature (lookup :author i)
                       (lookup :signature i)
@@ -21,6 +24,7 @@
                                      (lookup :body i)))))
 
 (def new-issue
+  "Create an issue from a dictionary, storing it in `issues`."
   (fn [i]
     (def id (lookup :id i))
     (if (id-valid-and-free? id)
@@ -29,34 +33,39 @@
       (throw 'bad-command "Issue ID was not free or was invalid."))))
 
 (def close-issue
+  "Remove an issue from `issues`."
   (fn [id]
     (mod-issues (fn [is] (delete id is)))))
 
 (def add-comment
-    (fn [issue-id comment]
-      (mod-issues
-        (fn [is]
-          (modify-map issue-id
-                      (fn [i]
-                        (modify-map :comments
-                                    (fn [cs] (add-right comment cs))
-                                    i))
-                      is)))))
+  "Add a comment to an issue."
+  (fn [issue-id comment]
+    (mod-issues
+      (fn [is]
+        (modify-map issue-id
+                    (fn [i]
+                      (modify-map :comments
+                                  (fn [cs] (add-right comment cs))
+                                  i))
+                    is)))))
 
 ;; These are intended for clients to run locally with eval-in-chain
 
 (def list-issues
+  "List existing issues."
   (fn [] (read-ref issues)))
 
 ;; General logic
 
 (def commands
+  "The set of allowed chain commands."
   (ref
     {'create-issue new-issue
      'close-issue  close-issue
      'list-issues  list-issues}))
 
 (def process-command
+  "Function that maps post-eval commands to existing functions"
   (fn [expr]
     (def command (head expr))
     (def args    (tail expr))
