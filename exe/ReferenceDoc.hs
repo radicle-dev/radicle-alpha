@@ -69,33 +69,35 @@ main = do
             "Tools for creating and verifying cryptographic signatures, and generating private/public key pairs."
       , sec "Chain tools" chainTools
             [md|These functions can be used to simulate remote chains in the local REPL.
-               This is useful for experimenting with inputs or even new evaluation functions"
+               This is useful for experimenting with inputs or even new evaluation functions
                before sending these to a remote chain.|]
+      , sec "Issue chain" issueChain
+            [md|These functions allow creating and interacting with the default issues chain.|]
       ]
 
     basics =
       [ "eq?", "not", "and", "or", "all", "some", "show", "string-append", "string-length"
       , "apply", "type", "atom?", "boolean?", "string?", "number?", "keyword?", "list?"
-      , "dict?", "read", "throw", "Y", "Y2", "to-json", "uuid?", "make-counter", "markdown?"
+      , "dict?", "read", "read-many", "throw", "Y", "Y2", "to-json", "uuid?", "make-counter", "markdown?"
       , "public-key?" ]
     maths = ["+", "*", "-", "<", ">", "integral?"]
     evalFns = ["base-eval", "eval", "updatable-eval"]
     envStuff = ["pure-env", "get-current-env", "set-current-env", "set-env!"]
-    seqs = ["nth", "foldl", "foldr", "map", "drop", "seq"]
+    seqs = ["nth", "foldl", "foldr", "map", "seq", "take", "drop"]
     lists =
       [ "list", "nil", "head", "tail", "empty?", "cons", "reverse", "length", "concat"
       , "filter", "range", "list-with-head" ]
     vecs = ["<>", "add-left", "add-right"]
     dicts =
-      ["dict", "lookup", "insert", "delete", "dict-from-list", "keys", "rekey"
+      ["dict", "lookup", "insert", "delete", "dict-from-list", "keys", "values", "rekey"
       , "map-values", "modify-map"]
     structs = ["member?"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
-    docs = ["doc", "doc!", "apropos!", "document", "should-be"]
+    docs = ["doc", "doc!", "apropos!", "document", "is-test-env"]
     io =
       ["print!", "get-line!", "load!", "read-file!", "read-code!", "send-code!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"]
-    lens = ["@", "make-lens", "view", "view-ref", "set", "set-ref", "over", "over-ref", "id-lens", "..", "..."]
+    lens = ["@", "@nth", "make-lens", "view", "view-ref", "set", "set-ref", "over", "over-ref", "id-lens", "..", "..."]
     validation =
       [ "validator/=", "validator/member", "validator/type", "validator/pred", "validator/every"
       , "validator/and", "validator/or", "validator/key", "validator/keys"]
@@ -103,7 +105,10 @@ main = do
     chainTools =
       [ "new-chain", "eval-in-chain", "enter-remote-chain", "update-chain", "add-quit", "add-send"
       , "load-chain", "pure-prelude-files", "pure-prelude-code", "store-exprs", "eval-fn-app"
-      , "state-machine-eval", "state-machine-input", "state-machine-new-trans", "state-machine-agree", "state-machine-disagree", "simple-trans"]
+      , "state-machine-eval", "state-machine-input", "state-machine-new-trans"
+      , "state-machine-agree", "state-machine-disagree", "simple-trans", "update-chain-ref"]
+
+    issueChain = ["create-issues-chain!", "list-issues", "new-issue!"]
 
     typ s = "Functions for manipulating " <> s <> "."
 
@@ -113,7 +118,7 @@ main = do
     allFns =
          basics ++ maths ++ evalFns ++ envStuff ++ seqs ++ lists ++ vecs
       ++ dicts ++ structs ++ refs ++ docs ++ io ++ lens ++ validation ++ crypto ++ chainTools
-      ++ doNotInclude
+      ++ issueChain ++ doNotInclude
 
     -- Function symbol followed by a hard line break, followed by it's doc.
     funs e fns = mconcat

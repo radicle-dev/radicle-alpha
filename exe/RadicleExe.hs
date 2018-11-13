@@ -10,7 +10,7 @@ import           Network.HTTP.Client (defaultManagerSettings, newManager)
 import qualified Network.HTTP.Client as HttpClient
 import           Options.Applicative
 import           Prelude (String)
-import           Protolude hiding (TypeError, option)
+import           Protolude hiding (TypeError, option, sourceFile)
 import           Radicle
 import           Servant.Client
 import           System.Console.Haskeline (InputT)
@@ -23,19 +23,16 @@ import qualified Radicle.Internal.PrimFns as PrimFns
 main :: IO ()
 main = do
     opts' <- execParser allOpts
-    cfgFile <- case configFile opts' of
-        Nothing  -> getConfigFile
-        Just cfg -> pure cfg
-    cfgSrc <- do
-       exists <- doesFileExist cfgFile
+    src <- do
+       exists <- doesFileExist (sourceFile opts')
        if exists
-           then readFile cfgFile
-           else die $ "Could not find file: " <> toS cfgFile
+           then readFile (sourceFile opts')
+           else die $ "Could not find file: " <> toS (sourceFile opts')
     hist <- case histFile opts' of
         Nothing -> getHistoryFile
         Just h  -> pure h
     mgr <- newManager defaultManagerSettings
-    repl (Just hist) (toS cfgFile) cfgSrc (bindings mgr)
+    repl (Just hist) (toS $ sourceFile opts') src (bindings mgr)
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
@@ -54,20 +51,15 @@ radDesc
 -- * CLI Opts
 
 data Opts = Opts
-    { configFile :: Maybe FilePath
+    { sourceFile :: FilePath
     , histFile   :: Maybe FilePath
     }
 
 opts :: Parser Opts
 opts = Opts
-    <$> argument (optional str)
+    <$> strArgument
         ( metavar "FILE"
-       <> help
-           ( "File to interpret."
-          <> "Defaults to $DIR/radicle/config.rad "
-          <> "where $DIR is $XDG_CONFIG_HOME (%APPDATA% on Windows "
-          <> "if that is set, or else ~/.config."
-           )
+       <> help "File to interpret."
         )
     <*> optional (strOption
         ( long "histfile"
@@ -94,13 +86,14 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
       , [md|Given a URL (string) and a value, sends the value `v` to the remote
            chain located at the URL for evaluation.|]
       , \case
-         [String url, v] -> do
-             res <- liftIO $ runClientM' url mgr (submit v)
+         [String url, Vec v] -> do
+             res <- liftIO $ runClientM' url mgr (submit $ toList v)
              case res of
                  Left e   -> throwErrorHere . OtherError
                            $ "send!: failed:" <> show e
                  Right r  -> pure r
-         [_, _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
+         [_, Vec _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
+         [String _, _] -> throwErrorHere $ TypeError "send!: second argument should be a vector"
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
       )
     receivePrimop =
@@ -124,8 +117,8 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
 
 -- * Client functions
 
-submit :: Value -> ClientM Value
-submit = client chainSubmitEndpoint
+submit :: [Value] -> ClientM Value
+submit = client chainSubmitEndpoint . Values
 
 since :: Int -> ClientM Value
 since = client chainSinceEndpoint

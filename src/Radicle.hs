@@ -62,6 +62,7 @@ module Radicle
 
     -- * Parsing
     , parse
+    , parseValues
 
     -- * Pretty-printing
     , renderPretty
@@ -82,7 +83,6 @@ module Radicle
     , ReplM
 
     -- * CLI
-    , getConfigFile
     , getHistoryFile
 
     -- * Helpers

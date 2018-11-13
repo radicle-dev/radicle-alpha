@@ -516,7 +516,7 @@ instance FromRad t (Annotated t ValueF) where
   fromRad = pure
 instance CPA t => FromRad t Rational where
   fromRad (Number n) = pure n
-  fromRad _ = Left "Not a number"
+  fromRad _          = Left "Not a number"
 instance CPA t => FromRad t Scientific where
   fromRad = fromRad >=> Num.isSci
 instance CPA t => FromRad t Int where

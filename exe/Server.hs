@@ -76,17 +76,20 @@ serverApi = Proxy
 
 -- * Helpers
 
-insertExpr :: Connection -> Chains -> Text -> Value -> IO (Either Text ())
-insertExpr conn chains name val = modifyMVar (getChains chains) $ \c -> do
+insertExpr :: Connection -> Chains -> Text -> [Value] -> IO (Either Text ())
+insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
     let x = Map.lookup name c
     let chain = fromMaybe (Chain name pureEnv mempty) x
-    let (r, newSt) = runIdentity $ runLang (chainState chain) (eval val)
+    let (r :: Either (LangError Value) [Value], newSt) = runIdentity
+                   $ runLang (chainState chain)
+                   $ traverse eval vals
     case r of
         Left e  -> pure . (c ,) . Left $ "invalid expression: " <> show e
-        Right valRes -> do
-             insertExprDB conn name val
+        Right valsRes -> do
+             traverse_ (insertExprDB conn name) vals
+             let news = Seq.fromList $ zip vals valsRes
              let chain' = chain { chainState = newSt
-                                , chainEvalPairs = chainEvalPairs chain Seq.|> (val, valRes)
+                                , chainEvalPairs = chainEvalPairs chain Seq.>< news
                                 }
              pure (Map.insert name chain' c, Right ())
 
@@ -116,10 +119,12 @@ loadState conn = do
 
 -- | Submit something to a chain. The value is expected to be a pair, with the
 -- first item specifying the chain the value is being submitted to, and the
--- second the expression being submitted.
-submit :: Connection -> Chains -> Text -> Value -> Handler Value
-submit conn chains name val = do
-    res <- liftIO $ insertExpr conn chains name val
+-- second the expressions being submitted. The server either accepts all or
+-- rejects all expressions (though other systems may not provide this
+-- guarantee).
+submit :: Connection -> Chains -> Text -> Values -> Handler Value
+submit conn chains name (Values vals) = do
+    res <- liftIO $ insertExpr conn chains name vals
     case res of
         Left err -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 err }
         Right _  -> pure $ Keyword $ unsafeToIdent "ok"
