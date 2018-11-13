@@ -22,7 +22,6 @@ dependencies:
 - haskeline
 - megaparsec
 - mtl
-- pandoc
 - pointed
 - prettyprinter
 - prettyprinter-ansi-terminal

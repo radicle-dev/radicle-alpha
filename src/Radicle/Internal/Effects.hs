@@ -23,7 +23,6 @@ import           System.Console.Haskeline
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
-import           Radicle.Internal.Doc (md)
 import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
@@ -79,7 +78,7 @@ replBindings = addPrimFns replPrimFns pureEnv
 replPrimFns :: ReplM m => PrimFns m
 replPrimFns = fromList $ allDocs $
     [ ("print!"
-      , [md|Pretty-prints a value.|]
+      , "Pretty-prints a value."
       , \case
         [x] -> do
             putStrS (renderPrettyDef x)
@@ -87,8 +86,8 @@ replPrimFns = fromList $ allDocs $
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
     , ( "doc!"
-      , [md|Prints the documentation attached to a value and returns `()`. To retreive
-           the docstring as a value use `doc` instead.|]
+      , "Prints the documentation attached to a value and returns `()`. To retreive\
+        \the docstring as a value use `doc` instead."
       , oneArg "doc!" $ \case
           Atom i -> do
             d <- lookupAtomDoc i
@@ -98,7 +97,7 @@ replPrimFns = fromList $ allDocs $
       )
 
     , ( "apropos!"
-      , [md|Prints documentation for all documented variables in scope.|]
+      , "Prints documentation for all documented variables in scope."
       , \case
           [] -> do
             env <- gets bindingsEnv
@@ -109,8 +108,8 @@ replPrimFns = fromList $ allDocs $
       )
 
     , ( "set-env!"
-      , [md|Given an atom `x` and a value `v`, sets the value associated to `x` in
-           the current environemtn to be `v`. Doesn't evaluate `v`.|]
+      , "Given an atom `x` and a value `v`, sets the value associated to `x` in\
+        \the current environemtn to be `v`. Doesn't evaluate `v`."
       , \case
         [Atom x, v] -> do
             defineAtom x Nothing v
@@ -119,16 +118,16 @@ replPrimFns = fromList $ allDocs $
         xs  -> throwErrorHere $ WrongNumberOfArgs "set-env!" 2 (length xs))
 
     , ( "get-line!"
-      , [md|Reads a single line of input and returns it as a string.|]
+      , "Reads a single line of input and returns it as a string."
       , \case
           [] -> maybe nil toRad <$> getLineS
           xs -> throwErrorHere $ WrongNumberOfArgs "get-line!" 0 (length xs)
       )
 
     , ("subscribe-to!"
-      , [md|Expects a dict `s` (representing a subscription) and a function `f`. The dict
-           `s` should have a function `getter` at the key `:getter`. This function is called
-           repeatedly (with no arguments), its result is then evaluated and passed to `f`.|]
+      , "Expects a dict `s` (representing a subscription) and a function `f`. The dict\
+        \`s` should have a function `getter` at the key `:getter`. This function is called\
+        \repeatedly (with no arguments), its result is then evaluated and passed to `f`."
       , \case
         [x, v] -> do
             e <- gets bindingsEnv
@@ -163,7 +162,7 @@ replPrimFns = fromList $ allDocs $
                 _  -> throwErrorHere $ TypeError "subscribe-to!: Expected dict"
         xs  -> throwErrorHere $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
     , ( "read-file!"
-      , [md|Reads the contents of a file and returns it as a string.|]
+      , "Reads the contents of a file and returns it as a string."
       , oneArg "read-file" $ \case
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
@@ -171,8 +170,8 @@ replPrimFns = fromList $ allDocs $
           _ -> throwErrorHere $ TypeError "read-file: expects a string"
       )
     , ( "load!"
-      , [md|Evaluates the contents of a file. Each seperate radicle expression is
-           `eval`uated according to the current definition of `eval`.|]
+      , "Evaluates the contents of a file. Each seperate radicle expression is\
+        \`eval`uated according to the current definition of `eval`."
       , oneArg "load!" $ \case
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
@@ -180,8 +179,8 @@ replPrimFns = fromList $ allDocs $
           _ -> throwErrorHere $ TypeError "load: expects a string"
       )
     , ( "gen-key-pair!"
-      , [md|Given an elliptic curve, generates a cryptographic key-pair. Use
-           `default-ecc-curve` for a default value for the elliptic curve.|]
+      , "Given an elliptic curve, generates a cryptographic key-pair. Use\
+        \`default-ecc-curve` for a default value for the elliptic curve."
       , oneArg "gen-key-pair!" $ \case
           curvev -> do
             curve <- hoistEither . first (toLangError . OtherError) $ fromRad curvev
@@ -194,8 +193,8 @@ replPrimFns = fromList $ allDocs $
               ]
       )
     , ( "gen-signature!"
-      , [md|Given a private key and a message (a string), generates a cryptographic
-           signature for the message.|]
+      , "Given a private key and a message (a string), generates a cryptographic\
+        \signature for the message."
       , \case
           [skv, String msg] -> do
             sk <- hoistEither . first (toLangError . OtherError) $ fromRad skv
@@ -203,13 +202,13 @@ replPrimFns = fromList $ allDocs $
           _ -> throwErrorHere $ TypeError "gen-signature!: expects a string."
       )
     , ( "uuid!"
-      , [md|Generates a random UUID.|]
+      , "Generates a random UUID."
       , \case
           [] -> String <$> UUID.uuid
           xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
       )
     , ( "exit!"
-      , [md|Exit the interpreter immediately.|]
+      , "Exit the interpreter immediately."
       , \case
           [] -> throwErrorHere Exit
           xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)

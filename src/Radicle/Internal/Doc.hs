@@ -8,8 +8,6 @@ import           Protolude hiding (Any)
 import           Codec.Serialise (Serialise(..))
 import           Data.Copointed (Copointed(..))
 import qualified Data.Default as Default
-import           Language.Haskell.TH.Quote
-import           Text.Pandoc
 
 data Docd a = Docd (Maybe Text) a
   deriving (Show, Read, Functor, Foldable, Traversable, Generic)
@@ -31,21 +29,3 @@ instance Ord a => Ord (Docd a) where
 noDocs :: [(a, c)] -> [(a, Maybe b, c)]
 noDocs = fmap $ \(x,y) -> (x, Nothing, y)
 
--- | A quasiquoter that checks if a string is valid pandoc-markdown, then
--- returns the markdown with better formatting.
-md :: QuasiQuoter
-md = QuasiQuoter
-    { quoteExp = \s -> [| case cleanupPandocMd s of
-        Left e   -> panic $ "Not valid pandoc-markdown: " <> show e
-        Right s' -> s' |]
-    , quoteType = err
-    , quotePat = err
-    , quoteDec = err
-    }
-  where
-    err = panic "pan only works for expressions"
-
-cleanupPandocMd :: Text -> Either PandocError Text
-cleanupPandocMd s = runPure $ do
-  p <- readMarkdown Default.def s
-  writeMarkdown Default.def p

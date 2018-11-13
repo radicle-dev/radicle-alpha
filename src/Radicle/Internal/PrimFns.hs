@@ -5,7 +5,6 @@ module Radicle.Internal.PrimFns where
 import           Protolude hiding (TypeError)
 
 import qualified Data.Aeson as Aeson
-import qualified Data.Default as Default
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific, floatingOrInteger)
@@ -14,12 +13,10 @@ import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import           GHC.Exts (IsList(..))
 import           Text.Megaparsec (parseErrorPretty)
-import qualified Text.Pandoc as Pandoc
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
-import           Radicle.Internal.Doc (md)
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
@@ -32,8 +29,8 @@ pureEnv =
   where
     e = fromList . allDocs $
           [ ( "eval"
-            , [md|The evaluation function used to evaluate inputs. Intially
-                 this is set to `base-eval`.|]
+            , "The evaluation function used to evaluate inputs. Intially\
+                \this is set to `base-eval`."
             , PrimFn $ unsafeToIdent "base-eval"
             )
           ]
@@ -56,9 +53,9 @@ addPrimFns primFns bindings =
 purePrimFns :: forall m. (Monad m) => PrimFns m
 purePrimFns = fromList $ allDocs $
     [ ( "base-eval"
-      , [md|The default evaluation function. Expects an expression and a radicle
-           state. Return a list of length 2 consisting of the result of the
-           evaluation and the new state.|]
+      , "The default evaluation function. Expects an expression and a radicle\
+        \state. Return a list of length 2 consisting of the result of the\
+        \evaluation and the new state."
       , \case
           [expr, st] -> case (fromRad st :: Either Text (Bindings ())) of
               Left e -> throwErrorHere $ OtherError e
@@ -71,38 +68,38 @@ purePrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "base-eval" 2 (length xs)
       )
     , ( "pure-env"
-      , [md|Returns a pure initial radicle state. This is the state of a radicle
-           chain before it has processed any inputs.|]
+      , "Returns a pure initial radicle state. This is the state of a radicle\
+        \chain before it has processed any inputs."
       , \case
           [] -> pure $ toRad (pureEnv :: Bindings (PrimFns m))
           xs -> throwErrorHere $ WrongNumberOfArgs "pure-env" 0 (length xs)
       )
     , ("apply"
-      , [md|Calls the first argument (a function) using as arguments the
-           elements of the the second argument (a list).|]
+      , "Calls the first argument (a function) using as arguments the\
+        \elements of the the second argument (a list)."
       , \case
           [fn, List args] -> callFn fn args
           [_, _]          -> throwErrorHere $ TypeError "apply: expecting list as second arg"
           xs -> throwErrorHere $ WrongNumberOfArgs "apply" 2 (length xs))
     , ( "read"
-      , [md|Parses a string into a radicle value. Does not evaluate the value.|]
+      , "Parses a string into a radicle value. Does not evaluate the value."
       , oneArg "read" $ \case
           String s -> readValue s
           _ -> throwErrorHere $ TypeError "read: expects string"
       )
     , ( "read-many"
-      , [md|Parses a string into a vector of radicle values. Does not evaluate the values.|]
+      , "Parses a string into a vector of radicle values. Does not evaluate the values."
       , oneArg "read-many" $ \case
           String s -> readValues s
           _ -> throwErrorHere $ TypeError "read-many: expects string"
       )
     , ("get-current-env"
-      , [md|Returns the current radicle state.|]
+      , "Returns the current radicle state."
       , \case
           [] -> toRad <$> get
           xs -> throwErrorHere $ WrongNumberOfArgs "get-current-env" 0 (length xs))
     , ( "set-current-env"
-      , [md|Replaces the radicle state with the one provided.|]
+      , "Replaces the radicle state with the one provided."
       , oneArg "set-current-env" $ \x -> do
           e' :: Bindings () <- fromRadOtherErr x
           e <- get
@@ -113,41 +110,41 @@ purePrimFns = fromList $ allDocs $
           pure ok
       )
     , ("list"
-      , [md|Turns the arguments into a list.|]
+      , "Turns the arguments into a list."
       , pure . List)
     , ("dict"
-      , [md|Given an even number of arguments, creates a dict where the `2i`-th argument
-           is the key for the `2i+1`th argument.|]
+      , "Given an even number of arguments, creates a dict where the `2i`-th argument\
+        \is the key for the `2i+1`th argument."
       , (Dict . foldr (uncurry Map.insert) mempty <$>)
                         . evenArgs "dict")
     , ("throw"
-      , [md|Throws an exception. The first argument should be an atom used as a label for
-           the exception, the second can be any value.|]
+      , "Throws an exception. The first argument should be an atom used as a label for\
+        \the exception, the second can be any value."
       , \case
           [Atom label, exc] -> throwErrorHere $ ThrownError label exc
           [_, _]            -> throwErrorHere $ TypeError "throw: first argument must be atom"
           xs                -> throwErrorHere $ WrongNumberOfArgs "throw" 2 (length xs))
     , ( "eq?"
-      , [md|Checks if two values are equal.|]
+      , "Checks if two values are equal."
       , \case
           [a, b] -> pure $ Boolean (a == b)
           xs     -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
 
     -- Vectors
     , ( "<>"
-      , [md|Concatenates two vectors.|]
+      , "Concatenates two vectors."
       , twoArg "<>" $ \case
           (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
           _ -> throwErrorHere $ TypeError "<>: both arguments must be vectors"
       )
     , ( "add-left"
-      , [md|Adds an element to the left side of a vector.|]
+      , "Adds an element to the left side of a vector."
       , twoArg "add-left" $ \case
           (x, Vec xs) -> pure $ Vec (x :<| xs)
           _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
       )
     , ( "add-right"
-      , [md|Adds an element to the right side of a vector.|]
+      , "Adds an element to the right side of a vector."
       , twoArg "add-right" $ \case
           (x, Vec xs) -> pure $ Vec (xs :|> x)
           _ -> throwErrorHere $ TypeError "add-right: second argument must be a vector"
@@ -155,14 +152,14 @@ purePrimFns = fromList $ allDocs $
 
     -- Lists
     , ("cons"
-      , [md|Adds an element to the front of a list.|]
+      , "Adds an element to the front of a list."
       , \case
           [x, List xs] -> pure $ List (x:xs)
           [_, _]       -> throwErrorHere $ TypeError "cons: second argument must be list"
           xs           -> throwErrorHere $ WrongNumberOfArgs "cons" 2 (length xs))
     , ("head"
-      , [md|Retrieves the first element of a sequence if it exists. Otherwise throws an
-           exception.|]
+      , "Retrieves the first element of a sequence if it exists. Otherwise throws an\
+        \exception."
       , oneArg "head" $ \case
           List (x:_)        -> pure x
           List []           -> throwErrorHere $ OtherError "head: empty list"
@@ -170,8 +167,8 @@ purePrimFns = fromList $ allDocs $
           Vec Seq.Empty     -> throwErrorHere $ OtherError "head: empty vector"
           _                 -> throwErrorHere $ TypeError "head: expects sequence argument")
     , ("tail"
-      , [md|Given a non-empty sequence, returns the sequence of all the elements but the
-           first. If the sequence is empty, throws an exception.|]
+      , "Given a non-empty sequence, returns the sequence of all the elements but the\
+        \first. If the sequence is empty, throws an exception."
       , oneArg "tail" $ \case
           List (_:xs)        -> pure $ List xs
           List []            -> throwErrorHere $ OtherError "tail: empty list"
@@ -181,8 +178,8 @@ purePrimFns = fromList $ allDocs $
 
     -- Lists and Vecs
     , ( "drop"
-      , [md|Returns all but the first `n` items of a sequence, unless the sequence is empty,
-           in which case an exception is thrown.|]
+      , "Returns all but the first `n` items of a sequence, unless the sequence is empty,\
+        \in which case an exception is thrown."
       , twoArg "drop" $ \case
           (Number n, vs) -> case floatingOrInteger n of
             Left (_ :: Double) -> throwErrorHere $ OtherError "drop: first argument must be an integer"
@@ -193,8 +190,8 @@ purePrimFns = fromList $ allDocs $
           _ -> throwErrorHere $ TypeError $ "drop: first argument must be a number"
       )
     , ( "take"
-      , [md|Returns the first `n` items of a sequence, unless the sequence is too short,
-           in which case an exception is thrown.|]
+      , "Returns the first `n` items of a sequence, unless the sequence is too short,\
+        \in which case an exception is thrown."
       , twoArg "take" $ \case
           (Number n, vs) -> case floatingOrInteger n of
             Left (_ :: Double) -> throwErrorHere $ OtherError "take: first argument must be an integer"
@@ -205,10 +202,10 @@ purePrimFns = fromList $ allDocs $
           _ -> throwErrorHere $ TypeError $ "take: first argument must be a number"
       )
     , ( "nth"
-      , [md|Given an integral number `n` and `xs`, returns the `n`th element
-           (zero indexed) of `xs` when `xs` is a list or a vector. If `xs`
-           does not have an `n`-th element, or if it is not a list or vector, then
-           an exception is thrown.|]
+      , "Given an integral number `n` and `xs`, returns the `n`th element\
+        \(zero indexed) of `xs` when `xs` is a list or a vector. If `xs`\
+        \does not have an `n`-th element, or if it is not a list or vector, then\
+        \an exception is thrown."
       , \case
           [Number n, vs] -> case floatingOrInteger n of
             Left (_ :: Double) -> throwErrorHere $ OtherError "nth: first argument was not an integer"
@@ -222,9 +219,9 @@ purePrimFns = fromList $ allDocs $
       )
 
     , ("lookup"
-      , [md|Given a value `k` (the 'key') and a dict `d`, returns the value associated
-           with `k` in `d`. If the key does not exist in `d` then `()` is returned
-           instead. If `d` is not a dict then an exception is thrown.|]
+      , "Given a value `k` (the 'key') and a dict `d`, returns the value associated\
+        \with `k` in `d`. If the key does not exist in `d` then `()` is returned\
+        \instead. If `d` is not a dict then an exception is thrown."
       , \case
           [a, Dict m] -> pure $ case Map.lookup a m of
               Just v  -> v
@@ -234,8 +231,8 @@ purePrimFns = fromList $ allDocs $
           [_, _]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ( "map-values"
-      , [md|Given a function `f` and a dict `d`, returns a dict with the same keys as `d`
-           but `f` applied to all the associated values.|]
+      , "Given a function `f` and a dict `d`, returns a dict with the same keys as `d`\
+        \but `f` applied to all the associated values."
       , twoArg "map-values" $ \case
           (f, Dict m) -> do
             let kvs = Map.toList m
@@ -244,14 +241,14 @@ purePrimFns = fromList $ allDocs $
           _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
       )
     , ( "string-length"
-      , [md|Returns the length of a string.|]
+      , "Returns the length of a string."
       , oneArg "string-length" $ \case
           String s -> pure . Number . fromIntegral . T.length $ s
           _ -> throwErrorHere $ TypeError "string-length: expecting string"
       )
     , ( "string-append"
-      , [md|Concatenates a variable number of string arguments. If one of the arguments
-           isn't a string then an exception is thrown.|]
+      , "Concatenates a variable number of string arguments. If one of the arguments\
+        \isn't a string then an exception is thrown."
       , \args ->
           let fromStr (String s) = Just s
               fromStr _          = Nothing
@@ -260,17 +257,10 @@ purePrimFns = fromList $ allDocs $
               then pure . String . mconcat $ catMaybes ss
               else throwErrorHere $ TypeError "string-append: non-string argument"
       )
-    , ( "markdown?"
-      , [md|Checks that the input string is valid Markdown according
-           to the [CommonMark spec](commonmark.org).|]
-      , oneArg "markdown?" $ \case
-          String s -> pure . Boolean . isRight $ Pandoc.runPure (Pandoc.readCommonMark Default.def s)
-          _ -> throwErrorHere $ TypeError "markdown?: expects string"
-      )
     , ( "insert"
-      , [md|Given `k`, `v` and a dict `d`, returns a dict with the same associations
-           as `d` but with `k` associated to `d`. If `d` isn't a dict then an exception
-           is thrown.|]
+      , "Given `k`, `v` and a dict `d`, returns a dict with the same associations\
+        \as `d` but with `k` associated to `d`. If `d` isn't a dict then an exception\
+        \is thrown."
       , \case
           [k, v, Dict m] -> pure . Dict $ Map.insert k v m
           [_, _, _]                -> throwErrorHere
@@ -278,8 +268,8 @@ purePrimFns = fromList $ allDocs $
                                       $ TypeError "insert: third argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
     , ( "delete"
-      , [md|Given `k` and a dict `d`, returns a dict with the same associations as `d` but
-           without the key `k`. If `d` isn't a dict then an exception is thrown.|]
+      , "Given `k` and a dict `d`, returns a dict with the same associations as `d` but\
+        \without the key `k`. If `d` isn't a dict then an exception is thrown."
       , twoArg "delete" $ \case
           (k, Dict m) -> pure . Dict $ Map.delete k m
           _ -> throwErrorHere $ TypeError "delete: second argument must be a dict"
@@ -292,23 +282,23 @@ purePrimFns = fromList $ allDocs $
     --
     -- In order to avoid this sort of thing, we don't allow +,*,- and / to be
     -- applied to a single argument.
-    , numBinop (+) "+" [md|Adds two numbers together.|]
-    , numBinop (*) "*" [md|Multiplies two numbers together.|]
-    , numBinop (-) "-" [md|Substracts one number from another.|]
+    , numBinop (+) "+" "Adds two numbers together."
+    , numBinop (*) "*" "Multiplies two numbers together."
+    , numBinop (-) "-" "Substracts one number from another."
     , ( "<"
-      , [md|Checks if a number is strictly less than another.|]
+      , "Checks if a number is strictly less than another."
       , \case
           [Number x, Number y] -> pure $ Boolean (x < y)
           [_, _]               -> throwErrorHere $ TypeError "<: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs "<" 2 (length xs))
     , ( ">"
-      , [md|Checks if a number is strictly greater than another.|]
+      , "Checks if a number is strictly greater than another."
       , \case
           [Number x, Number y] -> pure $ Boolean (x > y)
           [_, _]               -> throwErrorHere $ TypeError ">: expecting number"
           xs                   -> throwErrorHere $ WrongNumberOfArgs ">" 2 (length xs))
     , ( "integral?"
-      , [md|Checks if a number is an integer.|]
+      , "Checks if a number is an integer."
       , oneArg "integral?" $ \case
           Number n -> case floatingOrInteger n of
             Left (_ :: Double)   -> pure $ Boolean False
@@ -316,26 +306,26 @@ purePrimFns = fromList $ allDocs $
           _ -> throwErrorHere $ TypeError "integral?: expecting number"
       )
     , ( "foldl"
-      , [md|Given a function `f`, an initial value `i` and a sequence (list or vector)
-           `xs`, reduces `xs` to a single value by starting with `i` and repetitively
-           combining values with `f`, using elements of `xs` from left to right.|]
+      , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
+        \`xs`, reduces `xs` to a single value by starting with `i` and repetitively\
+        \combining values with `f`, using elements of `xs` from left to right."
       , \case
           [fn, init', v] -> do
             ls :: [Value] <- fromRadOtherErr v
             foldlM (\b a -> callFn fn [b, a]) init' ls
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldl" 3 (length xs))
     , ( "foldr"
-      , [md|Given a function `f`, an initial value `i` and a sequence (list or vector)
-           `xs`, reduces `xs` to a single value by starting with `i` and repetitively
-           combining values with `f`, using elements of `xs` from right to left.|]
+      , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
+        \`xs`, reduces `xs` to a single value by starting with `i` and repetitively\
+        \combining values with `f`, using elements of `xs` from right to left."
       , \case
           [fn, init', v] -> do
             ls :: [Value] <- fromRadOtherErr v
             foldrM (\b a -> callFn fn [b, a]) init' ls
           xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
     , ( "map"
-      , [md|Given a function `f` and a sequence (list or vector) `xs`, returns a sequence
-           of the same size and type as `xs` but with `f` applied to all the elements.|]
+      , "Given a function `f` and a sequence (list or vector) `xs`, returns a sequence\
+        \of the same size and type as `xs` but with `f` applied to all the elements."
       , \case
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
           [fn, Vec ls]  -> Vec <$> traverse (callFn fn) (pure <$> ls)
@@ -362,9 +352,9 @@ purePrimFns = fromList $ allDocs $
                   Dict _ -> pure tt
                   _      -> pure ff)
     , ( "type"
-      , [md|Returns a keyword representing the type of the argument; one of:
-           `:atom`, `:keyword`, `:string`, `:number`, `:boolean`, `:list`,
-           `:vector`, `:function`, `:dict`, `:ref`, `:function`.|]
+      , "Returns a keyword representing the type of the argument; one of:\
+        \`:atom`, `:keyword`, `:string`, `:number`, `:boolean`, `:list`,\
+        \`:vector`, `:function`, `:dict`, `:ref`, `:function`."
       , let kw' = pure . Keyword . Ident
         in oneArg "type" $ \case
              Atom _ -> kw' "atom"
@@ -395,9 +385,9 @@ purePrimFns = fromList $ allDocs $
           Number _ -> pure tt
           _        -> pure ff)
     , ( "member?"
-      , [md|Given `v` and structure `s`, checks if `x` exists in `s`. The structure `s`
-           may be a list, vector or dict. If it is a list or a vector, it checks if `v`
-           is one of the items. If `s` is a dict, it checks if `v` is one of the keys.|]
+      , "Given `v` and structure `s`, checks if `x` exists in `s`. The structure `s`\
+        \may be a list, vector or dict. If it is a list or a vector, it checks if `v`\
+        \is one of the items. If `s` is a dict, it checks if `v` is one of the keys."
       , \case
           [x, List xs] -> pure . Boolean $ elem x xs
           [x, Vec xs]  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
@@ -406,16 +396,16 @@ purePrimFns = fromList $ allDocs $
                         $ TypeError "member?: second argument must be list"
           xs           -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
     , ( "ref"
-      , [md|Creates a ref with the argument as the initial value.|]
+      , "Creates a ref with the argument as the initial value."
       , oneArg "ref" newRef)
     , ( "read-ref"
-      , [md|Returns the current value of a ref.|]
+      , "Returns the current value of a ref."
       , oneArg "read-ref" $ \case
           Ref ref -> readRef ref
           _       -> throwErrorHere $ TypeError "read-ref: argument must be a ref")
     , ( "write-ref"
-      , [md|Given a reference `r` and a value `v`, updates the value stored in `r` to be
-           `v` and returns `v`.|]
+      , "Given a reference `r` and a value `v`, updates the value stored in `r` to be\
+        \`v` and returns `v`."
       , \case
           [Ref (Reference x), v] -> do
               st <- get
@@ -426,13 +416,13 @@ purePrimFns = fromList $ allDocs $
           xs                     -> throwErrorHere
                                   $ WrongNumberOfArgs "write-ref" 2 (length xs))
     , ( "show"
-      , [md|Returns a string representing the argument value.|]
+      , "Returns a string representing the argument value."
       , oneArg "show" (pure . String . renderPrettyDef))
     , ( "seq"
-      , [md|Given a structure `s`, returns a sequence. Lists and vectors are returned
-           without modification while for dicts a vector of key-value-pairs is returned:
-           these are vectors of length 2 whose first item is a key and whose second item
-           is the associated value.|]
+      , "Given a structure `s`, returns a sequence. Lists and vectors are returned\
+        \without modification while for dicts a vector of key-value-pairs is returned:\
+        \these are vectors of length 2 whose first item is a key and whose second item\
+        \is the associated value."
       , oneArg "seq" $
           \case
             x@(List _) -> pure x
@@ -441,20 +431,20 @@ purePrimFns = fromList $ allDocs $
             _ -> throwErrorHere $ TypeError "seq: can only be used on a list, vector or dictionary"
       )
     , ( "to-json"
-      , [md|Returns a JSON formatted string representing the input value.|]
+      , "Returns a JSON formatted string representing the input value."
       , oneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
           maybeJson v ?? toLangError (OtherError "Could not serialise value to JSON")
       )
     , ( "default-ecc-curve"
-      , [md|Returns the default elliptic-curve used for generating cryptographic keys.|]
+      , "Returns the default elliptic-curve used for generating cryptographic keys."
       ,
         \case
           [] -> pure $ toRad defaultCurve
           xs -> throwErrorHere $ WrongNumberOfArgs "default-ecc-curve" 0 (length xs)
       )
     , ( "verify-signature"
-      , [md|Given a public key `pk`, a signature `s` and a message (string) `m`, checks
-           that `s` is a signature of `m` for the public key `pk`.|]
+      , "Given a public key `pk`, a signature `s` and a message (string) `m`, checks\
+        \that `s` is a signature of `m` for the public key `pk`."
       , \case
           [keyv, sigv, String msg] -> do
             key <- fromRadOtherErr keyv
@@ -464,20 +454,20 @@ purePrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "verify-signature" 3 (length xs)
       )
     , ( "public-key?"
-      , [md|Checks if a value represents a valid public key.|]
+      , "Checks if a value represents a valid public key."
       , oneArg "public-key?" $
           \v -> case fromRad v of
                   Right (_ :: PublicKey) -> pure $ Boolean True
                   Left _                 -> pure $ Boolean False
       )
     , ( "uuid?"
-      , [md|Checks if a string has the format of a UUID.|]
+      , "Checks if a string has the format of a UUID."
       , oneArg "uuid?" $ \case
           String t -> pure . Boolean . UUID.isUUID $ t
           _ -> throwErrorHere $ TypeError "uuid?: expects a string"
       )
     , ( "document"
-      , [md|Used to add documentation to variables.|]
+      , "Used to add documentation to variables."
       , \case
           [Atom i, List _, String desc] -> do
             v <- lookupAtom i
@@ -487,7 +477,7 @@ purePrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "document" 3 (length xs)
       )
     , ( "doc"
-      , [md|Returns the documentation string for a variable. To print it instead, use `doc!`.|]
+      , "Returns the documentation string for a variable. To print it instead, use `doc!`."
       , oneArg "doc" $ \case
           Atom i -> do d <- lookupAtomDoc i
                        pure . String $
