@@ -110,9 +110,9 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
       , \case
           [String url, Number n] -> do
               case Num.isInt n of
-                  Nothing -> throwErrorHere . OtherError
+                  Left _ -> throwErrorHere . OtherError
                                      $ "receive!: expecting int argument"
-                  Just r -> do
+                  Right r -> do
                       liftIO (runClientM' url mgr (since r)) >>= \case
                           Left err -> throwErrorHere . OtherError
                                     $ "receive!: request failed:" <> show err

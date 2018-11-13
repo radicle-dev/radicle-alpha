@@ -14,7 +14,6 @@ import           Text.Megaparsec.Pos (sourcePosPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
-import qualified Radicle.Internal.Number as Num
 
 -- | We can't just pretty print the pointer id since that would break
 -- referential transparency, so instead we just label refs as '<ref>'
@@ -30,7 +29,7 @@ instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) wher
         Keyword i -> ":" <> pretty i
         Ref i -> pretty i
         String t -> "\"" <> pretty (escapeStr t) <> "\""
-        Number n -> pretty (Num.pretty n)
+        Number (a :% b) -> pretty a <> if b == 1 then "" else "/" <> pretty b
         Boolean True -> "#t"
         Boolean False -> "#f"
         List vs -> case vs of

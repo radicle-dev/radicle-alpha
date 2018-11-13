@@ -4,7 +4,6 @@ import           Protolude hiding (SrcLoc, try)
 
 import           Data.List.NonEmpty (NonEmpty((:|)))
 import qualified Data.Map as Map
-import           Data.Scientific (floatingOrInteger)
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import           GHC.Exts (IsString(..))
@@ -31,7 +30,6 @@ import qualified Text.Megaparsec.Error as Par
 import           Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Identifier
-import           Radicle.Internal.Number as Num
 
 -- * The parser
 
@@ -79,12 +77,16 @@ boolLiteralP = lexeme $ tag =<< BooleanF <$> (char '#' >>
         (char 't' >> pure True) <|> (char 'f' >> pure False))
 
 numLiteralP :: VParser
-numLiteralP = tag =<< NumberF <$> num
+numLiteralP = tag =<< NumberF <$> signed pos
   where
-    num = do s <- signed L.scientific
-             pure $ case floatingOrInteger s of
-               Left (_ :: Double) -> Num.Sci s
-               Right i            -> Num.Int i
+    posrat =
+      do n <- L.decimal
+         _ <- char '/'
+         d <- L.decimal
+         pure (n % d)
+
+    pos = try posrat <|> fromIntegral <$> (L.decimal :: Parser Integer)
+
     -- We don't allow spaces between the sign and digits so that we can remain
     -- consistent with the general Scheme of things.
     signed p = M.option identity ((identity <$ char '+') <|> (negate <$ char '-')) <*> p

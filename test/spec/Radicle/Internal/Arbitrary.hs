@@ -13,7 +13,6 @@ import           Radicle
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
                  (isValidIdentFirst, isValidIdentRest)
-import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.PrimFns (purePrimFns)
 
 instance Arbitrary r => Arbitrary (Env r) where
@@ -50,12 +49,6 @@ instance Arbitrary Value where
 
 instance Arbitrary UntaggedValue where
     arbitrary = untag <$> (arbitrary :: Gen Value)
-
-instance Arbitrary Num.Number where
-    arbitrary = oneof
-      [ Num.Int <$> arbitrary
-      , Num.Sci <$> arbitrary
-      ]
 
 instance Arbitrary Ident where
     arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (mkIdent . toS)

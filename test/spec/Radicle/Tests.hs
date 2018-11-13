@@ -24,7 +24,6 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Foo)
-import           Radicle.Internal.Number
 import           Radicle.Internal.TestCapabilities
 
 test_eval :: [TestTree]
@@ -104,7 +103,7 @@ test_eval =
     , testCase "'integral?' returns true for whole numbers and false fractional numbers" $ do
         "(integral? 0)" `succeedsWith` Boolean True
         "(integral? 1)" `succeedsWith` Boolean True
-        "(integral? 3.14159265359)" `succeedsWith` Boolean False
+        "(integral? 1/3)" `succeedsWith` Boolean False
 
     , testCase "'member?' returns true if list contains element" $ do
         let prog = [s|(member? #t (list #f #t))|]
@@ -435,7 +434,7 @@ test_eval =
         runTest' "(show ''a)" @?= Right (String "(quote a)")
         runTest' "(show \"hello\")" @?= Right (String "\"hello\"")
         runTest' "(show 42)" @?= Right (String "42")
-        runTest' "(show 42.1)" @?= Right (String "42.1")
+        runTest' "(show 1/3)" @?= Right (String "1/3")
         runTest' "(show #t)" @?= Right (String "#t")
         runTest' "(show #f)" @?= Right (String "#f")
         runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1 \"foo\" (b (quote x) 2 \"bar\"))")
@@ -526,8 +525,8 @@ test_parser =
         "(++ \"merge\" \"d\")" ~~> List [Atom [ident|++|], String "merge", String "d"]
 
     , testCase "parses numbers" $ do
-        "0.15" ~~> Number (Sci 0.15)
-        "2000" ~~> Number (Int 2000)
+        "1/3" ~~> Number (1 % 3)
+        "2000" ~~> Number 2000
 
     , testCase "parses identifiers" $ do
         "++" ~~> Atom [ident|++|]
@@ -781,7 +780,7 @@ atom :: Text -> Value
 atom = Atom . unsafeToIdent
 
 int :: Integer -> Value
-int = Number . Int
+int = Number . fromIntegral
 
 -- -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- -- primops.

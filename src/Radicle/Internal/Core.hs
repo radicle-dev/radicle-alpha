@@ -89,8 +89,8 @@ errorDataToValue e = case e of
     WrongNumberOfArgs i expected actual -> makeVal
         ( "wrong-number-of-args"
         , [ ("function", makeA $ Ident i)
-          , ("expected", Number $ Num.numFromIntegral expected)
-          , ("actual", Number $ Num.numFromIntegral actual)]
+          , ("expected", Number $ fromIntegral expected)
+          , ("actual", Number $ fromIntegral actual)]
         )
     OtherError i -> makeVal
         ( "other-error"
@@ -131,7 +131,7 @@ data ValueF r =
     -- | Symbolic identifiers that evaluate to themselves.
     | KeywordF Ident
     | StringF Text
-    | NumberF Num.Number
+    | NumberF Rational
     | BooleanF Bool
     | ListF [r]
     | VecF (Seq r)
@@ -167,7 +167,7 @@ pattern String i <- (Ann.match -> StringF i)
     where
     String = Ann.annotate . StringF
 
-pattern Number :: ValueConC t => Num.Number -> Annotated t ValueF
+pattern Number :: ValueConC t => Rational -> Annotated t ValueF
 pattern Number i <- (Ann.match -> NumberF i)
     where
     Number = Ann.annotate . NumberF
@@ -219,14 +219,9 @@ isAtom :: Value -> Maybe Ident
 isAtom (Atom i) = pure i
 isAtom _        = Nothing
 
--- should be a prism
-isInt :: Value -> Maybe Integer
-isInt (Number (Num.Int i)) = pure i
-isInt _                    = Nothing
-
 instance A.FromJSON Value where
   parseJSON = \case
-    A.Number n -> pure $ Number (Num.fromSci n)
+    A.Number n -> pure $ Number (toRational n)
     A.String s -> pure $ String s
     A.Array ls -> List . toList <$> traverse parseJSON ls
     A.Bool b -> pure $ Boolean b
@@ -239,7 +234,7 @@ instance A.FromJSON Value where
 -- | Convert a radicle `Value` into an 'aeson' value, if possible.
 --
 -- >>> import Data.Aeson (encode)
--- >>> encode $ maybeJson $ List [Number (Num.Int 3), String "hi"]
+-- >>> encode $ maybeJson $ List [Number 3, String "hi"]
 -- "[3,\"hi\"]"
 --
 -- >>> import Data.Aeson (encode)
@@ -251,11 +246,11 @@ instance A.FromJSON Value where
 -- non-string keys.
 --
 -- >>> import Data.Aeson (encode)
--- >>> encode $ maybeJson $ Dict $ Map.fromList [(Number (Num.Int 3), String "bar")]
+-- >>> encode $ maybeJson $ Dict $ Map.fromList [(Number 3, String "bar")]
 -- "null"
 maybeJson :: Value -> Maybe A.Value
 maybeJson = \case
-    Number n -> pure $ A.Number (Num.toSci n)
+    Number n -> A.Number <$> hush (Num.isSci n)
     String s -> pure $ A.String s
     Boolean b -> pure $ A.Bool b
     List ls -> toJSON <$> traverse maybeJson ls
@@ -519,22 +514,15 @@ instance (CPA t, FromRad t a) => FromRad t (Maybe a) where
     fromRad _ = Left "Expecting :Nothing or [:Just _]"
 instance FromRad t (Annotated t ValueF) where
   fromRad = pure
+instance CPA t => FromRad t Rational where
+  fromRad (Number n) = pure n
+  fromRad _ = Left "Not a number"
 instance CPA t => FromRad t Scientific where
-    fromRad x = case x of
-        Number n -> pure (Num.toSci n)
-        _        -> Left "Expecting number"
+  fromRad = fromRad >=> Num.isSci
 instance CPA t => FromRad t Int where
-    fromRad = \case
-      Number n -> case Num.isInt n of
-        Just i  -> pure i
-        Nothing -> Left "Number was not a bounded int"
-      _ -> Left "Expecting number"
+    fromRad = fromRad >=> Num.isInt
 instance CPA t => FromRad t Integer where
-    fromRad = \case
-      Number n -> case Num.isInteger n of
-        Nothing -> Left "Expecting whole number"
-        Just i  -> pure i
-      _ -> Left "Expecting number"
+    fromRad = fromRad >=> Num.isInteger
 instance CPA t => FromRad t Text where
     fromRad x = case x of
         String n -> pure n
@@ -587,11 +575,11 @@ instance (CPA t, ToRad t a) => ToRad t (Maybe a) where
     toRad Nothing  = Keyword (Ident "Nothing")
     toRad (Just x) = Vec $ Keyword (Ident "Just") :<| toRad x :<| Empty
 instance CPA t => ToRad t Int where
-    toRad = Number . Num.numFromIntegral
+    toRad = Number . fromIntegral
 instance CPA t => ToRad t Integer where
-    toRad = Number . Num.numFromIntegral
+    toRad = Number . fromIntegral
 instance CPA t => ToRad t Scientific where
-    toRad = Number . Num.fromSci
+    toRad = Number . toRational
 instance CPA t => ToRad t Text where
     toRad = String
 instance ToRad t (Ann.Annotated t ValueF) where
