@@ -152,13 +152,17 @@ instance Serialise r => Serialise (ValueF r)
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
+  Atom _ -> True
+  Boolean _ -> True
+  Number _ -> True
+  String _ -> True
+  Keyword _ -> True
   PrimFn _ -> False
   Ref _ -> False
   Lambda{} -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
   Dict kvs -> getAll $ Map.foldMapWithKey (\k v -> All (hashable k && hashable v)) kvs
-  _ -> True
 
 -- | Smart constructor for dicts which checks that all the keys are hashable.
 dict :: (Monad m) => Map Value Value -> Lang m Value
