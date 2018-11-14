@@ -472,6 +472,11 @@ Documentation and testing
 Functions for creating and querying documentation of variables in scope,
 and testing functions.
 
+``help``
+~~~~~~~~
+
+Default help text.
+
 ``doc``
 ~~~~~~~
 

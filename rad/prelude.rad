@@ -54,13 +54,16 @@
     {:next-will-be (fn [] (+ 1 (read-ref i)))
      :next         (fn [] (modify-ref i (fn [x] (+ x 1))))}))
 
-(def _initial_prompt-text
+(def _initial-prompt-text
+  "Text used for greeting in the repl."
   "Welcome to radicle. Type (help) for help.")
 
-(def help (fn []
-  "radicle is a LISP-like language intended for programming chains, and interacting with those chains.
+(def help 
+  "Default help text."
+  (fn []
+    "radicle is a LISP-like language intended for programming chains, and interacting with those chains.
 
-  Type (doc '<name>) for further documentation of <name>."))
+    Type (doc '<name>) for further documentation of <name>."))
 
 
 (load! "rad/chains/issues.rad") ;; send-prelude! must be defined already
