@@ -79,3 +79,45 @@
   (fn [v]
     (fn [xs]
       (map v xs))))
+
+(def validator/uuid
+  "Validates UUIDs."
+  (validator/and
+   [(validator/type :string)
+    (validator/pred "valid UUID" uuid?)]))
+
+(def validator/signed
+  "Checks that a value is a dict with `:signature` and `:author` keys, and that
+  the signature is valid for the rest of the dict for that author. The rest of
+  the dict is turned into a string according to `show`."
+  (validator/and
+   [(validator/keys
+     {:author (validator/pred "valid public key" public-key?)})
+    (validator/pred
+     "Valid signature"
+     (fn [d]
+       (verify-signature
+        (lookup :author d)
+        (lookup :signature d)
+        (show (delete-many [:author :signature] d)))))]))
+
+(:test "validator/signed"
+  [:setup
+   (do (def keys (gen-key-pair! (default-ecc-curve)))
+       (def sk (lookup :private-key keys))
+       (def pk (lookup :public-key keys))
+       (def payload
+         {:nonce (uuid!)
+          :some "data"})
+       (def payload_ (insert :some "datadata" payload))
+       (def sig  (gen-signature! sk (show payload)))
+       (def seal {:author    (lookup :public-key keys)
+                  :signature sig})
+       (def full (<> payload seal))
+       (def full_ (<> payload_ seal))
+       (def ok
+         (catch 'any (do (validator/signed full) :ok) (fn [x] :not-ok)))
+       )
+   ]
+  [ ok ==> :ok ]
+)

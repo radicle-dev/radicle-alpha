@@ -8,7 +8,7 @@ import qualified Data.Map as Map
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
-import           GHC.Exts (IsList(..))
+import           GHC.Exts (IsList(..), sortWith)
 import           Text.Megaparsec (parseErrorPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
@@ -130,12 +130,6 @@ purePrimFns = fromList $ allDocs $
           xs     -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
 
     -- Vectors
-    , ( "<>"
-      , "Concatenates two vectors."
-      , twoArg "<>" $ \case
-          (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
-          _ -> throwErrorHere $ TypeError "<>: both arguments must be vectors"
-      )
     , ( "add-left"
       , "Adds an element to the left side of a vector."
       , twoArg "add-left" $ \case
@@ -216,18 +210,29 @@ purePrimFns = fromList $ allDocs $
           [_,_] -> throwErrorHere $ TypeError "nth: expects a integer and a list or vector"
           xs -> throwErrorHere $ WrongNumberOfArgs "nth" 2 (length xs)
       )
+    , ( "sort-by"
+      , "Given a sequence `xs` and a function `f`, returns a sequence with the same\
+        \ elements `x` of `xs` but sorted according to `(f x)`."
+      , twoArg "sort-by" $ \case
+          (f, List xs) -> do ys <- traverse (\x -> (x,) <$> callFn f [x]) xs
+                             let ys' = sortWith snd ys
+                             pure (List (fst <$> ys'))
+          (f, Vec xs) -> do ys <- traverse (\x -> (x,) <$> callFn f [x]) xs
+                            let ys' = Seq.sortOn snd ys
+                            pure (Vec (fst <$> ys'))
+          _ -> throwErrorHere $ TypeError "sort-by: second argument must be a sequence"
+      )
 
+    -- Dicts
     , ("lookup"
       , "Given a value `k` (the 'key') and a dict `d`, returns the value associated\
         \ with `k` in `d`. If the key does not exist in `d` then `()` is returned\
         \ instead. If `d` is not a dict then an exception is thrown."
       , \case
-          [a, Dict m] -> pure $ case Map.lookup a m of
-              Just v  -> v
-              -- Probably an exception is better, but that seems cruel
-              -- when you have no exception handling facilities.
-              Nothing -> nil
-          [_, _]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict"
+          [a, Dict m] -> case Map.lookup a m of
+              Just v  -> pure v
+              Nothing -> throwErrorHere $ OtherError $ "lookup: key did not exist: " <> renderCompactPretty a
+          [_, d]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict: " <> renderCompactPretty d
           xs -> throwErrorHere $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ( "map-values"
       , "Given a function `f` and a dict `d`, returns a dict with the same keys as `d`\
@@ -239,6 +244,17 @@ purePrimFns = fromList $ allDocs $
             pure . Dict . Map.fromList $ zip (fst <$> kvs) vs
           _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
       )
+
+    -- Structures
+    , ( "<>"
+      , "Merges two structures together. On vectors this performs concatenations. On dicts this performs the right-biased merge."
+      , twoArg "<>" $ \case
+          (List xs, List ys) -> pure $ List (xs ++ ys)
+          (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
+          (Dict m, Dict n) -> pure $ Dict (n <> m)
+          _ -> throwErrorHere $ TypeError "<>: only works on vectors of dicts"
+      )
+
     , ( "string-length"
       , "Returns the length of a string."
       , oneArg "string-length" $ \case

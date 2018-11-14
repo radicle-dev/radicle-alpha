@@ -1,0 +1,183 @@
+;; Issue chain
+;; Meant to be sent to a chain with send-code!
+
+(def chain-id
+  "The name of this chain."
+  "monadic/radicle/issues")
+
+(def issues
+  "Issues are stored in a dict in a ref, keyed by issue-number."
+  (ref {}))
+
+(def issue-counter
+  "We use a stateful counter for giving issues numbers."
+  (make-counter))
+
+(def used-nonces
+  "We keep track of the UUIDs which have been used as nonces in inputs."
+  (ref set/empty))
+
+(def unused-nonce?
+  "Check that a nonce has not been used already."
+  (fn [nonce]
+    (not (set/member? nonce (read-ref used-nonces)))))
+
+(def mark-used-nonce
+  "Mark a UUID as used."
+  (fn [nonce]
+    (modify-ref used-nonces (fn [s] (set/insert nonce s)))))
+
+(def set-issues
+  "A helper to set stuff in the issues ref."
+  (fn [l v]
+    (set-ref issues l v)))
+
+(def over-issues
+  "A helper to modify stuff in the issues ref."
+  (fn [l f]
+    (over-ref issues l f)))
+
+(def validator/nonce
+  "Validator for unused nonces."
+  (validator/and
+   [validator/uuid
+    (validator/pred "Nonce not already used" unused-nonce?)]))
+
+(def validator/text
+  "A validator for text."
+  (fn [max-len]
+    (validator/and
+     [(validator/type :string)
+      (validator/pred (string-append "< " (show max-len) " chars in length")
+                      (fn [s] (< (string-length s) max-len)))])))
+
+;; TODO correctly formatted date string
+(def validator/timestamp
+  (validator/type :string))
+
+(def validator/input
+  "Checks that the input as a valid new *chain input*, that is, it has an unused
+  nonce, is marked with this chain name, and is signed."
+  (validator/and
+   [(validator/keys
+     {:nonce      validator/nonce
+      :chain-id   (validator/= chain-id)
+      ;; NOTE that the timestamp is claimed by the author, is not verified, and
+      ;; may be incorrect.
+      :created-at validator/timestamp})
+    validator/signed]))
+
+(def validator/issue-number
+  "A validator for numbers which refer to existing issues."
+  (validator/pred "Existing issue number" (fn [n] (member? n (read-ref issues)))))
+
+(def validator/comment
+  "A comment should have a body."
+  (validator/keys
+   {:body (validator/text 4000)}))
+
+(def validator/comment-input
+  "A comment input should refer to an existing issue."
+  (validator/and
+   [validator/input
+    validator/comment
+    (validator/keys {:issue-number validator/issue-number})]))
+
+(def validator/issue-input
+  "An issue should have all the required fields, be a signed input, etc."
+  (validator/and
+   [validator/input
+    (validator/keys
+     {:title    (validator/text 100)
+      :body     (validator/text 4000)
+      :labels   (validator/every (validator/text 80))
+      :state    (validator/member [:open :closed])
+      :comments (validator/every validator/comment)})]))
+
+(def strip-input
+  "After an entity input has been processed/verified, we no longer need some of
+  the fields."
+  (fn [e]
+    (delete-many [:chain-id :signature :nonce :issue-number] e)))
+
+(def create-issue
+  "Create an issue from a dict, checking that it is valid and storing it in `issues`."
+  (fn [i]
+    (validator/issue-input i)
+    (def n (issue-counter :next))
+    (def i_
+      (strip-input
+       (<> i
+           {:number   n
+            :comments (map strip-input (lookup :comments i))})))
+    (set-issues (@ n) i_)
+    (mark-used-nonce (lookup :nonce i))))
+
+(def close-issue
+  "Given an issue number, sets the state of the issue to `:closed`."
+  (fn [n]
+    (validator/issue-number n)
+    (set-issues (.. (@ n) (@ :state)) :closed)))
+
+(def add-comment
+  "Add a comment to an issue."
+  (fn [c]
+    (validator/comment-input c)
+    (def c_ (strip-input c))
+    (over-issues
+     (.. (@ (lookup :issue-number c)) (@ :comments))
+     (fn [cs] (add-right c_ cs)))
+    (mark-used-nonce (lookup :nonce c))))
+
+;; These are intended for clients to run locally with eval-in-chain
+
+(def list-issues
+  "List existing issues."
+  (fn [] (read-ref issues)))
+
+;; General logic
+
+(def commands
+  "The set of allowed chain commands."
+  (ref
+   {'create-issue create-issue
+    'close-issue  close-issue
+    'add-comment  add-comment
+    'list-issues  list-issues}))
+
+(def process-command
+  "Function that maps post-eval commands to existing functions"
+  (fn [expr]
+    (def command (head expr))
+    (def args    (tail expr))
+    (def do-this (lookup command (read-ref commands)))
+    (apply do-this args)))
+
+;; Move to eval-fn-app & updatable-eval from chain.rad to a pure file so it may
+;; be imported
+
+(def eval-fn-app
+  "Given a state, a function, an argument and a callback, returns
+  the result of evaluating the function call on the arg in the given
+  state, while also calling the callback on the result."
+  (fn [state f arg cb]
+    (def exec (base-eval (list f (list 'quote arg)) state))
+    (cb (head exec))
+    exec))
+
+(def updatable-eval
+  "Given an evaluation function `f`, returns a new one which augments `f` with a new
+  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
+  (fn [sub-eval]
+    (fn [expr state]
+      (list-with-head
+       expr
+       (fn [cmd]
+         (if (eq? cmd 'update)
+           (base-eval (nth 1 expr) state)
+           (sub-eval expr state)))
+       (fn [] (sub-eval expr state))))))
+
+(def eval (updatable-eval
+    (fn [expr state]
+      (eval-fn-app state 'process-command expr (fn [x] x)))))

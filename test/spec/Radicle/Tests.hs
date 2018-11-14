@@ -771,8 +771,9 @@ test_cbor =
 -- Note that loaded files will also be tested, so there's no need to test files
 -- loaded by the prelude individually.
 test_source_files :: IO TestTree
-test_source_files = testGroup "Radicle source file tests" <$>
-    testOne "rad/prelude.rad"
+test_source_files = do
+    tests <- join <$> traverse testOne ["rad/prelude.rad", "rad/monadic/issues.rad"]
+    pure $ testGroup "Radicle source file tests" tests
   where
     testOne :: FilePath -> IO [TestTree]
     testOne file = do
@@ -781,7 +782,10 @@ test_source_files = testGroup "Radicle source file tests" <$>
             contents <- readFile (dir <> f)
             pure (toS f, contents)
         contents <- readFile (dir <> file)
-        let (r, out) = runTestWithFiles testBindings [] (fromList allFiles) contents
+        let keyPair :: Text  = case runTest testBindings "(gen-key-pair! (default-ecc-curve))" of
+                    Right kp -> renderCompactPretty kp
+                    Left _   -> panic "Couldn't generate keypair file."
+        let (r, out) = runTestWithFiles testBindings [] (Map.insert "my-keys.rad" keyPair (fromList allFiles)) contents
         let makeTest line =
                 let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
                          $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line
