@@ -44,6 +44,7 @@ module Radicle
     , Reference(..)
     , Ident
     , ident
+    , kword
     , mkIdent
     , unsafeToIdent
     , fromIdent

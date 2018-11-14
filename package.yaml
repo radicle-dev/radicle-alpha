@@ -160,6 +160,21 @@ executables:
     - data-default
     ghc-options: -main-is ReferenceDoc
 
+  radicle-github-issues:
+    main: GithubIssues.hs
+    source-dirs: exe/
+    other-modules: []
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    dependencies:
+    - radicle
+    - errors
+    - time
+    - github
+    - optparse-applicative
+    ghc-options: -main-is GithubIssues
+
 default-extensions:
 - AutoDeriveTypeable
 - ConstraintKinds
