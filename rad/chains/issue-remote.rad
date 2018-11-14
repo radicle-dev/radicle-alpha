@@ -1,0 +1,126 @@
+;; Issue chain
+;; Meant to be sent to a chain with send-code!
+
+(def issues
+  "Issues are stored in a dict in a ref."
+  (ref {}))
+
+(def mod-issues
+  "A helper to apply a function to `issues`"
+  (fn [f] (modify-ref issues f)))
+
+(def validator/free-uuid
+  (validator/and
+   [(validator/type :string)
+    (validator/pred "valid UUID" uuid?)
+    (validator/pred "ID is free"
+                    (fn [i] (not (member? i (read-ref issues)))))]))
+
+(def validator/text
+  (fn [max-len]
+    (validator/and
+     [(validator/type :string)
+      (validator/pred (string-append "< " (show max-len) " chars in length")
+                      (fn [s] (< (string-length s) max-len)))])))
+
+;; TODO correctly formatted date string
+(def validator/date-string
+  (validator/type :string))
+
+(def validator/comment
+  "Comment validator. Checks format, free ID and signature."
+  (validator/and
+   [(validator/keys
+     {:id         validator/free-uuid
+      :body       (validator/text 4000)
+      :created-at validator/date-string})
+    validator/signed]))
+
+(def validator/issue
+  "Issue validator. Checks format, free ID, and signature."
+  (validator/and
+   [(validator/keys
+     {:id         validator/free-uuid
+      :author     (validator/pred "valid public key" public-key?)
+      :title      (validator/text 100)
+      :body       (validator/text 4000)
+      :labels     (validator/every (validator/text 80))
+      :state      (validator/member [:open :closed])
+      :created-at validator/date-string})
+    validator/signed]))
+
+(def new-issue
+  "Create an issue from a dict, checking it is valid and storing it in `issues`."
+  (fn [i]
+    (validator/issue i)
+    (mod-issues
+     (fn [is] (insert (lookup :id i) i is)))))
+
+(def close-issue
+  "Set the state of an issue to `:closed`."
+  (fn [id]
+    (set-ref issues (.. (@ id) (@ :state)) :closed)))
+
+(def add-comment
+  "Add a comment to an issue."
+  (fn [issue-id comment]
+    (mod-issues
+      (fn [is]
+        (modify-map issue-id
+                    (fn [i]
+                      (modify-map :comments
+                                  (fn [cs] (add-right comment cs))
+                                  i))
+                    is)))))
+
+;; These are intended for clients to run locally with eval-in-chain
+
+(def list-issues
+  "List existing issues."
+  (fn [] (read-ref issues)))
+
+;; General logic
+
+(def commands
+  "The set of allowed chain commands."
+  (ref
+    {'create-issue new-issue
+     'close-issue  close-issue
+     'list-issues  list-issues}))
+
+(def process-command
+  "Function that maps post-eval commands to existing functions"
+  (fn [expr]
+    (def command (head expr))
+    (def args    (tail expr))
+    (def do-this (lookup command (read-ref commands)))
+    (apply do-this args)))
+
+;; Move to eval-fn-app & updatable-eval from chain.rad to a pure file so it may
+;; be imported
+
+(def eval-fn-app
+  "Given a state, a function, an argument and a callback, returns
+  the result of evaluating the function call on the arg in the given
+  state, while also calling the callback on the result."
+  (fn [state f arg cb]
+    (def exec (base-eval (list f (list 'quote arg)) state))
+    (cb (head exec))
+    exec))
+
+(def updatable-eval
+  "Given an evaluation function `f`, returns a new one which augments `f` with a new
+  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
+  (fn [sub-eval]
+    (fn [expr state]
+      (list-with-head
+       expr
+       (fn [cmd]
+         (if (eq? cmd 'update)
+           (base-eval (nth 1 expr) state)
+           (sub-eval expr state)))
+       (fn [] (sub-eval expr state))))))
+
+(def eval (updatable-eval
+    (fn [expr state]
+      (eval-fn-app state 'process-command expr (fn [x] x)))))
