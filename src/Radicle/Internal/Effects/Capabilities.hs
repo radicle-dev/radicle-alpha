@@ -9,6 +9,7 @@ import           Protolude
 
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           System.Console.Haskeline hiding (catch)
+import           System.IO (isEOF)
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
@@ -20,6 +21,12 @@ class (Monad m) => Stdin m where
     getLineS :: m (Maybe Text)  -- gives Nothing on EOF
 instance {-# OVERLAPPABLE #-} Stdin m => Stdin (Lang m) where
     getLineS = lift getLineS
+instance Stdin IO where
+    getLineS = do
+        done <- isEOF
+        if done
+        then pure Nothing
+        else Just <$> getLine
 instance (MonadException m) => Stdin (InputT m) where
     getLineS = (fmap.fmap) toS (getInputLine "rad> ")
 
@@ -27,6 +34,8 @@ class (Monad m) => Stdout m where
     putStrS :: Text -> m ()
 instance {-# OVERLAPPABLE #-} Stdout m => Stdout (Lang m) where
     putStrS = lift . putStrS
+instance Stdout IO where
+    putStrS = putStrLn
 instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . toS
 
@@ -71,8 +80,10 @@ instance ReadFile (InputT IO) where
                 Just v  -> Right v
 #else
 instance ReadFile (InputT IO) where
-    readFileS fname = lift $ (Right <$> readFile (toS fname))
-                               `catch` (\(e :: IOException) -> pure (Left (show e)))
+    readFileS = lift . readFileS
+instance ReadFile IO where
+    readFileS fname = (Right <$> readFile (toS fname))
+                        `catch` (\(e :: IOException) -> pure (Left (show e)))
 #endif
 instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
     readFileS = lift . readFileS
