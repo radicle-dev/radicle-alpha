@@ -112,9 +112,10 @@ purePrimFns = fromList $ allDocs $
       , pure . List)
     , ("dict"
       , "Given an even number of arguments, creates a dict where the `2i`-th argument\
-        \ is the key for the `2i+1`th argument."
-      , (Dict . foldr (uncurry Map.insert) mempty <$>)
-                        . evenArgs "dict")
+        \ is the key for the `2i+1`th argument. If one of the even indexed arguments\
+        \ is not hashable then an exception is thrown."
+      , evenArgs "dict" >=> dict . Map.fromList
+      )
     , ("throw"
       , "Throws an exception. The first argument should be an atom used as a label for\
         \ the exception, the second can be any value."
@@ -235,7 +236,7 @@ purePrimFns = fromList $ allDocs $
           (f, Dict m) -> do
             let kvs = Map.toList m
             vs <- traverse (\v -> callFn f [v]) (snd <$> kvs)
-            pure (Dict (Map.fromList (zip (fst <$> kvs) vs)))
+            pure . Dict . Map.fromList $ zip (fst <$> kvs) vs
           _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
       )
     , ( "string-length"
@@ -257,10 +258,13 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "insert"
       , "Given `k`, `v` and a dict `d`, returns a dict with the same associations\
-        \ as `d` but with `k` associated to `d`. If `d` isn't a dict then an exception\
-        \ is thrown."
+        \ as `d` but with `k` associated to `d`. If `d` isn't a dict or if `k` isn't\
+        \ hashable then an exception is thrown."
       , \case
-          [k, v, Dict m] -> pure . Dict $ Map.insert k v m
+          [k, v, Dict m] ->
+            if hashable k
+            then pure . Dict $ Map.insert k v m
+            else throwErrorHere NonHashableKey
           [_, _, _]                -> throwErrorHere
 
                                       $ TypeError "insert: third argument must be a dict"

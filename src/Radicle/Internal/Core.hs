@@ -50,6 +50,7 @@ data LangErrorData r =
     -- | Takes the function name, expected number of args, and actual number of
     -- args
     | WrongNumberOfArgs Text Int Int
+    | NonHashableKey
     | OtherError Text
     | ParseError (Par.ParseError Char Void)
     | ThrownError Ident r
@@ -92,6 +93,7 @@ errorDataToValue e = case e of
           , ("expected", Number $ fromIntegral expected)
           , ("actual", Number $ fromIntegral actual)]
         )
+    NonHashableKey -> makeVal ( "non-hashable-key", [])
     OtherError i -> makeVal
         ( "other-error"
         , [("info", String i)]
@@ -147,6 +149,23 @@ data ValueF r =
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
+
+hashable :: (CPA t) => Annotated t ValueF -> Bool
+hashable = \case
+  PrimFn _ -> False
+  Ref _ -> False
+  Lambda{} -> False
+  List xs -> all hashable xs
+  Vec xs -> all hashable xs
+  Dict kvs -> getAll $ Map.foldMapWithKey (\k v -> All (hashable k && hashable v)) kvs
+  _ -> True
+
+-- | Smart constructor for dicts which checks that all the keys are hashable.
+dict :: (Monad m) => Map Value Value -> Lang m Value
+dict kvs =
+  if all hashable (Map.keys kvs)
+  then pure $ Dict kvs
+  else throwErrorHere NonHashableKey
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda #-}
 
@@ -416,7 +435,8 @@ baseEval val = logValPos val $ case val of
     Vec xs -> Vec <$> traverse baseEval xs
     Dict mp -> do
         let evalBoth (a,b) = (,) <$> baseEval a <*> baseEval b
-        Dict . Map.fromList <$> traverse evalBoth (Map.toList mp)
+        kvs <- traverse evalBoth (Map.toList mp)
+        dict $ Map.fromList kvs
     autoquote -> pure autoquote
 
 specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)

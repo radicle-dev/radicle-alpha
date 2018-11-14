@@ -69,6 +69,7 @@ instance Pretty r => Pretty (LangErrorData r) where
         WrongNumberOfArgs t x y -> "Wrong number of args in" <+> pretty t
                                  <+> "Expected:" <+> pretty x
                                  <+> "Got:" <+> pretty y
+        NonHashableKey -> "Non-hashable key in dict."
         OtherError t -> "Error:" <+> pretty t
         ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)
         Exit -> "Exit"

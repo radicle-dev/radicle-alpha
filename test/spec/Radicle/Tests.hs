@@ -146,6 +146,14 @@ test_eval =
         let prog3 = [s|(lookup '(2 3) (insert '(2 3) "b" (dict)))|]
         prog3 `succeedsWith` String "b"
 
+    , testCase "dict keys should be hashable" $ do
+        let f x = x `failsWith` NonHashableKey
+        f "(insert (ref 0) 1 {})"
+        f "{(ref 0) 1}"
+        "(lookup :k {'(fn [x] y) 1 :k :v})" `succeedsWith` Keyword [ident|v|]
+        f "(eval {'(fn [y] y) :a-fun} (get-current-env))"
+        f "(dict (ref 0) 1)"
+
     , testProperty "'string-append' concatenates string" $ \ss -> do
         let args = T.unwords $ renderPrettyDef . asValue . String <$> ss
             prog = "(string-append " <> args <> ")"
