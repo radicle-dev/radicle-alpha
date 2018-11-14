@@ -35,6 +35,12 @@
   (fn [chain-ref]
     (lookup :result (eval-in-chain '(list-issues) (read-ref chain-ref)))))
 
+(def import-issues-github
+  (fn [chain-ref file]
+    (def is (read (read-file! file)))
+    (map (fn [i] (new-issue! chain-ref keys _ _)) is)
+    ))
+
 (:test
   "creating, manipulating and querying issue chains"
   [:setup

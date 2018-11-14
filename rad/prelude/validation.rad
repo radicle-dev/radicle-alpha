@@ -79,3 +79,14 @@
   (fn [v]
     (fn [xs]
       (map v xs))))
+
+(def validator/signed
+  "Checks that a value is a dict with `:signature` and `:author` keys, and that
+  the signature is valid for the rest of the dict for that author."
+  (validator/pred
+   "Valid signature"
+   (fn [d]
+     (verify-signature
+      (lookup :author d)
+      (lookup :signature d)
+      (delete :author (delete :signature d))))))

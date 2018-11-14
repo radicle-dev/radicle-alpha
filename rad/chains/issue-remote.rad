@@ -1,41 +1,65 @@
 ;; Issue chain
 ;; Meant to be sent to a chain with send-code!
 
-(def issues (ref {}))
+(def issues
+  "Issues are stored in a dict in a ref."
+  (ref {}))
 
 (def mod-issues
   "A helper to apply a function to `issues`"
   (fn [f] (modify-ref issues f)))
 
-(def id-valid-and-free?
-  "Checks that its argument is a `uuid` that hasn't yet been used."
-  (fn [id]
-    (and (uuid? id)
-         (not (member? id (read-ref issues))))))
+(def validator/free-uuid
+  (validator/and
+   [(validator/type :string)
+    (validator/pred "valid UUID" uuid?)
+    (validator/pred "ID is free"
+                    (fn [i] (not (member? i (read-ref issues)))))]))
 
-(def issue-valid?
-  "Verifies the signature of an issue."
-  (fn [i]
-    (verify-signature (lookup :author i)
-                      (lookup :signature i)
-                      (string-append chain-id
-                                     (lookup :id i)
-                                     (lookup :title i)
-                                     (lookup :body i)))))
+(def validator/text
+  (fn [max-len]
+    (validator/and
+     [(validator/type :string)
+      (validator/pred (string-append "< " (show max-len) " chars in length")
+                      (fn [s] (< (string-length s) max-len)))])))
+
+;; TODO correctly formatted date string
+(def validator/date-string
+  (validator/type :string))
+
+(def validator/comment
+  "Comment validator. Checks format, free ID and signature."
+  (validator/and
+   [(validator/keys
+     {:id         validator/free-uuid
+      :body       (validator/text 4000)
+      :created-at validator/date-string})
+    validator/signed]))
+
+(def validator/issue
+  "Issue validator. Checks format, free ID, and signature."
+  (validator/and
+   [(validator/keys
+     {:id         validator/free-uuid
+      :author     (validator/pred "valid public key" public-key?)
+      :title      (validator/text 100)
+      :body       (validator/text 4000)
+      :labels     (validator/every (validator/text 80))
+      :state      (validator/member [:open :closed])
+      :created-at validator/date-string})
+    validator/signed]))
 
 (def new-issue
-  "Create an issue from a dictionary, storing it in `issues`."
+  "Create an issue from a dict, checking it is valid and storing it in `issues`."
   (fn [i]
-    (def id (lookup :id i))
-    (if (id-valid-and-free? id)
-      (mod-issues
-        (fn [is] (insert id i is)))
-      (throw 'bad-command "Issue ID was not free or was invalid."))))
+    (validator/issue i)
+    (mod-issues
+     (fn [is] (insert (lookup :id i) i is)))))
 
 (def close-issue
-  "Remove an issue from `issues`."
+  "Set the state of an issue to `:closed`."
   (fn [id]
-    (mod-issues (fn [is] (delete id is)))))
+    (set-ref issues (.. (@ id) (@ :state)) :closed)))
 
 (def add-comment
   "Add a comment to an issue."
