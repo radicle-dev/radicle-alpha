@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Radicle.Internal.Effects where
 
@@ -9,13 +10,13 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc (pretty)
 import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc)
+import System.Console.Haskeline
 import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Doc (md)
 import           Radicle.Internal.Effects.Capabilities
-import qualified Radicle.Internal.Input as Input
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.PrimFns
@@ -25,29 +26,56 @@ import qualified Radicle.Internal.UUID as UUID
 type ReplM m =
     ( Monad m, Stdout (Lang m), Stdin (Lang m)
     , MonadRandom m, UUID.MonadUUID m
+    , MonadState [Text] m
     , ReadFile (Lang m)
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
 
-instance MonadRandom (Input.InputT IO) where
+instance MonadRandom (InputT IO) where
+    getRandomBytes = liftIO . getRandomBytes
+instance MonadRandom (InputT (StateT [Text] IO)) where
     getRandomBytes = liftIO . getRandomBytes
 instance MonadRandom m => MonadRandom (LangT (Bindings (PrimFns m)) m) where
     getRandomBytes = lift . getRandomBytes
 
-instance UUID.MonadUUID (Input.InputT IO) where
+instance UUID.MonadUUID (InputT IO) where
+    uuid = liftIO UUID.uuid
+instance UUID.MonadUUID (InputT (StateT [Text] IO)) where
     uuid = liftIO UUID.uuid
 instance UUID.MonadUUID m => UUID.MonadUUID (LangT (Bindings (PrimFns m)) m) where
     uuid = lift UUID.uuid
 
-repl :: Maybe FilePath -> Text -> Text -> Bindings (PrimFns (Input.InputT IO)) -> IO ()
+instance MonadState r m => MonadState r (InputT m) where
+    state s = lift $ state s
+
+repl :: Maybe FilePath -> Text -> Text -> Bindings (PrimFns (InputT (StateT [Text] IO))) -> IO ()
 repl histFile preFileName preCode bindings = do
-    r <- Input.runInputT histFile
+    let settings = setComplete completion $ defaultSettings { historyFile = histFile }
+    r <- evalStateT (runInputT settings
         $ fmap fst $ runLang bindings
-        $ void $ interpretMany preFileName preCode
+        $ void $ interpretMany preFileName preCode) []
     case r of
         Left (LangError _ Exit) -> pure ()
         Left e                  -> putDoc $ pretty e
         Right ()                -> pure ()
+
+-- Not sure why this instance isn't being picked up from haskeline
+instance MonadException m => MonadException (StateT s m) where
+    controlIO f = StateT $ \s -> controlIO $ \(RunIO run) -> let
+                    run' = RunIO (fmap (StateT . const) . run . flip runStateT s)
+                    in fmap (flip runStateT s) $ f run'
+
+completion :: CompletionFunc (StateT [Text] IO)
+completion = completeWord Nothing ['(', ')', ' ', '\n'] go
+  where
+    -- Any type for first param will do
+    bnds :: Bindings (PrimFns (InputT (StateT [Text] IO)))
+    bnds = replBindings
+    go :: [Char] -> StateT [Text] IO [Completion]
+    go s = fmap simpleCompletion
+         . filter (toS s `isPrefixOf`)
+         . fmap toS
+         <$> get
 
 replBindings :: ReplM m => Bindings (PrimFns m)
 replBindings = addPrimFns replPrimFns pureEnv
@@ -97,17 +125,13 @@ replPrimFns = fromList $ allDocs $
       , [md|Reads a single line of input and returns it as a string.|]
       , \case
           [] -> maybe nil toRad <$> getLineS
+          [env] -> do
+              e' :: Bindings () <- case fromRad env of
+                  Right v -> pure v
+                  Left _ -> throwErrorHere $ OtherError "get-line!"
+              lift $ put $ fmap fromIdent $ Map.keys $ fromEnv $ bindingsEnv e'
+              maybe nil toRad <$> getLineS
           xs -> throwErrorHere $ WrongNumberOfArgs "get-line!" 0 (length xs)
-      )
-
-    , ( "get-expression!"
-      , [md|Reads a line of input and returns it as a string.  Takes a list of
-            completion words.|]
-      , \case
-          [complV] -> do
-              compl <- hoistEither . first (toLangError . OtherError) $ fromRad complV
-              maybe nil toRad <$> getLineCompletionS (map fromIdent compl)
-          xs -> throwErrorHere $ WrongNumberOfArgs "get-expression!" 1 (length xs)
       )
 
     , ("subscribe-to!"

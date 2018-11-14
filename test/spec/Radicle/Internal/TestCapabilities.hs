@@ -86,7 +86,6 @@ instance {-# OVERLAPPING #-} Stdin TestLang where
         case worldStateStdin ws of
             []   -> pure Nothing
             h:hs -> lift (put $ ws { worldStateStdin = hs }) >> pure (Just h)
-    getLineCompletionS _ = getLineS
 
 instance {-# OVERLAPPING #-} Stdout TestLang where
     putStrS t = lift $

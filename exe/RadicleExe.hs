@@ -15,9 +15,9 @@ import           Protolude hiding (TypeError, option)
 import           Radicle
 import           Servant.Client
 import           System.Directory (doesFileExist)
+import System.Console.Haskeline
 
 import           Radicle.Internal.Doc (md)
-import qualified Radicle.Internal.Input as Input
 import qualified Radicle.Internal.PrimFns as PrimFns
 
 main :: IO ()
@@ -83,10 +83,10 @@ opts = Opts
 
 -- * Primops
 
-bindings :: HttpClient.Manager -> Bindings (PrimFns (Input.InputT IO))
+bindings :: HttpClient.Manager -> Bindings (PrimFns (InputT (StateT [Text] IO)))
 bindings mgr = addPrimFns (replPrimFns <> clientPrimFns mgr) pureEnv
 
-clientPrimFns :: HttpClient.Manager -> PrimFns (Input.InputT IO)
+clientPrimFns :: HttpClient.Manager -> PrimFns (InputT (StateT [Text]  IO))
 clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
   where
     sendPrimop =

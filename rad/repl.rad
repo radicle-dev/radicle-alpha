@@ -15,17 +15,21 @@
   (put-str! (string-append "Exception: " (show e)))
   (for-each-vec stack put-str!)))
 
+(def read-line-or-exit! (fn []
+  (def line (get-line!))
+  (if (eq? line nil)
+      (exit!)
+      (read line))))
+
 (def repl (fn []
   (def-rec repl-rec (fn [st]
-    (def line (get-expression! (keys (lookup :env st))))
-    (def cur-eval (nth 1 (lookup 'eval (lookup :env st))))
-    (if (eq? line nil)
-        nil
-        (catch 'any (do (def ret (cur-eval (read line) st))
-                        (print! (head ret))
-                        (repl-rec (head (tail ret))))
-                (fn [e stack] (render-exception! e stack)
-                              (repl-rec st))))))
+    (def line (get-line! st))
+    (def res
+        (if (eq? line nil)
+            (exit!)
+            (eval (read line) st)))
+    (print! (head res))
+    (repl-rec (nth 1 res))))
   (repl-rec (get-current-env))))
 
 (repl)
