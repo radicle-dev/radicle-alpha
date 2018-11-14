@@ -1,0 +1,27 @@
+(def make-counter
+  "Creates a stateful counter. Returns a dict with two keys: the function at `:next-will-be`
+  will return the next number (without incrementing it), while the function at `:next`
+  increments the number and returns it."
+  (fn []
+    (def i (ref -1))
+    (fn [command]
+      (cond
+        (eq? command :current) (+ 1 (read-ref i))
+        (eq? command :next)    (modify-ref i (fn [x] (+ x 1)))
+        :else                  (throw 'invalid-counter-command "Counters only accept `:current` and `:next` commands.")))))
+
+(:test "make-counter"
+  [:setup
+   (do (def c1 (make-counter))
+       (def c2 (make-counter))
+       (def x0 (c1 :current))
+       (def x1 (c1 :next))
+       (def x2 (c2 :current))
+       (def x3 (c2 :next))
+       (def x4 (c1 :next))
+       (def x5 (c1 :next))
+       (def x6 (c1 :next))
+       (def x7 (c2 :current)))
+  ]
+  [ [x0 x1 x2 x3 x4 x5 x6 x7] ==> [0 0 0 0 1 2 3 1] ]
+)

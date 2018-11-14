@@ -7,6 +7,7 @@ import           Protolude hiding (TypeError)
 import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Time as Time
 import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
 
@@ -29,6 +30,7 @@ data WorldState = WorldState
     , worldStateDRG          :: CryptoRand.ChaChaDRG
     , worldStateUUID         :: Int
     , worldStateRemoteChains :: Map Text (Seq.Seq Value)
+    , worldStateCurrentTime  :: Time.UTCTime
     }
 
 
@@ -50,6 +52,7 @@ runTestWithFiles bindings inputs files action =
             , worldStateDRG = CryptoRand.drgNewSeed (CryptoRand.seedFromInteger 4) -- chosen by fair dice roll
             , worldStateUUID = 0
             , worldStateRemoteChains = mempty
+            , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
             }
     in case runState (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws of
         (val, st) -> (val, worldStateStdout st)
@@ -163,3 +166,6 @@ instance UUID.MonadUUID (State WorldState) where
       where
         prefix = "00000000-0000-0000-0000-"
         pad i = toS $ prefix <> replicate (12 - length i) '0' <> i
+
+instance CurrentTime (State WorldState) where
+  currentTime = gets worldStateCurrentTime

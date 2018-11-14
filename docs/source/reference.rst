@@ -279,7 +279,8 @@ Functions for manipulating vectors.
 ``<>``
 ~~~~~~
 
-Concatenates two vectors.
+Merges two structures together. On vectors this performs concatenations.
+On dicts this performs the right-biased merge.
 
 ``add-left``
 ~~~~~~~~~~~~
@@ -353,6 +354,12 @@ short, in which case an exception is thrown.
 Returns all but the first ``n`` items of a sequence, unless the sequence
 is empty, in which case an exception is thrown.
 
+``sort-by``
+~~~~~~~~~~~
+
+Given a sequence ``xs`` and a function ``f``, returns a sequence with
+the same elements ``x`` of ``xs`` but sorted according to ``(f x)``.
+
 Dicts
 -----
 
@@ -419,6 +426,51 @@ keys as ``d`` but ``f`` applied to all the associated values.
 
 Given a key, a function and a dict, applies the function to the value
 associated to that key.
+
+``delete-many``
+~~~~~~~~~~~~~~~
+
+Delete several keys from a dict.
+
+Sets
+----
+
+Functions for manipulating sets.
+
+``set/empty``
+~~~~~~~~~~~~~
+
+An empty set.
+
+``set/insert``
+~~~~~~~~~~~~~~
+
+Insert a value into a set.
+
+``set/delete``
+~~~~~~~~~~~~~~
+
+Delete a value from a set.
+
+``set/member?``
+~~~~~~~~~~~~~~~
+
+Query if an value is an element of a set.
+
+``set/delete``
+~~~~~~~~~~~~~~
+
+Delete a value from a set.
+
+``set/from-seq``
+~~~~~~~~~~~~~~~~
+
+Create a set from a sequence.
+
+``set/to-vec``
+~~~~~~~~~~~~~~
+
+Convert a set to a vector.
 
 Structures
 ----------
@@ -626,6 +678,12 @@ Read a single line of input and interpret it as radicle data.
 
 Exit the interpreter immediately.
 
+``now!``
+~~~~~~~~
+
+Returns a timestamp for the current Coordinated Universal Time (UTC),
+right now, formatted according to ISO 8601.
+
 Lenses
 ------
 
@@ -752,6 +810,19 @@ validator.
 Given a dict associating keys to validators, returns a validator which
 checks a dict for the existence of those keys, and that they conform to
 the associated validators.
+
+``validator/uuid``
+~~~~~~~~~~~~~~~~~~
+
+Validates UUIDs.
+
+``validator/signed``
+~~~~~~~~~~~~~~~~~~~~
+
+Checks that a value is a dict with ``:signature`` and ``:author`` keys,
+and that the signature is valid for the rest of the dict for that
+author. The rest of the dict is turned into a string according to
+``show``.
 
 Cryptography
 ------------
@@ -897,27 +968,3 @@ the next state.
 
 Update a ref containing a chain with the new expressions from the remote
 chain
-
-Issue chain
------------
-
-These functions allow creating and interacting with the default issues
-chain.
-
-``create-issues-chain!``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Create a remote issue chain with the given url. Returns a ref with the
-chain.
-
-``list-issues``
-~~~~~~~~~~~~~~~
-
-Given an issues ref ``x``, returns its issues. Does not itself update
-the chain.
-
-``new-issue!``
-~~~~~~~~~~~~~~
-
-Create a new remote issue. Takes a chain ref, a keypair, an issue title
-and an issue body.

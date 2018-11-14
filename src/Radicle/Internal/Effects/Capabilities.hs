@@ -9,6 +9,8 @@ import           Protolude
 
 import qualified Data.Map as Map
 import           Data.Text.Prettyprint.Doc (PageWidth)
+import           Data.Time
+import           System.Console.Haskeline hiding (catch)
 import           System.IO (isEOF)
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
@@ -54,6 +56,14 @@ class (Monad m) => Exit m where
     exitS :: m ()
 instance Exit m => Exit (Lang m) where
     exitS = lift exitS
+
+class Monad m => CurrentTime m where
+  currentTime :: m UTCTime
+
+instance CurrentTime (InputT IO) where
+  currentTime = liftIO getCurrentTime
+instance CurrentTime m => CurrentTime (Lang m) where
+  currentTime = lift currentTime
 
 class (Monad m) => GetEnv m r | m -> r where
     getEnvS :: m (Env r)

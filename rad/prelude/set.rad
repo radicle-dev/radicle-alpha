@@ -1,0 +1,26 @@
+(def set/empty
+  "An empty set."
+  {})
+
+(def set/insert
+  "Insert a value into a set."
+  (fn [x s]
+    (insert x #t s)))
+
+(def set/delete
+  "Delete a value from a set."
+  (fn [x s]
+    (delete x s)))
+
+(def set/member?
+  "Query if an value is an element of a set."
+  (fn [x s]
+    (member? x s)))
+
+(def set/to-vec
+  "Convert a set to a vector."
+  (fn [s] (keys s)))
+
+(def set/from-seq
+  "Create a set from a sequence."
+  (fn [xs] (foldr set/insert {} xs)))
