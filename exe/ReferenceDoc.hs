@@ -101,7 +101,7 @@ main = do
       , "validator/and", "validator/or", "validator/key", "validator/keys"]
     crypto = ["verify-signature", "default-ecc-curve", "gen-key-pair!", "gen-signature!"]
     chainTools =
-      [ "new-chain", "eval-in-chain", "enter-remote-chain", "update-chain", "add-quit", "add-send"
+      [ "new-chain", "@var", "eval-in-chain", "enter-remote-chain", "update-chain", "add-quit", "add-send"
       , "load-chain", "pure-prelude-files", "pure-prelude-code", "store-exprs", "eval-fn-app"
       , "state-machine-eval", "state-machine-input", "state-machine-new-trans"
       , "state-machine-agree", "state-machine-disagree", "simple-trans", "update-chain-ref"]

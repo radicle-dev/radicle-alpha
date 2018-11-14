@@ -5,6 +5,11 @@
 ;;     == base-eval')
 ;;   - A sequence of inputs.
 
+(def @var
+  "A lens for variables in states of chains."
+  (fn [ident]
+    (... [(@ :env) (@ ident) (@ :val)])))
+
 (def new-chain
   (fn [url]
     {:state (pure-env)
@@ -20,7 +25,7 @@
 
 (def eval-in-chain
   (fn [expr chain]
-    (def chain-eval (view (... [(@ :state) (@ :env) (@ 'eval) (@nth 1)]) chain))
+    (def chain-eval (view (.. (@ :state) (@var 'eval)) chain))
     (def x (chain-eval expr (lookup :state chain)))
     (def result (nth 0 x))
     (def new-state (nth 1 x))
@@ -122,7 +127,7 @@
 (def store-exprs
  (fn [evalfn]
      (fn [expr env]
-         (def env_ (over (... [(@ :env) (@ '_inputs) (@nth 1)]) (fn [x] (add-right expr x)) env))
+         (def env_ (over (@var '_inputs) (fn [x] (add-right expr x)) env))
          (evalfn expr env_ ))))
 
 (document 'store-exprs
@@ -134,8 +139,8 @@
   (fn [oeval]
       (fn [expr env]
           (if (eq? expr :send)
-              (do (def inpl (... [(@ :env) (@ '_inputs) (@nth 1)]))
-                  (def chainl (... [(@ :env) (@ '_cur-chain) (@nth 1)]))
+              (do (def inpl (@var '_inputs))
+                  (def chainl (@var '_cur-chain))
                   (send! (view chainl env) map (view inpl env))
                   (def env_ (set inpl [] env))
                   (list :ok env_))
@@ -152,13 +157,13 @@
     (def chain (load-chain url))
     (def chain-state (lookup :state chain))
     (def mod-state1
-      (over (@ :env) (fn [x] (insert '_inputs [:Nothing []] x)) chain-state))
+      (over (@ :env) (fn [x] (insert '_inputs {:val []} x)) chain-state))
     (def mod-state2
       (over (@ :env)
-            (fn [x] (insert '_cur-chain [:Nothing (lookup :url chain)] x))
+            (fn [x] (insert '_cur-chain {:val (lookup :url chain)} x))
             mod-state1))
     (def mod-state3
-      (over (... [(@ :env) (@ 'eval) (@nth 1)])
+      (over (@var 'eval)
             (fn [x] (add-send (add-quit env x)))
             mod-state2))
     (list :ok mod-state3)))
