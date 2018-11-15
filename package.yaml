@@ -11,7 +11,9 @@ extra-source-files:
 dependencies:
 - base >=4 && <5
 - protolude
-
+when:
+ - condition: impl(ghcjs)
+   dependencies: ghcjs-dom
 ghc-options:
   -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
