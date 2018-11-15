@@ -130,12 +130,6 @@ purePrimFns = fromList $ allDocs $
           xs     -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
 
     -- Vectors
-    , ( "<>"
-      , "Concatenates two vectors."
-      , twoArg "<>" $ \case
-          (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
-          _ -> throwErrorHere $ TypeError "<>: both arguments must be vectors"
-      )
     , ( "add-left"
       , "Adds an element to the left side of a vector."
       , twoArg "add-left" $ \case
@@ -217,16 +211,15 @@ purePrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "nth" 2 (length xs)
       )
 
+    -- Dicts
     , ("lookup"
       , "Given a value `k` (the 'key') and a dict `d`, returns the value associated\
         \ with `k` in `d`. If the key does not exist in `d` then `()` is returned\
         \ instead. If `d` is not a dict then an exception is thrown."
       , \case
-          [a, Dict m] -> pure $ case Map.lookup a m of
-              Just v  -> v
-              -- Probably an exception is better, but that seems cruel
-              -- when you have no exception handling facilities.
-              Nothing -> nil
+          [a, Dict m] -> case Map.lookup a m of
+              Just v  -> pure v
+              Nothing -> throwErrorHere $ TypeError $ "lookup: key did not exist: " <> renderCompactPretty a
           [_, _]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict"
           xs -> throwErrorHere $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ( "map-values"
@@ -239,6 +232,16 @@ purePrimFns = fromList $ allDocs $
             pure . Dict . Map.fromList $ zip (fst <$> kvs) vs
           _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
       )
+
+    -- Structures
+    , ( "<>"
+      , "Merges two structures together. On vectors this performs concatenations. On dicts this performs the right-biased merge."
+      , twoArg "<>" $ \case
+          (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
+          (Dict m, Dict n) -> pure $ Dict (n <> m)
+          _ -> throwErrorHere $ TypeError "<>: both arguments must be vectors"
+      )
+
     , ( "string-length"
       , "Returns the length of a string."
       , oneArg "string-length" $ \case
