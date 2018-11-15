@@ -75,8 +75,8 @@ primops = fromList $ allDocs [sendPrimop, receivePrimop]
   where
     sendPrimop =
       ( "send!"
-      , "Given a URL (string) and a value, sends the value `v` to the remote\
-        \ chain located at the URL for evaluation."
+      , "Given a URL (string) and a vector of value, sends the value `v` to the\
+        \ remote chain located at the URL for evaluation."
       , \case
          [String name, Vec v] -> do
              res <- liftIO $ runClientM' name (submit $ toList v)
