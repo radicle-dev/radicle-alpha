@@ -91,7 +91,7 @@ main = do
       , "map-values", "modify-map"]
     structs = ["member?"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
-    docs = ["doc", "doc!", "apropos!", "document", "is-test-env"]
+    docs = ["help", "doc", "doc!", "apropos!", "document", "is-test-env"]
     io =
       ["print!", "get-line!", "load!", "read-file!", "read-code!", "send-code!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"]
@@ -111,7 +111,7 @@ main = do
     typ s = "Functions for manipulating " <> s <> "."
 
     -- Functions which shouldn't be in the reference docs.
-    doNotInclude = ["head-shots", "get-head-shot", "eval__", "kim-trans", "pr-thread", "pr-trans"]
+    doNotInclude = ["head-shots", "get-head-shot", "eval__", "kim-trans", "pr-thread", "pr-trans", "_initial-prompt-text"]
 
     allFns =
          basics ++ maths ++ evalFns ++ envStuff ++ seqs ++ lists ++ vecs

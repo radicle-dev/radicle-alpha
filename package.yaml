@@ -116,7 +116,7 @@ executables:
 
   radicle-client-ghcjs:
     main: GHCJS.hs
-    source-dirs: exe/Server
+    source-dirs: exe
     other-modules: API
     dependencies:
     - radicle
@@ -132,7 +132,13 @@ executables:
           buildable: true
         else:
           buildable: false
-    ghc-options: -main-is GHCJS -threaded
+    # XXX(xla): We need to remove the debug linking as it produces output js of
+    # aroud 27MB.
+    # We force debug linking as without it we encounter a runtime exception
+    # in ghcjs due to the metadata initializer only supporting objects with up
+    # to 100
+    # fields: https://github.com/ghcjs/ghcjs/issues/498#issuecomment-230725647
+    ghc-options: -main-is GHCJS -threaded -debug
 
   radicle-doc:
     main: Doc.hs
