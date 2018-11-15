@@ -541,6 +541,9 @@ instance FromRad t (Annotated t ValueF) where
 instance CPA t => FromRad t Rational where
   fromRad (Number n) = pure n
   fromRad _          = Left "Not a number"
+instance (CPA t) => FromRad t Ident where
+    fromRad (Atom i) = pure i
+    fromRad _        = Left "Expecting identifier"
 instance CPA t => FromRad t Scientific where
   fromRad = fromRad >=> Num.isSci
 instance CPA t => FromRad t Int where

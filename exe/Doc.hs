@@ -7,7 +7,7 @@ import           Protolude
 import qualified Data.Text as T
 import           Options.Applicative
 import           Radicle
-import           System.Console.Haskeline (defaultSettings, runInputT)
+import qualified Radicle.Internal.Input as Input
 import           Text.Pandoc
 
 main :: IO ()
@@ -25,7 +25,7 @@ run :: FilePath -> IO ()
 run f = do
     txt <- readFile f
     pand <- runIOorExplode $ readMarkdown def txt
-    res <- runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ getCode pand
+    res <- Input.runInputT Nothing $ runLang replBindings $ interpretMany (toS f) $ getCode pand
     case res of
         (Left err, _) -> die . toS $ "Error: " ++ show err
         _             -> pure ()
