@@ -57,3 +57,8 @@
 (:test "modify-map"
   [ (modify-map :a (fn [x] (+ x 1)) {:a 5})
      ==> {:a 6} ])
+
+(def delete-many
+  "Delete several keys from a dict."
+  (fn [ks d]
+    (foldr (fn [k d] (delete k d)) d ks)))

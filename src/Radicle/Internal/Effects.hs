@@ -8,6 +8,7 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc (pretty)
 import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc)
+import qualified Data.Time as Time
 import           GHC.Exts (IsList(..))
 
 import           Radicle.Internal.Core
@@ -19,10 +20,10 @@ import           Radicle.Internal.Pretty
 import           Radicle.Internal.PrimFns
 import qualified Radicle.Internal.UUID as UUID
 
-
 type ReplM m =
     ( Monad m, Stdout (Lang m), Stdin (Lang m)
     , MonadRandom m, UUID.MonadUUID m
+    , CurrentTime m
     , ReadFile (Lang m)
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
@@ -196,6 +197,13 @@ replPrimFns = fromList $ allDocs $
       , "Exit the interpreter immediately."
       , \case
           [] -> throwErrorHere Exit
+          xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)
+      )
+    , ( "now!"
+      , "Returns a timestamp for the current Coordinated Universal Time (UTC), right now, formatted according to ISO 8601."
+      , \case
+          [] -> do t <- currentTime
+                   pure . String . toS . Time.formatTime Time.defaultTimeLocale (Time.iso8601DateFormat (Just "%H:%M:%SZ")) $ t
           xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)
       )
     ]

@@ -54,10 +54,10 @@ getComments auth owner repo Issue{..} = do
 
 radIssue :: Issue -> [IssueComment] -> Value
 radIssue Issue{..} cs = dict $
-    [ ( [kword|author-github-username|], author issueUser )
+    [ ( [kword|github-username|], author issueUser )
     , ( [kword|title|], String issueTitle )
     , ( [kword|body|], mt issueBody )
-    , ( [kword|github-assignees|], toRad $ author <$> toList issueAssignees)
+    , ( [kword|github-assignee-usernames|], toRad $ author <$> toList issueAssignees)
     , ( [kword|state|], state issueState )
     , ( [kword|labels|]
       , toRad $ GH.untagName . GH.labelName <$> toList issueLabels
@@ -74,7 +74,7 @@ radIssue Issue{..} cs = dict $
 radComment :: IssueComment -> Value
 radComment IssueComment{..} = dict
   [ ( [kword|body|], String issueCommentBody )
-  , ( [kword|github-author|], author issueCommentUser )
+  , ( [kword|github-username|], author issueCommentUser )
   , ( [kword|created-at|], date issueCommentCreatedAt )
   ]
 
@@ -84,7 +84,7 @@ dict = Dict . Map.fromList
 date :: UTCTime -> Value
 date = String . toS . formatTime defaultTimeLocale fmt
   where
-    fmt = iso8601DateFormat (Just "%H:%M:%S")
+    fmt = iso8601DateFormat (Just "%H:%M:%SZ")
 
 author :: GH.SimpleUser -> Value
 author = String . GH.untagName . GH.simpleUserLogin

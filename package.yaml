@@ -30,6 +30,7 @@ dependencies:
 - serialise
 - template-haskell
 - text
+- time
 - unordered-containers
 - uuid
 when:

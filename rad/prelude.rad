@@ -4,11 +4,13 @@
 (load! "rad/prelude/recursion.rad")
 (load! "rad/prelude/list.rad")
 (load! "rad/prelude/dict.rad")
+(load! "rad/prelude/set.rad")
 (load! "rad/prelude/ref.rad")
 (load! "rad/prelude/lens.rad")
 (load! "rad/chain.rad")
 (load! "rad/state-machine.rad")
 (load! "rad/prelude/validation.rad")
+(load! "rad/prelude/util.rad")
 
 (def pure-prelude-files
   (list
@@ -18,10 +20,12 @@
    "rad/prelude/bool.rad"
    "rad/prelude/list.rad"
    "rad/prelude/dict.rad"
+   "rad/prelude/set.rad"
    "rad/prelude/ref.rad"
    "rad/prelude/lens.rad"
    "rad/state-machine.rad"
    "rad/prelude/validation.rad"
+   "rad/prelude/util.rad"
    ))
 
 (document 'pure-prelude-files
@@ -45,20 +49,11 @@
           '(("chain-id" string))
 "Send the pure prelude to a chain.")
 
-(def make-counter
-  "Creates a stateful counter. Returns a dict with two keys: the function at `:next-will-be`
-  will return the next number (without incrementing it), while the function at `:next`
-  increments the number and returns it."
-  (fn []
-    (def i (ref -1))
-    {:next-will-be (fn [] (+ 1 (read-ref i)))
-     :next         (fn [] (modify-ref i (fn [x] (+ x 1))))}))
-
 (def _initial-prompt-text
   "Text used for greeting in the repl."
   "Welcome to radicle. Type (help) for help.")
 
-(def help 
+(def help
   "Default help text."
   (fn []
     "radicle is a LISP-like language intended for programming chains, and interacting with those chains.
@@ -66,4 +61,4 @@
     Type (doc '<name>) for further documentation of <name>."))
 
 
-(load! "rad/chains/issues.rad") ;; send-prelude! must be defined already
+;; (load! "rad/chains/issues.rad") ;; send-prelude! must be defined already
