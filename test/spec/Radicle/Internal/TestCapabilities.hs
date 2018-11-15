@@ -162,3 +162,6 @@ instance UUID.MonadUUID (State WorldState) where
       where
         prefix = "00000000-0000-0000-0000-"
         pad i = toS $ prefix <> replicate (12 - length i) '0' <> i
+
+instance CurrentTime (State WorldState) where
+  currentTime = notImplemented
