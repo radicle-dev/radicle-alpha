@@ -59,6 +59,3 @@
     "radicle is a LISP-like language intended for programming chains, and interacting with those chains.
 
     Type (doc '<name>) for further documentation of <name>."))
-
-
-;; (load! "rad/chains/issues.rad") ;; send-prelude! must be defined already
