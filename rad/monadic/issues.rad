@@ -64,8 +64,11 @@
 (def list-issues
   "Given an issues ref `x`, returns its issues. Does not itself update the chain."
   (fn []
-    (update-chain-ref issues-chain)
     (lookup :result (eval-in-chain '(list-issues) (read-ref issues-chain)))))
+
+(def fetch
+  (fn []
+    (update-chain-ref issues-chain)))
 
 (def import-github
   (fn []
@@ -88,6 +91,26 @@
        issues))
     (map create-issue! imported)
     ))
+
+(def short
+  (fn [i]
+    (string-append
+     (show (lookup :number i))
+     ": "
+     (lookup :id i)
+     " - "
+     (lookup :title i))))
+
+(def list-last
+  "Get the last `n` issues."
+  (fn [n]
+    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues))))
+    (take n is)
+    ))
+
+(def get-by-id
+  (fn [id]
+    (lookup id (list-issues))))
 
 (:test
   "creating, manipulating and querying issue chains"
