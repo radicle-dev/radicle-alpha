@@ -87,9 +87,12 @@ executables:
     - exceptions
     - http-client
     - http-media
+    - lens-aeson
+    - lens
     - optparse-applicative
     - servant
     - servant-client
+    - wreq
     when:
       - condition: impl(ghcjs)
         buildable: false

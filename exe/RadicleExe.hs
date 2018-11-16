@@ -1,11 +1,14 @@
 module RadicleExe (main) where
 
 import           API
+import           Control.Lens
 import           Control.Monad.Catch (MonadThrow)
+import           Data.Aeson.Lens (key, nth, _String)
 import qualified Data.Text as T
 import           GHC.Exts (fromList)
 import           Network.HTTP.Client (defaultManagerSettings, newManager)
 import qualified Network.HTTP.Client as HttpClient
+import qualified Network.Wreq as Wreq
 import           Options.Applicative
 import           Prelude (String)
 import           Protolude hiding (TypeError, option, sourceFile)
@@ -83,12 +86,14 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
       , "Given a URL (string) and a value, sends the value `v` to the remote\
         \ chain located at the URL for evaluation."
       , \case
-         [String url, Vec v] -> do
-             res <- liftIO $ runClientM' url mgr (submit $ toList v)
-             case res of
-                 Left e   -> throwErrorHere . OtherError
-                           $ "send!: failed:" <> show e
-                 Right r  -> pure r
+         [String ipnsId, Vec v] -> do
+             let url = "http://localhost:5001/api/v0/resolve?arg=" <> ipnsId
+             res <- liftIO $ Wreq.get $ toS url
+             cid <- case res ^? Wreq.responseBody . key "Path" . _String of
+                 Nothing  -> throwErrorHere . OtherError
+                           $ "send!: failed: nothing received"
+                 Just p  -> pure p
+            pure $ String cid
          [_, Vec _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
          [String _, _] -> throwErrorHere $ TypeError "send!: second argument should be a vector"
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
