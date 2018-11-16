@@ -11,9 +11,9 @@ import           Prelude (String)
 import           Protolude hiding (TypeError, option, sourceFile)
 import           Radicle
 import           Servant.Client
-import           System.Console.Haskeline (InputT)
 import           System.Directory (doesFileExist)
 
+import qualified Radicle.Internal.Input as Input
 import qualified Radicle.Internal.Number as Num
 import qualified Radicle.Internal.PrimFns as PrimFns
 
@@ -72,10 +72,10 @@ opts = Opts
 
 -- * Primops
 
-bindings :: HttpClient.Manager -> Bindings (PrimFns (InputT IO))
+bindings :: HttpClient.Manager -> Bindings (PrimFns (Input.InputT IO))
 bindings mgr = addPrimFns (replPrimFns <> clientPrimFns mgr) pureEnv
 
-clientPrimFns :: HttpClient.Manager -> PrimFns (InputT IO)
+clientPrimFns :: HttpClient.Manager -> PrimFns (Input.InputT IO)
 clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
   where
     sendPrimop =

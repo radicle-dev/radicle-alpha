@@ -19,11 +19,13 @@
 (def keys
   "Given a `dict`, returns a vector of its keys."
   (fn [d]
-    (map head (seq d))))
+    (map (fn [s] (nth 0 s)) (seq d))))
 
 (:test "keys"
   [ (keys {:one 1 :two 2}) ==> [:one :two] ]
 )
+
+;; values
 
 (def values
   "Given a `dict`, returns a vector of its values."

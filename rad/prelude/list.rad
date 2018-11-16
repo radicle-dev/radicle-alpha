@@ -107,3 +107,22 @@
         (f (head x))
         (g))
       (g))))
+
+
+;; imperative for each
+
+(def-rec for-each 
+  "(for-each ls cb) calls `cb` for each element in the list `ls`, for its side
+  effect.  always returns `nil`."
+  (fn [ls cb]
+    (if (empty? ls) 
+        nil
+        (do (cb (head ls))
+            (for-each (tail ls) cb)))))
+
+(def for-each-vec 
+  "(for-each-vec v cb) calls `cb` for each element in `v`, for its side effect.
+  always returns `nil`."
+  (fn [v cb]
+    (for-each (range 0 (- (length v) 1)) (fn [i] 
+      (cb (nth i v))))))
