@@ -4,8 +4,6 @@
 ;; Create a remote issue chain. Returns a ref for the chain that you
 ;; can assign to a variable.
 
-(load! "rad/prelude.rad")
-
 (def radicle-issues-chain-id
   "The name of this chain."
   "monadic/radicle/issues")
@@ -18,77 +16,58 @@
   (fn []
     (def url (lookup :url (read-ref issues-chain)))
     (send-prelude! url)
-    (send-code! url "rad/monadic/issue-remote.rad")))
+    (send-code! url "rad/chains/issue-remote.rad")))
 
 (def sign-entity!
-  "Assumes a key pair is stored at `my-keys.rad`. Using that key pair, will sign a
-  dict by adding `:author` and `:signature` fields, so that it is valid
-  according to `validator/signed`, while also adding a `:nonce`."
+  "Assumes a key pair is stored at `my-keys.rad`. Using that key pair, will sign
+  an entity (a dict) by adding `:author` and `:signature` fields, so that it is
+  valid according to `validator/signed`."
   (fn [e]
-    (def nonce (uuid!))
-    (def e_ (<> e {:chain-id radicle-issues-chain-id
-                   :nonce    nonce}))
     (def ks (read (read-file! "my-keys.rad")))
-    (def sig
-      (gen-signature! (lookup :private-key ks)
-                      (show e_)))
-    (<> e_
+    (def sig (gen-signature! (lookup :private-key ks) (show (insert :chain-id radicle-issues-chain-id e))))
+    (<> e
         {:author    (lookup :public-key ks)
-         :signature sig})))
+         :signature sig
+         :chain-id  radicle-issues-chain-id})))
 
 (def simple-issue
-  "Create an open issue with no comments or labels."
   (fn [tit bod]
-    {:title      tit
-     :body       bod
-     :labels     []
-     :state      :open
-     :comments   []
-     :created-at (now!)}))
-
-(def simple-comment
-  "Create a comment for an issue."
-  (fn [issue-number bod]
-    {:body bod
-     :issue-number issue-number
+    {:title    tit
+     :body     bod
+     :labels   []
+     :state    :open
+     :comments []
      :created-at (now!)}))
 
 (def create-issue!
-  "Create a new remote issue with the keys in `my-keys.rad`."
+  "Create a new remote issue. Signs the issue and all it's comments with the key
+  stored `my-keys.rad`."
   (fn [i]
+    (def issue-id (uuid!))
+    (def comment-entities
+      (map (fn [c]
+             (sign-entity! (<> c {:id (uuid!)
+                                  :issue-id issue-id})))
+           (lookup :comments i)))
+    (def e
+      (sign-entity!
+       (<> i {:id issue-id
+              :comments comment-entities})))
     (send! (lookup :url (read-ref issues-chain))
-           [(list 'create-issue (sign-entity! i))])))
-
-(def add-comment!
-  "Create a remote comment with the keys in `my-keys.rad`."
-  (fn [c]
-    (send! (lookup :url (read-ref issues-chain))
-           [(list 'add-comment (sign-entity! c))])))
+           [(list 'create-issue e)])
+    ))
 
 (def simple-create-issue!
-  "Create a remote issue with sensible defaults."
-  (fn [tit bod]
-    (create-issue! (simple-issue tit bod))))
-
-(def simple-add-comment!
-  "Create a remote comment."
-  (fn [in b]
-    (add-comment! (simple-comment in b))))
+ (fn [tit bod]
+   (create-issue! (simple-issue tit bod))))
 
 (def list-issues
-  "Return the full map of issues."
+  "Given an issues ref `x`, returns its issues. Does not itself update the chain."
   (fn []
+    (update-chain-ref issues-chain)
     (lookup :result (eval-in-chain '(list-issues) (read-ref issues-chain)))))
 
-(def fetch
-  "Update the locally cached state of the chain."
-  (fn []
-    (update-chain-ref issues-chain)))
-
 (def import-github
-  "Imports the github issues stored in file `githubissues.rad`. To create this
-  file use the `radicle-github-issues` executable. Will add a note to all
-  `:body`s that this is an imported entity."
   (fn []
     (def note-imported
       (fn [x]
@@ -107,40 +86,21 @@
       (map
        (fn [i] (note-imported (note-comments i)))
        issues))
-    (map create-issue! imported)))
-
-(def short
-  "Short render of an issue."
-  (fn [i]
-    (string-append
-     (show (lookup :number i))
-     ": "
-     (lookup :title i))))
-
-(def list-last
-  "Get the last `n` issues."
-  (fn [n]
-    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues))))
-    (take n is)))
-
-(def get-by-id
-  (fn [id]
-    (lookup id (list-issues))))
+    (map create-issue! imported)
+    ))
 
 (:test
- "The monadic issues chain works."
- [:setup
-  (do (create-issues-chain!)
-      (simple-create-issue! "title0" "body0")
-      (simple-create-issue! "title1" "body1")
-      (simple-add-comment! 0 "comment0")
-      (simple-add-comment! 1 "comment1")
-      (fetch)
-      (def is (list-issues)))]
- [ (length (seq is)) ==> 2 ]
- [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
- [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
- [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment1" ]
- [ (short (head (values is))) ==> "0: title0" ]
- [ (short (head (list-last 1))) ==> "1: title1" ]
+  "creating, manipulating and querying issue chains"
+  [:setup
+     (do
+       (def pk (gen-key-pair! (default-ecc-curve)))
+       (def chain-name (uuid!))
+       (def chain-ref (create-issues-chain! chain-name))
+       (new-issue! chain-ref pk "Ah!" "if thou issueless shall hap to die")
+       (update-chain-ref chain-ref)
+       (def issues (values (list-issues chain-ref))))
+   ]
+   [ (length issues) ==> 1 ]
+   [ (lookup :title (nth 0 issues)) ==> "Ah!" ]
+   [ (lookup :body (nth 0 issues)) ==> "if thou issueless shall hap to die" ]
 )
