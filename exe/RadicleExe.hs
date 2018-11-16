@@ -1,8 +1,9 @@
 module RadicleExe (main) where
 
 import           API
-import           Control.Lens
+import           Control.Lens ((^?))
 import           Control.Monad.Catch (MonadThrow)
+import           Data.Aeson (FromJSON, ToJSON, toJSON)
 import           Data.Aeson.Lens (key, nth, _String)
 import qualified Data.Text as T
 import           GHC.Exts (fromList)
@@ -87,13 +88,9 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
         \ chain located at the URL for evaluation."
       , \case
          [String ipnsId, Vec v] -> do
-             let url = "http://localhost:5001/api/v0/resolve?arg=" <> ipnsId
-             res <- liftIO $ Wreq.get $ toS url
-             cid <- case res ^? Wreq.responseBody . key "Path" . _String of
-                 Nothing  -> throwErrorHere . OtherError
-                           $ "send!: failed: nothing received"
-                 Just p  -> pure p
-            pure $ String cid
+             let values = T.intercalate "\n" $ renderCompactPretty <$> toList v
+             liftIO (runExceptT $ sendIPFS ipnsId _ values)
+             pure $ List []
          [_, Vec _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
          [String _, _] -> throwErrorHere $ TypeError "send!: second argument should be a vector"
          xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
@@ -103,21 +100,82 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
       , "Given a URL (string) and a integral number `n`, queries the remote chain\
         \ for the last `n` inputs that have been evaluated."
       , \case
-          [String url, Number n] -> do
-              case Num.isInt n of
-                  Left _ -> throwErrorHere . OtherError
-                                     $ "receive!: expecting int argument"
-                  Right r -> do
-                      liftIO (runClientM' url mgr (since r)) >>= \case
-                          Left err -> throwErrorHere . OtherError
-                                    $ "receive!: request failed:" <> show err
-                          Right v' -> pure v'
-          [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
-          [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
-          xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)
+          [String url, String lastKnown] ->
+              liftIO (runExceptT $ receiveIPFS url lastKnown) >>= \case
+                  Left err -> throwErrorHere . OtherError $ "receive!: " <> err
+                  Right v -> pure $ Vec $ fromList v
+          [String _, _] -> throwErrorHere
+                         $ TypeError "receive!: expecting string as second arg"
+          [_, _]        -> throwErrorHere
+                         $ TypeError "receive!: expecting string as first arg"
+          xs            -> throwErrorHere
+                         $ WrongNumberOfArgs "receive!" 2 (length xs)
       )
 
 -- * Client functions
+
+-- | Send some values to IPFS, and update the IPNS link to the latest pointer.
+-- Note that this does not check that the latest data is as it is known
+-- locally, so this may lose data.
+--
+-- TODO: Currently this doesn't handle multiple keys! So it'll all go to your
+-- default chain.
+sendIPFS :: Text -> Text -> Text -> ExceptT Text IO Text
+sendIPFS _ipnsId parent values = do
+    let url1 = "http://localhost:5001/api/v0/dag/put"
+    newDataRes <- liftIO $ Wreq.post url1 (toJSON $ IPFSBlock values (Just parent))
+    cid <- case newDataRes ^? Wreq.responseBody . key "Cid" . key "/" . _String of
+        Nothing -> throwError "couldn't add object"
+        Just v  -> pure v
+    let url2 = toS $ "http://localhost:5001/api/v0/name/publish?arg=" <> cid
+    ipnsRes <- liftIO $ Wreq.get url2
+    case ipnsRes ^? Wreq.responseBody . key "Name" . _String of
+        Nothing -> throwError "couldn't update IPNS"
+        Just v  -> pure v
+
+
+
+-- | Receive a set of values from IPFS. The first argument is the IPNS name
+-- (i.e., chain name). The second is the last value the client knows about.
+-- (We can't just use an index because in theory it's possible for the chain
+-- to have changed *prior* to that index.)
+receiveIPFS :: Text -> Text -> ExceptT Text IO [Value]
+receiveIPFS ipnsId lastKnown = do
+    let url = "http://localhost:5001/api/v0/resolve?arg=" <> ipnsId
+    res <- liftIO $ Wreq.get $ toS url
+    cid <- case res ^? Wreq.responseBody . key "Path" . _String of
+        Nothing -> throwError "nothing received"
+        Just p  -> pure p
+    getBlocks cid
+  where
+    getBlocks :: Text -> ExceptT Text IO [Value]
+    getBlocks path = if path == lastKnown
+        then pure []
+        else do
+            let url = "http://localhost:5001/api/v0/cat?arg=" <> path
+            res <- liftIO $ Wreq.get (toS url) >>= Wreq.asJSON
+            block <- case res ^? Wreq.responseBody of
+                Nothing  -> throwError "not valid JSON"
+                Just bl -> pure bl
+            case parse "[ipfs]" (blockData block) of
+                Left e -> throwError e
+                Right v -> do
+                    case blockParent block of
+                        Nothing -> pure [v]
+                        Just parent -> do
+                            rest <- getBlocks parent
+                            pure $ v : rest
+
+
+
+-- | Chunks of data stored on IPFS. Essentially a linked list.
+data IPFSBlock a = IPFSBlock
+    { blockData :: a
+    , blockParent :: Maybe Text
+    } deriving (Eq, Show, Read, Generic, Functor)
+
+instance FromJSON a => FromJSON (IPFSBlock a)
+instance ToJSON a => ToJSON (IPFSBlock a)
 
 submit :: [Value] -> ClientM Value
 submit = client chainSubmitEndpoint . Values
