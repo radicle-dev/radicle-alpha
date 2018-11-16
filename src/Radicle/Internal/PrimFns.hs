@@ -8,7 +8,7 @@ import qualified Data.Map as Map
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
-import           GHC.Exts (IsList(..))
+import           GHC.Exts (IsList(..), sortWith)
 import           Text.Megaparsec (parseErrorPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
@@ -210,6 +210,18 @@ purePrimFns = fromList $ allDocs $
           [_,_] -> throwErrorHere $ TypeError "nth: expects a integer and a list or vector"
           xs -> throwErrorHere $ WrongNumberOfArgs "nth" 2 (length xs)
       )
+    , ( "sort-by"
+      , "Given a sequence `xs` and a function `f`, returns a sequence with the same\
+        \ elements `x` of `xs` but sorted according to `(f x)`."
+      , twoArg "sort-by" $ \case
+          (f, List xs) -> do ys <- traverse (\x -> (x,) <$> callFn f [x]) xs
+                             let ys' = sortWith snd ys
+                             pure (List (fst <$> ys'))
+          (f, Vec xs) -> do ys <- traverse (\x -> (x,) <$> callFn f [x]) xs
+                            let ys' = Seq.sortOn snd ys
+                            pure (Vec (fst <$> ys'))
+          _ -> throwErrorHere $ TypeError "sort-by: second argument must be a sequence"
+      )
 
     -- Dicts
     , ("lookup"
@@ -239,7 +251,7 @@ purePrimFns = fromList $ allDocs $
       , twoArg "<>" $ \case
           (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
           (Dict m, Dict n) -> pure $ Dict (n <> m)
-          _ -> throwErrorHere $ TypeError "<>: both arguments must be vectors"
+          _ -> throwErrorHere $ TypeError "<>: only works on vectors of dicts"
       )
 
     , ( "string-length"
