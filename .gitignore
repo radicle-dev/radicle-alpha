@@ -11,6 +11,7 @@ cabal.sandbox.config
 out/
 result/
 result
+.ipfs/
 .stack-work/
 docs/build/
 *.orig
