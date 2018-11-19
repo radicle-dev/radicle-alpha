@@ -5,5 +5,6 @@ set -euo pipefail
 export PATH=$(stack path --bin-path)
 export STACK_YAML=stack-ghcjs.yaml
 
+stack setup
 stack build
 
