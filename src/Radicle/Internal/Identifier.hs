@@ -22,7 +22,7 @@ isValidIdentRest x = isAlphaNum x || x `elem` extendedChar
 
 extendedChar :: Prelude.String
 extendedChar = ['!', '$', '%', '&', '*', '+', '-', '.', '/', ':', '<' , '=', '>'
-  , '?', '@', '^', '_', '~']
+  , '?', '@', '^', '_', '~', '|']
 
 -- | Expands characters into strings that are safe to use in keywords.
 keywordChar :: Char -> Text

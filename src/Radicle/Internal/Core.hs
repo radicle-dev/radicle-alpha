@@ -512,19 +512,42 @@ specialForms = Map.fromList $ first Ident <$>
       _ -> throwErrorHere $ OtherError "Pattern match must be given a value to match"
 
     goMatches _ [] = throwErrorHere $ OtherError "Pattern match failure."
-    goMatches v ((m, b):cases) = do
+    goMatches v ((m, body):cases) = do
+      let (m', guard_) = case m of
+            List [x, Atom (Ident "|"), g] -> (x, Just g)
+            _ -> (m, Nothing)
+      m'' <- baseEval m'
       matchPat <- lookupAtom (Ident "match-pat")
-      m' <- baseEval m
-      res <- callFn matchPat [m', v]
-      let res_ :: Either Text (Maybe Value) = fromRad res
+      res <- callFn matchPat [m'', v]
+      let res_ = fromRad res
       case res_ of
-        Right (Just (Dict binds)) -> do
-          let bs = Map.toList binds
-          traverse_ addBind bs
-          baseEval b
+        Right (Just (Dict binds)) ->
+          case guard_ of
+            Just gu -> do
+              b <- bindsToEnv binds
+              e <- gets bindingsEnv
+              g_ <- withEnv (const (e <> b)) (baseEval gu)
+              case g_ of
+                Boolean False -> goMatches v cases
+                _ -> do
+                  traverse_ addBind (Map.toList binds)
+                  baseEval body
+            Nothing -> do
+              traverse_ addBind (Map.toList binds)
+              baseEval body
         Right Nothing -> goMatches v cases
         Right _ -> throwErrorHere $ OtherError "Patterns must return maybe dicts"
         Left _ -> throwErrorHere $ OtherError "Pattern must return maybes"
+
+    bindsToEnv :: Map Value Value -> Lang m (Env Value)
+    bindsToEnv m = do
+      let bs :: [(Value, Value)] = Map.toList m
+      is :: [(Ident, Doc.Docd Value)] <- traverse isBind bs
+      pure (Env (Map.fromList is))
+
+    isBind :: (Value, Value) -> Lang m (Ident, Doc.Docd Value)
+    isBind (Atom x, v) = pure (x, Doc.Docd Nothing v)
+    isBind _ = throwErrorHere $ OtherError "Patterns must assign variables to values"
 
     addBind (Atom x, v) = defineAtom x Nothing v
     addBind _ = throwErrorHere $ OtherError "Patterns must assign variables to values"

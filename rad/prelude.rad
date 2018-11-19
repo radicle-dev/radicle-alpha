@@ -64,13 +64,24 @@
 
     Type (doc '<name>) for further documentation of <name>."))
 
+(def g
+  (fn [x]
+    (match x
+           (/? vector?) :vec
+           _ :non-vec)))
+
 (def f
   (fn [x]
     (match x
-           1 :number-one
-           (/cons 1 (/cons 2 'xs)) [:one-two xs]
-           (/cons 'x (/cons 'y 'xs)) [:non-singleton x y xs]
-           (/cons 'x 'xs) [:singleton x xs]
-           /nil :empty-list
-           'x [:anything-else x]
+           1                                 :number-one
+           ('n | (> n 42))                   [:bigger-than-42 n]
+           (/? number?)                      :non-1-number
+           :hello                            :hello
+           "hola"                            "que tal"
+           (/cons 1 (/cons 2 'xs))           [:one-two xs]
+           (/cons 1 (/cons _ (/cons 3 'xs))) [:one-something-three xs]
+           (/cons 'x (/cons 'y 'xs))         [:non-singleton x y xs]
+           (/cons 'x _)                      [:singleton x]
+           /nil                              :empty-list
+           _                                 [:anything-else x]
            )))

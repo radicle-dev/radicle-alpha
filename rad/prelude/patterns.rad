@@ -1,14 +1,18 @@
 (def match-pat
+  "The default pattern matching dispatch function. This function defines how
+  patterns are treated in `match` expressions. This function can be redefined to
+  make pattern matching more powerful."
   (fn [x v]
     (cond
-      (atom? x)   [:Just {x v}]
-      (number? x) (if (eq? x v)
-                    [:Just {}]
-                    :Nothing)
-      :else       (x v)
-      )))
+      (atom? x)
+      [:Just {x v}]
+      (some [(number? x) (keyword? x) (string? x)])
+      (if (eq? x v) [:Just {}] :Nothing)
+      :else
+      (x v))))
 
 (def /cons
+  "A pattern for lists with a head."
   (fn [x-pat xs-pat]
     (fn [v]
       (if (list? v)
@@ -24,7 +28,20 @@
         :Nothing))))
 
 (def /nil
+  "Empty-list pattern."
   (fn [v]
     (if (eq? v (list))
       [:Just {}]
       :Nothing)))
+
+(def /?
+  "Predicate pattern."
+  (fn [p]
+    (fn [v]
+      (if (p v)
+        [:Just {}]
+        :Nothing))))
+
+(def _
+  "The wildcard pattern."
+  (fn [v] [:Just {}]))
