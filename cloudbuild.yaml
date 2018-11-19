@@ -41,6 +41,13 @@ steps:
       apt-get -y install postgresql libpq-dev
       stack build --fast --test --no-terminal --pedantic
 
+  - id: "Build ghcjs"
+    name: "haskell:8.4.1"
+    env: ["STACK_ROOT=/workspace/.stack"]
+    entrypoint: bash
+    args:
+      - scripts/ci-ghcjs.sh
+
   - id: "Build reference document"
     name: 'haskell:8.4.3'
     env: ['STACK_ROOT=/workspace/.stack']
