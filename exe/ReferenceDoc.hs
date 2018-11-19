@@ -82,7 +82,7 @@ main = do
     maths = ["+", "*", "-", "/", "<", ">", "integral?"]
     evalFns = ["base-eval", "eval", "updatable-eval"]
     envStuff = ["pure-env", "get-current-env", "set-current-env", "set-env!"]
-    seqs = ["nth", "foldl", "foldr", "map", "seq", "take", "drop"]
+    seqs = ["nth", "foldl", "foldr", "map", "seq", "take", "drop", "sort-by"]
     lists =
       [ "list", "nil", "head", "tail", "empty?", "cons", "reverse", "length", "concat"
       , "filter", "range", "list-with-head" ]
@@ -95,7 +95,7 @@ main = do
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
     docs = ["help", "doc", "doc!", "apropos!", "document", "is-test-env"]
     io =
-      ["put-str!", "print!", "get-line!", "get-expression!"
+      [ "print!", "get-line!"
       , "load!", "read-file!", "read-code!", "send-code!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"
       , "now!"]

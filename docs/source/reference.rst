@@ -175,6 +175,12 @@ Multiplies two numbers together.
 
 Substracts one number from another.
 
+``/``
+~~~~~
+
+Divides one number by another. Throws an exception if the second
+argument is 0.
+
 ``<``
 ~~~~~
 
@@ -336,6 +342,12 @@ short, in which case an exception is thrown.
 Returns all but the first ``n`` items of a sequence, unless the sequence
 is empty, in which case an exception is thrown.
 
+``sort-by``
+~~~~~~~~~~~
+
+Given a sequence ``xs`` and a function ``f``, returns a sequence with
+the same elements ``x`` of ``xs`` but sorted according to ``(f x)``.
+
 Dicts
 -----
 
@@ -345,7 +357,8 @@ Functions for manipulating dicts.
 ~~~~~~~~
 
 Given an even number of arguments, creates a dict where the ``2i``-th
-argument is the key for the ``2i+1``\ th argument.
+argument is the key for the ``2i+1``\ th argument. If one of the even
+indexed arguments is not hashable then an exception is thrown.
 
 ``lookup``
 ~~~~~~~~~~
@@ -360,7 +373,7 @@ thrown.
 
 Given ``k``, ``v`` and a dict ``d``, returns a dict with the same
 associations as ``d`` but with ``k`` associated to ``d``. If ``d`` isn't
-a dict then an exception is thrown.
+a dict or if ``k`` isn't hashable then an exception is thrown.
 
 ``delete``
 ~~~~~~~~~~
@@ -830,6 +843,11 @@ functions before sending these to a remote chain.
 ~~~~~~~~~~~~~
 
 Return an empty chain dictionary with the given url.
+
+``@var``
+~~~~~~~~
+
+A lens for variables in states of chains.
 
 ``eval-in-chain``
 ~~~~~~~~~~~~~~~~~

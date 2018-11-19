@@ -9,7 +9,7 @@ import           Protolude
 
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
-import System.Console.Haskeline hiding (catch)
+import           System.Console.Haskeline hiding (catch)
 import           System.IO (isEOF)
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
