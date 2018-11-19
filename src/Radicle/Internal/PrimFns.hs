@@ -424,7 +424,7 @@ purePrimFns = fromList $ allDocs $
           [x, Vec xs]  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
           [x, Dict m]  -> pure . Boolean $ Map.member x m
           [_, _]       -> throwErrorHere
-                        $ TypeError "member?: second argument must be list"
+                        $ TypeError "member?: second argument must be list, vector or dict"
           xs           -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
     , ( "ref"
       , "Creates a ref with the argument as the initial value."

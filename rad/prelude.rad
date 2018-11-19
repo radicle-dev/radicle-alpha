@@ -64,24 +64,29 @@
 
     Type (doc '<name>) for further documentation of <name>."))
 
-(def g
-  (fn [x]
-    (match x
-           (/? vector?) :vec
-           _ :non-vec)))
-
 (def f
   (fn [x]
     (match x
-           1                                 :number-one
-           ('n | (> n 42))                   [:bigger-than-42 n]
-           (/? number?)                      :non-1-number
-           :hello                            :hello
-           "hola"                            "que tal"
-           (/cons 1 (/cons 2 'xs))           [:one-two xs]
-           (/cons 1 (/cons _ (/cons 3 'xs))) [:one-something-three xs]
-           (/cons 'x (/cons 'y 'xs))         [:non-singleton x y xs]
-           (/cons 'x _)                      [:singleton x]
-           /nil                              :empty-list
-           _                                 [:anything-else x]
-           )))
+      ;; constants
+      1                                 :number-one
+      ;; predicates
+      (/? keyword?)                     [:kw x]
+      ;; guards
+      ((/? number?) | (> x 42))         [:bigger-than-42 x]
+      (/? number?)                      :non-1-number
+      ;; more constants
+      :hello                            :hello
+      "hola"                            "que tal"
+      ;; A custom pattern
+      (/Just 'x)                        x
+      :Nothing                          :Nothing
+      ;; Some listy stuff
+      (/cons 1 (/cons 2 'xs))           [:one-two xs]
+      (/cons 1 (/cons _ (/cons 3 'xs))) [:one-something-three xs]
+      (/cons 'x (/cons 'y 'xs))         [:non-singleton x y xs]
+      (/cons 'x _)                      [:singleton x]
+      /nil                              :empty-list
+      ;; Pattern matching on dicts:
+      (/keys {:a 'a :b 'b})             [:a-was a :b-was b]
+      ;; Even the wildcard is user-defined!
+      _                                 [:anything-else x])))

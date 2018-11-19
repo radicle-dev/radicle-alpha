@@ -30,6 +30,11 @@
        [ (some '(#t #t #f #t)) ==> #t ]
        )
 
+(def empty-seq?
+  (fn [xs]
+    (or (eq? xs (list))
+        (eq? xs []))))
+
 ;; length
 
 (def length
@@ -41,16 +46,6 @@
   "Returns the length of 'list'.")
 
 (:test "length"
-  [ (length nil) ==> 0]
+  [ (length (list)) ==> 0]
   [ (length (list 2)) ==> 1]
 )
-
-(def maybe->>=
-  (fn [xs f]
-    (if (vector? xs)
-      (if (eq? (length xs) 2)
-        (if (eq? (nth 0 xs) :Just)
-          (f (nth 1 xs))
-          :Nothing)
-        :Nothing)
-      :Nothing)))

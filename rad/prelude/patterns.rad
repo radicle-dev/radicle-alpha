@@ -1,7 +1,6 @@
 (def match-pat
-  "The default pattern matching dispatch function. This function defines how
-  patterns are treated in `match` expressions. This function can be redefined to
-  make pattern matching more powerful."
+  "The pattern matching dispatch function. This function defines how patterns are
+  treated in `match` expressions."
   (fn [x v]
     (cond
       (atom? x)
@@ -10,6 +9,28 @@
       (if (eq? x v) [:Just {}] :Nothing)
       :else
       (x v))))
+
+(def _
+  "The wildcard pattern."
+  (fn [v] [:Just {}]))
+
+(def /Just
+  (fn [pat]
+    (fn [v]
+      (if (vector? v)
+        (if (eq? (length v) 2)
+          (if (eq? (nth 0 v) :Just)
+            (match-pat pat (nth 1 v))
+            :Nothing)
+          :Nothing)
+        :Nothing))))
+
+(def maybe->>=
+  "Monadic bind in the maybe monad."
+  (fn [xs f]
+    (match xs
+           (/Just 'x) (f x)
+           :Nothing :Nothing)))
 
 (def /cons
   "A pattern for lists with a head."
@@ -42,6 +63,28 @@
         [:Just {}]
         :Nothing))))
 
-(def _
-  "The wildcard pattern."
-  (fn [v] [:Just {}]))
+(def-rec maybe-foldlM
+  "Monadic fold over the elements of a seq, associating to the left (i.e. from
+  left to right) in the maybe monad."
+  (fn [f i xs]
+    (if (empty-seq? xs)
+      [:Just i]
+      (maybe->>= (f i (nth 0 xs))
+                 (fn [b] (maybe-foldlM f (<> i b) (drop 1 xs)))))))
+
+(def /keys
+  "A pattern for matching values at specific keys in a dict."
+  (fn [keys-pat]
+    (fn [d]
+      (if (dict? d)
+        (maybe-foldlM
+         (fn [acc kv]
+           (def k (nth 0 kv))
+           (def pat (nth 1 kv))
+           (if (member? k d)
+             (maybe->>= (match-pat pat (lookup k d))
+                        (fn [bs] [:Just (<> acc bs)]))
+             :Nothing))
+         {}
+         (seq keys-pat))
+        :Nothing))))

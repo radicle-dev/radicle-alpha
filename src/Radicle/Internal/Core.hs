@@ -515,26 +515,23 @@ specialForms = Map.fromList $ first Ident <$>
     goMatches v ((m, body):cases) = do
       let (m', guard_) = case m of
             List [x, Atom (Ident "|"), g] -> (x, Just g)
-            _ -> (m, Nothing)
+            _                             -> (m, Nothing)
       m'' <- baseEval m'
       matchPat <- lookupAtom (Ident "match-pat")
       res <- callFn matchPat [m'', v]
       let res_ = fromRad res
       case res_ of
-        Right (Just (Dict binds)) ->
+        Right (Just (Dict binds)) -> do
+          b <- bindsToEnv binds
+          let finish = addBinds b *> baseEval body
           case guard_ of
             Just gu -> do
-              b <- bindsToEnv binds
               e <- gets bindingsEnv
-              g_ <- withEnv (const (e <> b)) (baseEval gu)
+              g_ <- withEnv (const (b <> e)) (baseEval gu)
               case g_ of
                 Boolean False -> goMatches v cases
-                _ -> do
-                  traverse_ addBind (Map.toList binds)
-                  baseEval body
-            Nothing -> do
-              traverse_ addBind (Map.toList binds)
-              baseEval body
+                _             -> finish
+            Nothing -> finish
         Right Nothing -> goMatches v cases
         Right _ -> throwErrorHere $ OtherError "Patterns must return maybe dicts"
         Left _ -> throwErrorHere $ OtherError "Pattern must return maybes"
@@ -544,13 +541,12 @@ specialForms = Map.fromList $ first Ident <$>
       let bs :: [(Value, Value)] = Map.toList m
       is :: [(Ident, Doc.Docd Value)] <- traverse isBind bs
       pure (Env (Map.fromList is))
+      where
+        isBind (Atom x, v) = pure (x, Doc.Docd Nothing v)
+        isBind _ = throwErrorHere $ OtherError "Patterns must assign variables to values"
 
-    isBind :: (Value, Value) -> Lang m (Ident, Doc.Docd Value)
-    isBind (Atom x, v) = pure (x, Doc.Docd Nothing v)
-    isBind _ = throwErrorHere $ OtherError "Patterns must assign variables to values"
-
-    addBind (Atom x, v) = defineAtom x Nothing v
-    addBind _ = throwErrorHere $ OtherError "Patterns must assign variables to values"
+    addBinds :: Env Value -> Lang m ()
+    addBinds e = modify (\s -> s { bindingsEnv = e <> bindingsEnv s })
 
     def name doc_ val = do
       val' <- baseEval val
