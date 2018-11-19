@@ -6,24 +6,26 @@
   "monadic/radicle/issues")
 
 (def issues
-  "Issues are stored in a dict in a ref."
+  "Issues are stored in a dict in a ref, keyed by issue-number."
   (ref {}))
 
-(def issue-counter (lookup :next (make-counter)))
+(def issue-counter
+  "We use a stateful counter for giving issues numbers."
+  (lookup :next (make-counter)))
 
-(def used-ids
-  "We keep track of the UUIDs which have been used in the chain."
+(def used-nonces
+  "We keep track of the UUIDs which have been used as nonces in inputs."
   (ref set/empty))
 
-(def id-free?
-  "Check that an ID has not been used yet."
-  (fn [id]
-    (not (set/member? id (read-ref used-ids)))))
+(def unused-nonce?
+  "Check that a nonce has not been used already."
+  (fn [nonce]
+    (not (set/member? nonce (read-ref used-nonces)))))
 
-(def mark-used-id
+(def mark-used-nonce
   "Mark a UUID as used."
-  (fn [id]
-    (modify-ref used-ids (fn [s] (set/insert id s)))))
+  (fn [nonce]
+    (modify-ref used-nonces (fn [s] (set/insert nonce s)))))
 
 (def set-issues
   "A helper to set stuff in the issues ref."
@@ -35,13 +37,14 @@
   (fn [l f]
     (over-ref issues l f)))
 
-(def validator/free-uuid
-  "Given a predicate which says if an ID is free, checks input is a free UUID."
+(def validator/nonce
+  "Validator for unused nonces."
   (validator/and
    [validator/uuid
-    (validator/pred "ID is free" id-free?)]))
+    (validator/pred "Nonce not already used" unused-nonce?)]))
 
 (def validator/text
+  "A validator for text."
   (fn [max-len]
     (validator/and
      [(validator/type :string)
@@ -52,73 +55,79 @@
 (def validator/timestamp
   (validator/type :string))
 
-(def validator/entity
-  "Checks that the input as a valid new *chain entity*, that is, it has an unused
-  UUID, is marked with this chain name, and is signed."
+(def validator/input
+  "Checks that the input as a valid new *chain input*, that is, it has an unused
+  nonce, is marked with this chain name, and is signed."
   (validator/and
    [(validator/keys
-     {:id         validator/free-uuid
+     {:nonce      validator/nonce
       :chain-id   (validator/= chain-id)
       ;; NOTE that the timestamp is claimed by the author, is not verified, and
       ;; may be incorrect.
       :created-at validator/timestamp})
     validator/signed]))
 
-(def strip-entity
-  "After an entity has been saved to the chain, we no longer need to keep the
-  chain-id or the signature, since this has already been checked."
-  (fn [e]
-    (delete-many [:chain-id :signature] e)))
+(def validator/issue-number
+  "A validator for numbers which refer to existing issues."
+  (validator/pred "Existing issue number" (fn [n] (member? n (read-ref issues)))))
 
 (def validator/comment
-  "Checks a comment is a chain entity which refers to an issue and has a text
-  body."
-  (validator/and
-   [validator/entity
-    (validator/keys
-     {:issue-id validator/uuid
-      :body     (validator/text 4000)})]))
+  "A comment should have a body."
+  (validator/keys
+   {:body (validator/text 4000)}))
 
-(def validator/issue
-  "Checks an issue a chain entity with a title, body, etc."
+(def validator/comment-input
+  "A comment input should refer to an existing issue."
   (validator/and
-   [validator/entity
-    (validator/keys
-     {:title      (validator/text 100)
-      :body       (validator/text 4000)
-      :labels     (validator/every (validator/text 80))
-      :state      (validator/member [:open :closed])
-      :comments   (validator/every validator/comment)})]))
+   [validator/input
+    validator/comment
+    (validator/keys {:issue-number validator/issue-number})]))
 
-(def strip-comment
-  (fn [c]
-    (delete :issue-id (strip-entity c))))
+(def validator/issue-input
+  "An issue should have all the required fields, be a signed input, etc."
+  (validator/and
+   [validator/input
+    (validator/keys
+     {:title    (validator/text 100)
+      :body     (validator/text 4000)
+      :labels   (validator/every (validator/text 80))
+      :state    (validator/member [:open :closed])
+      :comments (validator/every validator/comment)})]))
+
+(def strip-input
+  "After an entity input has been processed/verified, we no longer need some of
+  the fields."
+  (fn [e]
+    (delete-many [:chain-id :signature :nonce :issue-number] e)))
 
 (def create-issue
   "Create an issue from a dict, checking it is valid and storing it in `issues`."
   (fn [i]
-    (def id (lookup :id i))
-    (validator/issue i)
+    (validator/issue-input i)
+    (def n (issue-counter))
     (def i_
-      (strip-entity
+      (strip-input
        (<> i
-           {:number (issue-counter)
-            :comments (map strip-comment (lookup :comments i))})))
-    (set-issues (@ id) i_)
-    (mark-used-id id)))
+           {:number   n
+            :comments (map strip-input (lookup :comments i))})))
+    (set-issues (@ n) i_)
+    (mark-used-nonce (lookup :nonce i))))
 
 (def close-issue
-  "Set the state of an issue to `:closed`."
-  (fn [id]
-    (set-issues (.. (@ id) (@ :state)) :closed)))
+  "Given an issue number, sets the state of the issue to `:closed`."
+  (fn [n]
+    (validator/issue-number n)
+    (set-issues (.. (@ n) (@ :state)) :closed)))
 
 (def add-comment
   "Add a comment to an issue."
   (fn [c]
-    (def id (lookup :id c))
-    (validator/comment c)
-    (mod-issues (.. (@ id) (@ :comments)) (fn [cs] (add-right (strip-comment c) cs)))
-    (mark-used-id id)))
+    (validator/comment-input c)
+    (def c_ (strip-input c))
+    (over-issues
+     (.. (@ (lookup :issue-number c)) (@ :comments))
+     (fn [cs] (add-right c_ cs)))
+    (mark-used-nonce (lookup :nonce c))))
 
 ;; These are intended for clients to run locally with eval-in-chain
 

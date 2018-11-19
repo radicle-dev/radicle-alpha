@@ -39,7 +39,8 @@ getIssues auth owner repo = do
   is <- ExceptT $ GH.issuesForRepo' auth (N owner) (N repo) GH.stateAll
   let issues = filter notPR (toList is)
   css <- traverse (getComments auth owner repo) issues
-  pure $ zip issues css
+  -- We reverse to produce a list in chronological order
+  pure $ reverse $ zip issues css
   where
     notPR Issue{ issuePullRequest = Nothing} = True
     notPR _                                  = False

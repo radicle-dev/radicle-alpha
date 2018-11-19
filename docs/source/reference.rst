@@ -354,6 +354,12 @@ short, in which case an exception is thrown.
 Returns all but the first ``n`` items of a sequence, unless the sequence
 is empty, in which case an exception is thrown.
 
+``sort-by``
+~~~~~~~~~~~
+
+Given a sequence ``xs`` and a function ``f``, returns a sequence with
+the same elements ``x`` of ``xs`` but sorted according to ``(f x)``.
+
 Dicts
 -----
 

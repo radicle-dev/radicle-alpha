@@ -9,6 +9,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
+import qualified Data.Time as Time
 
 import           Radicle
 import           Radicle.Internal.Core (addBinding)
@@ -29,6 +30,7 @@ data WorldState = WorldState
     , worldStateDRG          :: CryptoRand.ChaChaDRG
     , worldStateUUID         :: Int
     , worldStateRemoteChains :: Map Text (Seq.Seq Value)
+    , worldStateCurrentTime  :: Time.UTCTime
     }
 
 
@@ -50,6 +52,7 @@ runTestWithFiles bindings inputs files action =
             , worldStateDRG = CryptoRand.drgNewSeed (CryptoRand.seedFromInteger 4) -- chosen by fair dice roll
             , worldStateUUID = 0
             , worldStateRemoteChains = mempty
+            , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
             }
     in case runState (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws of
         (val, st) -> (val, worldStateStdout st)
@@ -165,4 +168,4 @@ instance UUID.MonadUUID (State WorldState) where
         pad i = toS $ prefix <> replicate (12 - length i) '0' <> i
 
 instance CurrentTime (State WorldState) where
-  currentTime = notImplemented
+  currentTime = gets worldStateCurrentTime
