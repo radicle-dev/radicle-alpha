@@ -18,21 +18,6 @@
   [ (empty? []) ==> #t ]
 )
 
-;; length
-
-(def length
-  (fn [xs]
-    (foldr (fn [x acc] (+ acc 1)) 0 xs)))
-
-(document 'length
-  '(("list" list))
-  "Returns the length of 'list'.")
-
-(:test "length"
-  [ (length nil) ==> 0]
-  [ (length (list 2)) ==> 1]
-)
-
 ;; reverse
 
 (def reverse (fn [ls]

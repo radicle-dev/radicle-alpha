@@ -493,6 +493,7 @@ specialForms = Map.fromList $ first Ident <$>
             if b == Boolean False then baseEval f else baseEval t
           xs -> throwErrorHere $ WrongNumberOfArgs "if" 3 (length xs))
     , ( "cond", (cond =<<) . evenArgs "cond" )
+    , ( "match", match )
   ]
   where
     cond = \case
@@ -502,6 +503,31 @@ specialForms = Map.fromList $ first Ident <$>
         if b /= Boolean False
           then baseEval e
           else cond ps
+
+    match = \case
+      v : cases -> do
+        cs <- evenArgs "match" cases
+        v' <- baseEval v
+        goMatches v' cs
+      _ -> throwErrorHere $ OtherError "Pattern match must be given a value to match"
+
+    goMatches _ [] = throwErrorHere $ OtherError "Pattern match failure."
+    goMatches v ((m, b):cases) = do
+      matchPat <- lookupAtom (Ident "match-pat")
+      m' <- baseEval m
+      res <- callFn matchPat [m', v]
+      let res_ :: Either Text (Maybe Value) = fromRad res
+      case res_ of
+        Right (Just (Dict binds)) -> do
+          let bs = Map.toList binds
+          traverse_ addBind bs
+          baseEval b
+        Right Nothing -> goMatches v cases
+        Right _ -> throwErrorHere $ OtherError "Patterns must return maybe dicts"
+        Left _ -> throwErrorHere $ OtherError "Pattern must return maybes"
+
+    addBind (Atom x, v) = defineAtom x Nothing v
+    addBind _ = throwErrorHere $ OtherError "Patterns must assign variables to values"
 
     def name doc_ val = do
       val' <- baseEval val

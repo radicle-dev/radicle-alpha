@@ -1,0 +1,30 @@
+(def match-pat
+  (fn [x v]
+    (cond
+      (atom? x)   [:Just {x v}]
+      (number? x) (if (eq? x v)
+                    [:Just {}]
+                    :Nothing)
+      :else       (x v)
+      )))
+
+(def /cons
+  (fn [x-pat xs-pat]
+    (fn [v]
+      (if (list? v)
+        (if (> (length v) 0)
+          (maybe->>=
+           (match-pat x-pat (head v))
+           (fn [b1]
+             (maybe->>=
+              (match-pat xs-pat (tail v))
+              (fn [b2]
+                [:Just (<> b1 b2)]))))
+          :Nothing)
+        :Nothing))))
+
+(def /nil
+  (fn [v]
+    (if (eq? v (list))
+      [:Just {}]
+      :Nothing)))

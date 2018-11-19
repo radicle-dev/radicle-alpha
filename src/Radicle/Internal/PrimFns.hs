@@ -371,6 +371,12 @@ purePrimFns = fromList $ allDocs $
       , oneArg "list?" $ \case
                   List _ -> pure tt
                   _      -> pure ff)
+    , ( "vector?"
+      , isTy "vector"
+      , oneArg "vector?" $ \case
+          Vec _ -> pure tt
+          _     -> pure ff
+      )
     , ( "dict?"
       , isTy "dict"
       , oneArg "dict?" $ \case
