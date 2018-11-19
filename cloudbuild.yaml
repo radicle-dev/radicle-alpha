@@ -8,6 +8,8 @@ steps:
     - |
       source scripts/ci.sh
       load-cache
+      apt-get update
+      apt-get -y install postgresql libpq-dev
 
   - id: "Build deps"
     name: 'haskell:8.4.3'
@@ -22,27 +24,39 @@ steps:
 
   - id: "Format"
     name: 'haskell:8.4.3'
+    waitFor: ["Build deps"]
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['./scripts/check-fmt.sh']
 
   - id: "Lint"
     name: 'haskell:8.4.3'
+    waitFor: ["Build deps"]
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['stack', 'exec', '--', 'hlint', '.']
 
-  - id: "Test & Build"
+  - id: "Build"
     name: 'haskell:8.4.3'
+    waitFor: ["Load cache"]
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
     - '-c'
     - |
-      apt-get update
-      apt-get -y install postgresql libpq-dev
-      stack build --fast --test --no-terminal --pedantic
+      stack build --fast --no-terminal --pedantic
+
+  - id: "Test"
+    name: 'haskell:8.4.3'
+    waitFor: ["Build"]
+    env: ['STACK_ROOT=/workspace/.stack']
+    entrypoint: bash
+    args:
+    - '-c'
+    - |
+      stack test --fast --no-terminal --pedantic
 
   - id: "Build reference document"
     name: 'haskell:8.4.3'
+    waitFor: ["Build"]
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
