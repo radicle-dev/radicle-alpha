@@ -10,6 +10,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.Time as Time
 import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
+import qualified Data.Time as Time
 
 import           Radicle
 import           Radicle.Internal.Core (addBinding)

@@ -358,6 +358,7 @@ is empty, in which case an exception is thrown.
 Given a sequence ``xs`` and a function ``f``, returns a sequence with
 the same elements ``x`` of ``xs`` but sorted according to ``(f x)``.
 
+<<<<<<< HEAD
 ``zip``
 ~~~~~~~
 
@@ -365,6 +366,8 @@ Takes two sequences and returns a sequence of corresponding pairs. In
 one sequence is shorter than the other, the excess elements of the
 longer sequence are discarded.
 
+=======
+>>>>>>> UUIDs are just used as nonces and other improvements.
 Dicts
 -----
 
@@ -942,6 +945,7 @@ functions before sending these to a remote chain.
 
 Return an empty chain dictionary with the given url.
 
+<<<<<<< HEAD
 ``(@var ident)``
 ~~~~~~~~~~~~~~~~
 
@@ -949,6 +953,15 @@ A lens for variables in states of chains.
 
 ``(eval-in-chain expr chain)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+=======
+``@var``
+~~~~~~~~
+
+A lens for variables in states of chains.
+
+``eval-in-chain``
+~~~~~~~~~~~~~~~~~
+>>>>>>> UUIDs are just used as nonces and other improvements.
 
 Evaluates 'expr' in the 'chain' and returns a dict with the ':result'
 and the resulting ':chain'.
