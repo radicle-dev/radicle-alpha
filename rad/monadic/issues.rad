@@ -137,8 +137,8 @@
       (simple-add-comment! 1 "comment1")
       (fetch)
       (def is (list-issues)))]
- ;; [ (length (seq is)) ==> 2 ]
- ;; [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
- ;; [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
+ [ (length (seq is)) ==> 2 ]
+ [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
+ [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
  [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment1" ]
 )
