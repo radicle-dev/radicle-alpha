@@ -33,6 +33,7 @@ type ReplM m =
     , MonadRandom m, UUID.MonadUUID m
     , CurrentTime m
     , ReadFile (Lang m)
+    , System m
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
 
@@ -76,14 +77,14 @@ replBindings = addPrimFns replPrimFns pureEnv
 
 replPrimFns :: ReplM m => PrimFns m
 replPrimFns = fromList $ allDocs $
-    [ ("print!"
-      , "Pretty-prints a value."
-      , \case
-        [x] -> do
-            putPrettyAnsi x
+    [ ("put-str!"
+      , "Prints a string."
+      , oneArg "put-str!" $ \case
+        (String x) -> do
+            putStrS x
             pure nil
-        xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
-
+        v -> throwErrorHere $ TypeError "put-str!" 0 TString v
+      )
     , ( "doc!"
       , "Prints the documentation attached to a value and returns `()`. To retrieve\
         \ the docstring as a value use `doc` instead."
@@ -205,6 +206,62 @@ replPrimFns = fromList $ allDocs $
       , \case
           [] -> String <$> UUID.uuid
           xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
+      )
+    , ( "system!"
+      , "(system! proc) execute a system process. Returns the dict with the form\
+        \ ```\
+        \    { :stdin maybe-handle\
+        \      :stdout maybe-handle\
+        \      :stderr maybe-handle\
+        \      :proc prochandle\
+        \    }\
+        \ ```\
+        \ Where `maybe-handle` is either `[:just handle]` or `:nothing`.\
+        \ Note that this is quite a low-level function; higher-level ones are more convenient."
+      , oneArg "system!" $ \proc -> do
+          proc' <- hoistEither $ first (toLangError . OtherError) $ fromRad proc
+          res <- systemS proc'
+          let ifJustCreate x = case x of
+                Nothing -> pure Nothing
+                Just v  -> Just <$> newHandle v
+          case res of
+              (a, b, c, ph) -> do
+                  a' <- ifJustCreate a
+                  b' <- ifJustCreate b
+                  c' <- ifJustCreate c
+                  ph' <- newProcessHandle ph
+                  pure $ Dict $ Map.fromList $ first (Keyword . Ident) <$>
+                    [ ("stdin", toRad a')
+                    , ("stdout", toRad b')
+                    , ("stderr", toRad c')
+                    , ("proc", toRad ph')
+                    ]
+      )
+    , ( "write-handle!"
+      , "Write a string to the provided handle."
+      , twoArg "write-handle!" $ \case
+          (Handle h, String msg) -> do
+              h' <- lookupHandle h
+              hPutStrS h' msg
+              pure $ Keyword $ Ident "ok"
+          (Handle _, v) -> throwErrorHere $ TypeError "write-handle!" 1 TString v
+          (v, _) -> throwErrorHere $ TypeError "write-handle!" 0 THandle v
+      )
+    , ( "read-line-handle!"
+      , "Read a single line from a handle."
+      , oneArg "read-line-handle!" $ \case
+          Handle h -> do
+              h' <- lookupHandle h
+              String <$> hGetLineS h'
+          v -> throwErrorHere $ TypeError "read-line-handle!" 0 THandle v
+      )
+    , ( "wait-for-process!"
+      , "Block until process terminates."
+      , oneArg "wait-for-process!" $ \case
+          ProcHandle h -> do
+              h' <- lookupProcHandle h
+              toRad <$> waitForProcessS h'
+          v -> throwErrorHere $ TypeError "wait-for-process!" 0 TProcHandle v
       )
     , ( "exit!"
       , "Exit the interpreter immediately."

@@ -16,5 +16,6 @@ docs/build/
 *.orig
 *.swp
 docs/build/
+my-keys.rad
 TAGS
 rad/my-keys.rad

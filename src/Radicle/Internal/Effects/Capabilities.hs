@@ -11,7 +11,10 @@ import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
-import           System.IO (isEOF)
+import           System.Exit (ExitCode)
+import           System.IO (hGetLine, isEOF)
+import           System.Process
+                 (CreateProcess, ProcessHandle, createProcess, waitForProcess)
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
@@ -46,6 +49,36 @@ instance Stdout IO where
 instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . toS
     supportsANSI = pure True
+
+
+class (Monad m) => System m where
+    systemS
+      :: CreateProcess
+      -> m (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
+    waitForProcessS :: ProcessHandle -> m ExitCode
+    hPutStrS :: Handle -> Text -> m ()
+    hGetLineS :: Handle -> m Text
+
+instance System m => System (Lang m) where
+    systemS proc = lift $ systemS proc
+    waitForProcessS = lift . waitForProcessS
+    hPutStrS a b = lift $ hPutStrS a b
+    hGetLineS = lift . hGetLineS
+instance System IO where
+    systemS = createProcess
+    waitForProcessS = waitForProcess
+    hPutStrS = hPutStr
+    hGetLineS x = toS <$> hGetLine x
+instance System m => System (InputT m) where
+    systemS proc = lift $ systemS proc
+    waitForProcessS = lift . waitForProcessS
+    hPutStrS a b = lift $ hPutStrS a b
+    hGetLineS = lift . hGetLineS
+
+class (Monad m) => Exit m where
+    exitS :: m ()
+instance Exit m => Exit (Lang m) where
+    exitS = lift exitS
 
 class Monad m => CurrentTime m where
   currentTime :: m UTCTime

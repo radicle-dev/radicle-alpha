@@ -11,6 +11,8 @@ import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
 import           GHC.Exts (fromList, toList)
+import           System.IO.Unsafe (unsafePerformIO)
+import           System.Process (CmdSpec(..), StdStream(..))
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
@@ -613,7 +615,8 @@ test_repl_primops :: [TestTree]
 test_repl_primops =
     [ testProperty "(read (get-line!)) returns the input line" $ \(v :: Value) ->
         let prog = [i|(eq? (read (get-line!)) (quote #{renderPrettyDef v}))|]
-            res = run [renderPrettyDef v] $ toS prog
+            -- We're not actually using IO
+            res = unsafePerformIO $ run [renderPrettyDef v] $ toS prog
         in counterexample prog $ res == Right (Boolean True)
 
     , testCase "catch catches read-line errors" $ do
@@ -621,20 +624,22 @@ test_repl_primops =
                  (catch 'any (read-line!) (fn [x] "caught"))
                  |]
             input = ["\"blah"]
-            res = run input prog
+        res <- run input prog
         res @?= Right (String "caught")
     , testCase "read-file! can read a file" $ do
         let prog = "(read-file! \"foobar.rad\")"
             files = Map.singleton "foobar.rad" "foobar"
-        runFiles files prog @?= Right (String "foobar")
+        res <- runFiles files prog
+        res @?= Right (String "foobar")
     , testCase "load! can load definitions" $ do
         let prog = [s|
                    (load! "foo.rad")
                    (+ foo bar)
                    |]
             files = Map.singleton "foo.rad" "(def foo 42) (def bar 8)"
-        runFiles files prog @?= Right (int 50)
-    , testCase "generating and verifying cryptographic signatures works" $
+        res <- runFiles files prog
+        res @?= Right (int 50)
+    , testCase "generating and verifying cryptographic signatures works" $ do
         let prog = [s|
                    (def my-keys (gen-key-pair! (default-ecc-curve)))
                    (def not-my-keys (gen-key-pair! (default-ecc-curve)))
@@ -643,15 +648,17 @@ test_repl_primops =
                    (def ff (verify-signature (lookup :public-key not-my-keys) sig "hello"))
                    (list tt ff)
                    |]
-        in run [] prog @?= Right (List [Boolean True, Boolean False])
-    , testCase "uuid! generates a valid uuid" $
+        res <- run [] prog
+        res @?= Right (List [Boolean True, Boolean False])
+    , testCase "uuid! generates a valid uuid" $ do
         let prog = [s| (uuid? (uuid!)) |]
-        in run [] prog @?= Right (Boolean True)
+        res <- run [] prog
+        res @?= Right (Boolean True)
     ]
   where
-    run stdin' prog = fst $ runTestWith testBindings stdin' prog
-    runFiles :: Map Text Text -> Text -> Either (LangError Value) Value
-    runFiles files prog = fst $ runTestWithFiles testBindings [] files prog
+    run stdin' prog = fst <$> runTestWith testBindings stdin' prog
+    runFiles :: Map Text Text -> Text -> IO (Either (LangError Value) Value)
+    runFiles files prog = fst <$> runTestWithFiles testBindings [] files prog
 
 test_repl :: [TestTree]
 test_repl =
@@ -708,10 +715,6 @@ test_from_to_radicle =
         [ testForType (Proxy :: Proxy ()) ]
     , testGroup "(Foo, Foo)"
         [ testForType (Proxy :: Proxy (Foo, Foo)) ]
-    , testGroup "Env Value"
-        [ testForType (Proxy :: Proxy (Env Value)) ]
-    , testGroup "Bindings ()"
-        [ testForType (Proxy :: Proxy (Bindings ())) ]
     , testGroup "Scientific"
         [ testForType (Proxy :: Proxy Scientific) ]
     , testGroup "Text"
@@ -722,10 +725,29 @@ test_from_to_radicle =
         [ testForType (Proxy :: Proxy [Text]) ]
     , testGroup "Generic a => a"
         [ testForType (Proxy :: Proxy Foo) ]
+
+    , testGroup "StdStream"
+        [ kw "inherit" ~~ Inherit
+        , kw "create-pipe" ~~ CreatePipe
+        , kw "no-stream" ~~ NoStream
+        ]
+
+    , testGroup "CmdSpec"
+        [ Vec (fromList [kw "shell", String "blah blah"]) ~~ ShellCommand "blah blah"
+        , Vec (fromList [kw "raw", String "blah", Vec $ fromList [String "blah", String "blah"]])
+              ~~ RawCommand "blah" ["blah", "blah"]
+        ]
     ]
   where
+    (~~)
+        :: (FromRad Ann.WithPos a, ToRad Ann.WithPos a, Eq a, Show a)
+        => Value -> a -> TestTree
+    v ~~ v' =
+        testCase ("works on " <> show v') $ do
+           fromRad v @?= Right v'
+           untag (toRad v' :: Value) @?= untag v
     testForType
-        :: forall a. (Arbitrary a, Show a, ToRad Ann.WithPos a, FromRad Ann.WithPos a, Eq a)
+        :: forall a . (Arbitrary a, Show a, ToRad Ann.WithPos a, FromRad Ann.WithPos a, Eq a)
         => Proxy a -> TestTree
     testForType _ =
         testProperty "fromRadicle . toRadicle == id" $ \(v :: a ) -> do
@@ -771,15 +793,17 @@ test_source_files = do
             contents <- readFile (dir <> f)
             pure (toS f, contents)
         contents <- readFile (dir <> file)
-        let keyPair :: Text  = case runTest testBindings "(gen-key-pair! (default-ecc-curve))" of
-                    Right kp -> renderCompactPretty kp
-                    Left _   -> panic "Couldn't generate keypair file."
-        let (r, out) = runTestWithFiles testBindings [] (Map.insert "my-keys.rad" keyPair (fromList allFiles)) contents
+        keyPair :: Text <- runTest testBindings "(gen-key-pair! (default-ecc-curve))" >>= \case
+            Right kp -> pure $ renderCompactPretty kp
+            Left _   -> panic "Couldn't generate keypair file."
+        (r, out) <- runTestWithFiles testBindings []
+                        (Map.insert "my-keys.rad" keyPair (fromList allFiles))
+                        contents
         let makeTest line =
                 let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
                          $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line
                 in testCase (toS name) $
-                    if "' succeeded\"" `T.isSuffixOf` line
+                    if "' succeeded" `T.isSuffixOf` line
                         then pure ()
                         else assertFailure . toS $ "test failed: " <> line
         let doesntThrow = if isRight r
@@ -787,7 +811,7 @@ test_source_files = do
                 else assertFailure $ "Expected Right, got: " <> toS (prettyEither r)
         pure $ [testGroup file
             $ testCase "doesn't throw" doesntThrow
-            : [ makeTest ln | ln <- reverse out, "\"Test" `T.isPrefixOf` ln ]]
+            : [ makeTest ln | ln <- reverse out, "Test" `T.isPrefixOf` ln ]]
 
 test_macros :: [TestTree]
 test_macros =
@@ -813,8 +837,8 @@ atom = Atom . unsafeToIdent
 int :: Integer -> Value
 int = Number . fromIntegral
 
--- -- | Like 'parse', but uses "(test)" as the source name and the default set of
--- -- primops.
+-- | Like 'parse', but uses "(test)" as the source name and the default set of
+-- primops.
 parseTest :: MonadError Text m => Text -> m Value
 parseTest t = parse "(test)" t
 
@@ -831,7 +855,7 @@ assertReplInteraction :: [Text] -> [Text] -> IO ()
 assertReplInteraction input expected = do
     (dir, srcs) <- sourceFiles
     srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
-    let (result, output) = runTestWithFiles testBindings input (Map.fromList srcMap) "(load! \"rad/repl.rad\")"
+    (result, output) <- runTestWithFiles testBindings input (Map.fromList srcMap) "(load! \"rad/repl.rad\")"
     case result of
         Left err -> assertFailure $ "Error thrown in Repl: " <> toS (renderPrettyDef err)
         Right _  -> pure ()

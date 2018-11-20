@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+TEMPLATE="$(mktemp)"
+cat << SRC > $TEMPLATE
+;; Issue template. An empty or invalid value will abort.
+{:title      "Pick a title"
+ :body       "Pick a body"
+ :labels     []
+ :state      :open
+ :comments   []
+ :created-at (now!)}
+SRC
+
+SRC_FILE="$(mktemp)"
+cat << SRC > $SRC_FILE
+(load! "rad/monadic/issues.rad")
+(create-issue!
+  $(cat $TEMPLATE | vipe))
+SRC
+radicle $SRC_FILE
+

@@ -1,0 +1,31 @@
+(def intercalate
+  "Intercalates a string in a list of strings"
+  (fn [sep strs]
+    (if (eq? (length strs) 0)
+        ""
+        (foldl
+          string-append
+          (head strs)
+          (map (fn [ln] (string-append sep ln)) (tail strs))))))
+
+(:test "intercalate"
+  [ (intercalate "aa" ["hi" "there"]) ==> "hiaathere" ]
+)
+
+(def unlines
+  "Concatenate a list of strings, with newlines in between."
+  (fn [x]
+    (intercalate "\n" x)))
+
+(:test "unlines"
+  [ (unlines ["hi" "there"]) ==> "hi\nthere" ]
+)
+
+(def unwords
+  "Concatenate a list of strings, with spaces in between."
+  (fn [x]
+    (intercalate " " x)))
+
+(:test "unwords"
+  [ (unwords ["hi" "there"]) ==> "hi there" ]
+)

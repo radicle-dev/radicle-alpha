@@ -1,6 +1,7 @@
 (load! "rad/prelude/test.rad")
 (load! "rad/prelude/basic.rad")
 (load! "rad/prelude/patterns.rad")
+(load! "rad/prelude/strings.rad")
 (load! "rad/prelude/io.rad")
 (load! "rad/prelude/bool.rad")
 (load! "rad/prelude/exception.rad")

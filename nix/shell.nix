@@ -13,21 +13,22 @@ in
 
 stdenv.mkDerivation {
     name = "radicle-dev";
-    buildInputs = [ ghc zlib python3 wget stack postgresql glibcLocales ]
+    buildInputs = [ ghc zlib python3 wget stack postgresql glibcLocales moreutils fzf]
       ++ (if doc then [docstuffs postgresql] else [])
       ++ (if extras then [ vimPlugins.stylish-haskell haskellPackages.apply-refact hlint ] else []);
     libraryPkgconfigDepends = [ zlib ];
     shellHook = ''
+      export PATH=$PATH:`stack path --local-bin`
       eval $(grep export ${ghc}/bin/ghc)
       alias check="pushd $PWD && ./scripts/check-fmt.sh && hlint . && popd"
       alias mkdocs="pushd $PWD/docs && make html && popd"
       alias sb="stack build --fast --system-ghc --nix-packages zlib"
       alias sbs="stack build --fast --system-ghc --nix-packages zlib radicle:exe:radicle-server"
-      alias sbc="stack build --fast --system-ghc --nix-packages zlib radicle:exe:radicle-client"
+      alias sbrad="stack build --fast --system-ghc --nix-packages zlib radicle:exe:radicle"
       alias st="stack test --fast --system-ghc --nix-packages zlib"
       alias sts="stack test --fast --system-ghc --nix-packages zlib radicle:spec"
       alias str="stack test --fast --system-ghc --nix-packages zlib radicle:spec --ta '--pattern \"Radicle source file tests\"'"
       alias server="stack exec radicle-server -- "
-      alias client="stack exec radicle -- rad/repl.rad"
+      alias rad="stack exec radicle -- rad/repl.rad"
     '';
 }

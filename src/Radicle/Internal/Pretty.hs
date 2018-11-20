@@ -29,6 +29,14 @@ class PrettyV a where
 instance PrettyV Reference where
     prettyV _ = annotate TRef $ angles "ref"
 
+-- | As with references, we do not print the actual counter of the handle.
+instance Pretty Hdl where
+    pretty _ = angles "handle"
+
+-- | As with references, we do not print the actual counter of the handle.
+instance Pretty ProcHdl where
+    pretty _ = angles "prochandle"
+
 instance Pretty Ident where
     pretty (Ident i) = pretty i
 
@@ -40,6 +48,8 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
         Atom i -> pretty i
         Keyword i -> ":" <> pretty i
         Ref i -> prettyV i
+        Handle i -> pretty i
+        ProcHandle i -> pretty i
         String t -> "\"" <> pretty (escapeStr t) <> "\""
         Number (a :% b) -> pretty a <> if b == 1 then "" else "/" <> pretty b
         Boolean True -> "#t"

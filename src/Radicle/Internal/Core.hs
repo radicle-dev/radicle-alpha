@@ -5,7 +5,7 @@
 module Radicle.Internal.Core where
 
 import qualified Prelude
-import           Protolude hiding (Constructor, TypeError, (<>))
+import           Protolude hiding (Constructor, Handle, TypeError, (<>))
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
@@ -26,6 +26,9 @@ import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
+import qualified GHC.IO.Handle as Handle
+import           System.Process
+                 (CmdSpec(..), CreateProcess(..), ProcessHandle, StdStream(..))
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
@@ -166,6 +169,52 @@ readRef (Reference r) = do
         Nothing -> throwErrorHere $ Impossible "undefined reference"
         Just v  -> pure v
 
+-- | As with References and ProcHdls, we keep a counter for each handle, and in
+-- the environment map those to actual handles.
+newtype Hdl = Hdl { getHandle :: Int }
+    deriving (Show, Read, Ord, Eq, Generic, Serialise)
+
+-- | Create a new handle.
+newHandle :: Monad m => Handle.Handle -> Lang m Value
+newHandle h = do
+    b <- get
+    let ix = bindingsNextHandle b
+    put $ b { bindingsNextHandle = succ ix
+            , bindingsHandles = IntMap.insert ix h $ bindingsHandles b
+            }
+    pure $ Handle $ Hdl ix
+
+-- | Lookup a handle in the bindings, failing if it does not exist.
+lookupHandle :: Monad m => Hdl -> Lang m Handle.Handle
+lookupHandle (Hdl h) = do
+    hdls <- gets bindingsHandles
+    case IntMap.lookup h hdls of
+        Nothing -> throwErrorHere $ Impossible "no such handle"
+        Just v  -> pure v
+
+-- | As with References and Hdls, we keep a counter for each handle, and in the
+-- environment map those to actual handles.
+newtype ProcHdl = ProcHdl { getProcHandle :: Int }
+    deriving (Show, Read, Ord, Eq, Generic, Serialise)
+
+-- | Lookup a process handle in the bindings, failing if it does not exist.
+lookupProcHandle :: Monad m => ProcHdl -> Lang m ProcessHandle
+lookupProcHandle (ProcHdl h) = do
+    hdls <- gets bindingsProcHandles
+    case IntMap.lookup h hdls of
+        Nothing -> throwErrorHere $ Impossible "no such process handle"
+        Just v  -> pure v
+
+-- | Create a new process handle.
+newProcessHandle :: Monad m => ProcessHandle -> Lang m Value
+newProcessHandle h = do
+    b <- get
+    let ix = bindingsNextProcHandle b
+    put $ b { bindingsNextProcHandle = succ ix
+            , bindingsProcHandles = IntMap.insert ix h $ bindingsProcHandles b
+            }
+    pure $ ProcHandle $ ProcHdl ix
+
 -- | An expression or value in the language.
 data ValueF r =
     -- | A regular (hyperstatic) variable.
@@ -181,6 +230,8 @@ data ValueF r =
     -- | Map from *pure* Values -- annotations shouldn't change lookup semantics.
     | DictF (Map.Map Value r)
     | RefF Reference
+    | HandleF Hdl
+    | ProcHandleF ProcHdl
     -- | Takes the arguments/parameters, a body, and possibly a closure.
     --
     -- The value of an application of a lambda is always the last value in the
@@ -202,6 +253,8 @@ valType = \case
   PrimFn _ -> TFunction
   Dict _ -> TDict
   Ref _ -> TRef
+  Handle _ -> THandle
+  ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
@@ -213,6 +266,8 @@ hashable = \case
   Keyword _ -> True
   PrimFn _ -> False
   Ref _ -> False
+  Handle _ -> False
+  ProcHandle _ -> False
   Lambda{} -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
@@ -225,7 +280,8 @@ dict kvs =
   then pure $ Dict kvs
   else throwErrorHere NonHashableKey
 
-{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda #-}
+{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict
+  , Ref, Handle, ProcHandle, Lambda #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -278,6 +334,16 @@ pattern Ref :: ValueConC t => Reference -> Annotated t ValueF
 pattern Ref i <- (Ann.match -> RefF i)
     where
     Ref = Ann.annotate . RefF
+
+pattern Handle :: ValueConC t => Hdl -> Annotated t ValueF
+pattern Handle i <- (Ann.match -> HandleF i)
+    where
+    Handle = Ann.annotate . HandleF
+
+pattern ProcHandle :: ValueConC t => ProcHdl -> Annotated t ValueF
+pattern ProcHandle i <- (Ann.match -> ProcHandleF i)
+    where
+    ProcHandle = Ann.annotate . ProcHandleF
 
 pattern Lambda :: ValueConC t => [Ident] -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
@@ -378,11 +444,77 @@ instance GhcExts.IsList (PrimFns m) where
 
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
-    { bindingsEnv     :: Env Value
-    , bindingsPrimFns :: prims
-    , bindingsRefs    :: IntMap Value
-    , bindingsNextRef :: Int
-    } deriving (Eq, Show, Functor, Generic)
+    { bindingsEnv            :: Env Value
+    , bindingsPrimFns        :: prims
+    , bindingsRefs           :: IntMap Value
+    , bindingsNextRef        :: Int
+    , bindingsHandles        :: IntMap Handle.Handle
+    , bindingsNextHandle     :: Int
+    , bindingsProcHandles    :: IntMap ProcessHandle
+    , bindingsNextProcHandle :: Int
+    } deriving (Functor, Generic)
+
+emptyBindings :: Bindings (PrimFns m)
+emptyBindings = Bindings mempty mempty mempty 0 mempty 0 mempty 0
+
+-- | Extract an environment and references from a Radicle value and put
+-- them as the current bindings. Primitive functions are not changed.
+--
+-- Throws 'OtherError' if @value@ cannot be parsed.
+--
+-- Satisfies the expected properties with `bindingsToRadicle`:
+--    * `gets bindingsToRadicle >>= setBindings == pure ()`
+--    * `setBindings x >> gets bindingsToRadicle == setBindings x >> pure x`
+setBindings :: Monad m => Value -> Lang m ()
+setBindings value = do
+    case bindingsFromRadicle value of
+        Left e  -> throwErrorHere $ OtherError $ "Invalid bindings: " <> e
+        Right newBindings -> do
+            bnds <- get
+            put $ newBindings
+                { bindingsPrimFns = bindingsPrimFns bnds
+                , bindingsHandles = bindingsHandles bnds
+                , bindingsNextHandle = bindingsNextHandle bnds
+                , bindingsProcHandles = bindingsProcHandles bnds
+                , bindingsNextProcHandle = bindingsNextProcHandle bnds
+                }
+  where
+    bindingsFromRadicle x = case x of
+        Dict d -> do
+            env' <- kwLookup "env" d ?? "Expecting 'env' key"
+            refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
+            refs <- makeRefs refs'
+            env <- envFromRad env'
+            pure $ emptyBindings
+                { bindingsEnv = env
+                , bindingsRefs = refs
+                , bindingsNextRef = length refs
+                }
+        _ -> throwError "Expecting dict"
+    makeRefs refs = case refs of
+        List ls -> pure (IntMap.fromList $ zip [0..] ls)
+        _       -> throwError $ "Expecting dict"
+    envFromRad env = case env of
+        Dict d -> fmap (Env . Map.fromList)
+                $ forM (Map.toList d) $ \(k, v) -> case k of
+            Atom i -> (i, ) <$> fromRad v
+            k'     -> Left $ "Expecting atom keys. Got: " <> show k'
+        _ -> Left "Expecting dict"
+
+-- | Serializes the environment and references into a Radicle value.
+--
+-- Satisfies the expected properties with `setBindings`:
+--    * `gets bindingsToRadicle >>= setBindings == pure ()`
+--    * `setBindings x >> gets bindingsToRadicle == setBindings x >> pure x`
+bindingsToRadicle :: Bindings a -> Value
+bindingsToRadicle x =
+    Dict $ Map.fromList
+        [ (Keyword $ Ident "env", env)
+        , (Keyword $ Ident "refs", refs)
+        ]
+  where
+    env = Dict . Map.mapKeys Atom . Map.map toRad . fromEnv $ bindingsEnv x
+    refs = List $ IntMap.elems (bindingsRefs x)
 
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
@@ -412,16 +544,6 @@ runLang
     -> Lang m a
     -> m (Either (LangError Value) a, Bindings (PrimFns m))
 runLang e l = runStateT (runExceptT $ fromLangT l) e
-
--- | Like 'local' or 'withState'. Will run an action with a modified environment
--- and then restore the original bindings.
-withBindings :: Monad m => (Bindings (PrimFns m) -> Bindings (PrimFns m)) -> Lang m a -> Lang m a
-withBindings modifier action = do
-    oldBnds <- get
-    modify modifier
-    res <- action
-    put oldBnds
-    pure res
 
 -- | Like 'local' or 'withState'. Will run an action with a modified environment
 -- and then restore the original environment. Other bindings (i.e. primops and
@@ -467,18 +589,15 @@ defineAtom i d v = modify $ addBinding i d v
 eval :: Monad m => Value -> Lang m Value
 eval val = do
     e <- lookupAtom (Ident "eval")
-    st <- gets toRad
-    logValPos e $ callFn e [val, st] >>= updateEnvAndReturn
-  where
-    updateEnvAndReturn :: Monad m => Value -> Lang m Value
-    updateEnvAndReturn v = case v of
-        List [val', newSt] -> do
-            prims <- gets bindingsPrimFns
-            newSt' <- either (throwErrorHere . OtherError) pure
-                      (fromRad newSt :: Either Text (Bindings ()))
-            put $ newSt' { bindingsPrimFns = prims }
-            pure val'
-        _ -> throwErrorHere $ OtherError "eval: should return list with value and new env"
+    logValPos e $ do
+        st <- gets bindingsToRadicle
+        result <- callFn e [val, st]
+        case result of
+            List [val', newSt] -> do
+                setBindings newSt
+                pure val'
+            _ -> throwErrorHere
+               $ OtherError "eval: should return list with value and new env"
 
 
 -- | The built-in, original, eval.
@@ -635,6 +754,15 @@ instance CPA t => FromRad t Text where
     fromRad x = case x of
         String n -> pure n
         _        -> Left "Expecting string"
+instance {-# OVERLAPPING #-} CPA t => FromRad t [Char] where
+    fromRad x = case x of
+        String n -> pure $ toS n
+        _        -> Left "Expecting string"
+instance CPA t => FromRad t ExitCode where
+    fromRad x = case x of
+        Keyword (Ident "ok") -> pure $ ExitSuccess
+        Vec (Keyword (Ident "error") Seq.:<| errValue Seq.:<| Seq.Empty) -> ExitFailure <$> fromRad errValue
+        _ -> Left "Expecting either :ok or [:error errValue]"
 instance (CPA t, FromRad t a) => FromRad t [a] where
     fromRad x = case x of
         List xs -> traverse fromRad xs
@@ -646,28 +774,47 @@ instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
       doc <- traverse fromRad (kwLookup "doc" d)
       pure (Doc.Docd doc val)
     fromRad _ = Left "Expecting a dict."
-instance FromRad Ann.WithPos (Env Value) where
+instance CPA t => FromRad t CmdSpec where
     fromRad x = case x of
-        Dict d -> fmap (Env . Map.fromList)
-                $ forM (Map.toList d) $ \(k, v) -> case k of
-            Atom i -> do
-              docd <- fromRad v
-              pure (i, docd)
-            k'     -> Left $ "Expecting atom keys. Got: " <> show k'
-        _ -> Left "Expecting dict"
-instance FromRad Ann.WithPos (Bindings ()) where
+        Vec (Keyword (Ident "shell") Seq.:<| arg Seq.:<| Seq.Empty) ->
+            ShellCommand <$> fromRad arg
+        Vec (Keyword (Ident "raw") Seq.:<| comm Seq.:<| args Seq.:<| Seq.Empty) ->
+            RawCommand <$> fromRad comm <*> fromRad args
+        Vec (Keyword (Ident s) Seq.:<| _) ->
+            throwError $ "Expecting either :raw or :shell, got: " <> s
+        _ ->
+            throwError "Expecting vector"
+instance CPA t => FromRad t StdStream where
+    fromRad x = case x of
+        Keyword (Ident "inherit") -> pure Inherit
+        Keyword (Ident "create-pipe") -> pure CreatePipe
+        Keyword (Ident "no-stream") -> pure NoStream
+        _ -> throwError $ "Expecting :inherit, :create-pipe, or :no-stream"
+instance CPA t => FromRad t CreateProcess where
     fromRad x = case x of
         Dict d -> do
-            env' <- kwLookup "env" d ?? "Expecting 'env' key"
-            refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
-            refs <- makeRefs refs'
-            env <- fromRad env'
-            pure $ Bindings env () refs (length refs)
-        _ -> throwError "Expecting dict"
-      where
-        makeRefs refs = case refs of
-            List ls -> pure (IntMap.fromList $ zip [0..] ls)
-            _       -> throwError $ "Expecting dict"
+            cmdspec' <- fromRad =<< (kwLookup "cmdspec" d ?? "Expecting 'cmdspec' key")
+            stdin' <- fromRad =<< (kwLookup "stdin" d ?? "Expecting 'stdin' key")
+            stdout' <- fromRad =<< (kwLookup "stdout" d ?? "Expecting 'stdout' key")
+            stderr' <- fromRad =<< (kwLookup "stderr" d ?? "Expecting 'stderr' key")
+            pure CreateProcess
+                { cmdspec = cmdspec'
+                , cwd = Nothing
+                , env = Nothing
+                , std_in = stdin'
+                , std_out = stdout'
+                , std_err = stderr'
+                , close_fds = False
+                , create_group = False
+                , delegate_ctlc = False
+                , detach_console = False
+                , create_new_console = False
+                , new_session = False
+                , child_group = Nothing
+                , child_user = Nothing
+                , use_process_jobs = False
+                }
+        _ -> throwError "Expecting dictionary"
 
 
 class ToRad t a where
@@ -681,7 +828,11 @@ instance CPA t => ToRad t () where
 instance CPA t => ToRad t Bool where
     toRad = Boolean
 instance (CPA t, ToRad t a, ToRad t b) => ToRad t (a,b) where
-    toRad (x,y) = Vec $ toRad x :<| toRad y :<| Empty
+    toRad (a,b) = Vec $ toRad a :<| toRad b :<| Empty
+instance (CPA t, ToRad t a, ToRad t b, ToRad t c) => ToRad t (a,b,c) where
+    toRad (a,b,c) = Vec $ toRad a :<| toRad b :<| toRad c :<| Empty
+instance (CPA t, ToRad t a, ToRad t b, ToRad t c, ToRad t d) => ToRad t (a,b,c,d) where
+    toRad (a,b,c,d) = Vec $ toRad a :<| toRad b :<| toRad c :<| toRad d :<| Empty
 instance (CPA t, ToRad t a) => ToRad t (Maybe a) where
     toRad Nothing  = Keyword (Ident "nothing")
     toRad (Just x) = Vec $ Keyword (Ident "just") :<| toRad x :<| Empty
@@ -693,6 +844,12 @@ instance CPA t => ToRad t Scientific where
     toRad = Number . toRational
 instance CPA t => ToRad t Text where
     toRad = String
+instance {-# OVERLAPPING #-} CPA t => ToRad t [Char] where
+    toRad = String . toS
+instance CPA t => ToRad t ExitCode where
+    toRad x = case x of
+        ExitSuccess -> Keyword (Ident "ok")
+        ExitFailure c -> Vec $ Seq.fromList [Keyword (Ident "error"), toRad c]
 instance ToRad t (Ann.Annotated t ValueF) where
     toRad = identity
 instance (CPA t, ToRad t a) => ToRad t [a] where
@@ -703,13 +860,21 @@ instance CPA t => ToRad t (Doc.Docd (Annotated t ValueF)) where
     toRad (Doc.Docd d_ v) = Dict $ Map.fromList $ ( Keyword (Ident "val"), v) : case d_ of
       Just d  -> [ (Keyword (Ident "doc"), toRad d) ]
       Nothing -> []
-instance ToRad Ann.WithPos (Env Value) where
-    toRad x = Dict . Map.mapKeys Atom . Map.map toRad $ fromEnv x
-instance ToRad Ann.WithPos (Bindings m) where
-    toRad x = Dict $ Map.fromList
-        [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
-        , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs x))
-        ]
+instance (CPA t) => ToRad t StdStream where
+    toRad x = case x of
+        Inherit    -> Keyword $ Ident "inherit"
+        CreatePipe -> Keyword $ Ident "create-pipe"
+        NoStream   -> Keyword $ Ident "no-stream"
+        _          -> panic "Cannot convert handle"
+instance (CPA t) => ToRad t CmdSpec where
+    toRad x = case x of
+        ShellCommand comm ->
+            let c = toRad comm
+            in Vec $ Seq.fromList [Keyword (Ident "shell"), c]
+        RawCommand f args ->
+            let f' = toRad f
+                args' = toRad args
+            in Vec $ Seq.fromList [Keyword (Ident "raw"), f', args']
 
 -- * Helpers
 

@@ -25,7 +25,7 @@ import qualified Radicle.Internal.UUID as UUID
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
 pureEnv =
-    addPrimFns purePrimFns $ Bindings e mempty mempty 0
+    addPrimFns purePrimFns $ Bindings e mempty mempty 0 mempty 0 mempty 0
   where
     e = fromList . allDocs $
           [ ( "eval"
@@ -57,21 +57,20 @@ purePrimFns = fromList $ allDocs $
         \ state. Return a list of length 2 consisting of the result of the\
         \ evaluation and the new state."
       , \case
-          [expr, st] -> case (fromRad st :: Either Text (Bindings ())) of
-              Left e -> throwErrorHere $ OtherError e
-              Right st' -> do
-                prims <- gets bindingsPrimFns
-                withBindings (const $ fmap (const prims) st') $ do
-                  val <- baseEval expr
-                  st'' <- get
-                  pure $ List [val, toRad st'']
+          [expr, st] -> do
+              originalBindings <- get
+              setBindings st
+              val <- baseEval expr
+              st' <- get
+              put originalBindings
+              pure $ List [val, bindingsToRadicle st']
           xs -> throwErrorHere $ WrongNumberOfArgs "base-eval" 2 (length xs)
       )
     , ( "pure-env"
       , "Returns a pure initial radicle state. This is the state of a radicle\
         \ chain before it has processed any inputs."
       , \case
-          [] -> pure $ toRad (pureEnv :: Bindings (PrimFns m))
+          [] -> pure $ bindingsToRadicle (pureEnv :: Bindings (PrimFns m))
           xs -> throwErrorHere $ WrongNumberOfArgs "pure-env" 0 (length xs)
       )
     , ("apply"
@@ -96,17 +95,12 @@ purePrimFns = fromList $ allDocs $
     , ("get-current-env"
       , "Returns the current radicle state."
       , \case
-          [] -> toRad <$> get
+          [] -> gets bindingsToRadicle
           xs -> throwErrorHere $ WrongNumberOfArgs "get-current-env" 0 (length xs))
     , ( "set-current-env"
       , "Replaces the radicle state with the one provided."
       , oneArg "set-current-env" $ \x -> do
-          e' :: Bindings () <- fromRadOtherErr x
-          e <- get
-          put e { bindingsEnv = bindingsEnv e'
-                , bindingsNextRef = bindingsNextRef e'
-                , bindingsRefs = bindingsRefs e'
-                }
+          setBindings x
           pure ok
       )
     , ("list"
@@ -257,6 +251,17 @@ purePrimFns = fromList $ allDocs $
             pure . Dict . Map.fromList $ zip (fst <$> kvs) vs
           (_, v) -> throwErrorHere $ TypeError "map-values" 1 TDict v
       )
+    , ( "map-keys"
+      , "Given a function `f` and a dict `d`, returns a dict with the same values as `d`\
+        \ but `f` applied to all the keys.\
+        \ If `f` maps two keys to the same thing, the greatest key and value are kept."
+      , twoArg "map-keys" $ \case
+          (f, Dict m) -> do
+            let kvs = Map.toList m
+            vs <- traverse (\v -> callFn f [v]) (fst <$> kvs)
+            dict . Map.fromList $ zip vs (snd <$> kvs)
+          (_, v) -> throwErrorHere $ TypeError "map-keys" 1 TDict v
+      )
 
     -- Structures
     , ( "<>"
@@ -288,6 +293,15 @@ purePrimFns = fromList $ allDocs $
           in case find (\(_, s_, _) -> isNothing s_) ss of
                Just (v, _, i) -> throwErrorHere $ TypeError "string-append" i TString v
                Nothing -> pure . String . mconcat $ catMaybes $ (\(_,x,_) -> x) <$> ss
+      )
+    , ( "string-replace"
+      , "Replace all occurrences of the first argument with the second in the third."
+      , \case
+         [String old, String new, String str] -> pure $ String $ T.replace old new str
+         [String _, String _, v] -> throwErrorHere $ TypeError "string-replace" 2 TString v
+         [String _, v, _] -> throwErrorHere $ TypeError "string-replace" 1 TString v
+         [v, _, _] -> throwErrorHere $ TypeError "string-replace" 0 TString v
+         xs -> throwErrorHere $ WrongNumberOfArgs "string-replace" 3 (length xs)
       )
     , ( "insert"
       , "Given `k`, `v` and a dict `d`, returns a dict with the same associations\

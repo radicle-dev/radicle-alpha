@@ -358,7 +358,6 @@ is empty, in which case an exception is thrown.
 Given a sequence ``xs`` and a function ``f``, returns a sequence with
 the same elements ``x`` of ``xs`` but sorted according to ``(f x)``.
 
-<<<<<<< HEAD
 ``zip``
 ~~~~~~~
 
@@ -366,8 +365,6 @@ Takes two sequences and returns a sequence of corresponding pairs. In
 one sequence is shorter than the other, the excess elements of the
 longer sequence are discarded.
 
-=======
->>>>>>> UUIDs are just used as nonces and other improvements.
 Dicts
 -----
 
@@ -429,6 +426,13 @@ already exists, it is overwritten.
 Given a function ``f`` and a dict ``d``, returns a dict with the same
 keys as ``d`` but ``f`` applied to all the associated values.
 
+``map-keys``
+~~~~~~~~~~~~
+
+Given a function ``f`` and a dict ``d``, returns a dict with the same
+values as ``d`` but ``f`` applied to all the keys. If ``f`` maps two
+keys to the same thing, the greatest key and value are kept.
+
 ``(modify-map key f mp)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -487,6 +491,32 @@ Create a set from a sequence.
 ~~~~~~~~~~~~~~~~~~
 
 Convert a set to a vector.
+
+Strings
+-------
+
+Functions for manipulating strings.
+
+``(intercalate sep strs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Intercalates a string in a list of strings
+
+``(unlines x)``
+~~~~~~~~~~~~~~~
+
+Concatenate a list of strings, with newlines in between.
+
+``string-replace``
+~~~~~~~~~~~~~~~~~~
+
+Replace all occurrences of the first argument with the second in the
+third.
+
+``(unwords x)``
+~~~~~~~~~~~~~~~
+
+Concatenate a list of strings, with spaces in between.
 
 Structures
 ----------
@@ -675,10 +705,10 @@ Input/Output
 Effectful functions. These functions are not available in 'pure' chains,
 but are available in the local REPL.
 
-``print!``
-~~~~~~~~~~
+``(print! x)``
+~~~~~~~~~~~~~~
 
-Pretty-prints a value.
+Print a value to the console or stdout.
 
 ``get-line!``
 ~~~~~~~~~~~~~
@@ -705,6 +735,34 @@ Read code (as data) from a file. Returns a vector of expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Send code from a file to a remote chain.
+
+``put-str!``
+~~~~~~~~~~~~
+
+Prints a string.
+
+``(process! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Executes ``command`` using 'execvp'. with 'to-write' as input. Stdout
+and stderr are inherit. See 'man exec' for more information on 'execvp'.
+Example: ``(process! "ls" ["-Glah"] "")``.
+
+``(shell! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Executes ``command`` using the shell with ``to-write`` as input. Stdout
+and stderr are inherited. WARNING: using ``shell!`` with unsanitized
+user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
+
+``system!``
+~~~~~~~~~~~
+
+(system! proc) execute a system process. Returns the dict with the form
+``{ :stdin maybe-handle      :stdout maybe-handle      :stderr maybe-handle      :proc prochandle    }``
+Where ``maybe-handle`` is either ``[:just handle]`` or ``:nothing``.
+Note that this is quite a low-level function; higher-level ones are more
+convenient.
 
 ``(send-prelude! chain-id)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -733,6 +791,21 @@ Read a single line of input and interpret it as radicle data.
 ~~~~~~~~~
 
 Exit the interpreter immediately.
+
+``read-line-handle!``
+~~~~~~~~~~~~~~~~~~~~~
+
+Read a single line from a handle.
+
+``wait-for-process!``
+~~~~~~~~~~~~~~~~~~~~~
+
+Block until process terminates.
+
+``write-handle!``
+~~~~~~~~~~~~~~~~~
+
+Write a string to the provided handle.
 
 ``now!``
 ~~~~~~~~
@@ -945,7 +1018,6 @@ functions before sending these to a remote chain.
 
 Return an empty chain dictionary with the given url.
 
-<<<<<<< HEAD
 ``(@var ident)``
 ~~~~~~~~~~~~~~~~
 
@@ -953,15 +1025,6 @@ A lens for variables in states of chains.
 
 ``(eval-in-chain expr chain)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-=======
-``@var``
-~~~~~~~~
-
-A lens for variables in states of chains.
-
-``eval-in-chain``
-~~~~~~~~~~~~~~~~~
->>>>>>> UUIDs are just used as nonces and other improvements.
 
 Evaluates 'expr' in the 'chain' and returns a dict with the ':result'
 and the resulting ':chain'.
