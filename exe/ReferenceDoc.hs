@@ -124,7 +124,6 @@ main = do
     allFns =
          basics ++ maths ++ evalFns ++ envStuff ++ seqs ++ lists ++ vecs
       ++ dicts ++ sets ++ structs ++ patterns ++ refs ++ docs ++ io ++ maybe' ++ lens ++ validation ++ crypto ++ chainTools
-      -- ++ issueChain
       ++ doNotInclude
 
     valueDoc env name =
