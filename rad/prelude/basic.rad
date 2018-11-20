@@ -31,6 +31,7 @@
        )
 
 (def empty-seq?
+  "Returns true if the input is an empty sequence (either list or vector)."
   (fn [xs]
     (or (eq? xs (list))
         (eq? xs []))))

@@ -51,6 +51,8 @@ main = do
       , sec "Dicts" dicts $ typ "dicts"
       , sec "Sets" sets $ typ "sets"
       , sec "Structures" structs $ typ "lists, vectors and dicts"
+      , sec "Patterns" patterns
+            "Pattern matching is first-class in radicle so new patterns can easily be defined. These are the most essential."
       , sec "Refs" refs "Functions for creating, querying and modifying refs."
       , sec "Evaluation functions" evalFns "Utilities for creating and extending evaluation functions."
       , sec "Documentation and testing" docs
@@ -58,6 +60,8 @@ main = do
       , sec "Environment functions" envStuff "Utilities for modifying the current environment."
       , sec "Input/Output" io
             "Effectful functions. These functions are not available in 'pure' chains, but are available in the local REPL."
+      , sec "Maybe" maybe'
+            "Optionality is represented using `[:Just x]` for when the value exists, and `:Nothing` when it doesn't."
       , sec "Lenses" lens
             "Functional references into radicle values."
       , sec "Validation" validation
@@ -74,13 +78,13 @@ main = do
 
     basics =
       [ "eq?", "not", "and", "or", "all", "some", "show", "string-append", "string-length"
-      , "apply", "type", "atom?", "boolean?", "string?", "number?", "keyword?", "list?"
+      , "apply", "type", "atom?", "boolean?", "string?", "number?", "keyword?", "vector?", "list?"
       , "dict?", "read", "read-many", "throw", "Y", "Y2", "to-json", "uuid?", "make-counter"
       , "public-key?" ]
     maths = ["+", "*", "-", "/", "<", ">", "integral?"]
     evalFns = ["base-eval", "eval", "updatable-eval"]
     envStuff = ["pure-env", "get-current-env", "set-current-env", "set-env!"]
-    seqs = ["nth", "foldl", "foldr", "map", "seq", "take", "drop", "sort-by"]
+    seqs = ["empty-seq?", "nth", "foldl", "foldr", "map", "seq", "take", "drop", "sort-by"]
     lists =
       [ "list", "nil", "head", "tail", "empty?", "cons", "reverse", "length", "concat"
       , "filter", "range", "list-with-head" ]
@@ -90,6 +94,7 @@ main = do
       , "map-values", "modify-map", "delete-many"]
     sets = ["set/empty", "set/insert", "set/delete", "set/member?", "set/delete", "set/from-seq", "set/to-vec"]
     structs = ["member?"]
+    patterns = ["match-pat", "_", "/?", "/nil", "/cons", "/keys"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
     docs = ["help", "doc", "doc!", "apropos!", "document", "is-test-env"]
     io =
@@ -97,6 +102,7 @@ main = do
       , "load!", "read-file!", "read-code!", "send-code!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"
       , "now!"]
+    maybe' = ["/Just", "maybe->>=", "maybe-foldlM"]
     lens = ["@", "@nth", "make-lens", "view", "view-ref", "set", "set-ref", "over", "over-ref", "id-lens", "..", "..."]
     validation =
       [ "validator/=", "validator/member", "validator/type", "validator/pred", "validator/every"
@@ -117,7 +123,8 @@ main = do
 
     allFns =
          basics ++ maths ++ evalFns ++ envStuff ++ seqs ++ lists ++ vecs
-      ++ dicts ++ sets ++ structs ++ refs ++ docs ++ io ++ lens ++ validation ++ crypto ++ chainTools
+      ++ dicts ++ sets ++ structs ++ patterns ++ refs ++ docs ++ io ++ maybe' ++ lens ++ validation ++ crypto ++ chainTools
+      -- ++ issueChain
       ++ doNotInclude
 
     -- Function symbol followed by a hard line break, followed by it's doc.

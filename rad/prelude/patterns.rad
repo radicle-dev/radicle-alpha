@@ -15,6 +15,7 @@
   (fn [v] [:Just {}]))
 
 (def /Just
+  "Pattern which matches `[:Just x]`."
   (fn [pat]
     (fn [v]
       (if (vector? v)
@@ -26,14 +27,14 @@
         :Nothing))))
 
 (def maybe->>=
-  "Monadic bind in the maybe monad."
+  "Monadic bind for the maybe monad."
   (fn [xs f]
     (match xs
            (/Just 'x) (f x)
            :Nothing :Nothing)))
 
 (def /cons
-  "A pattern for lists with a head."
+  "A pattern for lists with a head and a tail."
   (fn [x-pat xs-pat]
     (fn [v]
       (if (list? v)
@@ -70,7 +71,7 @@
     (if (empty-seq? xs)
       [:Just i]
       (maybe->>= (f i (nth 0 xs))
-                 (fn [b] (maybe-foldlM f (<> i b) (drop 1 xs)))))))
+                 (fn [b] (maybe-foldlM f b (drop 1 xs)))))))
 
 (def /keys
   "A pattern for matching values at specific keys in a dict."

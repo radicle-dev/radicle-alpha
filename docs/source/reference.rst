@@ -95,6 +95,11 @@ Checks if the argument is a number.
 
 Checks if the argument is a keyword.
 
+``vector?``
+~~~~~~~~~~~
+
+Checks if the argument is a vector.
+
 ``list?``
 ~~~~~~~~~
 
@@ -291,6 +296,11 @@ Sequences
 
 Functions for manipulating boths lists and vectors.
 
+``empty-seq?``
+~~~~~~~~~~~~~~
+
+Returns true if the input is an empty sequence (either list or vector).
+
 ``nth``
 ~~~~~~~
 
@@ -472,6 +482,43 @@ Given ``v`` and structure ``s``, checks if ``x`` exists in ``s``. The
 structure ``s`` may be a list, vector or dict. If it is a list or a
 vector, it checks if ``v`` is one of the items. If ``s`` is a dict, it
 checks if ``v`` is one of the keys.
+
+Patterns
+--------
+
+Pattern matching is first-class in radicle so new patterns can easily be
+defined. These are the most essential.
+
+``match-pat``
+~~~~~~~~~~~~~
+
+The pattern matching dispatch function. This function defines how
+patterns are treated in ``match`` expressions.
+
+``_``
+~~~~~
+
+The wildcard pattern.
+
+``/?``
+~~~~~~
+
+Predicate pattern.
+
+``/nil``
+~~~~~~~~
+
+Empty-list pattern.
+
+``/cons``
+~~~~~~~~~
+
+A pattern for lists with a head and a tail.
+
+``/keys``
+~~~~~~~~~
+
+A pattern for matching values at specific keys in a dict.
 
 Refs
 ----
@@ -660,6 +707,28 @@ Exit the interpreter immediately.
 
 Returns a timestamp for the current Coordinated Universal Time (UTC),
 right now, formatted according to ISO 8601.
+
+Maybe
+-----
+
+Optionality is represented using ``[:Just x]`` for when the value
+exists, and ``:Nothing`` when it doesn't.
+
+``/Just``
+~~~~~~~~~
+
+Pattern which matches ``[:Just x]``.
+
+``maybe->>=``
+~~~~~~~~~~~~~
+
+Monadic bind for the maybe monad.
+
+``maybe-foldlM``
+~~~~~~~~~~~~~~~~
+
+Monadic fold over the elements of a seq, associating to the left (i.e.
+from left to right) in the maybe monad.
 
 Lenses
 ------
