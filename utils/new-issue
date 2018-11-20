@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+TEMPLATE="$(mktemp)"
+cat << SRC > $TEMPLATE
+{:title      "Pick a title"
+ :body       "Pick a body"
+ :labels     []
+ :state      :open
+ :comments   []
+ :created-at (now!)}
+SRC
+
+SRC_FILE="$(mktemp)"
+cat << SRC > $SRC_FILE
+(load! "rad/monadic/issues.rad")
+(create-issue!
+  $(cat $TEMPLATE | vipe))
+SRC
+
+# cat << SRC > $SRC_FILE
+# (load! "rad/monadic/issues.rad")
+# (create-issue1
+# (load-chain "http://radicle.xyz/chains/radicle-issues")
+# (map short (values (list-issues)))
+# SRC
+
+cat $SRC_FILE
+# stack exec --silent radicle -- $SRC_FILE | less
+

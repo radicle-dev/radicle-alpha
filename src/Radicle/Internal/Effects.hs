@@ -206,6 +206,13 @@ replPrimFns = fromList $ allDocs $
           [] -> String <$> UUID.uuid
           xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
       )
+    , ( "process!"
+      , "(process! proc args stdin) execute a system process. Returns a vector with the exit code, standard out, and standard error"
+      , \case
+          [String proc, Vec args, String stdin] -> do
+            processS proc args stdin
+          xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
+      )
     , ( "exit!"
       , "Exit the interpreter immediately."
       , \case

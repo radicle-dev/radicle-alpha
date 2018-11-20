@@ -12,6 +12,8 @@ import           Data.Time
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.IO (isEOF)
+import           System.Exit (ExitCode)
+import           System.Process (readCreateProcessWithExitCode)
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
@@ -46,6 +48,21 @@ instance Stdout IO where
 instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . toS
     supportsANSI = pure True
+
+class (Monad m) => Process m where
+    processS :: Text -> [Text] -> Text -> m (ExitCode, Text, Text)
+
+instance Process m => Process (Lang m) where
+    processS proc args stdin = lift $ processS args stdin
+instance Process IO where
+    processS proc args stdin = readProcessWithExitCode (toS proc) (toS <$> args) (toS stdin)
+instance Process m => Process (InputT m) where
+    processS proc args stdin = lift $ processS args stdin
+
+class (Monad m) => Exit m where
+    exitS :: m ()
+instance Exit m => Exit (Lang m) where
+    exitS = lift exitS
 
 class Monad m => CurrentTime m where
   currentTime :: m UTCTime
