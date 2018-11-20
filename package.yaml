@@ -23,6 +23,7 @@ dependencies:
 - megaparsec
 - mtl
 - pointed
+- process
 - prettyprinter
 - prettyprinter-ansi-terminal
 - recursion-schemes

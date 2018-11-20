@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+FILE="$(mktemp)"
+cat << SRC > $FILE
+(load! "rad/monadic/issues.rad")
+(load-chain "http://radicle.xyz/chains/radicle-issues")
+(print! (map short (values (list-issues))))
+SRC
+stack exec --silent radicle -- $FILE | fzf
+
