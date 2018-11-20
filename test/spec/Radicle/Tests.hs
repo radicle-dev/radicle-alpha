@@ -782,7 +782,10 @@ test_source_files = do
             contents <- readFile (dir <> f)
             pure (toS f, contents)
         contents <- readFile (dir <> file)
-        let (r, out) = runTestWithFiles testBindings [] (fromList allFiles) contents
+        let keyPair :: Text  = case runTest testBindings "(gen-key-pair! (default-ecc-curve))" of
+                    Right kp -> renderCompactPretty kp
+                    Left _ -> panic "Couldn't generate keypair file."
+        let (r, out) = runTestWithFiles testBindings [] (Map.insert "my-keys.rad" keyPair (fromList allFiles)) contents
         let makeTest line =
                 let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
                          $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line

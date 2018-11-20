@@ -231,8 +231,8 @@ purePrimFns = fromList $ allDocs $
       , \case
           [a, Dict m] -> case Map.lookup a m of
               Just v  -> pure v
-              Nothing -> throwErrorHere $ TypeError $ "lookup: key did not exist: " <> renderCompactPretty a
-          [_, _]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict"
+              Nothing -> throwErrorHere $ OtherError $ "lookup: key did not exist: " <> renderCompactPretty a
+          [_, d]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict: " <> renderCompactPretty d
           xs -> throwErrorHere $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ( "map-values"
       , "Given a function `f` and a dict `d`, returns a dict with the same keys as `d`\
