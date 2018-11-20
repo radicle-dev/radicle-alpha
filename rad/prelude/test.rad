@@ -34,7 +34,8 @@
                     (def maybe-setup (nth 0 test-contents))
                     ;; If first block starts with :setup, run tests in that env
                     (if (eq? (nth 0 maybe-setup) :setup)
-                        (foldl (fn [ix x] (check-single x ix (nth 1 (eval (nth 1 maybe-setup) env)))) 1 (tail test-contents))
+                        (do (def setup-env (nth 1 (eval (nth 1 maybe-setup) env)))
+                            (foldl (fn [ix x] (check-single x ix setup-env)) 1 (tail test-contents)))
                         (foldl (fn [ix x] (check-single x ix env)) 1 test-contents))
                     (list :ok env))
                   (list :ok env))
