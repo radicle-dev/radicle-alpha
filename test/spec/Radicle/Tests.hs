@@ -771,8 +771,9 @@ test_cbor =
 -- Note that loaded files will also be tested, so there's no need to test files
 -- loaded by the prelude individually.
 test_source_files :: IO TestTree
-test_source_files = testGroup "Radicle source file tests" <$>
-    testOne "rad/prelude.rad"
+test_source_files = do
+    tests <- join <$> traverse testOne ["rad/prelude.rad", "rad/monadic/issues.rad"]
+    pure $ testGroup "Radicle source file tests" tests
   where
     testOne :: FilePath -> IO [TestTree]
     testOne file = do

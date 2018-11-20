@@ -4,6 +4,8 @@
 ;; Create a remote issue chain. Returns a ref for the chain that you
 ;; can assign to a variable.
 
+(load! "rad/prelude.rad")
+
 (def radicle-issues-chain-id
   "The name of this chain."
   "monadic/radicle/issues")

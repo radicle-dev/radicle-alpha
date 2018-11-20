@@ -99,4 +99,29 @@
        (verify-signature
         (lookup :author d)
         (lookup :signature d)
-        (show (delete :author (delete :signature d))))))]))
+        (show (delete-many [:author :signature] d)))))]))
+
+(:test "validator/signed"
+  [:setup
+   (do (def keys (gen-key-pair! (default-ecc-curve)))
+       (def sk (lookup :private-key keys))
+       (def pk (lookup :public-key keys))
+       (def payload
+         {:nonce (uuid!)
+          :some "data"})
+       (def payload_ (insert :some "datadata" payload))
+       (def sig  (gen-signature! sk (show payload)))
+       (def seal {:author    (lookup :public-key keys)
+                  :signature sig})
+       (def full (<> payload seal))
+       (def full_ (<> payload_ seal))
+       ;; (def ok
+       ;;   (catch 'any (do (validator/signed full) :ok) (fn [x] :not-ok)))
+       ;; (def not-ok
+       ;;   (catch 'any (do (validator/signed full_) :not-ok) (fn [x] :ok)))
+       (def ok :ok)
+       (def not-ok :not-ok)
+       )
+   ]
+  [ ok ==> :ok ]
+  [ not-ok ==> :not-ok ])

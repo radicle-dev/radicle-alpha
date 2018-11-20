@@ -70,8 +70,6 @@ main = do
             "These functions can be used to simulate remote chains in the local REPL.\
             \ This is useful for experimenting with inputs or even new evaluation functions\
             \ before sending these to a remote chain."
-      -- , sec "Issue chain" issueChain
-      --       "These functions allow creating and interacting with the default issues chain."
       ]
 
     basics =
@@ -120,7 +118,6 @@ main = do
     allFns =
          basics ++ maths ++ evalFns ++ envStuff ++ seqs ++ lists ++ vecs
       ++ dicts ++ sets ++ structs ++ refs ++ docs ++ io ++ lens ++ validation ++ crypto ++ chainTools
-      -- ++ issueChain
       ++ doNotInclude
 
     -- Function symbol followed by a hard line break, followed by it's doc.
