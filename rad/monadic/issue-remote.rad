@@ -101,7 +101,7 @@
     (delete-many [:chain-id :signature :nonce :issue-number] e)))
 
 (def create-issue
-  "Create an issue from a dict, checking it is valid and storing it in `issues`."
+  "Create an issue from a dict, checking that it is valid and storing it in `issues`."
   (fn [i]
     (validator/issue-input i)
     (def n (issue-counter))
