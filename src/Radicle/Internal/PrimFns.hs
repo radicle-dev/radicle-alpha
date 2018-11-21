@@ -524,6 +524,12 @@ purePrimFns = fromList $ allDocs $
                          fromMaybe ("No documentation found for " <> fromIdent i <> ".") d
           _ -> throwErrorHere $ OtherError "doc: expects an atom"
       )
+    , ( "match-pat"
+      , "The most basic built-in pattern-matching dispatch function."
+      , twoArg "match-pat" $ \case
+          (x@(Atom _), v) -> pure $ toRad (Just (Dict (Map.singleton x v)))
+          (pat, v) -> callFn pat [v]
+      )
     ]
   where
     isTy t = "Checks if the argument is a " <> t <> "."
