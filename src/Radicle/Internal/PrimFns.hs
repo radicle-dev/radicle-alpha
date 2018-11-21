@@ -222,6 +222,15 @@ purePrimFns = fromList $ allDocs $
                             pure (Vec (fst <$> ys'))
           _ -> throwErrorHere $ TypeError "sort-by: second argument must be a sequence"
       )
+    , ( "zip"
+      , "Takes two sequences and returns a sequence of corresponding pairs. In one\
+        \ sequence is shorter than the other, the excess elements of the longer\
+        \ sequence are discarded."
+      , twoArg "zip" $ \case
+          (Vec xs, Vec ys) -> pure $ Vec (pair <$> Seq.zip xs ys)
+          (List xs, List ys) -> pure $ List (pair <$> zip xs ys)
+          _ -> throwErrorHere $ TypeError "zip: only works on vectors or lists"
+      )
 
     -- Dicts
     , ("lookup"
@@ -252,7 +261,7 @@ purePrimFns = fromList $ allDocs $
           (List xs, List ys) -> pure $ List (xs ++ ys)
           (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
           (Dict m, Dict n) -> pure $ Dict (n <> m)
-          _ -> throwErrorHere $ TypeError "<>: only works on vectors of dicts"
+          _ -> throwErrorHere $ TypeError "<>: only works on vectors or dicts"
       )
 
     , ( "string-length"
@@ -528,6 +537,9 @@ purePrimFns = fromList $ allDocs $
     ok = kw "ok"
 
     kw = Keyword . Ident
+
+    pair :: (Value, Value) -> Value
+    pair (x,y) = Vec (x :<| y :<| Empty)
 
     numBinop :: (Rational -> Rational -> Rational)
              -> Text

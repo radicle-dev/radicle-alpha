@@ -634,7 +634,8 @@ instance FromRad Ann.WithPos (Bindings ()) where
 class ToRad t a where
   toRad :: a -> Annotated t ValueF
   default toRad :: (HasEot a, ToRadG t (Eot a)) => a -> Annotated t ValueF
-  toRad = toRadG
+  toRad =
+    toRadG
 
 instance CPA t => ToRad t () where
     toRad _ = Vec Empty
