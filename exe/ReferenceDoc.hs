@@ -84,17 +84,17 @@ main = do
     maths = ["+", "*", "-", "/", "<", ">", "integral?"]
     evalFns = ["base-eval", "eval", "updatable-eval"]
     envStuff = ["pure-env", "get-current-env", "set-current-env", "set-env!"]
-    seqs = ["empty-seq?", "nth", "foldl", "foldr", "map", "seq", "take", "drop", "sort-by"]
+    seqs = ["empty-seq?", "nth", "foldl", "foldr", "map", "seq", "take", "drop", "sort-by", "zip"]
     lists =
       [ "list", "nil", "head", "tail", "empty?", "cons", "reverse", "length", "concat"
       , "filter", "range", "list-with-head" ]
     vecs = ["<>", "add-left", "add-right"]
     dicts =
       ["dict", "lookup", "insert", "delete", "dict-from-list", "keys", "values", "rekey"
-      , "map-values", "modify-map", "delete-many"]
+      , "map-values", "modify-map", "delete-many", "exclusive-dict-merge"]
     sets = ["set/empty", "set/insert", "set/delete", "set/member?", "set/delete", "set/from-seq", "set/to-vec"]
     structs = ["member?"]
-    patterns = ["match-pat", "_", "/?", "/nil", "/cons", "/keys"]
+    patterns = ["match-pat", "_", "/?", "/nil", "/cons", "/as", "non-linear-merge"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
     docs = ["help", "doc", "doc!", "apropos!", "document", "is-test-env"]
     io =

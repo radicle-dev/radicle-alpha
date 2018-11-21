@@ -358,6 +358,13 @@ is empty, in which case an exception is thrown.
 Given a sequence ``xs`` and a function ``f``, returns a sequence with
 the same elements ``x`` of ``xs`` but sorted according to ``(f x)``.
 
+``zip``
+~~~~~~~
+
+Takes two sequences and returns a sequence of corresponding pairs. In
+one sequence is shorter than the other, the excess elements of the
+longer sequence are discarded.
+
 Dicts
 -----
 
@@ -430,6 +437,14 @@ associated to that key.
 
 Delete several keys from a dict.
 
+``exclusive-dict-merge``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Merges two dicts while checking for key conflicts. Returns
+``{:merge   m :conflicts c}`` where ``m`` is the merged dict for all
+non-conflicting keys and ``c`` is a dict with all the conflicting keys,
+mapping to pairs of values, one from each input dict.
+
 Sets
 ----
 
@@ -493,7 +508,11 @@ defined. These are the most essential.
 ~~~~~~~~~~~~~
 
 The pattern matching dispatch function. This function defines how
-patterns are treated in ``match`` expressions.
+patterns are treated in ``match`` expressions. Atoms are treated as
+bindings. Numbers, keywords and strings are constant patterns. Dicts of
+patterns match dicts whose values at those keys match those patterns.
+Vectors of patterns match vectors of the same length, pairing the
+patterns and elements by index.
 
 ``_``
 ~~~~~
@@ -503,7 +522,8 @@ The wildcard pattern.
 ``/?``
 ~~~~~~
 
-Predicate pattern.
+Predicate pattern. Takes a predicate function as argument. Values match
+against this pattern if the predicate returns a truthy value.
 
 ``/nil``
 ~~~~~~~~
@@ -515,10 +535,19 @@ Empty-list pattern.
 
 A pattern for lists with a head and a tail.
 
-``/keys``
-~~~~~~~~~
+``/as``
+~~~~~~~
 
-A pattern for matching values at specific keys in a dict.
+As pattern. Takes a variable and a sub-pattern. If the subpattern
+matches then the whole pattern matches and furthermore the variable is
+bound to the matched value.
+
+``non-linear-merge``
+~~~~~~~~~~~~~~~~~~~~
+
+The bindings merge strategy for non-linear patterns. Use this function
+to merge bindings returned by sub-patterns if you want your pattern to
+be non-linear.
 
 Refs
 ----
