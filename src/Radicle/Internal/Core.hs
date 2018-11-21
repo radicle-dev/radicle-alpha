@@ -42,6 +42,14 @@ data LangError r = LangError [Ann.SrcPos] (LangErrorData r)
 
 instance Serialise r => Serialise (LangError r)
 
+data PatternMatchError
+  = NoMatch
+  | NoValue
+  | BadBindings Value
+  deriving (Eq, Show, Read, Generic)
+
+instance Serialise PatternMatchError
+
 -- | An error throw during parsing or evaluating expressions in the language.
 data LangErrorData r =
       UnknownIdentifier Ident
@@ -54,6 +62,7 @@ data LangErrorData r =
     | OtherError Text
     | ParseError (Par.ParseError Char Void)
     | ThrownError Ident r
+    | PatternMatchError PatternMatchError
     | Exit
     deriving (Eq, Show, Read, Generic, Functor)
 
@@ -100,6 +109,10 @@ errorDataToValue e = case e of
         )
     ParseError _ -> makeVal ("parse-error", [])
     ThrownError label val -> pure (label, val)
+    PatternMatchError pe -> case pe of
+      NoValue       -> makeVal ( "no-value-to-match", [])
+      NoMatch       -> makeVal ( "non-exhaustive-pattern-matches", [])
+      BadBindings p -> makeVal ( "bad-pattern", [("bad-pattern", p)])
     Exit -> makeVal ("exit", [])
   where
     makeA = quote . Atom
@@ -509,43 +522,28 @@ specialForms = Map.fromList $ first Ident <$>
         cs <- evenArgs "match" cases
         v' <- baseEval v
         goMatches v' cs
-      _ -> throwErrorHere $ OtherError "Pattern match must be given a value to match"
+      _ -> throwErrorHere $ PatternMatchError NoValue
 
-    goMatches _ [] = throwErrorHere $ OtherError "Pattern match failure."
+    goMatches _ [] = throwErrorHere (PatternMatchError NoMatch)
     goMatches v ((m, body):cases) = do
-      let (m', guard_) = case m of
-            List [x, Atom (Ident "|"), g] -> (x, Just g)
-            _                             -> (m, Nothing)
-      m'' <- baseEval m'
+      patFn <- baseEval m
       matchPat <- lookupAtom (Ident "match-pat")
-      res <- callFn matchPat [m'', v]
+      res <- callFn matchPat [patFn, v]
       let res_ = fromRad res
       case res_ of
         Right (Just (Dict binds)) -> do
-          b <- bindsToEnv binds
-          let finish = addBinds b *> baseEval body
-          case guard_ of
-            Just gu -> do
-              e <- gets bindingsEnv
-              g_ <- withEnv (const (b <> e)) (baseEval gu)
-              case g_ of
-                Boolean False -> goMatches v cases
-                _             -> finish
-            Nothing -> finish
+          b <- bindsToEnv m binds
+          addBinds b *> baseEval body
         Right Nothing -> goMatches v cases
-        Right _ -> throwErrorHere $ OtherError "Patterns must return maybe dicts"
-        Left _ -> throwErrorHere $ OtherError "Pattern must return maybes"
+        _ -> throwErrorHere $ PatternMatchError (BadBindings m)
 
-    bindsToEnv :: Map Value Value -> Lang m (Env Value)
-    bindsToEnv m = do
-      let bs :: [(Value, Value)] = Map.toList m
-      is :: [(Ident, Doc.Docd Value)] <- traverse isBind bs
-      pure (Env (Map.fromList is))
+    bindsToEnv pat m = do
+        is <- traverse isBind (Map.toList m)
+        pure $ Env (Map.fromList is)
       where
         isBind (Atom x, v) = pure (x, Doc.Docd Nothing v)
-        isBind _ = throwErrorHere $ OtherError "Patterns must assign variables to values"
+        isBind _ = throwErrorHere $ PatternMatchError (BadBindings pat)
 
-    addBinds :: Env Value -> Lang m ()
     addBinds e = modify (\s -> s { bindingsEnv = e <> bindingsEnv s })
 
     def name doc_ val = do

@@ -74,6 +74,12 @@ instance Pretty r => Pretty (LangErrorData r) where
         ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)
         Exit -> "Exit"
         ThrownError i val -> "Exception" <+> pretty i <+> pretty val
+        PatternMatchError e -> case e of
+          NoMatch -> "Pattern match(es) are non-exhaustive."
+          NoValue -> "The `match` special form must be given a value to match on."
+          BadBindings p -> "Faulty pattern function. Pattern functions must return\
+                           \ `[:Just b]` where `b` is a dict of new bindings (from\
+                           \ atoms to values), or `:Nothing`:" <+> pretty p
 
 
 -- | A fast and compact layout. Primarily intended for testing.

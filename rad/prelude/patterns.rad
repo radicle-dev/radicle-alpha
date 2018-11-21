@@ -112,8 +112,7 @@
        [ (match [1 2 3] ['x _ 'y] [x y]) ==> [1 3] ]
        [ (match {:a 1 :b [1 2 3]}
                 42 :no
-                ({:a _ :b [_ 'n _]} | (eq? n 2)) :yes
-                _ :no) ==> :yes ]
+                {:a _ :b [_ 2 _]} :yes) ==> :yes]
        [ (match [1 2]
                 ['x 'x] :no
                 ['x 'y] :yes) ==> :yes ]
@@ -189,4 +188,8 @@
 (:test "As-patterns work"
        [ (match [1 2 3]
                 (/as 'xs [_ 7 _]) :no
-                (/as 'xs [_ _ 3]) xs) ==> [1 2 3]])
+                (/as 'xs [_ _ 3]) xs) ==> [1 2 3]]
+       [ (match [1 2 [3 4]]
+                (/as 'xs [_ 7 _]) :no
+                [_ _ (/as 'xs [_ _])] xs) ==> [3 4]]
+       )
