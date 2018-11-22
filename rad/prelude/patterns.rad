@@ -193,3 +193,37 @@
                 (/as 'xs [_ 7 _]) :no
                 [_ _ (/as 'xs [_ _])] xs) ==> [3 4]]
        )
+
+(:test "Non-linear patterns"
+  [ (match [1 1 1]
+           ['x 'x 'x] x)  ==> 1
+  ]
+  [ (match [1 1 2]
+           ['x 'x 'x] x
+           _ :no)  ==> :no
+  ]
+
+  [ (match [1 [2 3] 3]
+           [_ [_ 'x] 'x] x)  ==> 3
+  ]
+  [ (match [1 [2 3] 4]
+           [_ [_ 'x] 'x] x
+           _ :no) ==> :no
+  ]
+
+  [ (match [1 (list 3 1) 3]
+           [_ (/cons 'x _) 'x] x) ==> 3
+  ]
+  [ (match [1 (list 2 3) 4]
+           [_ (/cons 'x _) 'x] x
+           _ :no) ==> :no
+  ]
+
+  [ (match {:a 3 :b [3 2]}
+           {:a 'x :b ['x _]} x) ==> 3
+  ]
+  [ (match {:a 3 :b [2 1]}
+           {:a 'x :b ['x _]} x
+           _ :no) ==> :no
+  ]
+)
