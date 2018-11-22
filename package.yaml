@@ -205,6 +205,5 @@ default-extensions:
 - ScopedTypeVariables
 - StandaloneDeriving
 - TupleSections
-- TypeApplications
 - TypeFamilies
 - TypeOperators

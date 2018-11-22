@@ -2,24 +2,15 @@
 
 ;; The Repl
 
-(def render-exception! (fn [e stack]
-  (def show-e (if (eq? (type e) :string) e (show e)))
-  (put-str! (string-append "Exception: " show-e))
-  (for-each-vec stack put-str!)))
+(def read-line-or-exit! (fn []
+  (def line (get-line!))
+  (if (eq? line nil)
+      (exit!)
+      (read line))))
 
-(def repl (fn []
-  (def-rec repl-rec (fn [st]
-    (def line (get-expression! (keys (lookup :env st))))
-    (def cur-eval (lookup :val (lookup 'eval (lookup :env st))))
-    (if (eq? line nil)
-        nil
-        (do 
-          (def new-st (catch 'any (do (def ret (cur-eval (read line) st))
-                                      (print! (head ret))
-                                      (head (tail ret)))
-                             (fn [e stack] (render-exception! e stack)
-                                           st)))
-          (repl-rec new-st)))))
-  (repl-rec (get-current-env))))
+(def repl
+  {:name "repl"
+   ;; Parse errors are thrown here
+   :getter read-line-or-exit!})
 
-(repl)
+(subscribe-to! repl print!)

@@ -10,11 +10,20 @@ import           Data.Text.Prettyprint.Doc (pretty)
 import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc)
 import qualified Data.Time as Time
 import           GHC.Exts (IsList(..))
+import           System.Console.Haskeline
+                 ( CompletionFunc
+                 , InputT
+                 , completeWord
+                 , defaultSettings
+                 , historyFile
+                 , runInputT
+                 , setComplete
+                 , simpleCompletion
+                 )
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
-import qualified Radicle.Internal.Input as Input
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.PrimFns
@@ -28,19 +37,21 @@ type ReplM m =
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
 
-instance MonadRandom (Input.InputT IO) where
+instance MonadRandom (InputT IO) where
     getRandomBytes = liftIO . getRandomBytes
 instance MonadRandom m => MonadRandom (LangT (Bindings (PrimFns m)) m) where
     getRandomBytes = lift . getRandomBytes
 
-instance UUID.MonadUUID (Input.InputT IO) where
+instance UUID.MonadUUID (InputT IO) where
     uuid = liftIO UUID.uuid
 instance UUID.MonadUUID m => UUID.MonadUUID (LangT (Bindings (PrimFns m)) m) where
     uuid = lift UUID.uuid
 
-repl :: Maybe FilePath -> Text -> Text -> Bindings (PrimFns (Input.InputT IO)) -> IO ()
+repl :: Maybe FilePath -> Text -> Text -> Bindings (PrimFns (InputT IO)) -> IO ()
 repl histFile preFileName preCode bindings = do
-    r <- Input.runInputT histFile
+    let settings = setComplete completion
+                 $ defaultSettings { historyFile = histFile }
+    r <- runInputT settings
         $ fmap fst $ runLang bindings
         $ void $ interpretMany preFileName preCode
     case r of
@@ -48,17 +59,31 @@ repl histFile preFileName preCode bindings = do
         Left e                  -> putDoc $ pretty e
         Right ()                -> pure ()
 
+completion :: Monad m => CompletionFunc m
+completion = completeWord Nothing ['(', ')', ' ', '\n'] go
+  where
+    -- Any type for first param will do
+    bnds :: Bindings (PrimFns (InputT IO))
+    bnds = replBindings
+
+    go s = pure $ fmap simpleCompletion
+         $ filter (s `isPrefixOf`)
+         $ fmap (T.unpack . fromIdent)
+         $ (Map.keys . fromEnv $ bindingsEnv bnds)
+        <> Map.keys (getPrimFns $ bindingsPrimFns bnds)
+
 replBindings :: ReplM m => Bindings (PrimFns m)
 replBindings = addPrimFns replPrimFns pureEnv
 
 replPrimFns :: ReplM m => PrimFns m
 replPrimFns = fromList $ allDocs $
-    [ ( "put-str!"
-      , "Outputs a string verbatim."
-      , oneArg "put-str!" $ \case
-          String str -> putStrS str >> pure nil
-          _ -> throwErrorHere $ TypeError "put-str!: expects a string"
-      )
+    [ ("print!"
+      , "Pretty-prints a value."
+      , \case
+        [x] -> do
+            putStrS (renderPrettyDef x)
+            pure nil
+        xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
     , ( "doc!"
       , "Prints the documentation attached to a value and returns `()`. To retrieve\
@@ -99,16 +124,6 @@ replPrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "get-line!" 0 (length xs)
       )
 
-    , ( "get-expression!"
-      , "Reads a line of input and returns it as a string.  Takes a list of completion \
-        \words."
-      , \case
-          [complV] -> do
-              compl <- hoistEither . first (toLangError . OtherError) $ fromRad complV
-              maybe nil toRad <$> getLineCompletionS (map fromIdent compl)
-          xs -> throwErrorHere $ WrongNumberOfArgs "get-expression!" 1 (length xs)
-      )
-
     , ("subscribe-to!"
       , "Expects a dict `s` (representing a subscription) and a function `f`. The dict\
         \ `s` should have a function `getter` at the key `:getter`. This function is called\
@@ -146,10 +161,9 @@ replPrimFns = fromList $ allDocs $
                             void $ withEnv (const e) (fn $$ [quote line])
                 _  -> throwErrorHere $ TypeError "subscribe-to!: Expected dict"
         xs  -> throwErrorHere $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
-
     , ( "read-file!"
       , "Reads the contents of a file and returns it as a string."
-      , oneArg "read-file!" $ \case
+      , oneArg "read-file" $ \case
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
               Right text -> pure $ String text
@@ -162,7 +176,7 @@ replPrimFns = fromList $ allDocs $
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
               Right text -> interpretMany ("[load! " <> filename <> "]") text
-          _ -> throwErrorHere $ TypeError "load!: expects a string"
+          _ -> throwErrorHere $ TypeError "load: expects a string"
       )
     , ( "gen-key-pair!"
       , "Given an elliptic curve, generates a cryptographic key-pair. Use\

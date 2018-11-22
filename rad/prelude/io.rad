@@ -18,7 +18,3 @@
 (document 'send-code!
           '(("chain-id" string) ("filename" string))
           "Send code from a file to a remote chain.")
-
-(def print!
-  "Pretty-prints a value."
-  (fn [x] (put-str! (show x))))

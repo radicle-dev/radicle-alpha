@@ -11,12 +11,12 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified GHC.Exts as GhcExts
 import           Radicle
-import qualified Radicle.Internal.Input as Input
+import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
 
 main :: IO ()
 main = do
-    res_ <- Input.runInputT Nothing $
+    res_ <- runInputT defaultSettings $
              interpret
                "reference-doc"
                "(do (load! \"rad/prelude.rad\") (get-current-env))"
@@ -83,8 +83,8 @@ main = do
     seqs = ["nth", "foldl", "foldr", "map", "seq", "take", "drop", "sort-by"]
     lists =
       [ "list", "nil", "head", "tail", "empty?", "cons", "reverse", "length", "concat"
-      , "filter", "range", "list-with-head", "for-each" ]
-    vecs = ["<>", "add-left", "add-right", "for-each-vec" ]
+      , "filter", "range", "list-with-head" ]
+    vecs = ["<>", "add-left", "add-right"]
     dicts =
       ["dict", "lookup", "insert", "delete", "dict-from-list", "keys", "values", "rekey"
       , "map-values", "modify-map", "delete-many"]

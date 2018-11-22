@@ -6,7 +6,7 @@
 set -e -x
 BASEDIR=$(dirname $BASH_SOURCE)/..
 cd $BASEDIR
-./scripts/hottags.sh
+hothasktags -XLambdaCase -XTypeFamilies -XScopedTypeVariables -XFunctionalDependencies -XTupleSections -XExplicitNamespaces -XStandaloneDeriving -XDefaultSignatures -R src > TAGS
 stack exec hlint .
 ./scripts/check-fmt.sh
 stack test --fast

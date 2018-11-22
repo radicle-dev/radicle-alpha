@@ -353,7 +353,7 @@ test_eval =
 
     , testCase "'catch' catches thrown exceptions" $ do
         let prog = [s|
-            (catch (quote exc) (throw (quote exc) #t) (fn [y stack] y))
+            (catch (quote exc) (throw (quote exc) #t) (fn [y] y))
             |]
         prog `succeedsWith` Boolean True
 
@@ -361,13 +361,13 @@ test_eval =
         let prog = [s|
             (def t #t)
             (def f #f)
-            (catch (quote exc) (throw (quote exc) f) (fn [y stack] t))
+            (catch (quote exc) (throw (quote exc) f) (fn [y] t))
             |]
         prog `succeedsWith` Boolean True
 
     , testCase "'catch 'any' catches any exception" $ do
         let prog = [s|
-            (catch 'any (throw (quote exc) #f) (fn [y stack] #t))
+            (catch 'any (throw (quote exc) #f) (fn [y] #t))
             |]
         prog `succeedsWith` Boolean True
 
@@ -619,7 +619,7 @@ test_repl_primops =
 
     , testCase "catch catches read-line errors" $ do
         let prog = [s|
-                 (catch 'any (read-line!) (fn [x stack] "caught"))
+                 (catch 'any (read-line!) (fn [x] "caught"))
                  |]
             input = ["\"blah"]
             res = run input prog
