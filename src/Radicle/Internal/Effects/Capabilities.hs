@@ -12,7 +12,7 @@ import           Data.Time
 import           System.Console.Haskeline hiding (catch)
 import           System.IO (isEOF)
 import           System.Exit (ExitCode)
-import           System.Process (readCreateProcessWithExitCode)
+import           System.Process (readProcessWithExitCode)
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
@@ -46,11 +46,13 @@ class (Monad m) => Process m where
     processS :: Text -> [Text] -> Text -> m (ExitCode, Text, Text)
 
 instance Process m => Process (Lang m) where
-    processS proc args stdin = lift $ processS args stdin
+    processS proc args pstdin = lift $ processS proc args pstdin
 instance Process IO where
-    processS proc args stdin = readProcessWithExitCode (toS proc) (toS <$> args) (toS stdin)
+    processS proc args pstdin = do
+        (code, pstdout, pstderr) <- readProcessWithExitCode (toS proc) (toS <$> args) (toS pstdin)
+        pure (code, toS pstdout, toS pstderr)
 instance Process m => Process (InputT m) where
-    processS proc args stdin = lift $ processS args stdin
+    processS proc args pstdin = lift $ processS proc args pstdin
 
 class (Monad m) => Exit m where
     exitS :: m ()

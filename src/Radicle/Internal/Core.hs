@@ -551,6 +551,11 @@ instance CPA t => FromRad t Text where
     fromRad x = case x of
         String n -> pure n
         _        -> Left "Expecting string"
+instance CPA t => FromRad t ExitCode where
+    fromRad x = case x of
+        Keyword (Ident "ok") -> pure $ ExitSuccess
+        Vec (err Seq.:<| errValue Seq.:<| Seq.Empty) -> ExitFailure <$> fromRad errValue
+        _ -> Left "Expecting either :ok or [:error errValue]"
 instance (CPA t, FromRad t a) => FromRad t [a] where
     fromRad x = case x of
         List xs -> traverse fromRad xs
@@ -608,6 +613,10 @@ instance CPA t => ToRad t Scientific where
     toRad = Number . toRational
 instance CPA t => ToRad t Text where
     toRad = String
+instance CPA t => ToRad t ExitCode where
+    toRad x = case x of
+        ExitSuccess -> Keyword (Ident "ok")
+        ExitFailure x -> Vec $ Seq.fromList [Keyword (Ident "error"), toRad x]
 instance ToRad t (Ann.Annotated t ValueF) where
     toRad = identity
 instance (CPA t, ToRad t a) => ToRad t [a] where

@@ -34,6 +34,7 @@ type ReplM m =
     , MonadRandom m, UUID.MonadUUID m
     , CurrentTime m
     , ReadFile (Lang m)
+    , Process m
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
 
@@ -210,9 +211,11 @@ replPrimFns = fromList $ allDocs $
     , ( "process!"
       , "(process! proc args stdin) execute a system process. Returns a vector with the exit code, standard out, and standard error"
       , \case
-          [String proc, Vec args, String stdin] -> do
-            processS proc args stdin
-          xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
+          [String proc, Vec args, String pin] -> do
+            args' <- hoistEither . first (toLangError . OtherError) $ traverse fromRad args
+            (pexit, pout, perr) <- processS proc (toList args') pin
+            pure $ Vec $ fromList [toRad pexit, String pout, String perr]
+          xs -> throwErrorHere $ WrongNumberOfArgs "process!" 3 (length xs)
       )
     , ( "exit!"
       , "Exit the interpreter immediately."
