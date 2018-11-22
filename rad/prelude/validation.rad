@@ -115,13 +115,9 @@
                   :signature sig})
        (def full (<> payload seal))
        (def full_ (<> payload_ seal))
-       ;; (def ok
-       ;;   (catch 'any (do (validator/signed full) :ok) (fn [x] :not-ok)))
-       ;; (def not-ok
-       ;;   (catch 'any (do (validator/signed full_) :not-ok) (fn [x] :ok)))
-       (def ok :ok)
-       (def not-ok :not-ok)
+       (def ok
+         (catch 'any (do (validator/signed full) :ok) (fn [x] :not-ok)))
        )
    ]
   [ ok ==> :ok ]
-  [ not-ok ==> :not-ok ])
+)

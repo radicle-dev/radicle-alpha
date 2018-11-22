@@ -59,3 +59,14 @@
     [(read-ref y) ==> 1]
     [received ==> (0)]
 )
+
+(:test "'test' handles exceptions properly"
+    [:setup
+      (do
+        (def x (catch 'any (throw 'blah) (fn [x] #t)))
+        (def y (catch 'any (throw 'blah) (fn [x] #f)))
+      )
+    ]
+    [x ==> #t]
+    [y ==> #f]
+)
