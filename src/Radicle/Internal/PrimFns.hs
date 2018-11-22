@@ -203,7 +203,7 @@ purePrimFns = fromList $ allDocs $
           [Number n, vs] -> case Num.isInt n of
             Left _ -> throwErrorHere $ OtherError "nth: first argument was not an integer"
             Right i -> do
-              xs <- hoistEitherWith (const (toLangError . OtherError $ "nth: second argument must be sequential")) $ fromRad vs
+              xs <- hoistEitherWith (const (toLangError . OtherError $ "nth: first argument must be sequential")) $ fromRad vs
               case xs `atMay` i of
                 Just x  -> pure x
                 Nothing -> throwErrorHere $ OtherError "nth: index out of bounds"
