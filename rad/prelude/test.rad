@@ -2,7 +2,7 @@
 
 (def is-test-env
   "True iff file is being run as part of the Haskell suite"
-  (catch 'any (eq? test-env__ #t) (fn [x stack] #f)))
+  (catch 'any (eq? test-env__ #t) (fn [x] #f)))
 
 ;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
 (def eval

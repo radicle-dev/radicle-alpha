@@ -7,7 +7,6 @@ module Radicle.Internal.Effects.Capabilities where
 
 import           Protolude
 
-import qualified Data.Map as Map
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
 import           System.Console.Haskeline hiding (catch)
@@ -18,30 +17,19 @@ import           GHCJS.DOM.XMLHttpRequest
 #endif
 
 import           Radicle.Internal.Core
-import qualified Radicle.Internal.Input as Input
 
 class (Monad m) => Stdin m where
     getLineS :: m (Maybe Text)  -- gives Nothing on EOF
-    getLineCompletionS :: [Text] -> m (Maybe Text)
 instance {-# OVERLAPPABLE #-} Stdin m => Stdin (Lang m) where
     getLineS = lift getLineS
-    getLineCompletionS = lift . getLineCompletionS
 instance Stdin IO where
     getLineS = do
         done <- isEOF
         if done
         then pure Nothing
         else Just <$> getLine
-    getLineCompletionS _ = getLineS
-instance (Input.MonadException m) => Stdin (Input.InputT m) where
-    getLineS = Input.getInputLine Input.noCompletions "rad> "
-    getLineCompletionS compl = Input.getInputLine (radicleCompletion compl) "rad> "
-
-
-radicleCompletion :: (Monad m) => [Text] -> Input.Completions m
-radicleCompletion = Input.wordCompletions ['(', ')', ' ', '\n'] . (specials <>)
-    where
-    specials = fromIdent <$> Map.keys (specialForms @Identity)
+instance (MonadException m) => Stdin (InputT m) where
+    getLineS = (fmap.fmap) toS (getInputLine "rad> ")
 
 class (Monad m) => Stdout m where
     putStrS :: Text -> m ()
@@ -49,8 +37,8 @@ instance {-# OVERLAPPABLE #-} Stdout m => Stdout (Lang m) where
     putStrS = lift . putStrS
 instance Stdout IO where
     putStrS = putStrLn
-instance (Input.MonadException m, Monad m) => Stdout (Input.InputT m) where
-    putStrS = Input.outputStrLn . toS
+instance (MonadException m, Monad m) => Stdout (InputT m) where
+    putStrS = outputStrLn . toS
 
 class (Monad m) => Exit m where
     exitS :: m ()
@@ -87,7 +75,7 @@ class (Monad m) => SetSubs m where
 class (Monad m) => ReadFile m where
     readFileS :: Text -> m (Either Text Text)  -- ^ Left error or Right contents
 #ifdef ghcjs_HOST_OS
-instance ReadFile (Input.InputT IO) where
+instance ReadFile (InputT IO) where
     readFileS = lift . requestFile
       where
         requestFile :: Text -> IO (Either Text Text)
@@ -100,12 +88,11 @@ instance ReadFile (Input.InputT IO) where
                 Nothing -> Left "no response from server"
                 Just v  -> Right v
 #else
+instance ReadFile (InputT IO) where
+    readFileS = lift . readFileS
 instance ReadFile IO where
     readFileS fname = (Right <$> readFile (toS fname))
                         `catch` (\(e :: IOException) -> pure (Left (show e)))
-instance ReadFile (Input.InputT IO) where
-    readFileS fname = lift $ (Right <$> readFile (toS fname))
-                               `catch` (\(e :: IOException) -> pure (Left (show e)))
 #endif
 instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
     readFileS = lift . readFileS
