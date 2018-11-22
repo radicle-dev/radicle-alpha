@@ -48,7 +48,12 @@ steps:
     args:
     - '-c'
     - |
+      mv docs/source/reference.rst oldref
       stack exec radicle-ref-doc
+      if ! (diff oldref docs/source/reference.rst); then
+        echo "Reference docs are not checked in"
+        exit 1
+      fi
 
   - id: "Save cache"
     name: gcr.io/cloud-builders/gsutil
