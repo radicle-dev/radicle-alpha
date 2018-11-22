@@ -6,7 +6,7 @@ module ReferenceDoc (main) where
 import           Protolude
 
 import qualified Data.Default as Default
-import           Data.List
+import           Data.List hiding (map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified GHC.Exts as GhcExts
@@ -26,16 +26,16 @@ main = do
     let vars = GhcExts.toList (bindingsEnv s)
     let undocd = [ fromIdent iden | (iden, Nothing, _) <- vars ]
     checkAllDocumented undocd
-    let e = Map.fromList [ (fromIdent iden, d) | (iden, Just d, _) <- vars ]
+    let e = Map.fromList [ (fromIdent iden, (docString, val)) | (iden, Just docString, val) <- vars ]
     checkAllInReference e
     rst <- runPure (writeRST Default.def $ Pandoc nullMeta (doc e)) `lPanic` "Couldn't generate RST"
     writeFile "docs/source/reference.rst" rst
   where
     doc e =
-      let sec tit fns p =
+      let sec tit names p =
             [ Header 2 nullAttr (inlinePandoc tit)
             , Para (inlinePandoc p)
-            ] ++ funs e fns in
+            ] ++ foldMap (valueDoc e) names in
       mconcat
       [ [ Header 1 nullAttr (inlinePandoc "Radicle Reference") ]
       , [ Para $ inlinePandoc $
@@ -127,15 +127,17 @@ main = do
       -- ++ issueChain
       ++ doNotInclude
 
-    -- Function symbol followed by a hard line break, followed by it's doc.
-    funs e fns = mconcat
-      [ [ Header 3 nullAttr [Code nullAttr (toS f) ]
-        , Para (inlinePandoc (getDoc e f)) ]
-      | f <- fns ]
+    valueDoc env name =
+        case Map.lookup name env of
+            Just (docString, Lambda args _ _) ->
+                let callExample = "(" <> T.intercalate " " (name : map fromIdent args) <> ")"
+                in [ Header 3 nullAttr [Code nullAttr (toS callExample) ]
+                   , Para (inlinePandoc docString) ]
+            Just (docString, _) ->
+                [ Header 3 nullAttr [Code nullAttr (toS name) ]
+                , Para (inlinePandoc docString) ]
+            Nothing -> panic $ "While creating reference doc, couldn't find the docs for: " <> name
 
-    getDoc e f = case Map.lookup f e of
-      Just d -> d
-      Nothing -> panic $ "While creating reference doc, couldn't find the docs for: " <> f
 
     checkAllDocumented = \case
       [] -> pure ()

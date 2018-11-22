@@ -3,21 +3,15 @@
 ;; not
 
 (def not
+  "True if `x` is `#f`, false otherwise."
   (fn [x] (if x #f #t)))
-
-(document 'not
-  '(("arg" any))
-  "True if 'arg' is #f, false otherwise.")
 
 ;; and
 
 (def and
+  "Returns `y` if `x` is not `#f`, otherwise returns `x`"
   (fn [x y]
     (if x y x)))
-
-(document 'and
-  '(("arg1" any) ("arg2" any))
-  "Returns 'arg2' if 'arg1' is not #f, otherwise returns 'arg1'")
 
 (:test "and"
   [ (and #t #t) ==> #t ]
