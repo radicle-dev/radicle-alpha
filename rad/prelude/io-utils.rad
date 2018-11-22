@@ -1,0 +1,5 @@
+(def fzf-select-by-key!
+  (fn [dict]
+    (def result (process! "fzf" [] (show (keys dict))))
+    ;; TODO: pattern match on exit code when pattern matching is merged
+    (lookup (nth 1 result) dict)))
