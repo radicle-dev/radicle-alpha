@@ -222,6 +222,15 @@ purePrimFns = fromList $ allDocs $
                             pure (Vec (fst <$> ys'))
           _ -> throwErrorHere $ TypeError "sort-by: second argument must be a sequence"
       )
+    , ( "zip"
+      , "Takes two sequences and returns a sequence of corresponding pairs. In one\
+        \ sequence is shorter than the other, the excess elements of the longer\
+        \ sequence are discarded."
+      , twoArg "zip" $ \case
+          (Vec xs, Vec ys) -> pure $ Vec (pair <$> Seq.zip xs ys)
+          (List xs, List ys) -> pure $ List (pair <$> zip xs ys)
+          _ -> throwErrorHere $ TypeError "zip: only works on vectors or lists"
+      )
 
     -- Dicts
     , ("lookup"
@@ -252,7 +261,7 @@ purePrimFns = fromList $ allDocs $
           (List xs, List ys) -> pure $ List (xs ++ ys)
           (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
           (Dict m, Dict n) -> pure $ Dict (n <> m)
-          _ -> throwErrorHere $ TypeError "<>: only works on vectors of dicts"
+          _ -> throwErrorHere $ TypeError "<>: only works on vectors or dicts"
       )
 
     , ( "string-length"
@@ -371,6 +380,12 @@ purePrimFns = fromList $ allDocs $
       , oneArg "list?" $ \case
                   List _ -> pure tt
                   _      -> pure ff)
+    , ( "vector?"
+      , isTy "vector"
+      , oneArg "vector?" $ \case
+          Vec _ -> pure tt
+          _     -> pure ff
+      )
     , ( "dict?"
       , isTy "dict"
       , oneArg "dict?" $ \case
@@ -418,7 +433,7 @@ purePrimFns = fromList $ allDocs $
           [x, Vec xs]  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
           [x, Dict m]  -> pure . Boolean $ Map.member x m
           [_, _]       -> throwErrorHere
-                        $ TypeError "member?: second argument must be list"
+                        $ TypeError "member?: second argument must be list, vector or dict"
           xs           -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
     , ( "ref"
       , "Creates a ref with the argument as the initial value."
@@ -509,6 +524,12 @@ purePrimFns = fromList $ allDocs $
                          fromMaybe ("No documentation found for " <> fromIdent i <> ".") d
           _ -> throwErrorHere $ OtherError "doc: expects an atom"
       )
+    , ( "match-pat"
+      , "The most basic built-in pattern-matching dispatch function."
+      , twoArg "match-pat" $ \case
+          (x@(Atom _), v) -> pure $ toRad (Just (Dict (Map.singleton x v)))
+          (pat, v) -> callFn pat [v]
+      )
     ]
   where
     isTy t = "Checks if the argument is a " <> t <> "."
@@ -522,6 +543,9 @@ purePrimFns = fromList $ allDocs $
     ok = kw "ok"
 
     kw = Keyword . Ident
+
+    pair :: (Value, Value) -> Value
+    pair (x,y) = Vec (x :<| y :<| Empty)
 
     numBinop :: (Rational -> Rational -> Rational)
              -> Text

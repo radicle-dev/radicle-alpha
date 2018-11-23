@@ -95,6 +95,11 @@ Checks if the argument is a number.
 
 Checks if the argument is a keyword.
 
+``vector?``
+~~~~~~~~~~~
+
+Checks if the argument is a vector.
+
 ``list?``
 ~~~~~~~~~
 
@@ -174,6 +179,12 @@ Multiplies two numbers together.
 ~~~~~
 
 Substracts one number from another.
+
+``/``
+~~~~~
+
+Divides one number by another. Throws an exception if the second
+argument is 0.
 
 ``<``
 ~~~~~
@@ -285,6 +296,11 @@ Sequences
 
 Functions for manipulating boths lists and vectors.
 
+``empty-seq?``
+~~~~~~~~~~~~~~
+
+Returns true if the input is an empty sequence (either list or vector).
+
 ``nth``
 ~~~~~~~
 
@@ -342,6 +358,13 @@ is empty, in which case an exception is thrown.
 Given a sequence ``xs`` and a function ``f``, returns a sequence with
 the same elements ``x`` of ``xs`` but sorted according to ``(f x)``.
 
+``zip``
+~~~~~~~
+
+Takes two sequences and returns a sequence of corresponding pairs. In
+one sequence is shorter than the other, the excess elements of the
+longer sequence are discarded.
+
 Dicts
 -----
 
@@ -351,7 +374,8 @@ Functions for manipulating dicts.
 ~~~~~~~~
 
 Given an even number of arguments, creates a dict where the ``2i``-th
-argument is the key for the ``2i+1``\ th argument.
+argument is the key for the ``2i+1``\ th argument. If one of the even
+indexed arguments is not hashable then an exception is thrown.
 
 ``lookup``
 ~~~~~~~~~~
@@ -366,7 +390,7 @@ thrown.
 
 Given ``k``, ``v`` and a dict ``d``, returns a dict with the same
 associations as ``d`` but with ``k`` associated to ``d``. If ``d`` isn't
-a dict then an exception is thrown.
+a dict or if ``k`` isn't hashable then an exception is thrown.
 
 ``delete``
 ~~~~~~~~~~
@@ -412,6 +436,14 @@ associated to that key.
 ~~~~~~~~~~~~~~~
 
 Delete several keys from a dict.
+
+``exclusive-dict-merge``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Merges two dicts while checking for key conflicts. Returns
+``{:merge   m :conflicts c}`` where ``m`` is the merged dict for all
+non-conflicting keys and ``c`` is a dict with all the conflicting keys,
+mapping to pairs of values, one from each input dict.
 
 Sets
 ----
@@ -465,6 +497,57 @@ Given ``v`` and structure ``s``, checks if ``x`` exists in ``s``. The
 structure ``s`` may be a list, vector or dict. If it is a list or a
 vector, it checks if ``v`` is one of the items. If ``s`` is a dict, it
 checks if ``v`` is one of the keys.
+
+Patterns
+--------
+
+Pattern matching is first-class in radicle so new patterns can easily be
+defined. These are the most essential.
+
+``match-pat``
+~~~~~~~~~~~~~
+
+The pattern matching dispatch function. This function defines how
+patterns are treated in ``match`` expressions. Atoms are treated as
+bindings. Numbers, keywords and strings are constant patterns. Dicts of
+patterns match dicts whose values at those keys match those patterns.
+Vectors of patterns match vectors of the same length, pairing the
+patterns and elements by index.
+
+``_``
+~~~~~
+
+The wildcard pattern.
+
+``/?``
+~~~~~~
+
+Predicate pattern. Takes a predicate function as argument. Values match
+against this pattern if the predicate returns a truthy value.
+
+``/nil``
+~~~~~~~~
+
+Empty-list pattern.
+
+``/cons``
+~~~~~~~~~
+
+A pattern for lists with a head and a tail.
+
+``/as``
+~~~~~~~
+
+As pattern. Takes a variable and a sub-pattern. If the subpattern
+matches then the whole pattern matches and furthermore the variable is
+bound to the matched value.
+
+``non-linear-merge``
+~~~~~~~~~~~~~~~~~~~~
+
+The bindings merge strategy for non-linear patterns. Use this function
+to merge bindings returned by sub-patterns if you want your pattern to
+be non-linear.
 
 Refs
 ----
@@ -654,6 +737,28 @@ Exit the interpreter immediately.
 Returns a timestamp for the current Coordinated Universal Time (UTC),
 right now, formatted according to ISO 8601.
 
+Maybe
+-----
+
+Optionality is represented using ``[:Just x]`` for when the value
+exists, and ``:Nothing`` when it doesn't.
+
+``/Just``
+~~~~~~~~~
+
+Pattern which matches ``[:Just x]``.
+
+``maybe->>=``
+~~~~~~~~~~~~~
+
+Monadic bind for the maybe monad.
+
+``maybe-foldlM``
+~~~~~~~~~~~~~~~~
+
+Monadic fold over the elements of a seq, associating to the left (i.e.
+from left to right) in the maybe monad.
+
 Lenses
 ------
 
@@ -836,6 +941,11 @@ functions before sending these to a remote chain.
 ~~~~~~~~~~~~~
 
 Return an empty chain dictionary with the given url.
+
+``@var``
+~~~~~~~~
+
+A lens for variables in states of chains.
 
 ``eval-in-chain``
 ~~~~~~~~~~~~~~~~~

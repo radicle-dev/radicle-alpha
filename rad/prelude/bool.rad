@@ -26,23 +26,6 @@
   [ (and #f #f) ==> #f ]
 )
 
-;; or
-
-(def or
-  (fn [x y]
-    (if x x y)))
-
-(document 'or
-  '(("arg1" any) ("arg2" any))
-  "Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'")
-
-(:test "or"
-  [ (or #t #t) ==> #t ]
-  [ (or #t #f) ==> #t ]
-  [ (or #f #t) ==> #t ]
-  [ (or #f #f) ==> #f ]
-)
-
 ;; all
 
 (def all
@@ -55,19 +38,4 @@
   [ (all '(#f))          ==> #f ]
   [ (all '(#t #t #t #t)) ==> #t ]
   [ (all '(#t #t #f #t)) ==> #f ]
-)
-
-;; some
-
-(def some
-  "Checks that there is a least one truthy value in a list."
-  (fn [xs] (foldr or #f xs)))
-
-(:test "some"
-  [ (some '())            ==> #f ]
-  [ (some '(#t))          ==> #t ]
-  [ (some '(#f))          ==> #f ]
-  [ (some '(#f #f #f))    ==> #f ]
-  [ (some '(#t #t #t #t)) ==> #t ]
-  [ (some '(#t #t #f #t)) ==> #t ]
 )

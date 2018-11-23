@@ -42,6 +42,14 @@ data LangError r = LangError [Ann.SrcPos] (LangErrorData r)
 
 instance Serialise r => Serialise (LangError r)
 
+data PatternMatchError
+  = NoMatch
+  | NoValue
+  | BadBindings Value
+  deriving (Eq, Show, Read, Generic)
+
+instance Serialise PatternMatchError
+
 -- | An error throw during parsing or evaluating expressions in the language.
 data LangErrorData r =
       UnknownIdentifier Ident
@@ -54,6 +62,7 @@ data LangErrorData r =
     | OtherError Text
     | ParseError (Par.ParseError Char Void)
     | ThrownError Ident r
+    | PatternMatchError PatternMatchError
     | Exit
     deriving (Eq, Show, Read, Generic, Functor)
 
@@ -100,6 +109,10 @@ errorDataToValue e = case e of
         )
     ParseError _ -> makeVal ("parse-error", [])
     ThrownError label val -> pure (label, val)
+    PatternMatchError pe -> case pe of
+      NoValue       -> makeVal ( "no-value-to-match", [])
+      NoMatch       -> makeVal ( "non-exhaustive-pattern-matches", [])
+      BadBindings p -> makeVal ( "bad-pattern", [("bad-pattern", p)])
     Exit -> makeVal ("exit", [])
   where
     makeA = quote . Atom
@@ -493,6 +506,7 @@ specialForms = Map.fromList $ first Ident <$>
             if b == Boolean False then baseEval f else baseEval t
           xs -> throwErrorHere $ WrongNumberOfArgs "if" 3 (length xs))
     , ( "cond", (cond =<<) . evenArgs "cond" )
+    , ( "match", match )
   ]
   where
     cond = \case
@@ -502,6 +516,35 @@ specialForms = Map.fromList $ first Ident <$>
         if b /= Boolean False
           then baseEval e
           else cond ps
+
+    match = \case
+      v : cases -> do
+        cs <- evenArgs "match" cases
+        v' <- baseEval v
+        goMatches v' cs
+      _ -> throwErrorHere $ PatternMatchError NoValue
+
+    goMatches _ [] = throwErrorHere (PatternMatchError NoMatch)
+    goMatches v ((m, body):cases) = do
+      patFn <- baseEval m
+      matchPat <- lookupAtom (Ident "match-pat")
+      res <- callFn matchPat [patFn, v]
+      let res_ = fromRad res
+      case res_ of
+        Right (Just (Dict binds)) -> do
+          b <- bindsToEnv m binds
+          addBinds b *> baseEval body
+        Right Nothing -> goMatches v cases
+        _ -> throwErrorHere $ PatternMatchError (BadBindings m)
+
+    bindsToEnv pat m = do
+        is <- traverse isBind (Map.toList m)
+        pure $ Env (Map.fromList is)
+      where
+        isBind (Atom x, v) = pure (x, Doc.Docd Nothing v)
+        isBind _ = throwErrorHere $ PatternMatchError (BadBindings pat)
+
+    addBinds e = modify (\s -> s { bindingsEnv = e <> bindingsEnv s })
 
     def name doc_ val = do
       val' <- baseEval val
@@ -589,7 +632,8 @@ instance FromRad Ann.WithPos (Bindings ()) where
 class ToRad t a where
   toRad :: a -> Annotated t ValueF
   default toRad :: (HasEot a, ToRadG t (Eot a)) => a -> Annotated t ValueF
-  toRad = toRadG
+  toRad =
+    toRadG
 
 instance CPA t => ToRad t () where
     toRad _ = Vec Empty

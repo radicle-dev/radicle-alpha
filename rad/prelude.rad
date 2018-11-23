@@ -1,4 +1,6 @@
 (load! "rad/prelude/test.rad")
+(load! "rad/prelude/basic.rad")
+(load! "rad/prelude/patterns.rad")
 (load! "rad/prelude/io.rad")
 (load! "rad/prelude/bool.rad")
 (load! "rad/prelude/exception.rad")
@@ -16,6 +18,8 @@
 (def pure-prelude-files
   (list
    "rad/prelude/test.rad" ;; pure unless test env
+   "rad/prelude/basic.rad"
+   "rad/prelude/patterns.rad"
    "rad/prelude/pure-should-be.rad"
    "rad/prelude/recursion.rad"
    "rad/prelude/bool.rad"

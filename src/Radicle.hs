@@ -39,6 +39,7 @@ module Radicle
     , untag
     -- *** LangError
     , LangError(..)
+    , PatternMatchError(..)
     , LangErrorData(..)
     , throwErrorHere
     , Reference(..)

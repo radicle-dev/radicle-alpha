@@ -1,0 +1,52 @@
+;; or
+
+(def or
+  (fn [x y]
+    (if x x y)))
+
+(document 'or
+          '(("arg1" any) ("arg2" any))
+          "Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'")
+
+(:test "or"
+       [ (or #t #t) ==> #t ]
+       [ (or #t #f) ==> #t ]
+       [ (or #f #t) ==> #t ]
+       [ (or #f #f) ==> #f ]
+       )
+
+;; some
+
+(def some
+  "Checks that there is a least one truthy value in a list."
+  (fn [xs] (foldr or #f xs)))
+
+(:test "some"
+       [ (some '())            ==> #f ]
+       [ (some '(#t))          ==> #t ]
+       [ (some '(#f))          ==> #f ]
+       [ (some '(#f #f #f))    ==> #f ]
+       [ (some '(#t #t #t #t)) ==> #t ]
+       [ (some '(#t #t #f #t)) ==> #t ]
+       )
+
+(def empty-seq?
+  "Returns true if the input is an empty sequence (either list or vector)."
+  (fn [xs]
+    (or (eq? xs (list))
+        (eq? xs []))))
+
+;; length
+
+(def length
+  (fn [xs]
+    (foldr (fn [x acc] (+ acc 1)) 0 xs)))
+
+(document 'length
+  '(("list" list))
+  "Returns the length of 'list'.")
+
+(:test "length"
+  [ (length (list)) ==> 0]
+  [ (length (list 2)) ==> 1]
+)

@@ -1,0 +1,229 @@
+;; Because pattern matching uses the Maybe-monad, it's helpful to define some
+;; essential Maybe-monad function now.
+
+(def maybe->>=
+  "Monadic bind for the maybe monad."
+  (fn [v f]
+    (if (vector? v)
+      (if (eq? (length v) 2)
+        (if (eq? (nth 0 v) :Just)
+          (f (nth 1 v))
+          :Nothing)
+        :Nothing)
+      :Nothing)))
+
+(def-rec maybe-foldlM
+  "Monadic fold over the elements of a seq, associating to the left (i.e. from
+  left to right) in the maybe monad."
+  (fn [f i xs]
+    (if (empty-seq? xs)
+      [:Just i]
+      (maybe->>= (f i (nth 0 xs))
+                 (fn [b] (maybe-foldlM f b (drop 1 xs)))))))
+
+(def exclusive-dict-merge
+  "Merges two dicts while checking for key conflicts. Returns `{:merge
+  m :conflicts c}` where `m` is the merged dict for all non-conflicting keys and
+  `c` is a dict with all the conflicting keys, mapping to pairs of values, one
+  from each input dict."
+  (fn [m n]
+    (foldr (fn [kv acc]
+             (def k (nth 0 kv))
+             (def v (nth 1 kv))
+             (def merge (lookup :merge acc))
+             (if (member? k merge)
+               {:merge     (delete k merge)
+                :conflicts (insert k [(lookup k merge) v] (lookup :conflicts acc))}
+               (insert :merge (insert k v merge) acc)))
+           {:merge m
+            :conflicts {}}
+           (seq n))))
+
+(def non-linear-merge
+  "The bindings merge strategy for non-linear patterns. Use this function to merge
+  bindings returned by sub-patterns if you want your pattern to be non-linear."
+  (fn [m n]
+    (def excl-merge (exclusive-dict-merge m n))
+    (def cs (lookup :conflicts excl-merge))
+    (def merge (lookup :merge excl-merge))
+    (if (eq? cs {})
+      [:Just merge]
+      (maybe-foldlM (fn [acc kv]
+                      (def v (nth 1 kv))
+                      (def v0 (nth 0 v))
+                      (if (eq? v0 (nth 1 v))
+                        [:Just (insert (nth 0 kv) v0 acc)]
+                        :Nothing))
+                    merge
+                    (seq cs)))))
+(def _
+  "The wildcard pattern."
+  (fn [v] [:Just {}]))
+
+(def-rec match-pat
+  "The pattern matching dispatch function. This function defines how patterns
+  are treated in `match` expressions. Atoms are treated as bindings. Numbers,
+  keywords and strings are constant patterns. Dicts of patterns match dicts
+  whose values at those keys match those patterns. Vectors of patterns match
+  vectors of the same length, pairing the patterns and elements by index."
+  (fn [pat v]
+    (def /vec
+      (fn [pats]
+        (fn [v]
+          (if (eq? (length v) (length pat))
+            (maybe-foldlM
+             (fn [acc pair]
+               (maybe->>= (match-pat (nth 0 pair) (nth 1 pair))
+                          (fn [bs] (non-linear-merge acc bs))))
+             {}
+             (zip pats v))
+            :Nothing))))
+    (def /dict
+      (fn [keys-pat]
+        (fn [d]
+          (maybe-foldlM
+           (fn [acc kv]
+             (def k (nth 0 kv))
+             (def pat (nth 1 kv))
+             (if (member? k d)
+               (maybe->>= (match-pat pat (lookup k d))
+                          (fn [bs] (non-linear-merge acc bs)))
+               :Nothing))
+           {}
+           (seq keys-pat)))))
+    (cond
+      (atom? pat)
+      [:Just {pat v}]
+      (some [(number? pat) (keyword? pat) (string? pat)])
+      (if (eq? pat v) [:Just {}] :Nothing)
+      (dict? pat)
+      ((/dict pat) v)
+      (vector? pat)
+      ((/vec pat) v)
+      :else
+      (pat v))))
+
+(:test "basic pattern matching"
+       [ (match 42 12 :not-42 'x x) ==> 42 ]
+       [ (match 42 12 :not-42 42 :yes) ==> :yes ]
+       [ (match :fourty-two :not-42 :no :fourty-two :yes) ==> :yes ]
+       [ (match "42" "?" :no "42" :yes) ==> :yes ]
+       [ (match {:a :a :b :b} {:a 'a :b 'b} [a b]) ==> [:a :b] ]
+       [ (match [1 2 3] ['x _ 'y] [x y]) ==> [1 3] ]
+       [ (match {:a 1 :b [1 2 3]}
+                42 :no
+                {:a _ :b [_ 2 _]} :yes) ==> :yes]
+       [ (match [1 2]
+                ['x 'x] :no
+                ['x 'y] :yes) ==> :yes ]
+       [ (match [1 1]
+                ['x 'x] :yes
+                ['x 'y] :no) ==> :yes])
+
+(def /Just
+  "Pattern which matches `[:Just x]`."
+  (fn [pat]
+    (fn [v]
+      (maybe->>= v
+                 (fn [x] (match-pat pat x))))))
+
+(:test "Just patterns"
+       [ (match [:Just 42] (/Just 'x) x _ :no) ==> 42 ]
+       [ (match :Nothing   (/Just 'x) x _ :yes) ==> :yes ])
+
+(def /cons
+  "A pattern for lists with a head and a tail."
+  (fn [x-pat xs-pat]
+    (fn [v]
+      (if (list? v)
+        (if (> (length v) 0)
+          (maybe->>=
+           (match-pat x-pat (head v))
+           (fn [b1]
+             (maybe->>=
+              (match-pat xs-pat (tail v))
+              (fn [b2] (non-linear-merge b1 b2)))))
+          :Nothing)
+        :Nothing))))
+
+(def /nil
+  "Empty-list pattern."
+  (fn [v]
+    (if (eq? v (list))
+      [:Just {}]
+      :Nothing)))
+
+(:test "List pattern matching"
+       [ (match (list) /nil :yes _ :no) ==> :yes ]
+       [ (match (list 1 2 3) /nil :no (/cons 'x 'xs) [x xs]) ==> [1 (2 3)]])
+
+(def /?
+  "Predicate pattern. Takes a predicate function as argument. Values match against
+  this pattern if the predicate returns a truthy value."
+  (fn [p]
+    (fn [v]
+      (if (p v)
+        [:Just {}]
+        :Nothing))))
+
+(:test "Predicate patterns"
+       [ (match (list)
+                (/? (fn [l] (< 0 (length l)))) :no
+                _ :yes) ==> :yes]
+       [ (match (list 1 2)
+                (/? (fn [l] (< 0 (length l)))) :yes
+                _ :no) ==> :yes])
+
+(def /as
+  "As pattern. Takes a variable and a sub-pattern. If the subpattern matches then
+  the whole pattern matches and furthermore the variable is bound to the matched
+  value."
+  (fn [var pat]
+    (if (atom? var)
+      (fn [v]
+        (maybe->>= (match-pat pat v)
+                   (fn [bs] [:Just (insert var v bs)])))
+      (throw 'pattern-error "The first argument of `/as` should be an atom."))))
+
+(:test "As-patterns work"
+       [ (match [1 2 3]
+                (/as 'xs [_ 7 _]) :no
+                (/as 'xs [_ _ 3]) xs) ==> [1 2 3]]
+       [ (match [1 2 [3 4]]
+                (/as 'xs [_ 7 _]) :no
+                [_ _ (/as 'xs [_ _])] xs) ==> [3 4]]
+       )
+
+(:test "Non-linear patterns"
+  [ (match [1 1 1]
+           ['x 'x 'x] x)  ==> 1
+  ]
+  [ (match [1 1 2]
+           ['x 'x 'x] x
+           _ :no)  ==> :no
+  ]
+
+  [ (match [1 [2 3] 3]
+           [_ [_ 'x] 'x] x)  ==> 3
+  ]
+  [ (match [1 [2 3] 4]
+           [_ [_ 'x] 'x] x
+           _ :no) ==> :no
+  ]
+
+  [ (match [1 (list 3 1) 3]
+           [_ (/cons 'x _) 'x] x) ==> 3
+  ]
+  [ (match [1 (list 2 3) 4]
+           [_ (/cons 'x _) 'x] x
+           _ :no) ==> :no
+  ]
+
+  [ (match {:a 3 :b [3 2]}
+           {:a 'x :b ['x _]} x) ==> 3
+  ]
+  [ (match {:a 3 :b [2 1]}
+           {:a 'x :b ['x _]} x
+           _ :no) ==> :no
+  ]
+)
