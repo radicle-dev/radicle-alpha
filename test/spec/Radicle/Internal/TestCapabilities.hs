@@ -7,9 +7,9 @@ import           Protolude hiding (TypeError)
 import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Time as Time
 import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
-import qualified Data.Time as Time
 
 import           Radicle
 import           Radicle.Internal.Core (addBinding)
@@ -31,6 +31,7 @@ data WorldState = WorldState
     , worldStateUUID         :: Int
     , worldStateRemoteChains :: Map Text (Seq.Seq Value)
     , worldStateCurrentTime  :: Time.UTCTime
+    , worldStateProcess      :: [(Text, [Text], Text)]
     }
 
 
@@ -53,6 +54,7 @@ runTestWithFiles bindings inputs files action =
             , worldStateUUID = 0
             , worldStateRemoteChains = mempty
             , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
+            , worldStateProcess = []
             }
     in case runState (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws of
         (val, st) -> (val, worldStateStdout st)
@@ -168,3 +170,8 @@ instance UUID.MonadUUID (State WorldState) where
 
 instance CurrentTime (State WorldState) where
   currentTime = gets worldStateCurrentTime
+
+instance Process (State WorldState) where
+  processS proc args pstdin = do
+     modify $ \ws -> ws { worldStateProcess = (proc, args, pstdin):worldStateProcess ws }
+     pure (ExitSuccess, "")
