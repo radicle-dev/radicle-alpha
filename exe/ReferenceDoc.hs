@@ -61,7 +61,7 @@ main = do
       , sec "Input/Output" io
             "Effectful functions. These functions are not available in 'pure' chains, but are available in the local REPL."
       , sec "Maybe" maybe'
-            "Optionality is represented using `[:Just x]` for when the value exists, and `:Nothing` when it doesn't."
+            "Optionality is represented using `[:just x]` for when the value exists, and `:nothing` when it doesn't."
       , sec "Lenses" lens
             "Functional references into radicle values."
       , sec "Validation" validation
