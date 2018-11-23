@@ -244,6 +244,16 @@ purePrimFns = fromList $ allDocs $
             pure . Dict . Map.fromList $ zip (fst <$> kvs) vs
           _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
       )
+    , ( "map-keys"
+      , "Given a function `f` and a dict `d`, returns a dict with the same values as `d`\
+        \ but `f` applied to all the keys."
+      , twoArg "map-keys" $ \case
+          (f, Dict m) -> do
+            let kvs = Map.toList m
+            vs <- traverse (\v -> callFn f [v]) (fst <$> kvs)
+            pure . Dict . Map.fromList $ zip vs (snd <$> kvs)
+          _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
+      )
 
     -- Structures
     , ( "<>"
@@ -271,6 +281,13 @@ purePrimFns = fromList $ allDocs $
           in if all isJust ss
               then pure . String . mconcat $ catMaybes ss
               else throwErrorHere $ TypeError "string-append: non-string argument"
+      )
+    , ( "string-replace"
+      , "Replace all occurrences of the first argument with the second in the third."
+      , \case
+         [String old, String new, String str] -> pure $ String $ T.replace old new str
+         [_, _, _] -> throwErrorHere $ TypeError "string:replace non-string argument"
+         xs -> throwErrorHere $ WrongNumberOfArgs "string-replace" 3 (length xs)
       )
     , ( "insert"
       , "Given `k`, `v` and a dict `d`, returns a dict with the same associations\

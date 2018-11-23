@@ -78,14 +78,14 @@ replBindings = addPrimFns replPrimFns pureEnv
 
 replPrimFns :: ReplM m => PrimFns m
 replPrimFns = fromList $ allDocs $
-    [ ("print!"
-      , "Pretty-prints a value."
-      , \case
-        [x] -> do
-            putStrS (renderPrettyDef x)
+    [ ("put-str!"
+      , "Prints a string."
+      , oneArg "put-str!" $ \case
+        (String x) -> do
+            putStrS x
             pure nil
-        xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
-
+        _ -> throwErrorHere $ TypeError "put-str!: expects a string"
+      )
     , ( "doc!"
       , "Prints the documentation attached to a value and returns `()`. To retrieve\
         \ the docstring as a value use `doc` instead."
@@ -209,12 +209,12 @@ replPrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
       )
     , ( "process!"
-      , "(process! proc args stdin) execute a system process. Returns a vector with the exit code, standard out, and standard error"
+      , "(process! proc args stdin) execute a system process. Returns a vector with the exit code and standard out"
       , \case
           [String proc, Vec args, String pin] -> do
             args' <- hoistEither . first (toLangError . OtherError) $ traverse fromRad args
-            (pexit, pout, perr) <- processS proc (toList args') pin
-            pure $ Vec $ fromList [toRad pexit, String pout, String perr]
+            (pexit, pout) <- processS proc (toList args') pin
+            pure $ Vec $ fromList [toRad pexit, String pout]
           xs -> throwErrorHere $ WrongNumberOfArgs "process!" 3 (length xs)
       )
     , ( "exit!"

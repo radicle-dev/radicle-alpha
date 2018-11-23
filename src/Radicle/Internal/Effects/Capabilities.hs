@@ -10,9 +10,9 @@ import           Protolude
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
 import           System.Console.Haskeline hiding (catch)
-import           System.IO (isEOF)
 import           System.Exit (ExitCode)
-import           System.Process (readProcessWithExitCode)
+import           System.IO (isEOF)
+import           Turtle -- (procStrictWithErr, proc, select, textToLines)
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
@@ -43,14 +43,16 @@ instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . toS
 
 class (Monad m) => Process m where
-    processS :: Text -> [Text] -> Text -> m (ExitCode, Text, Text)
+    processS :: Text -> [Text] -> Text -> m (ExitCode, Text)
 
 instance Process m => Process (Lang m) where
     processS proc args pstdin = lift $ processS proc args pstdin
 instance Process IO where
-    processS proc args pstdin = do
-        (code, pstdout, pstderr) <- readProcessWithExitCode (toS proc) (toS <$> args) (toS pstdin)
-        pure (code, toS pstdout, toS pstderr)
+    processS p args pstdin = do
+        -- procStrictWithErr proc args (select . toList $ textToLines pstdin)
+        res <- foldShell (inproc p args (select . toList $ textToLines pstdin))
+            (FoldShell (\x c -> pure (c:x)) [] pure)
+        pure (ExitSuccess, linesToText res)
 instance Process m => Process (InputT m) where
     processS proc args pstdin = lift $ processS proc args pstdin
 

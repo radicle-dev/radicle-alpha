@@ -1,0 +1,8 @@
+(def lines
+  "Concatenate a list of strings, with newlines in between."
+  (fn [x]
+    (foldl string-append (head x) (map (fn [ln] (string-append "\n" ln)) (tail x)))))
+
+(:test "lines"
+  [ (lines ["hi" "there"]) ==> "hi\nthere" ]
+)
