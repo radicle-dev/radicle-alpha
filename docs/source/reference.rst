@@ -740,13 +740,13 @@ right now, formatted according to ISO 8601.
 Maybe
 -----
 
-Optionality is represented using ``[:Just x]`` for when the value
-exists, and ``:Nothing`` when it doesn't.
+Optionality is represented using ``[:just x]`` for when the value
+exists, and ``:nothing`` when it doesn't.
 
 ``(/Just pat)``
 ~~~~~~~~~~~~~~~
 
-Pattern which matches ``[:Just x]``.
+Pattern which matches ``[:just x]``.
 
 ``(maybe->>= v f)``
 ~~~~~~~~~~~~~~~~~~~
