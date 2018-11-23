@@ -207,3 +207,4 @@ default-extensions:
 - TupleSections
 - TypeFamilies
 - TypeOperators
+- TypeApplications

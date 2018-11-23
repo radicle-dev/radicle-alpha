@@ -4,6 +4,7 @@ import           Protolude hiding (TypeError)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.IntMap as IntMap
+import           Data.List (zip3)
 import qualified Data.Map as Map
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
@@ -18,6 +19,7 @@ import qualified Radicle.Internal.Doc as Doc
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
+import           Radicle.Internal.Type (Type(..))
 import qualified Radicle.Internal.UUID as UUID
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
@@ -77,19 +79,19 @@ purePrimFns = fromList $ allDocs $
         \ elements of the the second argument (a list)."
       , \case
           [fn, List args] -> callFn fn args
-          [_, _]          -> throwErrorHere $ TypeError "apply: expecting list as second arg"
+          [_, v]          -> throwErrorHere $ TypeError "apply" 1 TList v
           xs -> throwErrorHere $ WrongNumberOfArgs "apply" 2 (length xs))
     , ( "read"
       , "Parses a string into a radicle value. Does not evaluate the value."
       , oneArg "read" $ \case
           String s -> readValue s
-          _ -> throwErrorHere $ TypeError "read: expects string"
+          v -> throwErrorHere $ TypeError "read" 0 TString v
       )
     , ( "read-many"
       , "Parses a string into a vector of radicle values. Does not evaluate the values."
       , oneArg "read-many" $ \case
           String s -> readValues s
-          _ -> throwErrorHere $ TypeError "read-many: expects string"
+          v -> throwErrorHere $ TypeError "read-many" 0 TString v
       )
     , ("get-current-env"
       , "Returns the current radicle state."
@@ -121,7 +123,7 @@ purePrimFns = fromList $ allDocs $
         \ the exception, the second can be any value."
       , \case
           [Atom label, exc] -> throwErrorHere $ ThrownError label exc
-          [_, _]            -> throwErrorHere $ TypeError "throw: first argument must be atom"
+          [v, _]            -> throwErrorHere $ TypeError "throw" 0 TAtom v
           xs                -> throwErrorHere $ WrongNumberOfArgs "throw" 2 (length xs))
     , ( "eq?"
       , "Checks if two values are equal."
@@ -134,13 +136,13 @@ purePrimFns = fromList $ allDocs $
       , "Adds an element to the left side of a vector."
       , twoArg "add-left" $ \case
           (x, Vec xs) -> pure $ Vec (x :<| xs)
-          _ -> throwErrorHere $ TypeError "add-left: second argument must be a vector"
+          (_, v) -> throwErrorHere $ TypeError "add-left" 1 TVec v
       )
     , ( "add-right"
       , "Adds an element to the right side of a vector."
       , twoArg "add-right" $ \case
           (x, Vec xs) -> pure $ Vec (xs :|> x)
-          _ -> throwErrorHere $ TypeError "add-right: second argument must be a vector"
+          (_, v) -> throwErrorHere $ TypeError "add-right" 1 TVec v
       )
 
     -- Lists
@@ -148,7 +150,7 @@ purePrimFns = fromList $ allDocs $
       , "Adds an element to the front of a list."
       , \case
           [x, List xs] -> pure $ List (x:xs)
-          [_, _]       -> throwErrorHere $ TypeError "cons: second argument must be list"
+          [_, v]       -> throwErrorHere $ TypeError "cons" 1 TList v
           xs           -> throwErrorHere $ WrongNumberOfArgs "cons" 2 (length xs))
     , ("head"
       , "Retrieves the first element of a sequence if it exists. Otherwise throws an\
@@ -158,7 +160,7 @@ purePrimFns = fromList $ allDocs $
           List []           -> throwErrorHere $ OtherError "head: empty list"
           Vec (x Seq.:<| _) -> pure x
           Vec Seq.Empty     -> throwErrorHere $ OtherError "head: empty vector"
-          _                 -> throwErrorHere $ TypeError "head: expects sequence argument")
+          v                 -> throwErrorHere $ TypeError "head" 0 TSequence v)
     , ("tail"
       , "Given a non-empty sequence, returns the sequence of all the elements but the\
         \ first. If the sequence is empty, throws an exception."
@@ -167,7 +169,7 @@ purePrimFns = fromList $ allDocs $
           List []            -> throwErrorHere $ OtherError "tail: empty list"
           Vec (_ Seq.:<| xs) -> pure $ Vec xs
           Vec Seq.Empty      -> throwErrorHere $ OtherError "tail: empty vector"
-          _                  -> throwErrorHere $ TypeError "tail: expects sequence argument")
+          v                  -> throwErrorHere $ TypeError "tail" 0 TSequence v)
 
     -- Lists and Vecs
     , ( "drop"
@@ -178,9 +180,9 @@ purePrimFns = fromList $ allDocs $
             Left _ -> throwErrorHere $ OtherError "drop: first argument must be an int"
             Right i -> case vs of
               List xs -> pure . List $ drop i xs
-              Vec xs -> pure . Vec $ Seq.drop i xs
-              _ -> throwErrorHere $ TypeError $ "drop: second argument must be a list of vector"
-          _ -> throwErrorHere $ TypeError $ "drop: first argument must be a number"
+              Vec xs  -> pure . Vec $ Seq.drop i xs
+              v       -> throwErrorHere $ TypeError "drop" 1 TSequence v
+          (v, _) -> throwErrorHere $ TypeError "drop" 0 TNumber v
       )
     , ( "take"
       , "Returns the first `n` items of a sequence, unless the sequence is too short,\
@@ -190,9 +192,9 @@ purePrimFns = fromList $ allDocs $
             Left _ -> throwErrorHere $ OtherError "take: first argument must be an integer"
             Right i -> case vs of
               List xs -> pure . List $ take i xs
-              Vec xs -> pure . Vec $ Seq.take i xs
-              _ -> throwErrorHere $ TypeError $ "take: second argument must be a list of vector"
-          _ -> throwErrorHere $ TypeError $ "take: first argument must be a number"
+              Vec xs  -> pure . Vec $ Seq.take i xs
+              _       -> throwErrorHere $ TypeError "take" 1 TSequence vs
+          (v, _) -> throwErrorHere $ TypeError "take" 0 TNumber v
       )
     , ( "nth"
       , "Given an integral number `n` and `xs`, returns the `n`th element\
@@ -207,7 +209,7 @@ purePrimFns = fromList $ allDocs $
               case xs `atMay` i of
                 Just x  -> pure x
                 Nothing -> throwErrorHere $ OtherError "nth: index out of bounds"
-          [_,_] -> throwErrorHere $ TypeError "nth: expects a integer and a list or vector"
+          [v,_] -> throwErrorHere $ TypeError "nth" 0 TNumber v
           xs -> throwErrorHere $ WrongNumberOfArgs "nth" 2 (length xs)
       )
     , ( "sort-by"
@@ -220,7 +222,7 @@ purePrimFns = fromList $ allDocs $
           (f, Vec xs) -> do ys <- traverse (\x -> (x,) <$> callFn f [x]) xs
                             let ys' = Seq.sortOn snd ys
                             pure (Vec (fst <$> ys'))
-          _ -> throwErrorHere $ TypeError "sort-by: second argument must be a sequence"
+          (_, v) -> throwErrorHere $ TypeError "sort-by" 1 TSequence v
       )
     , ( "zip"
       , "Takes two sequences and returns a sequence of corresponding pairs. In one\
@@ -241,7 +243,7 @@ purePrimFns = fromList $ allDocs $
           [a, Dict m] -> case Map.lookup a m of
               Just v  -> pure v
               Nothing -> throwErrorHere $ OtherError $ "lookup: key did not exist: " <> renderCompactPretty a
-          [_, d]      -> throwErrorHere $ TypeError $ "lookup: second argument must be a dict: " <> renderCompactPretty d
+          [_, d]      -> throwErrorHere $ TypeError "lookup" 1 TDict d
           xs -> throwErrorHere $ WrongNumberOfArgs "lookup" 2 (length xs))
     , ( "map-values"
       , "Given a function `f` and a dict `d`, returns a dict with the same keys as `d`\
@@ -251,7 +253,7 @@ purePrimFns = fromList $ allDocs $
             let kvs = Map.toList m
             vs <- traverse (\v -> callFn f [v]) (snd <$> kvs)
             pure . Dict . Map.fromList $ zip (fst <$> kvs) vs
-          _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
+          (_, v) -> throwErrorHere $ TypeError "map-values" 1 TDict v
       )
 
     -- Structures
@@ -261,14 +263,18 @@ purePrimFns = fromList $ allDocs $
           (List xs, List ys) -> pure $ List (xs ++ ys)
           (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
           (Dict m, Dict n) -> pure $ Dict (n <> m)
-          _ -> throwErrorHere $ TypeError "<>: only works on vectors or dicts"
+          (x, y) -> throwErrorHere $ case x of
+            List _ -> TypeError "<>" 1 TList y
+            Vec _  -> TypeError "<>" 1 TVec y
+            Dict _ -> TypeError "<>" 1 TDict y
+            _      -> TypeError "<>" 0 TStructure y
       )
 
     , ( "string-length"
       , "Returns the length of a string."
       , oneArg "string-length" $ \case
           String s -> pure . Number . fromIntegral . T.length $ s
-          _ -> throwErrorHere $ TypeError "string-length: expecting string"
+          v -> throwErrorHere $ TypeError "string-length" 0 TString v
       )
     , ( "string-append"
       , "Concatenates a variable number of string arguments. If one of the arguments\
@@ -276,10 +282,10 @@ purePrimFns = fromList $ allDocs $
       , \args ->
           let fromStr (String s) = Just s
               fromStr _          = Nothing
-              ss = fromStr <$> args
-          in if all isJust ss
-              then pure . String . mconcat $ catMaybes ss
-              else throwErrorHere $ TypeError "string-append: non-string argument"
+              ss = zip3 args (fromStr <$> args) [0..]
+          in case find (\(_, s_, _) -> isNothing s_) ss of
+               Just (v, _, i) -> throwErrorHere $ TypeError "string-append" i TString v
+               Nothing -> pure . String . mconcat $ catMaybes $ (\(_,x,_) -> x) <$> ss
       )
     , ( "insert"
       , "Given `k`, `v` and a dict `d`, returns a dict with the same associations\
@@ -290,16 +296,14 @@ purePrimFns = fromList $ allDocs $
             if hashable k
             then pure . Dict $ Map.insert k v m
             else throwErrorHere NonHashableKey
-          [_, _, _]                -> throwErrorHere
-
-                                      $ TypeError "insert: third argument must be a dict"
+          [_, _, v]                -> throwErrorHere $ TypeError "insert" 2 TDict v
           xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
     , ( "delete"
       , "Given `k` and a dict `d`, returns a dict with the same associations as `d` but\
         \ without the key `k`. If `d` isn't a dict then an exception is thrown."
       , twoArg "delete" $ \case
           (k, Dict m) -> pure . Dict $ Map.delete k m
-          _ -> throwErrorHere $ TypeError "delete: second argument must be a dict"
+          (_, v) -> throwErrorHere $ TypeError "delete" 1 TDict v
       )
     -- The semantics of + and - in Scheme is a little messed up. (+ 3)
     -- evaluates to 3, and of (- 3) to -3. That's pretty intuitive.
@@ -317,19 +321,22 @@ purePrimFns = fromList $ allDocs $
       , twoArg "/" $ \case
           (Number x, Number y) | y /= 0 -> pure $ Number (x / y)
           (Number _, Number _) -> throwErrorHere $ OtherError "Can't divide by 0"
-          _ -> throwErrorHere $ TypeError "/: expects two numbers"
+          (Number _, v) -> throwErrorHere $ TypeError "/" 1 TNumber v
+          (v, _) -> throwErrorHere $ TypeError "/" 0 TNumber v
       )
     , ( "<"
       , "Checks if a number is strictly less than another."
       , \case
           [Number x, Number y] -> pure $ Boolean (x < y)
-          [_, _]               -> throwErrorHere $ TypeError "<: expecting number"
+          [Number _, v]        -> throwErrorHere $ TypeError "<" 1 TNumber v
+          [v, _]               -> throwErrorHere $ TypeError "<" 0 TNumber v
           xs                   -> throwErrorHere $ WrongNumberOfArgs "<" 2 (length xs))
     , ( ">"
       , "Checks if a number is strictly greater than another."
       , \case
           [Number x, Number y] -> pure $ Boolean (x > y)
-          [_, _]               -> throwErrorHere $ TypeError ">: expecting number"
+          [Number _, v]        -> throwErrorHere $ TypeError ">" 1 TNumber v
+          [_, v]               -> throwErrorHere $ TypeError ">" 0 TNumber v
           xs                   -> throwErrorHere $ WrongNumberOfArgs ">" 2 (length xs))
     , ( "integral?"
       , "Checks if a number is an integer."
@@ -337,7 +344,7 @@ purePrimFns = fromList $ allDocs $
           Number n -> case Num.isInteger n of
             Left _  -> pure $ Boolean False
             Right _ -> pure $ Boolean True
-          _ -> throwErrorHere $ TypeError "integral?: expecting number"
+          v -> throwErrorHere $ TypeError "integral?" 0 TNumber v
       )
     , ( "foldl"
       , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
@@ -363,7 +370,7 @@ purePrimFns = fromList $ allDocs $
       , \case
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
           [fn, Vec ls]  -> Vec <$> traverse (callFn fn) (pure <$> ls)
-          [_, _]        -> throwErrorHere $ TypeError "map: second argument should be a list or vector"
+          [_, v]        -> throwErrorHere $ TypeError "map" 1 TSequence v
           xs            -> throwErrorHere $ WrongNumberOfArgs "map" 3 (length xs))
     , ( "keyword?"
       , isTy "keyword"
@@ -395,19 +402,7 @@ purePrimFns = fromList $ allDocs $
       , "Returns a keyword representing the type of the argument; one of:\
         \ `:atom`, `:keyword`, `:string`, `:number`, `:boolean`, `:list`,\
         \ `:vector`, `:function`, `:dict`, `:ref`, `:function`."
-      , let kw' = pure . Keyword . Ident
-        in oneArg "type" $ \case
-             Atom _ -> kw' "atom"
-             Keyword _ -> kw' "keyword"
-             String _ -> kw' "string"
-             Number _ -> kw' "number"
-             Boolean _ -> kw' "boolean"
-             List _ -> kw' "list"
-             Vec _ -> kw' "vector"
-             PrimFn _ -> kw' "function"
-             Dict _ -> kw' "dict"
-             Ref _ -> kw' "ref"
-             Lambda{} -> kw' "function"
+      , oneArg "type" $ pure . typeToValue . valType
       )
     , ( "string?"
       , isTy "string"
@@ -432,8 +427,8 @@ purePrimFns = fromList $ allDocs $
           [x, List xs] -> pure . Boolean $ elem x xs
           [x, Vec xs]  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
           [x, Dict m]  -> pure . Boolean $ Map.member x m
-          [_, _]       -> throwErrorHere
-                        $ TypeError "member?: second argument must be list, vector or dict"
+          [_, v]       -> throwErrorHere
+                        $ TypeError "member?" 1 TStructure v
           xs           -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
     , ( "ref"
       , "Creates a ref with the argument as the initial value."
@@ -442,7 +437,7 @@ purePrimFns = fromList $ allDocs $
       , "Returns the current value of a ref."
       , oneArg "read-ref" $ \case
           Ref ref -> readRef ref
-          _       -> throwErrorHere $ TypeError "read-ref: argument must be a ref")
+          v       -> throwErrorHere $ TypeError "read-ref" 0 TRef v)
     , ( "write-ref"
       , "Given a reference `r` and a value `v`, updates the value stored in `r` to be\
         \ `v` and returns `v`."
@@ -451,8 +446,8 @@ purePrimFns = fromList $ allDocs $
               st <- get
               put $ st { bindingsRefs = IntMap.insert x v $ bindingsRefs st }
               pure v
-          [_, _]                 -> throwErrorHere
-                                  $ TypeError "write-ref: first argument must be a ref"
+          [v, _]                 -> throwErrorHere
+                                  $ TypeError "write-ref" 0 TRef v
           xs                     -> throwErrorHere
                                   $ WrongNumberOfArgs "write-ref" 2 (length xs))
     , ( "show"
@@ -468,7 +463,7 @@ purePrimFns = fromList $ allDocs $
             x@(List _) -> pure x
             x@(Vec _) -> pure x
             Dict kvs -> pure . Vec . Seq.fromList $ [Vec (Seq.fromList [k, v]) | (k,v) <- Map.toList kvs ]
-            _ -> throwErrorHere $ TypeError "seq: can only be used on a list, vector or dictionary"
+            v -> throwErrorHere $ TypeError "seq" 0 TStructure v
       )
     , ( "to-json"
       , "Returns a JSON formatted string representing the input value."
@@ -504,7 +499,7 @@ purePrimFns = fromList $ allDocs $
       , "Checks if a string has the format of a UUID."
       , oneArg "uuid?" $ \case
           String t -> pure . Boolean . UUID.isUUID $ t
-          _ -> throwErrorHere $ TypeError "uuid?: expects a string"
+          v -> throwErrorHere $ TypeError "uuid?" 0 TString v
       )
     , ( "document"
       , "Used to add documentation to variables."
@@ -551,15 +546,14 @@ purePrimFns = fromList $ allDocs $
              -> Text
              -> Text
              -> (Text, Text, [Value] -> Lang m Value)
-    numBinop fn name doc = (name, doc, \case
-        Number x:x':xs -> foldM go (Number x) (x':xs)
-          where
-            go (Number a) (Number b) = pure . Number $ fn a b
-            go _ _ = throwErrorHere . TypeError
-                   $ name <> ": expecting number"
-        [Number _] -> throwErrorHere
-                    $ OtherError $ name <> ": expects at least 2 arguments"
-        _ -> throwErrorHere $ TypeError $ name <> ": expecting number")
+    numBinop fn name doc =
+      ( name
+      , doc
+      , twoArg name $ \case
+          (Number a, Number b) -> pure . Number $ fn a b
+          (Number _, v) -> throwErrorHere $ TypeError name 1 TNumber v
+          (v, _) -> throwErrorHere $ TypeError name 0 TNumber v
+      )
 
 -- * Helpers
 

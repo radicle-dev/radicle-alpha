@@ -321,17 +321,17 @@ test_eval =
         "(type (ref 0))" `hasTy` "ref"
         "(type (fn [x] x))" `hasTy` "function"
 
-    , testCase "'+' sums the list of numbers" $ do
-        let prog1 = [s|(+ 2 (+ 2 3))|]
-        prog1 `succeedsWith` int 7
-        let prog2 = [s|(+ -1 -2 -3)|]
-        prog2 `succeedsWith` int (- 6)
+    , testCase "'+' sums two numbers" $ do
+        let prog1 = [s|(+ 2 1)|]
+        prog1 `succeedsWith` int 3
+        let prog2 = [s|(+ -1 -2)|]
+        prog2 `succeedsWith` int (- 3)
 
-    , testCase "'-' subtracts the list of numbers" $ do
-        let prog1= [s|(- (+ 2 3) 1)|]
+    , testCase "'-' subtracts two numbers" $ do
+        let prog1= [s|(- 5 1)|]
         prog1 `succeedsWith` int 4
-        let prog2 = [s|(- -1 -2 -3)|]
-        prog2 `succeedsWith` int 4
+        let prog2 = [s|(- 6 -3)|]
+        prog2 `succeedsWith` int 9
 
     , testCase "'*' multiplies the list of numbers" $ do
         let prog = [s|(* 2 3)|]

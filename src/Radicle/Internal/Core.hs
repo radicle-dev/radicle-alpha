@@ -6,7 +6,9 @@ module Radicle.Internal.Core where
 
 import qualified Prelude
 import           Protolude hiding (Constructor, TypeError, (<>))
+import qualified Prelude
 
+import qualified Data.Char as Char
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
                  (ExceptT(..), MonadError, runExceptT, throwError)
@@ -57,7 +59,10 @@ instance Serialise PatternMatchError
 data LangErrorData r =
       UnknownIdentifier Ident
     | Impossible Text
-    | SpecialForm Text
+    -- | The special form that was misused, and information on the misuse.
+    | SpecialForm Text Text
+    -- | Takes a function description, a argument position, an expected type and
+    -- the value which wasn't of that type.
     | TypeError Text Int Type.Type Value
     -- | Takes the function name, expected number of args, and actual number of
     -- args
@@ -83,6 +88,11 @@ noStack :: Either (LangError Value) a -> Either (LangErrorData Value) a
 noStack (Left (LangError _ err)) = Left err
 noStack (Right v)                = Right v
 
+typeToValue :: Type.Type -> Value
+typeToValue t =
+  let s :: Prelude.String = Char.toLower <$> drop 1 (show t)
+  in Keyword . Ident . Identifier.kebabCons . toS $ s
+
 -- | Convert an error to a radicle value, and the label for it. Used for
 -- catching exceptions.
 errorDataToValue
@@ -96,11 +106,19 @@ errorDataToValue e = case e of
         )
     -- "Now more than ever seems it rich to die"
     Impossible _ -> throwErrorHere e
-    TypeError{} -> makeVal
+    TypeError fname pos ty v -> makeVal
         ( "type-error"
-        , [] -- TODO
+        , [ ("function", makeA $ Ident fname)
+          , ("position", Number (fromIntegral pos))
+          , ("expected-type", typeToValue ty)
+          , ("actual-type", typeToValue (valType v))
+          , ("value", v)
+          ]
         )
-    SpecialForm _ -> notImplemented -- TODO
+    SpecialForm form info -> makeVal
+      ( "special-form-error"
+      , [ ("special-form", makeA $ Ident form)
+        , ("info", String info)])
     WrongNumberOfArgs i expected actual -> makeVal
         ( "wrong-number-of-args"
         , [ ("function", makeA $ Ident i)
@@ -169,8 +187,8 @@ data ValueF r =
 
 instance Serialise r => Serialise (ValueF r)
 
-valTy :: (CPA t) => Annotated t ValueF -> Type.Type
-valTy = \case
+valType :: (CPA t) => Annotated t ValueF -> Type.Type
+valType = \case
   Atom _ -> TAtom
   Keyword _ -> TKeyword
   String _ -> TString
@@ -483,11 +501,11 @@ specialForms = Map.fromList $ first Ident <$>
           args : b : bs ->
             case args of
               Vec atoms_ -> do
-                atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn: expecting a list of symbols")
+                atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn" "expecting a list of symbols")
                 e <- gets bindingsEnv
                 pure (Lambda atoms (b :| bs) e)
               _ -> throwErrorHere $ OtherError "fn: first argument must be a vector of argument symbols, and then at least one form for the body"
-          xs -> throwErrorHere $ WrongNumberOfArgs "fn" 2 (length xs) -- TODO: technically "at least 2"
+          _ -> throwErrorHere $ SpecialForm "fn" "Need an argument list and a body"
       )
   , ("quote", \case
           [v] -> pure v
@@ -516,7 +534,7 @@ specialForms = Map.fromList $ first Ident <$>
                      if thrownLabel == label || label == Ident "any"
                          then handlerclo $$ [thrownValue]
                          else baseEval form
-                  _ -> throwErrorHere $ SpecialForm "catch: first argument must be atom" -- TODO
+                  _ -> throwErrorHere $ SpecialForm "catch" "first argument must be atom"
           xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
     , ("if", \case
           [condition, t, f] -> do
@@ -707,7 +725,7 @@ callFn f vs = case f of
   PrimFn i -> do
     fn <- lookupPrimop i
     fn vs
-  _ -> throwErrorHere $ SpecialForm "Can't apply a non-function"
+  _ -> throwErrorHere $ SpecialForm "function-application" "Can't apply a non-function"
 
 -- | Infix evaluation of application (of functions or special forms)
 infixr 1 $$

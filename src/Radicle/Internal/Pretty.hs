@@ -3,7 +3,6 @@
 
 module Radicle.Internal.Pretty where
 
-import qualified Prelude
 import           Protolude hiding (Type, TypeError, (<>))
 
 import           Data.Copointed (Copointed(..))
@@ -73,17 +72,17 @@ instance Pretty r => Pretty (LangErrorData r) where
     pretty v = case v of
         UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
         Impossible t -> "This cannot be!" <+> pretty t
-        TypeError fname pos t v ->
-              pretty ("Type error: " <> fname <> " expects a value of type")
-          <+> pretty t
-          <+> pretty ("in the " <> show pos <> "th argument." :: Text)
-          <+> "But got:" <+> pretty v
-          <+> "of type:" <+> pretty (valTy v)
+        TypeError fname pos t val -> vsep
+          [ "Type error:" <+> pretty fname <+> "expects a value of type"
+            <+> pretty t <+> "in the" <+> pretty pos <> "th argument."
+          , "But got a" <+> pretty (valType val) <> ":"
+          , indent 2 $ pretty val ]
         WrongNumberOfArgs t x y -> "Wrong number of args in" <+> pretty t
                                  <+> "Expected:" <+> pretty x
                                  <+> "Got:" <+> pretty y
         NonHashableKey -> "Non-hashable key in dict."
         OtherError t -> "Error:" <+> pretty t
+        SpecialForm f t -> "Special form error: error when using" <+> pretty f <> ":" <+> pretty t
         ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)
         Exit -> "Exit"
         ThrownError i val -> "Exception" <+> pretty i <+> pretty val
