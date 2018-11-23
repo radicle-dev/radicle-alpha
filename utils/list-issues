@@ -3,8 +3,14 @@
 FILE="$(mktemp)"
 cat << SRC > $FILE
 (load! "rad/monadic/issues.rad")
-(def iss-map (apply dict (map (seq (list-issues)))
-(print! (fzf-select-by-key! (map-keys show (list-issues))))
+
+(def mk-key (fn [v]
+  (def key (nth 0 v))
+  (def val (nth 1 v))
+  [(string-append (show key) " - " (lookup :title val)) val]))
+(def iss (dict-from-list (map mk-key (seq (list-issues)))))
+(def selected (fzf-select-by-key! iss))
+(print! selected)
 SRC
-stack exec --silent radicle -- $FILE
+radicle -- $FILE
 
