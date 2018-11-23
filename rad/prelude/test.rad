@@ -15,7 +15,7 @@
                     (def test-name (nth 1 expr))
                     (def error
                       (fn [msg]
-                        (print! (string-append "Test '" test-name "' failed: " msg))))
+                        (put-str! (string-append "Test '" test-name "' failed: " msg))))
                     ;; Check a single test in a given env
                     (def check-single
                       (fn [single ix senv]
@@ -26,7 +26,7 @@
                             (do
                               (def lhs-res (head (eval lhs senv)))
                               (if (eq? lhs-res rhs)
-                                  (print! (string-append "Test '" test-name " (" (show ix) ")' succeeded"))
+                                  (put-str! (string-append "Test '" test-name " (" (show ix) ")' succeeded"))
                                   (error (string-append "failed: got " (show lhs-res) " but expected " (show rhs)))))
                             (error "Expected and actual not separate by ==>"))
                         (+ ix 1)))
