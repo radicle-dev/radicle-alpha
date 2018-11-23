@@ -554,7 +554,7 @@ instance CPA t => FromRad t Text where
 instance CPA t => FromRad t ExitCode where
     fromRad x = case x of
         Keyword (Ident "ok") -> pure $ ExitSuccess
-        Vec (err Seq.:<| errValue Seq.:<| Seq.Empty) -> ExitFailure <$> fromRad errValue
+        Vec (Keyword (Ident "error") Seq.:<| errValue Seq.:<| Seq.Empty) -> ExitFailure <$> fromRad errValue
         _ -> Left "Expecting either :ok or [:error errValue]"
 instance (CPA t, FromRad t a) => FromRad t [a] where
     fromRad x = case x of
@@ -616,7 +616,7 @@ instance CPA t => ToRad t Text where
 instance CPA t => ToRad t ExitCode where
     toRad x = case x of
         ExitSuccess -> Keyword (Ident "ok")
-        ExitFailure x -> Vec $ Seq.fromList [Keyword (Ident "error"), toRad x]
+        ExitFailure c -> Vec $ Seq.fromList [Keyword (Ident "error"), toRad c]
 instance ToRad t (Ann.Annotated t ValueF) where
     toRad = identity
 instance (CPA t, ToRad t a) => ToRad t [a] where

@@ -32,6 +32,7 @@ dependencies:
 - template-haskell
 - text
 - time
+- turtle
 - unordered-containers
 - uuid
 when:
