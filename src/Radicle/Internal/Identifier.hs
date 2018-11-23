@@ -3,7 +3,8 @@ module Radicle.Internal.Identifier where
 import qualified Prelude
 import           Protolude
 
-import           Data.Char (isAlphaNum, isLetter)
+import           Data.Char (isAlphaNum, isLetter, isUpper, toLower)
+import qualified Data.Map as Map
 import qualified Data.Text as T
 
 -- These are made top-level so construction of arbitrary instances that matches
@@ -24,23 +25,45 @@ extendedChar :: Prelude.String
 extendedChar = ['!', '$', '%', '&', '*', '+', '-', '.', '/', ':', '<' , '=', '>'
   , '?', '@', '^', '_', '~']
 
--- | Expands characters into strings that are safe to use in keywords.
-keywordChar :: Char -> Text
-keywordChar x = case x of
-      _ | isValidIdentRest x -> toS [x]
-      '{'                    -> "_lbrace_"
-      '}'                    -> "_rbrace_"
-      '['                    -> "_lbrack_"
-      ']'                    -> "_rbrack_"
-      '('                    -> "_lparen_"
-      ')'                    -> "_rparen_"
-      '|'                    -> "_pipe_"
-      ' '                    -> "_space_"
-      '\''                   -> "_prime_"
-      ','                    -> "_comma_"
-      '#'                    -> "_hash_"
-      _                      -> "_" <> show (fromEnum x) <> "_"
+replacements :: Map Char Prelude.String
+replacements = Map.fromList
+  [ ('{', "_lbrace_")
+  , ('}', "_rbrace_")
+  , ('[', "_lbrack_")
+  , (']', "_rbrack_")
+  , ('(', "_lparen_")
+  , (')', "_rparen_")
+  , ('|', "_pipe_")
+  , (' ', "_space_")
+  , ('\'', "_prime_")
+  , (',', "_comma_")
+  , ('#', "_hash_")
+  ]
 
--- | Makes a string safe to use in a keyword.
-keywordWord :: Text -> Text
-keywordWord x = T.concat $ keywordChar <$> T.unpack x
+-- | Converts a Haskell constructor name into a valid radicle identifier.
+kebabCons :: Prelude.String -> Text
+kebabCons = T.intercalate "-" . fmap (toS . lowerFirst) . go .keywordWord
+  where
+    go "" = []
+    go xs@(x:_) | isLower x = lowers : go rest
+      where
+        (lowers, rest) = Prelude.span isLower xs
+        isLower = not . isUpper
+    go (x:xs) = consCase x rest
+      where
+        rest = go xs
+        consCase c []     = [[c]]
+        consCase c (p:ps) = (c:p):ps
+
+    lowerFirst ""     = ""
+    lowerFirst (c:cs) = toLower c : cs
+
+    -- Expands characters into strings that are safe to use in keywords.
+    keywordChar x | isValidIdentRest x = [x]
+    keywordChar x =
+      case Map.lookup x replacements of
+        Just r  -> r
+        Nothing -> "_" <> show (fromEnum x) <> "_"
+
+    -- Makes a string safe to use in a keyword.
+    keywordWord = concat . fmap keywordChar

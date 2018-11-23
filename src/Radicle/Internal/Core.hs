@@ -4,6 +4,7 @@
 -- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
 
+import qualified Prelude
 import           Protolude hiding (Constructor, TypeError, (<>))
 
 import           Codec.Serialise (Serialise)
@@ -99,7 +100,8 @@ errorDataToValue e = case e of
     WrongNumberOfArgs i expected actual -> makeVal
         ( "wrong-number-of-args"
         , [ ("function", makeA $ Ident i)
-          , ("expected", Number $ fromIntegral expected)
+          , ("expected", Number $ fromIntegral
+              expected)
           , ("actual", Number $ fromIntegral actual)]
         )
     NonHashableKey -> makeVal ( "non-hashable-key", [])
@@ -576,9 +578,9 @@ instance (CPA t, FromRad t a, FromRad t b) => FromRad t (a,b) where
     fromRad (Vec (x :<| y :<| Seq.Empty)) = (,) <$> fromRad x <*> fromRad y
     fromRad _ = Left "Expecting a vector of length 2"
 instance (CPA t, FromRad t a) => FromRad t (Maybe a) where
-    fromRad (Vec (Keyword (Ident "Just") :<| x :<| Empty)) = Just <$> fromRad x
-    fromRad (Keyword (Ident "Nothing")) = pure Nothing
-    fromRad _ = Left "Expecting :Nothing or [:Just _]"
+    fromRad (Vec (Keyword (Ident "just") :<| x :<| Empty)) = Just <$> fromRad x
+    fromRad (Keyword (Ident "nothing")) = pure Nothing
+    fromRad _ = Left "Expecting `:nothing` or `[:just _]`"
 instance FromRad t (Annotated t ValueF) where
   fromRad = pure
 instance CPA t => FromRad t Rational where
@@ -642,8 +644,8 @@ instance CPA t => ToRad t Bool where
 instance (CPA t, ToRad t a, ToRad t b) => ToRad t (a,b) where
     toRad (x,y) = Vec $ toRad x :<| toRad y :<| Empty
 instance (CPA t, ToRad t a) => ToRad t (Maybe a) where
-    toRad Nothing  = Keyword (Ident "Nothing")
-    toRad (Just x) = Vec $ Keyword (Ident "Just") :<| toRad x :<| Empty
+    toRad Nothing  = Keyword (Ident "nothing")
+    toRad (Just x) = Vec $ Keyword (Ident "just") :<| toRad x :<| Empty
 instance CPA t => ToRad t Int where
     toRad = Number . fromIntegral
 instance CPA t => ToRad t Integer where
@@ -755,12 +757,12 @@ instance (CPA t, ToRadFields t a, ToRadG t b) => ToRadG t (Either a b) where
   toRadConss (_ : r) (Right next) = toRadConss r next
   toRadConss [] _ = panic "impossible"
 
-radCons :: CPA t => Text -> [Annotated t ValueF] -> Annotated t ValueF
+radCons :: CPA t => Prelude.String -> [Annotated t ValueF] -> Annotated t ValueF
 radCons name args = case args of
     [] -> consKw
     _  -> Vec ( consKw :<| Seq.fromList args )
   where
-    consKw = Keyword (Ident (Identifier.keywordWord name))
+    consKw = Keyword . Ident . Identifier.kebabCons $ name
 
 instance ToRadG t Void where
   toRadConss _ = absurd
@@ -792,7 +794,7 @@ gDecodeErr e = "Couldn't generically decode radicle value: " <> e
 
 instance (FromRadFields t a, FromRadG t b) => FromRadG t (Either a b) where
   fromRadConss (Constructor name fieldMeta : r) name' args = do
-    if Identifier.keywordWord (toS name) /= name'
+    if Identifier.kebabCons (toS name) /= name'
       then Right <$> fromRadConss r name' args
       else Left <$> fromRadFields fieldMeta args
   fromRadConss [] _ _ = panic "impossible"
