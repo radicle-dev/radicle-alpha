@@ -1,5 +1,6 @@
 (def fzf-select-by-key!
+  "Select from keys in `dict` with `fzf`, returning the corresponding values"
   (fn [dict]
-    (def result (process! "fzf" [] (show (keys dict))))
+    (def result (process! "/nix/store/zg1yn6fwq2db0gvkvbfq5rcab5dwa2qq-fzf-0.17.4-bin/bin/fzf" [] (show (keys dict))))
     ;; TODO: pattern match on exit code when pattern matching is merged
     (lookup (nth 1 result) dict)))
