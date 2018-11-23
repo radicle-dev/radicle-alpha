@@ -34,6 +34,8 @@ import qualified Radicle.Internal.Doc as Doc
 import qualified Radicle.Internal.Identifier as Identifier
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Orphans ()
+import           Radicle.Internal.Type (Type(..))
+import qualified Radicle.Internal.Type as Type
 
 
 -- * Value
@@ -55,7 +57,8 @@ instance Serialise PatternMatchError
 data LangErrorData r =
       UnknownIdentifier Ident
     | Impossible Text
-    | TypeError Text
+    | SpecialForm Text
+    | TypeError Text Int Type.Type Value
     -- | Takes the function name, expected number of args, and actual number of
     -- args
     | WrongNumberOfArgs Text Int Int
@@ -93,10 +96,11 @@ errorDataToValue e = case e of
         )
     -- "Now more than ever seems it rich to die"
     Impossible _ -> throwErrorHere e
-    TypeError i -> makeVal
+    TypeError{} -> makeVal
         ( "type-error"
-        , [("info", String i)]
+        , [] -- TODO
         )
+    SpecialForm _ -> notImplemented -- TODO
     WrongNumberOfArgs i expected actual -> makeVal
         ( "wrong-number-of-args"
         , [ ("function", makeA $ Ident i)
@@ -164,6 +168,20 @@ data ValueF r =
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
+
+valTy :: (CPA t) => Annotated t ValueF -> Type.Type
+valTy = \case
+  Atom _ -> TAtom
+  Keyword _ -> TKeyword
+  String _ -> TString
+  Number _ -> TNumber
+  Boolean _ -> TBoolean
+  List _ -> TList
+  Vec _ -> TVec
+  PrimFn _ -> TFunction
+  Dict _ -> TDict
+  Ref _ -> TRef
+  Lambda{} -> TFunction
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
@@ -465,7 +483,7 @@ specialForms = Map.fromList $ first Ident <$>
           args : b : bs ->
             case args of
               Vec atoms_ -> do
-                atoms <- traverse isAtom (toList atoms_) ?? toLangError (TypeError "fn: expecting a list of symbols")
+                atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn: expecting a list of symbols")
                 e <- gets bindingsEnv
                 pure (Lambda atoms (b :| bs) e)
               _ -> throwErrorHere $ OtherError "fn: first argument must be a vector of argument symbols, and then at least one form for the body"
@@ -498,7 +516,7 @@ specialForms = Map.fromList $ first Ident <$>
                      if thrownLabel == label || label == Ident "any"
                          then handlerclo $$ [thrownValue]
                          else baseEval form
-                  _ -> throwErrorHere $ TypeError "catch: first argument must be atom"
+                  _ -> throwErrorHere $ SpecialForm "catch: first argument must be atom" -- TODO
           xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
     , ("if", \case
           [condition, t, f] -> do
@@ -689,7 +707,7 @@ callFn f vs = case f of
   PrimFn i -> do
     fn <- lookupPrimop i
     fn vs
-  _ -> throwErrorHere . TypeError $ "Trying to call a non-function"
+  _ -> throwErrorHere $ SpecialForm "Can't apply a non-function"
 
 -- | Infix evaluation of application (of functions or special forms)
 infixr 1 $$

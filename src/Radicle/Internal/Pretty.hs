@@ -1,7 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TypeApplications #-}
+
 module Radicle.Internal.Pretty where
 
-import           Protolude hiding (TypeError, (<>))
+import qualified Prelude
+import           Protolude hiding (Type, TypeError, (<>))
 
 import           Data.Copointed (Copointed(..))
 import qualified Data.Map as Map
@@ -9,11 +12,13 @@ import           Data.Sequence (Seq(..))
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
+import           GHC.Exts (IsString(..))
 import           Text.Megaparsec.Error (parseErrorPretty)
 import           Text.Megaparsec.Pos (sourcePosPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
+import           Radicle.Internal.Type
 
 -- | We can't just pretty print the pointer id since that would break
 -- referential transparency, so instead we just label refs as '<ref>'
@@ -22,6 +27,9 @@ instance Pretty Reference where
 
 instance Pretty Ident where
     pretty (Ident i) = pretty i
+
+instance Pretty Type where
+  pretty = fromString . drop 1 . show
 
 instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) where
     pretty v = case v of
@@ -65,7 +73,12 @@ instance Pretty r => Pretty (LangErrorData r) where
     pretty v = case v of
         UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
         Impossible t -> "This cannot be!" <+> pretty t
-        TypeError t -> "Type error:" <+> pretty t
+        TypeError fname pos t v ->
+              pretty ("Type error: " <> fname <> " expects a value of type")
+          <+> pretty t
+          <+> pretty ("in the " <> show pos <> "th argument." :: Text)
+          <+> "But got:" <+> pretty v
+          <+> "of type:" <+> pretty (valTy v)
         WrongNumberOfArgs t x y -> "Wrong number of args in" <+> pretty t
                                  <+> "Expected:" <+> pretty x
                                  <+> "Got:" <+> pretty y
