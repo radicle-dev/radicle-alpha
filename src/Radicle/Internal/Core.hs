@@ -55,12 +55,13 @@ data PatternMatchError
 
 instance Serialise PatternMatchError
 
--- | An error throw during parsing or evaluating expressions in the language.
+-- | An error thrown during parsing or evaluating expressions in the language.
 data LangErrorData r =
       UnknownIdentifier Ident
     | Impossible Text
     -- | The special form that was misused, and information on the misuse.
     | SpecialForm Text Text
+    | NonFunctionCalled Value
     -- | Takes a function description, a argument position, an expected type and
     -- the value which wasn't of that type.
     | TypeError Text Int Type.Type Value
@@ -115,6 +116,9 @@ errorDataToValue e = case e of
           , ("value", v)
           ]
         )
+    NonFunctionCalled v -> makeVal
+      ( "non-function-called"
+      , [("value", v)])
     SpecialForm form info -> makeVal
       ( "special-form-error"
       , [ ("special-form", makeA $ Ident form)
@@ -501,11 +505,11 @@ specialForms = Map.fromList $ first Ident <$>
           args : b : bs ->
             case args of
               Vec atoms_ -> do
-                atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn" "expecting a list of symbols")
+                atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn" "One of the arguments was not an atom")
                 e <- gets bindingsEnv
                 pure (Lambda atoms (b :| bs) e)
-              _ -> throwErrorHere $ OtherError "fn: first argument must be a vector of argument symbols, and then at least one form for the body"
-          _ -> throwErrorHere $ SpecialForm "fn" "Need an argument list and a body"
+              _ -> throwErrorHere $ SpecialForm "fn" "First argument must be a vector of argument atoms"
+          _ -> throwErrorHere $ SpecialForm "fn" "Need an argument vector and a body"
       )
   , ("quote", \case
           [v] -> pure v
@@ -725,7 +729,7 @@ callFn f vs = case f of
   PrimFn i -> do
     fn <- lookupPrimop i
     fn vs
-  _ -> throwErrorHere $ SpecialForm "function-application" "Can't apply a non-function"
+  _ -> throwErrorHere $ NonFunctionCalled f
 
 -- | Infix evaluation of application (of functions or special forms)
 infixr 1 $$

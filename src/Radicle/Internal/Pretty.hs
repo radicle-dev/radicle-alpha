@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Radicle.Internal.Pretty where
 
@@ -74,15 +73,18 @@ instance Pretty r => Pretty (LangErrorData r) where
         Impossible t -> "This cannot be!" <+> pretty t
         TypeError fname pos t val -> vsep
           [ "Type error:" <+> pretty fname <+> "expects a value of type"
-            <+> pretty t <+> "in the" <+> pretty pos <> "th argument."
+            <+> pretty t <+> "in the" <+> pretty (pos + 1) <> "-th argument."
           , "But got a" <+> pretty (valType val) <> ":"
+          , indent 2 $ pretty val ]
+        NonFunctionCalled val -> vsep
+          [ "Value was invoked as a function, but it has type" <+> pretty (valType val) <> ":"
           , indent 2 $ pretty val ]
         WrongNumberOfArgs t x y -> "Wrong number of args in" <+> pretty t
                                  <+> "Expected:" <+> pretty x
                                  <+> "Got:" <+> pretty y
         NonHashableKey -> "Non-hashable key in dict."
         OtherError t -> "Error:" <+> pretty t
-        SpecialForm f t -> "Special form error: error when using" <+> pretty f <> ":" <+> pretty t
+        SpecialForm f t -> "Error using special form" <+> pretty f <> ":" <+> pretty t <> "."
         ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)
         Exit -> "Exit"
         ThrownError i val -> "Exception" <+> pretty i <+> pretty val

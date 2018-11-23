@@ -20,9 +20,3 @@ data Type
   deriving (Eq, Show, Read, Generic)
 
 instance Serialise Type
-
-subtype :: Type -> Type -> Bool
-subtype x y             | x == y = True
-subtype TList TSequence = True
-subtype TVec  TSequence = True
-subtype _ _             = False
