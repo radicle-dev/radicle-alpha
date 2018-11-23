@@ -7,6 +7,7 @@
 (load! "rad/prelude/exception.rad")
 (load! "rad/prelude/recursion.rad")
 (load! "rad/prelude/list.rad")
+(load! "rad/prelude/strings.rad")
 (load! "rad/prelude/dict.rad")
 (load! "rad/prelude/set.rad")
 (load! "rad/prelude/ref.rad")

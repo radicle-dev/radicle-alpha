@@ -16,14 +16,5 @@ cat << SRC > $SRC_FILE
 (create-issue!
   $(cat $TEMPLATE | vipe))
 SRC
-
-# cat << SRC > $SRC_FILE
-# (load! "rad/monadic/issues.rad")
-# (create-issue1
-# (load-chain "http://radicle.xyz/chains/radicle-issues")
-# (map short (values (list-issues)))
-# SRC
-
-cat $SRC_FILE
-# stack exec --silent radicle -- $SRC_FILE | less
+radicle $SRC_FILE
 

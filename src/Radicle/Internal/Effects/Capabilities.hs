@@ -13,7 +13,14 @@ import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.Exit (ExitCode)
 import           System.IO (isEOF)
-import           Turtle -- (procStrictWithErr, proc, select, textToLines)
+import           Turtle
+                 ( FoldShell(..)
+                 , foldShell
+                 , inproc
+                 , linesToText
+                 , select
+                 , textToLines
+                 )
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
@@ -56,7 +63,6 @@ instance Process m => Process (Lang m) where
     processS proc args pstdin = lift $ processS proc args pstdin
 instance Process IO where
     processS p args pstdin = do
-        -- procStrictWithErr proc args (select . toList $ textToLines pstdin)
         res <- foldShell (inproc p args (select . toList $ textToLines pstdin))
             (FoldShell (\x c -> pure (c:x)) [] pure)
         pure (ExitSuccess, linesToText res)

@@ -10,7 +10,20 @@ cat << SRC > $FILE
   [(string-append (show key) " - " (lookup :title val)) val]))
 (def iss (dict-from-list (map mk-key (seq (list-issues)))))
 (def selected (fzf-select-by-key! iss))
-(print! selected)
+(def pretty-comment (fn [c]
+  (string-append
+    (lookup :github-username c) "[" (lookup :created-at c) "]: "
+    (lookup :body c)
+    "\n\n")))
+(def pretty-issue (fn [i]
+  (string-append
+     "Issue " (show (lookup :number i)) " : " (lookup :title i)
+     "\nDescription: " (lookup :body i)
+     "\nState: " (if (eq? (lookup :state i) :open) "open" "closed")
+     "\nLabels: " (show (lookup :labels i))
+     "\nComments:\n\n\n" (lines (map pretty-comment (lookup :comments i)))
+)))
+(put-str! (pretty-issue selected))
 SRC
-radicle -- $FILE
+radicle -- $FILE | less
 

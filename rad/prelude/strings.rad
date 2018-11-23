@@ -1,8 +1,26 @@
+(def intercalate
+  (fn [sep str]
+    (if (eq? (length str) 0)
+        ""
+        (foldl
+          string-append
+          (head str)
+          (map (fn [ln] (string-append sep ln)) (tail str))))))
+
 (def lines
   "Concatenate a list of strings, with newlines in between."
   (fn [x]
-    (foldl string-append (head x) (map (fn [ln] (string-append "\n" ln)) (tail x)))))
+    (intercalate "\n" x)))
 
 (:test "lines"
   [ (lines ["hi" "there"]) ==> "hi\nthere" ]
+)
+
+(def words
+  "Concatenate a list of strings, with spaces in between."
+  (fn [x]
+    (intercalate " " x)))
+
+(:test "words"
+  [ (lines ["hi" "there"]) ==> "hi there" ]
 )
