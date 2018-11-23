@@ -16,7 +16,7 @@ repository. We'll see how to define the format of issues that can be created;
 how to define rights and permissions for certain types of interaction; and
 how to allow for future changes to the chain. 
 
-::
+.. code-block:: radicle
 
      (load! "rad/prelude.rad")
      (def issues (ref { :open nil :closed nil }))
