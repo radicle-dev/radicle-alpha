@@ -2,6 +2,7 @@
 
 TEMPLATE="$(mktemp)"
 cat << SRC > $TEMPLATE
+;; Issue template. An empty or invalid value will abort.
 {:title      "Pick a title"
  :body       "Pick a body"
  :labels     []

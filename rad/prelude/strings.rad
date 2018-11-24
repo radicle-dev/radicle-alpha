@@ -7,6 +7,10 @@
           (head str)
           (map (fn [ln] (string-append sep ln)) (tail str))))))
 
+(:test "intercalate"
+  [ (intercalate "aa" ["hi" "there"]) ==> "hiaathere" ]
+)
+
 (def lines
   "Concatenate a list of strings, with newlines in between."
   (fn [x]
