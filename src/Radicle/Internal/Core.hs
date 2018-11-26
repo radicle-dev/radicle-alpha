@@ -6,15 +6,14 @@ module Radicle.Internal.Core where
 
 import qualified Prelude
 import           Protolude hiding (Constructor, TypeError, (<>))
-import qualified Prelude
 
-import qualified Data.Char as Char
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
                  (ExceptT(..), MonadError, runExceptT, throwError)
 import           Control.Monad.State
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
+import qualified Data.Char as Char
 import           Data.Copointed (Copointed(..))
 import           Data.Data (Data)
 import qualified Data.HashMap.Strict as HashMap
