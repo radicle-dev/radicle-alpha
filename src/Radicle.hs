@@ -23,6 +23,7 @@ module Radicle
     -- *** Value
     , ValueF(..)
     , type Value
+    , Type(..)
     , pattern Atom
     , pattern Keyword
     , pattern String

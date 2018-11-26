@@ -15,7 +15,6 @@ import           System.Directory (doesFileExist)
 
 import qualified Radicle.Internal.Number as Num
 import qualified Radicle.Internal.PrimFns as PrimFns
-import           Radicle.Internal.Type (Type(..))
 
 main :: IO ()
 main = do

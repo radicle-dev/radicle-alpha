@@ -20,6 +20,7 @@ import           Radicle.Internal.Interpret as X
 import           Radicle.Internal.Parse as X
 import           Radicle.Internal.Pretty as X
 import           Radicle.Internal.PrimFns as X
+import           Radicle.Internal.Type as X
 
 import qualified Text.Megaparsec as M
 
