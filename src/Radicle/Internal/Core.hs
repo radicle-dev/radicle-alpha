@@ -34,6 +34,8 @@ import qualified Radicle.Internal.Doc as Doc
 import qualified Radicle.Internal.Identifier as Identifier
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Orphans ()
+import           Radicle.Internal.Type (Type(..))
+import qualified Radicle.Internal.Type as Type
 
 
 -- * Value
@@ -51,11 +53,16 @@ data PatternMatchError
 
 instance Serialise PatternMatchError
 
--- | An error throw during parsing or evaluating expressions in the language.
+-- | An error thrown during parsing or evaluating expressions in the language.
 data LangErrorData r =
       UnknownIdentifier Ident
     | Impossible Text
-    | TypeError Text
+    -- | The special form that was misused, and information on the misuse.
+    | SpecialForm Text Text
+    | NonFunctionCalled Value
+    -- | Takes a function description, a argument position, an expected type and
+    -- the value which wasn't of that type.
+    | TypeError Text Int Type.Type Value
     -- | Takes the function name, expected number of args, and actual number of
     -- args
     | WrongNumberOfArgs Text Int Int
@@ -80,6 +87,9 @@ noStack :: Either (LangError Value) a -> Either (LangErrorData Value) a
 noStack (Left (LangError _ err)) = Left err
 noStack (Right v)                = Right v
 
+typeToValue :: Type.Type -> Value
+typeToValue = Keyword . Ident . Identifier.kebabCons . drop 1 . show
+
 -- | Convert an error to a radicle value, and the label for it. Used for
 -- catching exceptions.
 errorDataToValue
@@ -93,10 +103,22 @@ errorDataToValue e = case e of
         )
     -- "Now more than ever seems it rich to die"
     Impossible _ -> throwErrorHere e
-    TypeError i -> makeVal
+    TypeError fname pos ty v -> makeVal
         ( "type-error"
-        , [("info", String i)]
+        , [ ("function", makeA $ Ident fname)
+          , ("position", Number (fromIntegral pos))
+          , ("expected-type", typeToValue ty)
+          , ("actual-type", typeToValue (valType v))
+          , ("value", v)
+          ]
         )
+    NonFunctionCalled v -> makeVal
+      ( "non-function-called"
+      , [("value", v)])
+    SpecialForm form info -> makeVal
+      ( "special-form-error"
+      , [ ("special-form", makeA $ Ident form)
+        , ("info", String info)])
     WrongNumberOfArgs i expected actual -> makeVal
         ( "wrong-number-of-args"
         , [ ("function", makeA $ Ident i)
@@ -164,6 +186,20 @@ data ValueF r =
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
+
+valType :: (CPA t) => Annotated t ValueF -> Type.Type
+valType = \case
+  Atom _ -> TAtom
+  Keyword _ -> TKeyword
+  String _ -> TString
+  Number _ -> TNumber
+  Boolean _ -> TBoolean
+  List _ -> TList
+  Vec _ -> TVec
+  PrimFn _ -> TFunction
+  Dict _ -> TDict
+  Ref _ -> TRef
+  Lambda{} -> TFunction
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
@@ -465,11 +501,11 @@ specialForms = Map.fromList $ first Ident <$>
           args : b : bs ->
             case args of
               Vec atoms_ -> do
-                atoms <- traverse isAtom (toList atoms_) ?? toLangError (TypeError "fn: expecting a list of symbols")
+                atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn" "One of the arguments was not an atom")
                 e <- gets bindingsEnv
                 pure (Lambda atoms (b :| bs) e)
-              _ -> throwErrorHere $ OtherError "fn: first argument must be a vector of argument symbols, and then at least one form for the body"
-          xs -> throwErrorHere $ WrongNumberOfArgs "fn" 2 (length xs) -- TODO: technically "at least 2"
+              _ -> throwErrorHere $ SpecialForm "fn" "First argument must be a vector of argument atoms"
+          _ -> throwErrorHere $ SpecialForm "fn" "Need an argument vector and a body"
       )
   , ("quote", \case
           [v] -> pure v
@@ -498,7 +534,7 @@ specialForms = Map.fromList $ first Ident <$>
                      if thrownLabel == label || label == Ident "any"
                          then handlerclo $$ [thrownValue]
                          else baseEval form
-                  _ -> throwErrorHere $ TypeError "catch: first argument must be atom"
+                  _ -> throwErrorHere $ SpecialForm "catch" "first argument must be atom"
           xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
     , ("if", \case
           [condition, t, f] -> do
@@ -689,7 +725,7 @@ callFn f vs = case f of
   PrimFn i -> do
     fn <- lookupPrimop i
     fn vs
-  _ -> throwErrorHere . TypeError $ "Trying to call a non-function"
+  _ -> throwErrorHere $ NonFunctionCalled f
 
 -- | Infix evaluation of application (of functions or special forms)
 infixr 1 $$

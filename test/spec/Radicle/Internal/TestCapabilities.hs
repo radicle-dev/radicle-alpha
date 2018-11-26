@@ -16,7 +16,8 @@ import           Radicle.Internal.Core (addBinding)
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
 import qualified Radicle.Internal.Number as Num
-import           Radicle.Internal.PrimFns (allDocs)
+import           Radicle.Internal.PrimFns (allDocs, twoArg)
+import           Radicle.Internal.Type (Type(..))
 import qualified Radicle.Internal.UUID as UUID
 
 import           Paths_radicle
@@ -104,21 +105,20 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
     sendPrimop =
       ( "send!"
       , "Mocked version of `send!` that stores sent values in a map with chains as keys."
-      , \case
-         [String url, Vec v] -> do
+      , twoArg "send!" $ \case
+         (String url, Vec v) -> do
              lift . modify $ \s ->
                 s { worldStateRemoteChains
                     = Map.insertWith (flip (Seq.><)) url v $ worldStateRemoteChains s }
              pure $ List []
-         [_, Vec _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
-         [String _, _] -> throwErrorHere $ TypeError "send!: second argument should be a vector"
-         xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
+         (String _, v) -> throwErrorHere $ TypeError "send!" 1 TVec v
+         (v, _) -> throwErrorHere $ TypeError "send!" 0 TString v
       )
     receivePrimop =
       ( "receive!"
       , "Mocked version of `receive!` that retrieves values from a map with chains as keys."
-      , \case
-          [String url, Number n] -> do
+      , twoArg "receive!" $ \case
+          (String url, Number n) -> do
               case Num.isInt n of
                   Left _ -> throwErrorHere . OtherError
                                      $ "receive!: expecting int argument"
@@ -127,9 +127,8 @@ clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
                       pure . List $ case Map.lookup url chains of
                               Nothing  -> []
                               Just res -> toList $ Seq.drop r res
-          [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
-          [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
-          xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)
+          (String _, v) -> throwErrorHere $ TypeError "receive!" 1 TNumber v
+          (v, _)        -> throwErrorHere $ TypeError "receive!" 0 TString v
       )
 
 instance {-# OVERLAPPING #-} Stdin TestLang where

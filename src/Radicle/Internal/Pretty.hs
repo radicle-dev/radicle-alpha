@@ -1,7 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Radicle.Internal.Pretty where
 
-import           Protolude hiding (TypeError, (<>))
+import           Protolude hiding (Type, TypeError, (<>))
 
 import           Data.Copointed (Copointed(..))
 import qualified Data.Map as Map
@@ -14,6 +15,7 @@ import           Text.Megaparsec.Pos (sourcePosPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
+import           Radicle.Internal.Type
 
 -- | We can't just pretty print the pointer id since that would break
 -- referential transparency, so instead we just label refs as '<ref>'
@@ -22,6 +24,9 @@ instance Pretty Reference where
 
 instance Pretty Ident where
     pretty (Ident i) = pretty i
+
+instance Pretty Type where
+  pretty = pretty . typeToValue
 
 instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) where
     pretty v = case v of
@@ -65,12 +70,20 @@ instance Pretty r => Pretty (LangErrorData r) where
     pretty v = case v of
         UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
         Impossible t -> "This cannot be!" <+> pretty t
-        TypeError t -> "Type error:" <+> pretty t
+        TypeError fname i t val -> vsep
+          [ "Type error:" <+> pretty fname <+> "expects a value of type"
+            <+> pretty t <+> "in the" <+> pretty (pos (i + 1)) <+> "argument."
+          , "But got a" <+> pretty (valType val) <> ":"
+          , indent 2 $ pretty val ]
+        NonFunctionCalled val -> vsep
+          [ "Value was invoked as a function, but it has type" <+> pretty (valType val) <> ":"
+          , indent 2 $ pretty val ]
         WrongNumberOfArgs t x y -> "Wrong number of args in" <+> pretty t
                                  <+> "Expected:" <+> pretty x
                                  <+> "Got:" <+> pretty y
         NonHashableKey -> "Non-hashable key in dict."
         OtherError t -> "Error:" <+> pretty t
+        SpecialForm f t -> "Error using special form" <+> pretty f <> ":" <+> pretty t <> "."
         ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)
         Exit -> "Exit"
         ThrownError i val -> "Exception" <+> pretty i <+> pretty val
@@ -80,6 +93,12 @@ instance Pretty r => Pretty (LangErrorData r) where
           BadBindings p -> "Faulty pattern function. Pattern functions must return\
                            \ `[:just b]` where `b` is a dict of new bindings (from\
                            \ atoms to values), or `:nothing`:" <+> pretty p
+      where
+        pos :: Int -> Text
+        pos 1 = "1st"
+        pos 2 = "2nd"
+        pos 3 = "3rd"
+        pos n = show n <> "th"
 
 
 -- | A fast and compact layout. Primarily intended for testing.

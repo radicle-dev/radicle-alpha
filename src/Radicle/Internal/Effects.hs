@@ -27,6 +27,7 @@ import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.PrimFns
+import           Radicle.Internal.Type (Type(..))
 import qualified Radicle.Internal.UUID as UUID
 
 type ReplM m =
@@ -93,7 +94,7 @@ replPrimFns = fromList $ allDocs $
             d <- lookupAtomDoc i
             putStrS $ fromMaybe "No docs." d
             pure nil
-          _ -> throwErrorHere $ TypeError "doc!: expects an atom"
+          v -> throwErrorHere $ TypeError "doc!" 0 TAtom v
       )
 
     , ( "apropos!"
@@ -114,7 +115,7 @@ replPrimFns = fromList $ allDocs $
         [Atom x, v] -> do
             defineAtom x Nothing v
             pure nil
-        [_, _] -> throwErrorHere $ TypeError "Expected atom as first arg"
+        [v, _] -> throwErrorHere $ TypeError "set-env!" 0 TAtom v
         xs  -> throwErrorHere $ WrongNumberOfArgs "set-env!" 2 (length xs))
 
     , ( "get-line!"
@@ -159,7 +160,7 @@ replPrimFns = fromList $ allDocs $
                             -- function is evaluated in the original
                             -- environment.
                             void $ withEnv (const e) (fn $$ [quote line])
-                _  -> throwErrorHere $ TypeError "subscribe-to!: Expected dict"
+                _  -> throwErrorHere $ TypeError "subscribe-to!" 0 TDict x
         xs  -> throwErrorHere $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
     , ( "read-file!"
       , "Reads the contents of a file and returns it as a string."
@@ -167,7 +168,7 @@ replPrimFns = fromList $ allDocs $
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
               Right text -> pure $ String text
-          _ -> throwErrorHere $ TypeError "read-file: expects a string"
+          v -> throwErrorHere $ TypeError "read-file!" 0 TString v
       )
     , ( "load!"
       , "Evaluates the contents of a file. Each seperate radicle expression is\
@@ -176,7 +177,7 @@ replPrimFns = fromList $ allDocs $
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
               Right text -> interpretMany ("[load! " <> filename <> "]") text
-          _ -> throwErrorHere $ TypeError "load: expects a string"
+          v -> throwErrorHere $ TypeError "load!" 0 TString v
       )
     , ( "gen-key-pair!"
       , "Given an elliptic curve, generates a cryptographic key-pair. Use\
@@ -195,11 +196,11 @@ replPrimFns = fromList $ allDocs $
     , ( "gen-signature!"
       , "Given a private key and a message (a string), generates a cryptographic\
         \ signature for the message."
-      , \case
-          [skv, String msg] -> do
+      , twoArg "gen-signature!" $ \case
+          (skv, String msg) -> do
             sk <- hoistEither . first (toLangError . OtherError) $ fromRad skv
             toRad <$> signText sk msg
-          _ -> throwErrorHere $ TypeError "gen-signature!: expects a string."
+          (_, v) -> throwErrorHere $ TypeError "gen-signature!" 1 TString v
       )
     , ( "uuid!"
       , "Generates a random UUID."

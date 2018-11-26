@@ -96,23 +96,22 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
       ( "send!"
       , "Given a URL (string) and a value, sends the value `v` to the remote\
         \ chain located at the URL for evaluation."
-      , \case
-         [String url, Vec v] -> do
+      , PrimFns.twoArg "send!" $ \case
+         (String url, Vec v) -> do
              res <- liftIO $ runClientM' url mgr (submit $ toList v)
              case res of
                  Left e   -> throwErrorHere . OtherError
                            $ "send!: failed:" <> show e
                  Right r  -> pure r
-         [_, Vec _] -> throwErrorHere $ TypeError "send!: first argument should be a string"
-         [String _, _] -> throwErrorHere $ TypeError "send!: second argument should be a vector"
-         xs     -> throwErrorHere $ WrongNumberOfArgs "send!" 2 (length xs)
+         (String _, v) -> throwErrorHere $ TypeError "send!" 1 TVec v
+         (v, _) -> throwErrorHere $ TypeError "send!" 0 TString v
       )
     receivePrimop =
       ( "receive!"
       , "Given a URL (string) and a integral number `n`, queries the remote chain\
         \ for the last `n` inputs that have been evaluated."
-      , \case
-          [String url, Number n] -> do
+      , PrimFns.twoArg "receive!" $ \case
+          (String url, Number n) -> do
               case Num.isInt n of
                   Left _ -> throwErrorHere . OtherError
                                      $ "receive!: expecting int argument"
@@ -121,9 +120,8 @@ clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
                           Left err -> throwErrorHere . OtherError
                                     $ "receive!: request failed:" <> show err
                           Right v' -> pure v'
-          [String _, _] -> throwErrorHere $ TypeError "receive!: expecting number as second arg"
-          [_, _]        -> throwErrorHere $ TypeError "receive!: expecting string as first arg"
-          xs            -> throwErrorHere $ WrongNumberOfArgs "receive!" 2 (length xs)
+          (String _, v) -> throwErrorHere $ TypeError "receive!" 1 TNumber v
+          (v, _)        -> throwErrorHere $ TypeError "receive!" 0 TString v
       )
 
 -- * Client functions
