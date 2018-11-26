@@ -11,28 +11,7 @@ extra-source-files:
 dependencies:
 - base >=4 && <5
 - protolude
-- aeson
-- containers
-- cryptonite
-- data-default
-- deriving-compat
-- directory
-- filepath
-- generics-eot
-- haskeline
-- megaparsec
-- mtl
-- pointed
-- prettyprinter
-- prettyprinter-ansi-terminal
-- recursion-schemes
-- scientific
-- serialise
-- template-haskell
-- text
-- time
-- unordered-containers
-- uuid
+
 when:
  - condition: impl(ghcjs)
    dependencies: ghcjs-dom
@@ -44,6 +23,34 @@ data-files:
 
 library:
   source-dirs: src
+  dependencies:
+  - aeson
+  - bytestring
+  - containers
+  - cryptonite
+  - data-default
+  - deriving-compat
+  - directory
+  - filepath
+  - generics-eot
+  - haskeline
+  - http-client
+  - http-media
+  - megaparsec
+  - mtl
+  - pointed
+  - prettyprinter
+  - prettyprinter-ansi-terminal
+  - recursion-schemes
+  - servant
+  - servant-client
+  - scientific
+  - serialise
+  - template-haskell
+  - text
+  - time
+  - unordered-containers
+  - uuid
 
 tests:
   spec:
@@ -53,17 +60,24 @@ tests:
     ghc-options: -threaded
     dependencies:
     - radicle
+    - containers
+    - cryptonite
     - directory
     - filemanip
     - interpolate
+    - megaparsec
     - QuickCheck
     - quickcheck-instances
     - safe
+    - scientific
+    - serialise
     - string-qq
     - tasty
     - tasty-discover
     - tasty-hunit
     - tasty-quickcheck
+    - text
+    - time
   doctest:
     main: Main.hs
     source-dirs:
@@ -81,16 +95,12 @@ executables:
   radicle:
     main: RadicleExe.hs
     source-dirs: exe
-    other-modules: API
+    other-modules: []
     dependencies:
     - radicle
-    - bytestring
+    - directory
     - exceptions
-    - http-client
-    - http-media
     - optparse-applicative
-    - servant
-    - servant-client
     when:
       - condition: impl(ghcjs)
         buildable: false
@@ -99,12 +109,14 @@ executables:
   radicle-server:
     main: Server.hs
     source-dirs: exe
-    other-modules: [API, Server.DB]
+    other-modules: [Server.DB]
     when:
       - condition: impl(ghcjs)
         buildable: false
     dependencies:
     - radicle
+    - aeson
+    - containers
     - bytestring
     - optparse-applicative
     - postgresql-simple
@@ -118,7 +130,7 @@ executables:
   radicle-client-ghcjs:
     main: GHCJS.hs
     source-dirs: exe
-    other-modules: API
+    other-modules: []
     dependencies:
     - radicle
     - ghcjs-base
@@ -150,8 +162,10 @@ executables:
         buildable: false
     dependencies:
     - radicle
+    - haskeline
     - optparse-applicative
     - pandoc
+    - text
     ghc-options: -main-is Doc
 
   radicle-ref-doc:
@@ -165,6 +179,9 @@ executables:
     - radicle
     - pandoc
     - data-default
+    - containers
+    - haskeline
+    - text
     ghc-options: -main-is ReferenceDoc
 
   radicle-github-issues:
@@ -176,6 +193,7 @@ executables:
         buildable: false
     dependencies:
     - radicle
+    - containers
     - errors
     - time
     - github
