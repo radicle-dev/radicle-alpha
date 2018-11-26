@@ -155,11 +155,15 @@ replPrimFns = fromList $ allDocs $
                             -- environment in which it was defined, but the
                             -- /result/ of the getter is then evaluated in the
                             -- current environment.
-                            line <- eval =<< (g $$ [])
-                            -- Similarly, the application of the subscriber
-                            -- function is evaluated in the original
-                            -- environment.
-                            void $ withEnv (const e) (fn $$ [quote line])
+                            y <- g $$ []
+                            case y of
+                              Vec ys -> do
+                                ys' <- traverse eval ys
+                                -- Similarly, the application of the subscriber
+                                -- function is evaluated in the original
+                                -- environment.
+                                void $ withEnv (const e) (fn $$ [quote (Vec ys')])
+                              _ -> throwErrorHere $ OtherError "Getter should return a vector of values"
                 _  -> throwErrorHere $ TypeError "subscribe-to!" 0 TDict x
         xs  -> throwErrorHere $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
     , ( "read-file!"
