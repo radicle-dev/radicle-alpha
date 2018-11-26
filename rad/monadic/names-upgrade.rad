@@ -1,13 +1,13 @@
 (load! "rad/monadic/names.rad")
 
-(import prelude/chain :unqualified)
+(import prelude/machine :unqualified)
 
-;; This is a script that migrates the names chain. It is used when there is a
+;; This is a script that migrates the names machine. It is used when there is a
 ;; breaking change.
 
 ;; Example:
-;; (migrate-names! "machines.radicle.xyz/chains/names"
-;;                 "staging.machines.radicle.xyz/chains/names")
+;; (migrate-names! "machines.radicle.xyz/machines/names"
+;;                 "staging.machines.radicle.xyz/machines/names")
 
 (def input-pat
   (list (/member ['add-name]) _ _))
@@ -21,5 +21,5 @@
 (def migrate-names!
   (fn [old new]
     (def is (nth 1 (receive! old :nothing)))
-    (create-name-chain! new)
+    (create-name-machine! new)
     (send! new (filter input? is))))

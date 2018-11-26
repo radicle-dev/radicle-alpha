@@ -1,20 +1,20 @@
 The radicle guide
 ==================
 
-radicle is a language for building and interacting with chains of the Open
-Source Network.  What these chains do--how they behave--is entirely up to you. 
+radicle is a language for building and interacting with machines of the Open
+Source Network.  What these machines do--how they behave--is entirely up to you. 
 
 This guide provides an introduction to radicle--as a language, as a tool for
-building chains, and as a means of interacting with existing chains.
+building machines, and as a means of interacting with existing machines.
 
 
 An example
 ------------
 
-As a running example, we'll create a chain for managing the issues of a
+As a running example, we'll create a machine for managing the issues of a
 repository. We'll see how to define the format of issues that can be created;
 how to define rights and permissions for certain types of interaction; and
-how to allow for future changes to the chain. 
+how to allow for future changes to the machine. 
 
 .. code-block:: radicle
 
@@ -60,5 +60,4 @@ how to allow for future changes to the chain.
   Basics.lrad
   Modules.lrad
   PatternMatching.lrad
-  Chains.lrad
   DataValidation.rst

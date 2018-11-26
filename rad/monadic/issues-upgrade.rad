@@ -1,12 +1,12 @@
 (load! "rad/monadic/issues.rad")
 
-(import prelude/chain :unqualified)
+(import prelude/machine :unqualified)
 
-;; This is a script that migrates the issues chain. It is used when there is a
+;; This is a script that migrates the issues machine. It is used when there is a
 ;; breaking change.
 ;; Example:
-;; (migrate-issues! "machines.radicle.xyz/chains/radicle-issues"
-;;                  "machines.radicle.xyz/chains/new-radicle-issues")
+;; (migrate-issues! "machines.radicle.xyz/machines/radicle-issues"
+;;                  "machines.radicle.xyz/machines/new-radicle-issues")
 
 (def input-pat
   (list (/member ['create-issue 'edit-issue 'add-comment 'edit-comment]) _))
@@ -20,5 +20,5 @@
 (def migrate-issues!
   (fn [old new]
     (def is (nth 1 (receive! old :nothing)))
-    (create-issues-chain! new)
+    (create-issues-machine! new)
     (send! new (filter input? is))))

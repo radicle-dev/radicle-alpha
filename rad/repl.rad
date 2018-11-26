@@ -1,10 +1,10 @@
 (load! "rad/prelude.rad")
-(import prelude/chain '[eval] :unqualified)
+(import prelude/machine '[eval] :unqualified)
 
 (def help
   "Default help text."
   (fn []
-    "radicle is a LISP-like language intended for programming chains, and interacting with those chains.
+    "radicle is a LISP-like language intended for programming machines, and interacting with those machines.
 
     Type (doc '<name>) for further documentation of <name>."))
 

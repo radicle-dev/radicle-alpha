@@ -37,7 +37,7 @@
 ;; Commands
 
 (def commands
-  "The set of allowed chain commands."
+  "The set of allowed machine commands."
   (ref
    {'add-name     add-name
     'list-names   list-names}))

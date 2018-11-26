@@ -7,7 +7,7 @@
 ;; that holds the original primitive value. The function `prim` is then
 ;; redefined as calling the function stored in the reference.
 ;;
-;; See `prelude/chain/install-remote-chain-fake` for how to use primitve stubs.
+;; See `prelude/machine/install-remote-machine-fake` for how to use primitve stubs.
 
 ;; now!
 (def primitive-stub-ref/now! (ref now!))

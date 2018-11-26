@@ -1,7 +1,7 @@
 # Basics
 
 Though `radicle` is designed with a particular use-case in mind--namely,
-defining and interacting with the Open Source Network chains--it is ultimately a
+defining and interacting with the Open Source Network machines--it is ultimately a
 general purpose language, quite similar to
 [Scheme](en.wikipedia.org/wiki/Scheme_%28programming_language%29) or
 [Clojure](clojure.org/). To effectively use it, it is helpful to learn the basics

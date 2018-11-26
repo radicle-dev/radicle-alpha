@@ -1,8 +1,8 @@
 Data Validation
 ==================
 
-Most of the entities that get manipulated and stored on chains are represented
-by structured radicle data. To maintain the integrety of the chain it can be
+Most of the entities that get manipulated and stored on machines are represented
+by structured radicle data. To maintain the integrety of the machine it can be
 important to refuse malformed/invalid data. To detect this, use *validator
 functions*. These are functions which take a piece of data as input and either
 throw an exception (thus cancelling the current transaction), or return the data

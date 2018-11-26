@@ -1,8 +1,8 @@
-{:module 'prelude/chain
- :doc "Functions for simulating remote chains."
- :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval
-            updatable-eval update-chain! eval-fn-app send-prelude!
-            send-code! send! receive! install-remote-chain-fake]}
+{:module 'prelude/machine
+ :doc "Functions for simulating remote machines."
+ :exports '[new-machine load-machine! eval-in-machine update-machine-ref! eval
+            updatable-eval update-machine! eval-fn-app send-prelude!
+            send-code! send! receive! install-remote-machine-fake]}
 
 (import prelude/io '[read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
@@ -63,118 +63,118 @@
   (fn [i]
     (.. @env (env-var i))))
 
-(def new-chain
-  "Return an empty chain dictionary with the given url."
+(def new-machine
+  "Return an empty machine dictionary with the given url."
   (fn [url]
     {:state (pure-state)
      :inputs []
      :url url
      :index :nothing}))
 
-;; eval-in-chain
+;; eval-in-machine
 
-(def eval-in-chain
-  "Evaluates `expr` in the `chain` and returns a dict with the `:result` and the resulting `:chain`."
-  (fn [expr chain]
-    (def chain-eval (view (.. (@ :state) (@var 'eval)) chain))
-    (def x (chain-eval expr (lookup :state chain)))
+(def eval-in-machine
+  "Evaluates `expr` in the `machine` and returns a dict with the `:result` and the resulting `:machine`."
+  (fn [expr machine]
+    (def machine-eval (view (.. (@ :state) (@var 'eval)) machine))
+    (def x (machine-eval expr (lookup :state machine)))
     (def result (nth 0 x))
     (def new-state (nth 1 x))
-    (def new-chain
+    (def new-machine
       (insert
         :state
         new-state
         (over (@ :inputs)
               (fn [inputs] (add-right expr inputs))
-               chain)))
-    {:chain new-chain
+               machine)))
+    {:machine new-machine
      :result result }))
 
-(:test "eval-in-chain"
+(:test "eval-in-machine"
   [:setup
-    (do (def empty-chain (new-chain (uuid!)))
-        (def res1 (eval-in-chain '(def x 3) empty-chain))
-        (def res (eval-in-chain '(+ x 2) (lookup :chain res1))))
+    (do (def empty-machine (new-machine (uuid!)))
+        (def res1 (eval-in-machine '(def x 3) empty-machine))
+        (def res (eval-in-machine '(+ x 2) (lookup :machine res1))))
   ]
   [ (view (@ :result) res)                 ==> 5                   ]
-  [ (view (.. (@ :chain) (@ :inputs)) res) ==> [(def x 3) (+ x 2)] ]
+  [ (view (.. (@ :machine) (@ :inputs)) res) ==> [(def x 3) (+ x 2)] ]
 )
 
-;; update-chain!
+;; update-machine!
 
-(def update-chain!
-  "Takes a chain, and returns a new chain updated with the new expressions from the remote chain"
-  (fn [chain]
-    (def index (length (lookup :inputs chain)))
+(def update-machine!
+  "Takes a machine, and returns a new machine updated with the new expressions from the remote machine"
+  (fn [machine]
+    (def index (length (lookup :inputs machine)))
     (def receive-result
-      (receive! (lookup :url chain) (lookup :index chain)))
+      (receive! (lookup :url machine) (lookup :index machine)))
     (def new-index (nth 0 receive-result))
     (def new-inputs (nth 1 receive-result))
     (def upd-ch
       (fn [ch expr]
-        (def x (eval-in-chain expr ch))
-        (view (@ :chain) x)))
-    (def chain (foldl upd-ch chain new-inputs))
-    (insert :index [:just new-index] chain)))
+        (def x (eval-in-machine expr ch))
+        (view (@ :machine) x)))
+    (def machine (foldl upd-ch machine new-inputs))
+    (insert :index [:just new-index] machine)))
 
-(def install-remote-chain-fake
+(def install-remote-machine-fake
   "Install test doubles for the `send!` and `receive!` primitives that
   use a mutable dictionary to store RSMs. Requires
   `rad/test/stub-primitives` to be loaded"
   (fn []
-      (def remote-chains (ref {}))
+      (def remote-machines (ref {}))
 
       (write-ref primitive-stub-ref/send!
         (fn [name exprs]
-          (modify-ref remote-chains
-            (fn [chains] (over (@def name []) (fn [chain-exprs] (<> chain-exprs exprs)) chains)))))
+          (modify-ref remote-machines
+            (fn [machines] (over (@def name []) (fn [machine-exprs] (<> machine-exprs exprs)) machines)))))
 
       (write-ref primitive-stub-ref/receive!
         (fn [name maybeIndex]
-          (def inputs (lookup name (read-ref remote-chains)))
+          (def inputs (lookup name (read-ref remote-machines)))
           (def index
             (match maybeIndex
               (/just 'index) (+ index 1)
               :nothing 0))
           [(length inputs) (drop index inputs)]))
   ))
-(:test "update-chain!"
+(:test "update-machine!"
   [:setup
     (do
-       (install-remote-chain-fake)
-       (def chain-name (uuid!))
-       (def chain (new-chain chain-name))
-       (send! chain-name ['(+ 3 2)])
-       (send! chain-name ['(+ 3 3)])
-       (def chain (update-chain! chain)))
+       (install-remote-machine-fake)
+       (def machine-name (uuid!))
+       (def machine (new-machine machine-name))
+       (send! machine-name ['(+ 3 2)])
+       (send! machine-name ['(+ 3 3)])
+       (def machine (update-machine! machine)))
   ]
-  [ (lookup :inputs chain) ==> [(+ 3 2) (+ 3 3)]]
+  [ (lookup :inputs machine) ==> [(+ 3 2) (+ 3 3)]]
 )
 
-(def load-chain!
-  "Takes a `url`, and fetches the inputs of a remote chain and return a chain dictionary with the chain state."
+(def load-machine!
+  "Takes a `url`, and fetches the inputs of a remote machine and return a machine dictionary with the machine state."
   (fn [url]
-    (update-chain! (new-chain url))))
+    (update-machine! (new-machine url))))
 
-;; update-chain-ref!
+;; update-machine-ref!
 
-(def update-chain-ref!
-  "Update `chain-ref` containing a chain with the new expressions from the remote chain"
-  (fn [chain-ref]
-    (modify-ref chain-ref update-chain!)
+(def update-machine-ref!
+  "Update `machine-ref` containing a machine with the new expressions from the remote machine"
+  (fn [machine-ref]
+    (modify-ref machine-ref update-machine!)
     :ok))
 
-(:test "update-chain-ref!"
+(:test "update-machine-ref!"
   [:setup
     (do
-       (install-remote-chain-fake)
-       (def chain-name (uuid!))
-       (def chain (ref (new-chain chain-name)))
-       (send! chain-name ['(+ 3 2)])
-       (send! chain-name ['(+ 3 3)])
-       (update-chain-ref! chain))
+       (install-remote-machine-fake)
+       (def machine-name (uuid!))
+       (def machine (ref (new-machine machine-name)))
+       (send! machine-name ['(+ 3 2)])
+       (send! machine-name ['(+ 3 3)])
+       (update-machine-ref! machine))
   ]
-  [ (lookup :inputs (read-ref chain)) ==> [(+ 3 2) (+ 3 3)]]
+  [ (lookup :inputs (read-ref machine)) ==> [(+ 3 2) (+ 3 3)]]
 )
 
 ;; add-quit
@@ -196,30 +196,30 @@
          (def env_ (over (@var '_inputs) (fn [x] (add-right expr x)) env))
          (evalfn expr env_ ))))
 
-;; enter-remote-chain!
-(def enter-remote-chain!
-  "Make the eval behave as that of a remote chain. The second param is the env to return to after `:quit`."
+;; enter-remote-machine!
+(def enter-remote-machine!
+  "Make the eval behave as that of a remote machine. The second param is the env to return to after `:quit`."
   (fn [url env]
-    (def chain (load-chain! url))
-    (def chain-state (lookup :state chain))
-    (def mod-state1 (set (@var '_inputs) [] chain-state))
-    (def mod-state2 (set (@var '_cur-chain) (lookup :url chain) mod-state1))
+    (def machine (load-machine! url))
+    (def machine-state (lookup :state machine))
+    (def mod-state1 (set (@var '_inputs) [] machine-state))
+    (def mod-state2 (set (@var '_cur-machine) (lookup :url machine) mod-state1))
     (def mod-state3 (over (@var 'eval)
                           (fn [x] (add-quit env x))
                           mod-state2))
     (list :ok mod-state3)))
 
-(def eval__ "The eval in place when `chain.rad` is loaded." eval)
+(def eval__ "The eval in place when `machine.rad` is loaded." eval)
 
 (def eval
-  "An eval in which one can use `(:enter-chain url)` to make the
-  eval behave as that of a remote chain, and `:send` to send all
+  "An eval in which one can use `(:enter-machine url)` to make the
+  eval behave as that of a remote machine, and `:send` to send all
   enqueued expressions."
   (fn [expr env]
       (if (list? expr)
           (cond
-            (eq? (first expr) :enter-chain)
-              (enter-remote-chain! (first (eval__ (nth 1 expr) env)) env)
+            (eq? (first expr) :enter-machine)
+              (enter-remote-machine! (first (eval__ (nth 1 expr) env)) env)
             :else (eval__ expr env))
           (eval__ expr env))))
 
@@ -265,17 +265,17 @@
     (cons 'module (vec-to-list (io/read-file-values! file)))))
 
 (def pure-prelude-code
-  "Code for the pure prelude. Useful as the first inputs to a new chain."
+  "Code for the pure prelude. Useful as the first inputs to a new machine."
   (<> [(file-to-module "rad/prelude/test-eval.rad")
        '(import prelude/test-eval '[eval tests] :unqualified)]
       (map file-to-module pure-prelude-files)))
 
 (def send-prelude!
-  "Send the pure prelude to a chain."
-  (fn [chain-id]
-    (send! chain-id pure-prelude-code)))
+  "Send the pure prelude to a machine."
+  (fn [machine-id]
+    (send! machine-id pure-prelude-code)))
 
 (def send-code!
-  "Send code from a file to a remote chain."
-  (fn [chain-id filename]
-    (send! chain-id (io/read-file-values! filename))))
+  "Send code from a file to a remote machine."
+  (fn [machine-id filename]
+    (send! machine-id (io/read-file-values! filename))))
