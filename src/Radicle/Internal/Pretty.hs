@@ -10,7 +10,6 @@ import           Data.Sequence (Seq(..))
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
-import           GHC.Exts (IsString(..))
 import           Text.Megaparsec.Error (parseErrorPretty)
 import           Text.Megaparsec.Pos (sourcePosPretty)
 
@@ -27,7 +26,7 @@ instance Pretty Ident where
     pretty (Ident i) = pretty i
 
 instance Pretty Type where
-  pretty = fromString . drop 1 . show
+  pretty = pretty . typeToValue
 
 instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) where
     pretty v = case v of
@@ -71,9 +70,9 @@ instance Pretty r => Pretty (LangErrorData r) where
     pretty v = case v of
         UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
         Impossible t -> "This cannot be!" <+> pretty t
-        TypeError fname pos t val -> vsep
+        TypeError fname i t val -> vsep
           [ "Type error:" <+> pretty fname <+> "expects a value of type"
-            <+> pretty t <+> "in the" <+> pretty (pos + 1) <> "-th argument."
+            <+> pretty t <+> "in the" <+> pretty (pos (i + 1)) <+> "argument."
           , "But got a" <+> pretty (valType val) <> ":"
           , indent 2 $ pretty val ]
         NonFunctionCalled val -> vsep
@@ -94,6 +93,12 @@ instance Pretty r => Pretty (LangErrorData r) where
           BadBindings p -> "Faulty pattern function. Pattern functions must return\
                            \ `[:just b]` where `b` is a dict of new bindings (from\
                            \ atoms to values), or `:nothing`:" <+> pretty p
+      where
+        pos :: Int -> Text
+        pos 1 = "1st"
+        pos 2 = "2nd"
+        pos 3 = "3rd"
+        pos n = show n <> "th"
 
 
 -- | A fast and compact layout. Primarily intended for testing.

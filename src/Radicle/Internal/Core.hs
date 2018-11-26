@@ -13,7 +13,6 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
-import qualified Data.Char as Char
 import           Data.Copointed (Copointed(..))
 import           Data.Data (Data)
 import qualified Data.HashMap.Strict as HashMap
@@ -89,9 +88,7 @@ noStack (Left (LangError _ err)) = Left err
 noStack (Right v)                = Right v
 
 typeToValue :: Type.Type -> Value
-typeToValue t =
-  let s :: Prelude.String = Char.toLower <$> drop 1 (show t)
-  in Keyword . Ident . Identifier.kebabCons . toS $ s
+typeToValue = Keyword . Ident . Identifier.kebabCons . drop 1 . show
 
 -- | Convert an error to a radicle value, and the label for it. Used for
 -- catching exceptions.
