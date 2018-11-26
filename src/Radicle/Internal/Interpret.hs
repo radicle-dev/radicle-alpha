@@ -18,8 +18,8 @@ import           Radicle.Internal.Parse
 -- Right (Annotated (Identity (BooleanF True)))
 --
 -- >>> import Control.Monad.Identity
--- >>> noStack . runIdentity $ interpret "test" "(#t #f)" pureEnv
--- Left (TypeError "Trying to call a non-function")
+-- >>> case noStack . runIdentity $ interpret "test" "(#t #f)" pureEnv of { Left (NonFunctionCalled v) -> Ann.untag v }
+-- Annotated (Identity (BooleanF True))
 interpret
     :: Monad m
     => Text                 -- ^ Name of source file (for error reporting)
