@@ -28,7 +28,7 @@ http://git.oscoin.io/radicle:
 
 .. code-block:: bash
 
-    git clone http://git.oscoin.io/radicle
+    git clone https://github.com/oscoin/radicle.git
     cd radicle
     stack build
     stack install
@@ -46,4 +46,4 @@ file (included in the repository):
 
 .. code-block:: bash
 
-    radicle --config rad/repl.rad
+    radicle rad/repl.rad

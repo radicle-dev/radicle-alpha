@@ -17,6 +17,8 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 from recommonmark.parser import CommonMarkParser
+from pygments.lexers.jvm import ClojureLexer
+from sphinx.highlighting import lexers
 
 # -- Project information -----------------------------------------------------
 
@@ -73,6 +75,9 @@ exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
+
+lexers['radicle'] = ClojureLexer()
+
 
 
 # -- Options for HTML output -------------------------------------------------
