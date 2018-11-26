@@ -231,7 +231,9 @@ purePrimFns = fromList $ allDocs $
       , twoArg "zip" $ \case
           (Vec xs, Vec ys) -> pure $ Vec (pair <$> Seq.zip xs ys)
           (List xs, List ys) -> pure $ List (pair <$> zip xs ys)
-          _ -> throwErrorHere $ TypeError "zip: only works on vectors or lists"
+          (List _, v) -> throwErrorHere $ TypeError "zip" 1 TList v
+          (Vec _, v) -> throwErrorHere $ TypeError "zip" 1 TList v
+          (v, _) -> throwErrorHere $ TypeError "zip" 0 TSequence v
       )
 
     -- Dicts
