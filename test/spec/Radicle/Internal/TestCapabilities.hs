@@ -10,6 +10,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.Time as Time
 import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
+import           System.Process (CreateProcess)
 
 import           Radicle
 import           Radicle.Internal.Core (addBinding)
@@ -32,7 +33,7 @@ data WorldState = WorldState
     , worldStateUUID         :: Int
     , worldStateRemoteChains :: Map Text (Seq.Seq Value)
     , worldStateCurrentTime  :: Time.UTCTime
-    , worldStateProcess      :: [(Text, [Text], Text)]
+    , worldStateProcess      :: [(CreateProcess, Text)]
     }
 
 
@@ -171,7 +172,7 @@ instance UUID.MonadUUID (State WorldState) where
 instance CurrentTime (State WorldState) where
   currentTime = gets worldStateCurrentTime
 
-instance Process (State WorldState) where
-  processS proc args pstdin = do
-     modify $ \ws -> ws { worldStateProcess = (proc, args, pstdin):worldStateProcess ws }
-     pure (ExitSuccess, "")
+instance System (State WorldState) where
+  systemS proc pstdin = do
+     modify $ \ws -> ws { worldStateProcess = (proc, pstdin):worldStateProcess ws }
+     pure ExitSuccess

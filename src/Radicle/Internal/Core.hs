@@ -20,6 +20,7 @@ import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
+import System.Process (CmdSpec(..), CreateProcess(..), StdStream(..))
 import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
@@ -635,6 +636,10 @@ instance CPA t => FromRad t Text where
     fromRad x = case x of
         String n -> pure n
         _        -> Left "Expecting string"
+instance {-# OVERLAPPING #-} CPA t => FromRad t [Char] where
+    fromRad x = case x of
+        String n -> pure $ toS n
+        _        -> Left "Expecting string"
 instance CPA t => FromRad t ExitCode where
     fromRad x = case x of
         Keyword (Ident "ok") -> pure $ ExitSuccess
@@ -673,6 +678,47 @@ instance FromRad Ann.WithPos (Bindings ()) where
         makeRefs refs = case refs of
             List ls -> pure (IntMap.fromList $ zip [0..] ls)
             _       -> throwError $ "Expecting dict"
+instance CPA t => FromRad t CmdSpec where
+    fromRad x = case x of
+        Vec (Keyword (Ident "shell") Seq.:<| arg Seq.:<| Seq.Empty) ->
+            ShellCommand <$> fromRad arg
+        Vec (Keyword (Ident "raw") Seq.:<| comm Seq.:<| args Seq.:<| Seq.Empty) ->
+            RawCommand <$> fromRad comm <*> fromRad args
+        Vec (Keyword (Ident s) Seq.:<| _) ->
+            throwError $ "Expecting either :raw or :shell, got: " <> s
+        _ ->
+            throwError "Expecting vector"
+instance CPA t => FromRad t StdStream where
+    fromRad x = case x of
+        Keyword (Ident "inherit") -> pure Inherit
+        Keyword (Ident "create-pipe") -> pure CreatePipe
+        Keyword (Ident "no-stream") -> pure NoStream
+        _ -> throwError $ "Expecting :inherit, :create-pipe, or :no-stream"
+instance CPA t => FromRad t CreateProcess where
+    fromRad x = case x of
+        Dict d -> do
+            cmdspec' <- fromRad =<< (kwLookup "cmdspec" d ?? "Expecting 'cmdspec' key")
+            stdin' <- fromRad =<< (kwLookup "stdin" d ?? "Expecting 'stdin' key")
+            stdout' <- fromRad =<< (kwLookup "stdout" d ?? "Expecting 'stdout' key")
+            stderr' <- fromRad =<< (kwLookup "stderr" d ?? "Expecting 'stderr' key")
+            pure CreateProcess
+                { cmdspec = cmdspec'
+                , cwd = Nothing
+                , env = Nothing
+                , std_in = stdin'
+                , std_out = stdout'
+                , std_err = stderr'
+                , close_fds = False
+                , create_group = False
+                , delegate_ctlc = False
+                , detach_console = False
+                , create_new_console = False
+                , new_session = False
+                , child_group = Nothing
+                , child_user = Nothing
+                , use_process_jobs = False
+                }
+        _ -> throwError "Expecting dictionary"
 
 
 class ToRad t a where
@@ -698,6 +744,8 @@ instance CPA t => ToRad t Scientific where
     toRad = Number . toRational
 instance CPA t => ToRad t Text where
     toRad = String
+instance {-# OVERLAPPING #-} CPA t => ToRad t [Char] where
+    toRad = String . toS
 instance CPA t => ToRad t ExitCode where
     toRad x = case x of
         ExitSuccess -> Keyword (Ident "ok")
@@ -719,6 +767,21 @@ instance ToRad Ann.WithPos (Bindings m) where
         [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
         , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs x))
         ]
+instance (CPA t) => ToRad t StdStream where
+    toRad x = case x of
+        Inherit -> Keyword $ Ident "inherit"
+        CreatePipe -> Keyword $ Ident "create-pipe"
+        NoStream -> Keyword $ Ident "no-stream"
+        _ -> panic "Cannot convert handle"
+instance (CPA t) => ToRad t CmdSpec where
+    toRad x = case x of
+        ShellCommand comm ->
+            let c = toRad comm
+            in Vec $ Seq.fromList [Keyword (Ident "shell"), c]
+        RawCommand f args ->
+            let f' = toRad f
+                args' = toRad args
+            in Vec $ Seq.fromList [Keyword (Ident "raw"), f', args']
 
 -- * Helpers
 

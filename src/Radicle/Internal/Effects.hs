@@ -33,7 +33,7 @@ type ReplM m =
     , MonadRandom m, UUID.MonadUUID m
     , CurrentTime m
     , ReadFile (Lang m)
-    , Process m
+    , System m
     , GetEnv (Lang m) Value
     , SetEnv (Lang m) Value )
 
@@ -207,13 +207,15 @@ replPrimFns = fromList $ allDocs $
           [] -> String <$> UUID.uuid
           xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
       )
-    , ( "process!"
-      , "(process! proc args stdin) execute a system process. Returns a vector with the exit code and standard out"
+    , ( "system!"
+      , "(system! proc stdin) execute a system process. Returns the exit code.\
+        \ `stdin` is a string, and `proc` a process object.\
+        \ Note that this is quite a low-level function; higher-level ones are more convenient."
       , \case
-          [String proc, Vec args, String pin] -> do
-            args' <- hoistEither . first (toLangError . OtherError) $ traverse fromRad args
-            (pexit, pout) <- processS proc (toList args') pin
-            pure $ Vec $ fromList [toRad pexit, String pout]
+          [proc, String stdin'] -> do
+            proc' <- hoistEither $ first (toLangError . OtherError) $ fromRad proc
+            res <- systemS proc' stdin'
+            pure $ toRad res
           xs -> throwErrorHere $ WrongNumberOfArgs "process!" 3 (length xs)
       )
     , ( "exit!"

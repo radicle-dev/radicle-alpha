@@ -22,3 +22,20 @@
 (def print!
   (fn [x]
     (put-str! (show x))))
+
+
+(def shell!
+  "(shell! command stdin) executes 'command' using the shell with 'stdin' as
+   input. Returns the exit code.
+   Example: (shell! \"ls -Glah\" \"\")
+   "
+  (fn [command stdin]
+    (system! [:shell command] stdin)))
+
+(def process!
+  "(process! command args stdin) executes 'command' using 'execvp'. with 'stdin' as
+   input. Returns the exit code.
+   Example: (process! \"ls\" [\"-Glah\"] \"\"
+  "
+  (fn [command args stdin]
+    (system! [:raw command args] stdin)))

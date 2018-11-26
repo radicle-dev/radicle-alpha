@@ -10,6 +10,7 @@ import           Data.Sequence (Seq(..))
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
+import System.Process (CmdSpec(..), StdStream(..))
 import           GHC.Exts (fromList, toList)
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -722,8 +723,27 @@ test_from_to_radicle =
         [ testForType (Proxy :: Proxy [Text]) ]
     , testGroup "Generic a => a"
         [ testForType (Proxy :: Proxy Foo) ]
+
+    , testGroup "StdStream"
+        [ kw "inherit" ~~ Inherit
+        , kw "create-pipe" ~~ CreatePipe
+        , kw "no-stream" ~~ NoStream
+        ]
+
+    , testGroup "CmdSpec"
+        [ Vec (fromList [(kw "shell"), String "blah blah"]) ~~ ShellCommand "blah blah"
+        , Vec (fromList [(kw "raw"), String "blah", Vec $ fromList [String "blah", String "blah"]])
+              ~~ RawCommand "blah" ["blah", "blah"]
+        ]
     ]
   where
+    (~~)
+        :: (FromRad Ann.WithPos a, ToRad Ann.WithPos a, Eq a, Show a)
+        => Value -> a -> TestTree
+    v ~~ v' =
+        testCase ("works on " <> show v') $ do
+           fromRad v @?= Right v'
+           untag (toRad v' :: Value) @?= untag v
     testForType
         :: forall a. (Arbitrary a, Show a, ToRad Ann.WithPos a, FromRad Ann.WithPos a, Eq a)
         => Proxy a -> TestTree
