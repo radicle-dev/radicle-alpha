@@ -48,6 +48,8 @@ instance Exit m => Exit (Lang m) where
 class Monad m => CurrentTime m where
   currentTime :: m UTCTime
 
+instance CurrentTime IO where
+  currentTime = getCurrentTime
 instance CurrentTime (InputT IO) where
   currentTime = liftIO getCurrentTime
 instance CurrentTime m => CurrentTime (Lang m) where

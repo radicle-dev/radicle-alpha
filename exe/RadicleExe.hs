@@ -11,7 +11,6 @@ import           Prelude (String)
 import           Protolude hiding (TypeError, option, sourceFile)
 import           Radicle
 import           Servant.Client
-import           System.Console.Haskeline (InputT)
 import           System.Directory (doesFileExist)
 
 import qualified Radicle.Internal.Number as Num
@@ -20,22 +19,37 @@ import qualified Radicle.Internal.PrimFns as PrimFns
 main :: IO ()
 main = do
     opts' <- execParser allOpts
-    src <- do
-       exists <- doesFileExist (sourceFile opts')
-       if exists
-           then readFile (sourceFile opts')
-           else die $ "Could not find file: " <> toS (sourceFile opts')
-    hist <- case histFile opts' of
-        Nothing -> getHistoryFile
-        Just h  -> pure h
-    mgr <- newManager defaultManagerSettings
-    repl (Just hist) (toS $ sourceFile opts') src (bindings mgr)
+    if sourceFile opts' == "-"
+    then do
+        src <- getContents
+        mgr <- newManager defaultManagerSettings
+        let prog = interpretMany (toS $ sourceFile opts') src
+        (result, _state) <- runLang (bindings mgr) prog
+        case result of
+            Left (LangError _ Exit) -> pure ()
+            Left e                  -> do putStrLn $ renderPrettyDef e
+                                          exitWith (ExitFailure 1)
+            Right v                 -> putStrLn $ renderPrettyDef v
+    else do
+        src <- readSource (sourceFile opts')
+        hist <- case histFile opts' of
+            Nothing -> getHistoryFile
+            Just h  -> pure h
+        mgr <- newManager defaultManagerSettings
+        repl (Just hist) (toS $ sourceFile opts') src (bindings mgr)
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
        <> progDesc radDesc
        <> header "The radicle intepreter"
         )
+
+readSource :: String -> IO Text
+readSource file = do
+   exists <- doesFileExist file
+   if exists
+       then readFile file
+       else die $ "Could not find file: " <> toS file
 
 radDesc :: String
 radDesc
@@ -56,7 +70,7 @@ opts :: Parser Opts
 opts = Opts
     <$> strArgument
         ( metavar "FILE"
-       <> help "File to interpret."
+       <> help "File to interpret. Use - to read the code from stdin."
         )
     <*> optional (strOption
         ( long "histfile"
@@ -72,10 +86,10 @@ opts = Opts
 
 -- * Primops
 
-bindings :: HttpClient.Manager -> Bindings (PrimFns (InputT IO))
+bindings :: (MonadIO m, ReplM m) => HttpClient.Manager -> Bindings (PrimFns m)
 bindings mgr = addPrimFns (replPrimFns <> clientPrimFns mgr) pureEnv
 
-clientPrimFns :: HttpClient.Manager -> PrimFns (InputT IO)
+clientPrimFns :: MonadIO m => HttpClient.Manager -> PrimFns m
 clientPrimFns mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
   where
     sendPrimop =
