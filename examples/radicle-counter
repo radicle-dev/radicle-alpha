@@ -1,0 +1,98 @@
+#!/bin/sh
+
+usage() {
+  cat <<USAGEDOC
+USAGE
+  $0 <chain> <cmd>
+
+Initialize and interact with a simple counter chain.
+
+  <chain> init
+    Initializes the chain with a prelude that defines the counter semantics.
+
+  <chain> get-value
+    Prints the current value of the counter.
+
+  <chain> increment
+    Increments the value of the counter by one and prints it.
+
+EXAMPLE
+
+  > $0 my-chain-id init
+  > $0 my-chain-id get-value
+  0
+  > $0 my-chain-id increment
+  1
+  > $0 my-chain-id get-value
+  1
+
+USAGEDOC
+  exit 1
+}
+
+chain=
+cmd=
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h | --help ) usage;;
+    * )
+      if [[ -z "$chain" ]]; then
+        chain=$1
+      elif [[ -z "$cmd" ]]; then
+        cmd=$1
+      else
+        echo "Too many arguments"
+        exit 1
+      fi;;
+  esac
+  shift
+done
+
+if [[ -z "$chain" ]]; then
+  echo "Argument <chain> is missing"
+  exit 1
+elif [[ -z "$cmd" ]]; then
+  echo "Argument <cmd> is missing"
+  exit 1
+fi
+
+case "$cmd" in
+  init )
+    radicle - <<-SCRIPT
+      (load! "rad/prelude.rad")
+      (send! "${chain}" '[
+        (def counter (ref 0))
+        (def increment
+          (fn []
+            (def x (read-ref counter))
+            (write-ref counter (+ x 1))))
+        (def get-value
+          (fn []
+            (read-ref counter)))
+      ])
+      :done
+SCRIPT
+    ;;
+  get-value )
+    radicle - <<-SCRIPT
+      (load! "rad/prelude.rad")
+      (def chain (load-chain "${chain}"))
+      (lookup :result (eval-in-chain '(get-value) chain))
+SCRIPT
+    ;;
+  increment )
+    radicle - <<-SCRIPT
+      (load! "rad/prelude.rad")
+      (def chain (load-chain "${chain}"))
+      (def expr '(increment))
+      (def result (lookup :result (eval-in-chain expr chain)))
+      (send! "${chain}" [expr])
+      result
+SCRIPT
+    ;;
+  * )
+    echo "Unknown command: $cmd"
+    exit 1
+    ;;
+esac
