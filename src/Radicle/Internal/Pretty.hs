@@ -10,50 +10,59 @@ import           Data.Sequence (Seq(..))
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
+import qualified Data.Text.Prettyprint.Doc.Render.Terminal as Term
+import Data.Text.Prettyprint.Doc.Render.Terminal (color, Color(..))
 import           Text.Megaparsec.Error (parseErrorPretty)
 import           Text.Megaparsec.Pos (sourcePosPretty)
+import qualified Data.Sequence as Seq
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Type
 
+class PrettyV a where
+  prettyV :: a -> Doc Type
+
 -- | We can't just pretty print the pointer id since that would break
 -- referential transparency, so instead we just label refs as '<ref>'
-instance Pretty Reference where
-    pretty _ = angles "ref"
+instance PrettyV Reference where
+    prettyV _ = annotate TRef $ angles "ref"
 
 instance Pretty Ident where
     pretty (Ident i) = pretty i
 
-instance Pretty Type where
-  pretty = pretty . typeToValue
+instance PrettyV Type where
+  prettyV = prettyV . typeToValue
 
-instance (Copointed t, Ann.Annotation t) => Pretty (Ann.Annotated t ValueF) where
-    pretty v = case v of
-        Atom i -> pretty i
-        Keyword i -> ":" <> pretty i
-        Ref i -> pretty i
-        String t -> "\"" <> pretty (escapeStr t) <> "\""
-        Number (a :% b) -> pretty a <> if b == 1 then "" else "/" <> pretty b
-        Boolean True -> "#t"
-        Boolean False -> "#f"
-        List vs -> case vs of
+instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t ValueF) where
+    prettyV v = case v of
+        Atom i -> annotate TAtom $ pretty i
+        Keyword i -> annotate TKeyword $ ":" <> pretty i
+        Ref i -> prettyV i
+        String t -> annotate TString $ "\"" <> pretty (escapeStr t) <> "\""
+        Number (a :% b) -> annotate TNumber $ pretty a <> if b == 1 then "" else "/" <> pretty b
+        Boolean True -> annotate TBoolean $ "#t"
+        Boolean False -> annotate TBoolean $ "#f"
+        List vs -> annotate TList $ case vs of
           []   -> "()"
-          [v'] -> parens $ pretty v'
-          _    -> parens $ hang 1 (sep $ pretty <$> vs)
-        Vec vs -> case vs of
+          [v'] -> parens $ prettyV v'
+          _    -> parens $ hang 1 (sep $ prettyV <$> vs)
+        Vec vs -> annotate TVec $ case vs of
           Empty        -> "[]"
-          v' :<| Empty -> brackets $ pretty v'
-          _            -> brackets . sep $ pretty <$> toList vs
-        PrimFn i -> pretty i
-        Dict mp -> braces . align $
-            sep [ pretty k <+> pretty val
+          v' :<| Empty -> brackets $ prettyV v'
+          _            -> brackets . sep $ prettyV <$> toList vs
+        PrimFn i -> annotate TFunction $ pretty i
+        Dict mp -> annotate TDict $ braces . align $
+            sep [ prettyV k <+> prettyV val
                 | (k, val) <- Map.toList mp ]
-        Lambda ids vals _ -> parens $
-            "fn" <+> align (sep
-                        [ brackets . sep $ pretty <$> ids
-                        , sep $ pretty <$> toList vals
-                        ])
+        Lambda ids vals _ ->
+          let args :: Ann.Annotated t ValueF = Vec $ Seq.fromList (Atom <$> ids) in
+          annotate TFunction $ parens $
+          annotate TAtom "fn"
+          <+> align (sep
+                      [ prettyV args
+                      , sep $ prettyV <$> toList vals
+                      ])
       where
         -- We print string literals escaped just like Haskell does.
         escapeStr = T.init . T.tail . show
@@ -62,22 +71,22 @@ instance Pretty Ann.SrcPos where
     pretty (Ann.SrcPos pos)        = pretty (sourcePosPretty pos)
     pretty (Ann.InternalPos stack) = pretty stack
 
-instance Pretty r => Pretty (LangError r) where
-    pretty (LangError stack err) = vsep $
-        [pretty err, "Call stack:"] ++ map pretty (reverse stack)
+instance PrettyV r => PrettyV (LangError r) where
+    prettyV (LangError stack err) = vsep $
+        [prettyV err, "Call stack:"] ++ map pretty (reverse stack)
 
-instance Pretty r => Pretty (LangErrorData r) where
-    pretty v = case v of
+instance PrettyV r => PrettyV (LangErrorData r) where
+    prettyV v = case v of
         UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
         Impossible t -> "This cannot be!" <+> pretty t
         TypeError fname i t val -> vsep
           [ "Type error:" <+> pretty fname <+> "expects a value of type"
-            <+> pretty t <+> "in the" <+> pretty (pos (i + 1)) <+> "argument."
-          , "But got a" <+> pretty (valType val) <> ":"
-          , indent 2 $ pretty val ]
+            <+> prettyV t <+> "in the" <+> pretty (pos (i + 1)) <+> "argument."
+          , "But got a" <+> prettyV (valType val) <> ":"
+          , indent 2 $ prettyV val ]
         NonFunctionCalled val -> vsep
-          [ "Value was invoked as a function, but it has type" <+> pretty (valType val) <> ":"
-          , indent 2 $ pretty val ]
+          [ "Value was invoked as a function, but it has type" <+> prettyV (valType val) <> ":"
+          , indent 2 $ prettyV val ]
         WrongNumberOfArgs t x y -> "Wrong number of args in" <+> pretty t
                                  <+> "Expected:" <+> pretty x
                                  <+> "Got:" <+> pretty y
@@ -86,13 +95,13 @@ instance Pretty r => Pretty (LangErrorData r) where
         SpecialForm f t -> "Error using special form" <+> pretty f <> ":" <+> pretty t <> "."
         ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)
         Exit -> "Exit"
-        ThrownError i val -> "Exception" <+> pretty i <+> pretty val
+        ThrownError i val -> "Exception" <+> pretty i <+> prettyV val
         PatternMatchError e -> case e of
           NoMatch -> "Pattern match(es) are non-exhaustive."
           NoValue -> "The `match` special form must be given a value to match on."
           BadBindings p -> "Faulty pattern function. Pattern functions must return\
                            \ `[:just b]` where `b` is a dict of new bindings (from\
-                           \ atoms to values), or `:nothing`:" <+> pretty p
+                           \ atoms to values), or `:nothing`:" <+> prettyV p
       where
         pos :: Int -> Text
         pos 1 = "1st"
@@ -107,8 +116,8 @@ instance Pretty r => Pretty (LangErrorData r) where
 --
 -- >>> renderCompactPretty (asValue (List [String "hi", String "there"]))
 -- "(\"hi\"\n\"there\")"
-renderCompactPretty :: Pretty v => v -> Text
-renderCompactPretty = renderStrict . layoutCompact . pretty
+renderCompactPretty :: PrettyV v => v -> Text
+renderCompactPretty = renderStrict . layoutCompact . prettyV
 
 -- | Render prettily into text, with specified width.
 --
@@ -119,8 +128,8 @@ renderCompactPretty = renderStrict . layoutCompact . pretty
 --
 -- >>> renderPretty (AvailablePerLine 6 0.5) (asValue (List [String "hi", String "there"]))
 -- "(\"hi\"\n  \"there\")"
-renderPretty :: Pretty v => PageWidth -> v -> Text
-renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
+renderPretty :: PrettyV v => PageWidth -> v -> Text
+renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . prettyV
 
 -- | 'renderPretty', but with default layout options (80 chars, 1.0 ribbon)
 --
@@ -128,5 +137,17 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . pretty
 --
 -- >>> renderPrettyDef (asValue (List [String "hi", String "there"]))
 -- "(\"hi\" \"there\")"
-renderPrettyDef :: Pretty v => v -> Text
-renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . pretty
+renderPrettyDef :: PrettyV v => v -> Text
+renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . prettyV
+
+toAnsi :: Type -> Term.AnsiStyle
+toAnsi = \case
+  TKeyword -> color Magenta
+  TString -> color Green
+  TNumber -> color Yellow
+  TBoolean -> color Cyan
+  TRef -> color Red
+  _ -> mempty
+
+renderAnsi :: PrettyV v => v -> Text
+renderAnsi = Term.renderStrict . reAnnotateS toAnsi . layoutSmart defaultLayoutOptions . prettyV

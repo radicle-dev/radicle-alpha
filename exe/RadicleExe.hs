@@ -27,9 +27,9 @@ main = do
         (result, _state) <- runLang (bindings mgr) prog
         case result of
             Left (LangError _ Exit) -> pure ()
-            Left e                  -> do putStrLn $ renderPrettyDef e
+            Left e                  -> do putStrLn $ renderAnsi e
                                           exitWith (ExitFailure 1)
-            Right v                 -> putStrLn $ renderPrettyDef v
+            Right v                 -> putStrLn $ renderAnsi v
     else do
         src <- readSource (sourceFile opts')
         hist <- case histFile opts' of

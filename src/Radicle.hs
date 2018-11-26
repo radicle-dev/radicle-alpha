@@ -71,6 +71,7 @@ module Radicle
     , renderPretty
     , renderPrettyDef
     , renderCompactPretty
+    , renderAnsi
     -- ** Re-exports
     , PageWidth(..)
     , Pretty
