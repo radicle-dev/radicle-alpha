@@ -12,14 +12,8 @@ import           Data.Time
 import           System.Console.Haskeline hiding (catch)
 import           System.Exit (ExitCode)
 import           System.IO (isEOF)
-import           Turtle
-                 ( FoldShell(..)
-                 , foldShell
-                 , inproc
-                 , linesToText
-                 , select
-                 , textToLines
-                 )
+import           System.Process (CreateProcess)
+import           Turtle (select, system, textToLines)
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
@@ -49,18 +43,18 @@ instance Stdout IO where
 instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . toS
 
-class (Monad m) => Process m where
-    processS :: Text -> [Text] -> Text -> m (ExitCode, Text)
+class (Monad m) => System m where
+    systemS
+      :: CreateProcess
+      -> Text -- ^ stdin
+      -> m ExitCode
 
-instance Process m => Process (Lang m) where
-    processS proc args pstdin = lift $ processS proc args pstdin
-instance Process IO where
-    processS p args pstdin = do
-        res <- foldShell (inproc p args (select . toList $ textToLines pstdin))
-            (FoldShell (\x c -> pure (c:x)) [] pure)
-        pure (ExitSuccess, linesToText res)
-instance Process m => Process (InputT m) where
-    processS proc args pstdin = lift $ processS proc args pstdin
+instance System m => System (Lang m) where
+    systemS proc pstdin = lift $ systemS proc pstdin
+instance System IO where
+    systemS proc pstdin = system proc $ select . toList $ textToLines pstdin
+instance System m => System (InputT m) where
+    systemS proc pstdin = lift $ systemS proc pstdin
 
 class (Monad m) => Exit m where
     exitS :: m ()
