@@ -5,12 +5,12 @@
 (def read-line-or-exit! (fn []
   (def line (get-line!))
   (if (eq? line nil)
-      (exit!)
-      (read line))))
+    (exit!)
+    (read-many line))))
 
 (def repl
   {:name "repl"
    ;; Parse errors are thrown here
    :getter read-line-or-exit!})
 
-(subscribe-to! repl print!)
+(subscribe-to! repl (fn [xs] (map print! xs)))
