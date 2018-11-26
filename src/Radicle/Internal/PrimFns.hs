@@ -8,6 +8,7 @@ import           Data.List (zip3)
 import qualified Data.Map as Map
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import           GHC.Exts (IsList(..), sortWith)
 import           Text.Megaparsec (parseErrorPretty)
@@ -16,6 +17,7 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import qualified Radicle.Internal.Doc as Doc
+import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
@@ -530,6 +532,32 @@ purePrimFns = fromList $ allDocs $
       , twoArg "match-pat" $ \case
           (x@(Atom _), v) -> pure $ toRad (Just (Dict (Map.singleton x v)))
           (pat, v) -> callFn pat [v]
+      )
+    , ( "module"
+      , "Function for creating modules."
+      , \xs -> do
+          is <- traverse isAtom xs ?? toLangError (OtherError "module: all arguments must be atoms")
+          e <- gets bindingsEnv
+          pure $ toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList is)
+      )
+    , ( "import"
+      , "Import a module"
+      , \case
+          [v, Atom as] -> do
+            e <- fromRadOtherErr v
+            let withAs = Env (Map.mapKeysMonotonic ((as <> Ident "/") <>) (fromEnv e))
+            s <- get
+            put $ s { bindingsEnv = withAs <> bindingsEnv s }
+            pure ok
+          [v, Vec these, Atom as] -> do
+            e <- fromRadOtherErr v
+            let withAs = Env (Map.mapKeysMonotonic ((as <> Ident "/") <>) (fromEnv e))
+            s <- get
+            put $ s { bindingsEnv = withAs <> bindingsEnv s }
+            pure ok
+          [v] -> _
+          [v, Vec these] -> _
+          [v, _] -> throwErrorHere $ TypeError "import" 0 TAtom v
       )
     ]
   where

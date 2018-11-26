@@ -19,6 +19,7 @@ import           Text.Megaparsec.Pos (sourcePosPretty)
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Effects.Capabilities (Stdout(..))
+import           Radicle.Internal.Identifier (Ident(..))
 import           Radicle.Internal.Type
 
 class PrettyV a where

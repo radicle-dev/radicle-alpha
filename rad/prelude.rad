@@ -53,3 +53,11 @@
     "radicle is a LISP-like language intended for programming chains, and interacting with those chains.
 
     Type (doc '<name>) for further documentation of <name>."))
+
+(def numtools
+  (fn []
+    (def plus-one
+      (fn [x] (+ x 1)))
+    (module 'plus-one)))
+
+(import 'num (numtools))

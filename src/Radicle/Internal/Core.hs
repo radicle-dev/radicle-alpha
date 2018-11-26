@@ -14,7 +14,6 @@ import           Control.Monad.State
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
 import           Data.Copointed (Copointed(..))
-import           Data.Data (Data)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
@@ -34,6 +33,7 @@ import qualified Text.Megaparsec.Error as Par
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
 import qualified Radicle.Internal.Doc as Doc
+import           Radicle.Internal.Identifier (Ident(..))
 import qualified Radicle.Internal.Identifier as Identifier
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Orphans ()
@@ -406,23 +406,6 @@ maybeJson = \case
   where
     isStr (String s) = pure s
     isStr _          = Nothing
-
--- | An identifier in the language.
---
--- Not all `Text`s are valid identifiers, so use 'Ident' at your own risk.
--- `mkIdent` is the safe version.
-newtype Ident = Ident { fromIdent :: Text }
-    deriving (Eq, Show, Read, Ord, Generic, Data, Serialise)
-
-pattern Identifier :: Text -> Ident
-pattern Identifier t <- Ident t
-
--- | Convert a text to an identifier.
---
--- Unsafe! Only use this if you know the string at compile-time and know it's a
--- valid identifier. Otherwise, use 'mkIdent'.
-unsafeToIdent :: Text -> Ident
-unsafeToIdent = Ident
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }
