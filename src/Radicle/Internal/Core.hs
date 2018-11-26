@@ -13,19 +13,20 @@ import           Control.Monad.State
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
 import           Data.Copointed (Copointed(..))
+import qualified GHC.IO.Handle as Handle
 import           Data.Data (Data)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
-import System.Process (CmdSpec(..), CreateProcess(..), StdStream(..))
 import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
+import           System.Process (CmdSpec(..), CreateProcess(..), StdStream(..))
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
@@ -127,29 +128,50 @@ readRef (Reference r) = do
         Nothing -> throwErrorHere $ Impossible "undefined reference"
         Just v  -> pure v
 
+data Handle' = Handle'
+    { handleCounter :: Int
+    , handleHandle :: Handle.Handle
+    } deriving (Eq, Show)
+
+instance Ord Handle' where
+    (<=) = compare `on` handleCounter
+
 -- | An expression or value in the language.
-data ValueF r =
+-- We use a variation of the Trees that Grow approach with the type parameter.
+data ValueF x r =
     -- | A regular (hyperstatic) variable.
-      AtomF Ident
+      AtomF (Extra "atom" x) Ident
     -- | Symbolic identifiers that evaluate to themselves.
-    | KeywordF Ident
-    | StringF Text
-    | NumberF Rational
-    | BooleanF Bool
-    | ListF [r]
-    | VecF (Seq r)
-    | PrimFnF Ident
+    | KeywordF (Extra "keyword" x) Ident
+    | StringF (Extra "string" x) Text
+    | NumberF (Extra "number" x) Rational
+    | BooleanF (Extra "boolean" x) Bool
+    | ListF (Extra "list" x) [r]
+    | VecF (Extra "vec" x) (Seq r)
+    | PrimFnF (Extra "primfn" x) Ident
     -- | Map from *pure* Values -- annotations shouldn't change lookup semantics.
-    | DictF (Map.Map Value r)
-    | RefF Reference
+    | DictF (Extra "dict" x) (Map.Map r r)
+    | RefF (Extra "ref" x) Reference
+    -- | A file handle.
+    | HandleF (Extra "handle" x) Handle'
     -- | Takes the arguments/parameters, a body, and possibly a closure.
     --
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
-    | LambdaF [Ident] (NonEmpty r) (Env r)
-    deriving (Eq, Ord, Read, Show, Generic, Functor)
+    | LambdaF (Extra "lambda" x) [Ident] (NonEmpty r) (Env r)
+    deriving (Eq, Show, Ord, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
+
+data Undecorated
+data Pure a
+-- | Extra indicates what the additional field contains, for each type of
+-- Value.
+-- We use a closed type family so we can have overlaps, but these can be made
+-- open with a little more typing if we need the extra modularity.
+type family Extra (con :: Symbol) stage where
+    Extra "handle" (Pure Undecorated) = Void
+    Extra x (Pure Undecorated) = ()
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
@@ -160,6 +182,7 @@ hashable = \case
   Keyword _ -> True
   PrimFn _ -> False
   Ref _ -> False
+  Handle _ -> False
   Lambda{} -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
@@ -225,6 +248,11 @@ pattern Ref :: ValueConC t => Reference -> Annotated t ValueF
 pattern Ref i <- (Ann.match -> RefF i)
     where
     Ref = Ann.annotate . RefF
+
+pattern Handle :: ValueConC t => Reference -> Annotated t ValueF
+pattern Handle i <- (Ann.match -> HandleF i)
+    where
+    Handle = Ann.annotate . HandleF
 
 pattern Lambda :: ValueConC t => [Ident] -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
@@ -523,9 +551,9 @@ specialForms = Map.fromList $ first Ident <$>
 type CPA t = (Ann.Annotation t, Copointed t)
 
 class FromRad t a where
-  fromRad :: Annotated t ValueF -> Either Text a
-  default fromRad :: (CPA t, HasEot a, FromRadG t (Eot a)) => Annotated t ValueF -> Either Text a
-  fromRad = fromRadG
+    fromRad :: Annotated t ValueF -> Either Text a
+    default fromRad :: (CPA t, HasEot a, FromRadG t (Eot a)) => Annotated t ValueF -> Either Text a
+    fromRad = fromRadG
 
 instance CPA t => FromRad t () where
     fromRad (Vec Seq.Empty) = pure ()
@@ -538,12 +566,12 @@ instance (CPA t, FromRad t a) => FromRad t (Maybe a) where
     fromRad (Keyword (Ident "Nothing")) = pure Nothing
     fromRad _ = Left "Expecting :Nothing or [:Just _]"
 instance FromRad t (Annotated t ValueF) where
-  fromRad = pure
+    fromRad = pure
 instance CPA t => FromRad t Rational where
-  fromRad (Number n) = pure n
-  fromRad _          = Left "Not a number"
+    fromRad (Number n) = pure n
+    fromRad _          = Left "Not a number"
 instance CPA t => FromRad t Scientific where
-  fromRad = fromRad >=> Num.isSci
+    fromRad = fromRad >=> Num.isSci
 instance CPA t => FromRad t Int where
     fromRad = fromRad >=> Num.isInt
 instance CPA t => FromRad t Integer where
@@ -684,10 +712,10 @@ instance ToRad Ann.WithPos (Bindings m) where
         ]
 instance (CPA t) => ToRad t StdStream where
     toRad x = case x of
-        Inherit -> Keyword $ Ident "inherit"
+        Inherit    -> Keyword $ Ident "inherit"
         CreatePipe -> Keyword $ Ident "create-pipe"
-        NoStream -> Keyword $ Ident "no-stream"
-        _ -> panic "Cannot convert handle"
+        NoStream   -> Keyword $ Ident "no-stream"
+        _          -> panic "Cannot convert handle"
 instance (CPA t) => ToRad t CmdSpec where
     toRad x = case x of
         ShellCommand comm ->

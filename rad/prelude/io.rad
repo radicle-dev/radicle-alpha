@@ -26,11 +26,31 @@
 
 (def shell!
   "(shell! command stdin) executes 'command' using the shell with 'stdin' as
-   input. Returns the exit code.
+   input. Returns the exit code. Stdout and stderr are inherited.
    Example: (shell! \"ls -Glah\" \"\")
    "
   (fn [command stdin]
-    (system! [:shell command] stdin)))
+    (def cp
+      { :cmdspec [:shell command]
+        :stdin :create-pipe
+        :stdout :inherit
+        :stderr :inherit
+      })
+    (system! cp stdin)))
+
+(def shell-with-stdout!
+  "(shell-with-stdout! command stdin) executes 'command' using the shell with
+   'stdin' as input. Returns the exit code. Stderr is inherited.
+   Example: (shell! \"ls -Glah\" \"\")
+   "
+  (fn [command stdin]
+    (def cp
+      { :cmdspec [:shell command]
+        :stdin :create-pipe
+        :stdout :create-pipe
+        :stderr :inherit
+      })
+    (system! cl stdin)))
 
 (def process!
   "(process! command args stdin) executes 'command' using 'execvp'. with 'stdin' as
