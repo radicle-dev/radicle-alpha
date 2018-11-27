@@ -1,3 +1,5 @@
+['send-code!]
+
 ;; read-line
 (def read-line!
   "Read a single line of input and interpret it as radicle data."

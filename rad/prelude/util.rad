@@ -1,3 +1,5 @@
+[]
+
 (def make-counter
   "Creates a stateful counter. Returns a dict with two keys: the function at `:next-will-be`
   will return the next number (without incrementing it), while the function at `:next`

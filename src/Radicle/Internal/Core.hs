@@ -612,6 +612,9 @@ specialForms = Map.fromList $ first Ident <$>
               _ -> throwErrorHere $ SpecialForm "fn" "First argument must be a vector of argument atoms"
           _ -> throwErrorHere $ SpecialForm "fn" "Need an argument vector and a body"
       )
+  , ("scope", \case
+        [] -> pure nil
+        (e:es) -> NonEmpty.last <$> withEnv identity (traverse baseEval (e :| es)))
   , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))

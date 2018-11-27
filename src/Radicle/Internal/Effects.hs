@@ -5,6 +5,7 @@ module Radicle.Internal.Effects where
 import           Protolude hiding (TypeError, toList)
 
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Time as Time
 import           GHC.Exts (IsList(..))
@@ -281,4 +282,26 @@ replPrimFns = fromList $ allDocs $
                    pure . String . toS . Time.formatTime Time.defaultTimeLocale (Time.iso8601DateFormat (Just "%H:%M:%SZ")) $ t
           xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)
       )
+    , ( "file-module!"
+      , "Creates a module from the code in a file."
+      , oneArg "file-module!" $ \case
+          String filename -> do
+            t_ <- readFileS filename
+            t <- hoistEither . first (toLangError . OtherError) $ t_
+            vs <- readValues ("file-module!: " <> filename) t
+            let nonTests = filter nonTest vs
+            case nonTests of
+              (Vec exports : es) -> do
+                as <- traverse baseEval exports
+                is <- traverse isAtom as ?? toLangError (OtherError $ "Exports must be a vector of symbols: " <> renderCompactPretty (Vec exports))
+                e <- withEnv identity $ do
+                  traverse_ baseEval es
+                  gets bindingsEnv
+                pure $ toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (toList is))
+              _ -> throwErrorHere $ OtherError $ "file-module! " <> filename <> " must start with an export list"
+          v -> throwErrorHere $ TypeError "file-module!" 0 TString v
+      )
     ]
+  where
+    nonTest (List (Keyword (Ident "test") :_)) = False
+    nonTest _                                  = True

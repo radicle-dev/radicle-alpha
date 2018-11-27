@@ -1,3 +1,5 @@
+[]
+
 (def set/empty
   "An empty set."
   {})

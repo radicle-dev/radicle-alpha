@@ -1,6 +1,10 @@
+['nil 'empty? 'reverse 'range 'concat 'filter]
+
 ;; List functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; nil
+
+(import prelude/recursion ['Y2])
 
 (def nil "The empty list." (list))
 
@@ -70,13 +74,3 @@
   [ (filter (fn [x] (< x 10)) (list 3 10 11))
      ==> (3) ]
 )
-
-(def list-with-head
-  "Given a value `x`, and two functions `f` and `g`, checks if `x` is a list with a
-  head. If so applies `f` to the head, otherwise calls `g` with no args."
-  (fn [x f g]
-    (if (list? x)
-      (if (> (length x) 0)
-        (f (head x))
-        (g))
-      (g))))

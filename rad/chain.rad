@@ -1,3 +1,8 @@
+['load-chain 'update-chain-ref]
+
+(import prelude/ref ['modify-ref])
+(import prelude/lens ['.. '... 'view 'over '@])
+
 ;; Chains: Functions for dealing with chains.
 
 ;; A chain is conceptually:

@@ -91,7 +91,7 @@ purePrimFns = fromList $ allDocs $
     , ( "read-many"
       , "Parses a string into a vector of radicle values. Does not evaluate the values."
       , oneArg "read-many" $ \case
-          String s -> readValues s
+          String s -> Vec . Seq.fromList <$> readValues "read-many" s
           v -> throwErrorHere $ TypeError "read-many" 0 TString v
       )
     , ("get-current-env"
@@ -543,21 +543,16 @@ purePrimFns = fromList $ allDocs $
     , ( "import"
       , "Import a module"
       , \case
-          [v, Atom as] -> do
-            e <- fromRadOtherErr v
-            let withAs = Env (Map.mapKeysMonotonic ((as <> Ident "/") <>) (fromEnv e))
-            s <- get
-            put $ s { bindingsEnv = withAs <> bindingsEnv s }
-            pure ok
+          [v, Atom as] -> import' v Nothing (Just as)
           [v, Vec these, Atom as] -> do
-            e <- fromRadOtherErr v
-            let withAs = Env (Map.mapKeysMonotonic ((as <> Ident "/") <>) (fromEnv e))
-            s <- get
-            put $ s { bindingsEnv = withAs <> bindingsEnv s }
-            pure ok
-          [v] -> _
-          [v, Vec these] -> _
+            is <- Protolude.toList <$> traverse isAtom these ?? toLangError (OtherError "import: must be given a vector of symbols to import")
+            import' v (Just is) (Just as)
+          [v] -> import' v Nothing Nothing
+          [v, Vec these] -> do
+            is <- Protolude.toList <$> traverse isAtom these ?? toLangError (OtherError "import: must be given a vector of symbols to import")
+            import' v (Just is) Nothing
           [v, _] -> throwErrorHere $ TypeError "import" 0 TAtom v
+          _ -> throwErrorHere $ OtherError "import: expects a module, an optional list of symbols to import, and an optional qualifier."
       )
     ]
   where
@@ -589,6 +584,19 @@ purePrimFns = fromList $ allDocs $
           (v, _) -> throwErrorHere $ TypeError name 0 TNumber v
       )
 
+    import' v is_ prefix_ = do
+      e <- fromRadOtherErr v
+      let allMod = fromEnv e
+      let toImport = case is_ of
+            Just is -> Map.restrictKeys allMod (Set.fromList is)
+            Nothing -> allMod
+      let qualified = Env $ case prefix_ of
+            Just p -> Map.mapKeysMonotonic ((p <> Ident "/") <>) toImport
+            Nothing -> toImport
+      s <- get
+      put $ s { bindingsEnv = qualified <> bindingsEnv s }
+      pure ok
+
 -- * Helpers
 
 -- Many primFns have a single argument.
@@ -615,11 +623,12 @@ readValue s = do
 readValues
     :: (MonadError (LangError Value) m)
     => Text
-    -> m Value
-readValues s = do
-    let p = parseValues "[read-many-primop]" s
+    -> Text
+    -> m [Value]
+readValues name s = do
+    let p = parseValues ("[" <> name <> "-primop]") s
     case p of
-      Right v -> pure . Vec $ Seq.fromList v
+      Right vs -> pure vs
       Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String . toS $ parseErrorPretty e)
 
 allDocs :: [(Text, Text, a)] -> [(Ident, Maybe Text, a)]
