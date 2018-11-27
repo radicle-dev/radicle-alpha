@@ -658,7 +658,7 @@ test_repl :: [TestTree]
 test_repl =
     [ testCase "evaluates correctly" $ do
         let input = [ "((fn [x] x) #t)" ]
-            output = [ "#t" ]
+            output = [ ansi "#t" ]
         (_, result) <- runInRepl input
         result @==> output
 
@@ -670,7 +670,7 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @==> output
+        result @==> (ansi <$> output)
 
     , testCase "handles 'eval' redefinition" $ do
         let input = [ "(def eval (fn [expr env] (list #t env)))"
@@ -680,7 +680,7 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @==> output
+        result @==> (ansi <$> output)
 
     , testCase "(def eval base-eval) doesn't change things" $ do
         let input = [ "(def eval base-eval)"
@@ -692,21 +692,21 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @==> output
+        result @==> (ansi <$> output)
 
     , testCase "exceptions are non-fatal" $ do
         let input = [ "(throw 'something \"something happened\")"
                     , "#t"
                     ]
         (_, result) <- runInRepl input
-        result @==> ["#t"]
+        result @==> [ ansi "#t" ]
 
     , testCase "load! a non-existent file is a non-fatal exception" $ do
         let input = [ "(load! \"not-a-thing.rad\")"
                     , "#t"
                     ]
         (_, result) <- runInRepl input
-        result @==> ["#t"]
+        result @==> [ ansi "#t"]
     ]
     where
       -- In addition to the output of the lines tested, tests get
@@ -809,7 +809,7 @@ test_macros =
                     , ":quit"
                     , "x"
                     ]
-            output = [ "0" ]
+            output = [ ansi "0" ]
         (_, result) <- runInRepl input
         result @==> output
     ]
@@ -849,3 +849,8 @@ runInRepl inp = do
                                  , "repl.rad" `T.isSuffixOf` name
                                  ]
         pure $ runTestWithFiles testBindings inp (Map.fromList srcMap) (fromJust replSrc)
+
+ansi :: Text -> Text
+ansi t = case parseTest t of
+  Left _ -> panic "Error adding colour codes to value string: original string does not parse."
+  Right v -> renderAnsi v
