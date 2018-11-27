@@ -7,7 +7,8 @@ import           Protolude hiding (TypeError, toList)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc (reAnnotate)
-import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc, renderStrict)
+import           Data.Text.Prettyprint.Doc.Render.Terminal
+                 (putDoc, renderStrict)
 import qualified Data.Time as Time
 import           GHC.Exts (IsList(..))
 import           System.Console.Haskeline

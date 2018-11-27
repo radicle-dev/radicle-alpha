@@ -7,14 +7,14 @@ import           Protolude hiding (Type, TypeError, (<>))
 import           Data.Copointed (Copointed(..))
 import qualified Data.Map as Map
 import           Data.Sequence (Seq(..))
+import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import           Data.Text.Prettyprint.Doc
-import           Data.Text.Prettyprint.Doc.Render.Text
+import           Data.Text.Prettyprint.Doc.Render.Terminal (Color(..), color)
 import qualified Data.Text.Prettyprint.Doc.Render.Terminal as Term
-import Data.Text.Prettyprint.Doc.Render.Terminal (color, Color(..))
+import           Data.Text.Prettyprint.Doc.Render.Text
 import           Text.Megaparsec.Error (parseErrorPretty)
 import           Text.Megaparsec.Pos (sourcePosPretty)
-import qualified Data.Sequence as Seq
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
