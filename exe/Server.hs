@@ -46,8 +46,8 @@ import           Servant
                  , serveDirectoryFileServer
                  )
 
-import           API
 import           Radicle
+import           Radicle.Internal.HttpStorage
 import           Server.DB
 
 -- * Types
