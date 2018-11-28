@@ -1,4 +1,5 @@
-(load! "rad/prelude/test.rad")
+(file-module! "rad/prelude/test.rad")
+(import prelude/test)
 
 (file-module! "rad/prelude/basic.rad")
 (file-module! "rad/prelude/patterns.rad")
@@ -36,7 +37,7 @@
 (def pure-prelude-files
   "List of files which together define the pure prelude."
   (list
-   ;; "rad/prelude/test.rad" ;; pure unless test env
+   "rad/prelude/test.rad" ;; pure unless test env
    "rad/prelude/basic.rad"
    "rad/prelude/patterns.rad"
    "rad/prelude/bool.rad"

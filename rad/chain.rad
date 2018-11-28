@@ -1,6 +1,6 @@
 'prelude/chain
 
-""
+"Functions for simulating remote chains."
 
 '[new-chain load-chain eval-in-chain update-chain-ref eval updatable-eval update-chain eval-fn-app]
 
