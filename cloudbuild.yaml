@@ -1,4 +1,6 @@
 timeout: 1800s # Cache misses are slow to rebuild
+images:
+- 'eu.gcr.io/$PROJECT_ID/radicle-server'
 steps:
   - id: "Load cache"
     name: gcr.io/cloud-builders/gsutil
@@ -30,18 +32,23 @@ steps:
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['stack', 'exec', '--', 'hlint', '.']
 
-  - id: "Test & Build"
+  - id: "Build & Test"
     name: 'haskell:8.4.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
     - '-c'
     - |
-      apt-get update
-      apt-get -y install postgresql libpq-dev
-      stack build --fast --test --no-terminal --pedantic
+      apt-get -qq update
+      apt-get -yqq install libpq-dev
+      stack build --fast
+
+      cp -a scripts/docker-build-shim.sh /usr/bin/docker
+      stack image container
 
   - id: "Build reference document"
+    waitFor:
+    - "Build & Test"
     name: 'haskell:8.4.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
@@ -55,7 +62,15 @@ steps:
         exit 1
       fi
 
+  - id: "Build radicle-server image"
+    waitFor:
+    - "Build & Test"
+    name: 'gcr.io/cloud-builders/docker'
+    args: [ 'build', '-t', 'eu.gcr.io/$PROJECT_ID/radicle-server', './images/radicle-server' ]
+
   - id: "Save cache"
+    waitFor:
+    - "Build & Test"
     name: gcr.io/cloud-builders/gsutil
     entrypoint: 'bash'
     args:
@@ -63,4 +78,3 @@ steps:
     - |
       source scripts/ci.sh
       save-cache
-

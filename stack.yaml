@@ -47,9 +47,9 @@ extra-deps:
 image:
   containers:
     - base: "fpco/ubuntu-with-libgmp:14.04"
-      name: "radicle/server"
+      name: "radicle-server"
       executables:
-        - server
+        - radicle-server
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
