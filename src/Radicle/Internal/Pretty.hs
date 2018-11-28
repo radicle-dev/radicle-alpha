@@ -72,7 +72,7 @@ instance Pretty Ann.SrcPos where
 
 instance PrettyV r => PrettyV (LangError r) where
     prettyV (LangError stack err) = vsep $
-        [prettyV err, "Call stack:"] ++ map pretty (reverse stack)
+        [prettyV err, indent 2 $ vsep $ map pretty (reverse stack)]
 
 instance PrettyV r => PrettyV (LangErrorData r) where
     prettyV v = case v of
