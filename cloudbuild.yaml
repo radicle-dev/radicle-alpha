@@ -6,6 +6,8 @@ steps:
     args:
     - '-c'
     - |
+      set -euxo pipefail
+
       source scripts/ci.sh
       load-cache
 
@@ -16,8 +18,8 @@ steps:
     args:
     - '-c'
     - |
-      stack config set system-ghc --global true
-      stack config set install-ghc --global false
+      set -euxo pipefail
+
       stack install stylish-haskell hlint weeder
 
   - id: "Format"
@@ -30,31 +32,39 @@ steps:
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['stack', 'exec', '--', 'hlint', '.']
 
-  - id: "Test & Build"
+  - id: "Build & Test"
     name: 'haskell:8.4.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
     - '-c'
     - |
-      apt-get update
-      apt-get -y install postgresql libpq-dev
+      set -euxo pipefail
+
+      apt-get -qq update
+      apt-get -yqq install libpq-dev
+      stack build --fast
       stack build --fast --test --no-terminal --pedantic
 
+      ./images/radicle-server/ci-copy-bin.sh
+
   - id: "Lint (weeder)"
-    waitFor: ["Test & Build"]
+    waitFor: ["Build & Test"]
     name: 'haskell:8.4.3'
     env: ["STACK_ROOT=/workspace/.stack"]
     args: ["stack", "exec", "--", "weeder", "--match"]
 
   - id: "Build reference document"
-    waitFor: ["Test & Build"]
+    waitFor:
+    - "Build & Test"
     name: 'haskell:8.4.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
     - '-c'
     - |
+      set -euxo pipefail
+
       mv docs/source/reference.rst oldref
       stack exec radicle-ref-doc
       if ! (diff oldref docs/source/reference.rst); then
@@ -62,12 +72,36 @@ steps:
         exit 1
       fi
 
+  - id: "Build radicle-server image"
+    waitFor:
+    - "Build & Test"
+    name: 'gcr.io/cloud-builders/docker'
+    entrypoint: bash
+    env:
+    - BRANCH_NAME=$BRANCH_NAME
+    args:
+    - "-c"
+    - |
+      set -euxo pipefail
+
+      if [ "$BRANCH_NAME" == "master" ]; then
+        image_name="eu.gcr.io/opensourcecoin/radicle-server"
+        docker build \
+          --tag "$image_name" \
+          --cache-from "$image_name" \
+          ./images/radicle-server
+        docker push "$image_name"
+      fi
+
   - id: "Save cache"
+    waitFor:
+    - "Build & Test"
     name: gcr.io/cloud-builders/gsutil
     entrypoint: 'bash'
     args:
     - '-c'
     - |
+      set -euxo pipefail
+
       source scripts/ci.sh
       save-cache
-
