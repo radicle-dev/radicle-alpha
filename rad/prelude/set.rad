@@ -2,7 +2,7 @@
 
 ""
 
-[]
+'[set/empty set/insert set/delete set/member? set/to-vec set/from-seq]
 
 (def set/empty
   "An empty set."

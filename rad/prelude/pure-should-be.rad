@@ -1,0 +1,19 @@
+'prelude/should-be
+
+""
+
+[]
+
+;; A version of should-be for pure environments.
+
+(def should-be
+  (fn [name x y]
+    (if (eq? x y)
+        (string-append "Test '" name "' succeeded")
+        (string-append "Test '" name "' failed"))))
+
+(document 'should-be
+  '(("test-name" string) ("actual" any) ("expected" any))
+  "Checks that 'actual' equals 'expected'. Used for tests")
+
+(should-be "doc" (string? (doc 'doc)) #t)

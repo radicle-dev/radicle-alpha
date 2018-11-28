@@ -710,23 +710,21 @@ specialForms = Map.fromList $ first Ident <$>
 
 createModule :: Monad m => Text -> [Value] -> Lang m Value
 createModule ctx = \case
-  (name : doc : exports : forms) -> do
-    name' <- baseEval name
-    doc' <- baseEval doc
-    exports' <- baseEval exports
-    case (name', doc', exports') of
-      (Atom n, String d, Vec is) -> do
-        is' <- traverse isAtom is ?? toLangError (OtherError $ ctx <> "Module export vector should only contain atoms")
-        e <- withEnv identity $ do
-                traverse_ baseEval forms
-                gets bindingsEnv
-        let m :: Value = toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (toList is'))
-        defineAtom n (Just d) m
-        pure (Keyword (Ident "ok"))
-      _ -> err
-  _ -> err
-  where
-    err = throwErrorHere $ OtherError $ ctx <> "A module should start with a name-atom, a docstring, and an exports vector"
+    (name : doc : exports : forms) -> do
+      name' <- baseEval name
+      doc' <- baseEval doc
+      exports' <- baseEval exports
+      case (name', doc', exports') of
+        (Atom n, String d, Vec is) -> do
+          is' <- traverse isAtom is ?? toLangError (OtherError $ ctx <> "Module export vector should only contain atoms")
+          e <- withEnv identity $ do
+                  traverse_ baseEval forms
+                  gets bindingsEnv
+          let m :: Value = toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (toList is'))
+          defineAtom n (Just d) m
+          pure (Keyword (Ident "ok"))
+        (x,y,z) -> throwErrorHere $ OtherError $ ctx <> show (Ann.untag x, Ann.untag y, Ann.untag z)
+    v -> throwErrorHere $ OtherError $ ctx <> show (Ann.untag <$> v)
 
 -- * From/ToRadicle
 

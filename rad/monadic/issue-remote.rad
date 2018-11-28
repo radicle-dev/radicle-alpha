@@ -1,6 +1,15 @@
 ;; Issue chain
 ;; Meant to be sent to a chain with send-code!
 
+(import prelude/bool)
+(import prelude/dict)
+(import prelude/set)
+(import prelude/ref)
+(import prelude/validation 'validator)
+(import prelude/patterns)
+(import prelude/util)
+(import prelude/lens)
+
 (def chain-id
   "The name of this chain."
   "monadic/radicle/issues")
@@ -170,13 +179,11 @@
   command `(update expr)` which evaluates arbitrary expression using `base-eval`."
   (fn [sub-eval]
     (fn [expr state]
-      (list-with-head
-       expr
-       (fn [cmd]
-         (if (eq? cmd 'update)
-           (base-eval (nth 1 expr) state)
-           (sub-eval expr state)))
-       (fn [] (sub-eval expr state))))))
+      (match expr
+             (/cons 'cmd _) (if (eq? cmd 'update)
+                              (base-eval (nth 1 expr) state)
+                              (sub-eval expr state))
+             _ (sub-eval expr state)))))
 
 (def eval (updatable-eval
     (fn [expr state]

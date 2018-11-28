@@ -2,7 +2,7 @@
 
 ""
 
-['load-chain 'update-chain-ref]
+['load-chain 'eval-in-chain 'update-chain-ref]
 
 (import prelude/ref ['modify-ref])
 (import prelude/lens ['.. '... 'view 'over '@])
@@ -187,10 +187,8 @@
   command `(update expr)` which evaluates arbitrary expression using `base-eval`."
   (fn [sub-eval]
     (fn [expr state]
-      (list-with-head
-       expr
-       (fn [cmd]
-         (if (eq? cmd 'update)
-           (base-eval (nth 1 expr) state)
-           (sub-eval expr state)))
-       (fn [] (sub-eval expr state))))))
+      (match expr
+             (/cons 'cmd _) (if (eq? cmd 'update)
+                              (base-eval (nth 1 expr) state)
+                              (sub-eval expr state))
+             _ (sub-eval expr state)))))

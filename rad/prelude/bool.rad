@@ -2,7 +2,7 @@
 
 "Functions for dealing with truthiness and #f."
 
-[]
+['not]
 
 ;; boolean functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

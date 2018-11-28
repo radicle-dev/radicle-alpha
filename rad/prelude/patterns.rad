@@ -2,7 +2,9 @@
 
 ""
 
-[]
+['_ '/cons]
+
+(import prelude/basic)
 
 ;; Because pattern matching uses the Maybe-monad, it's helpful to define some
 ;; essential Maybe-monad function now.

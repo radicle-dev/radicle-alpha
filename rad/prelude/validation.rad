@@ -2,7 +2,9 @@
 
 ""
 
-['= 'member 'and 'or 'type 'pred 'key 'keys 'every 'uui 'signed]
+['= 'member 'and 'or 'type 'pred 'key 'keys 'every 'uuid 'signed]
+
+(import prelude/dict)
 
 (def =
   "Given `x`, returns a validator that checks for equality with `x`."
