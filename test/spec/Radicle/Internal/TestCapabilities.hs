@@ -8,7 +8,6 @@ import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Time as Time
-import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -16,9 +15,7 @@ import           Radicle
 import           Radicle.Internal.Core (addBinding)
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
-import qualified Radicle.Internal.Number as Num
-import           Radicle.Internal.PrimFns (allDocs, twoArg)
-import           Radicle.Internal.Type (Type(..))
+import           Radicle.Internal.Storage
 import qualified Radicle.Internal.UUID as UUID
 
 import           Paths_radicle
@@ -97,40 +94,34 @@ sourceFiles = do
 testBindings :: Bindings (PrimFns (StateT WorldState IO))
 testBindings
     = addBinding (unsafeToIdent "test-env__") Nothing (Boolean True)
-    $ addPrimFns clientPrimFns replBindings
+    $ addPrimFns storagePrimFns replBindings
 
--- | Mocked versions of 'send!' and 'receive!'
-clientPrimFns :: PrimFns (StateT WorldState IO)
-clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
-  where
-    sendPrimop =
-      ( "send!"
-      , "Mocked version of `send!` that stores sent values in a map with chains as keys."
-      , twoArg "send!" $ \case
-         (String url, Vec v) -> do
-             lift . modify $ \s ->
-                s { worldStateRemoteChains
-                    = Map.insertWith (flip (Seq.><)) url v $ worldStateRemoteChains s }
-             pure $ List []
-         (String _, v) -> throwErrorHere $ TypeError "send!" 1 TVec v
-         (v, _) -> throwErrorHere $ TypeError "send!" 0 TString v
-      )
-    receivePrimop =
-      ( "receive!"
-      , "Mocked version of `receive!` that retrieves values from a map with chains as keys."
-      , twoArg "receive!" $ \case
-          (String url, Number n) -> do
-              case Num.isInt n of
-                  Left _ -> throwErrorHere . OtherError
-                                     $ "receive!: expecting int argument"
-                  Right r -> do
-                      chains <- lift $ gets worldStateRemoteChains
-                      pure . List $ case Map.lookup url chains of
-                              Nothing  -> []
-                              Just res -> toList $ Seq.drop r res
-          (String _, v) -> throwErrorHere $ TypeError "receive!" 1 TNumber v
-          (v, _)        -> throwErrorHere $ TypeError "receive!" 0 TString v
-      )
+
+-- | Provides @send!@ and @receive!@ functions that store chains in a
+-- 'Map' in the 'WorldState'.
+storagePrimFns :: PrimFns (StateT WorldState IO)
+storagePrimFns =
+    buildStoragePrimFns StorageBackend
+        { storageSend =
+            ( "send!"
+            , "Mocked version of `send!` that stores sent values in a map with chains as keys."
+            , \id values -> do
+                modify $ \s ->
+                   s { worldStateRemoteChains
+                       = Map.insertWith (flip (Seq.><)) id values $ worldStateRemoteChains s }
+                pure $ Right ()
+            )
+        , storageReceive =
+            ( "receive!"
+            , "Mocked version of `receive!` that retrieves values from a map with chains as keys."
+            , \id index -> do
+                chains <- gets worldStateRemoteChains
+                let exprs = case Map.lookup id chains of
+                        Nothing  -> []
+                        Just res -> toList $ Seq.drop index res
+                pure $ Right $ List exprs
+            )
+        }
 
 instance {-# OVERLAPPING #-} Stdin TestLang where
     getLineS = do

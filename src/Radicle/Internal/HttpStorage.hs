@@ -21,8 +21,7 @@ import           Servant.Client
 
 import           Radicle
 import           Radicle.Internal.Annotation (thisPos)
-import qualified Radicle.Internal.Number as Num
-import qualified Radicle.Internal.PrimFns as PrimFns
+import           Radicle.Internal.Storage
 
 
 --
@@ -87,40 +86,27 @@ createHttpStoragePrimFns = do
     pure $ httpStoragePrimFns' httpMgr
 
 httpStoragePrimFns' :: MonadIO m => HttpClient.Manager -> PrimFns m
-httpStoragePrimFns' mgr = fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
-  where
-    sendPrimop =
-      ( "send!"
-      , "Given a URL (string) and a value, sends the value `v` to the remote\
-        \ chain located at the URL for evaluation."
-      , PrimFns.twoArg "send!" $ \case
-         (String url, Vec v) -> do
-             res <- liftIO $ runClientM' url mgr (submit $ toList v)
-             case res of
-                 Left e   -> throwErrorHere . OtherError
-                           $ "send!: failed:" <> show e
-                 Right r  -> pure r
-         (String _, v) -> throwErrorHere $ TypeError "send!" 1 TVec v
-         (v, _) -> throwErrorHere $ TypeError "send!" 0 TString v
-      )
-    receivePrimop =
-      ( "receive!"
-      , "Given a URL (string) and a integral number `n`, queries the remote chain\
-        \ for the last `n` inputs that have been evaluated."
-      , PrimFns.twoArg "receive!" $ \case
-          (String url, Number n) -> do
-              case Num.isInt n of
-                  Left _ -> throwErrorHere . OtherError
-                                     $ "receive!: expecting int argument"
-                  Right r -> do
-                      res <- runClientM' url mgr (since r)
-                      case res of
-                          Left err -> throwErrorHere . OtherError
-                                    $ "receive!: request failed:" <> show err
-                          Right v' -> pure v'
-          (String _, v) -> throwErrorHere $ TypeError "receive!" 1 TNumber v
-          (v, _)        -> throwErrorHere $ TypeError "receive!" 0 TString v
-      )
+httpStoragePrimFns' mgr =
+    buildStoragePrimFns StorageBackend
+        { storageSend =
+            ( "send!"
+            , "Given a URL (string) and a value, sends the value `v` to the remote\
+              \ chain located at the URL for evaluation."
+            , \url values -> do
+                res <- liftIO $ runClientM' url mgr (submit $ toList values)
+                pure $ case res of
+                    Left servantError -> Left $ show servantError
+                    Right _           -> Right ()
+            )
+        , storageReceive =
+            ( "receive!"
+            , "Given a URL (string) and a integral number `n`, queries the remote chain\
+              \ for the last `n` inputs that have been evaluated."
+            , \url index -> do
+                res <- liftIO $ runClientM' url mgr (since index)
+                pure $ first show res
+            )
+        }
 
 submit :: [Value] -> ClientM Value
 submit = client chainSubmitEndpoint . Values
