@@ -25,7 +25,7 @@ other core modules."
   "Checks that there is a least one truthy value in a list."
   (fn [xs] (foldr or #f xs)))
 
-'(:test "some"
+(:test "some"
        [ (some '())            ==> #f ]
        [ (some '(#t))          ==> #t ]
        [ (some '(#f))          ==> #f ]

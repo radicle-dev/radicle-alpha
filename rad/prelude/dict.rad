@@ -24,7 +24,7 @@
   (fn [d]
     (map head (seq d))))
 
-'(:test "keys"
+(:test "keys"
   [ (keys {:one 1 :two 2}) ==> [:one :two] ]
 )
 
@@ -33,7 +33,7 @@
   (fn [d]
     (map (fn [x] (nth 1 x)) (seq d))))
 
-'(:test "values"
+(:test "values"
   [ (values {:a 0 :b 1}) ==> [0 1] ]
 )
 
@@ -44,7 +44,7 @@
     (def old-val (lookup old-key mp))
     (delete old-key (insert new-key old-val mp))))
 
-'(:test "rekey"
+(:test "rekey"
   [ (rekey :a :b {:a 5}) ==> {:b 5} ])
 
 ;; modify-map
@@ -53,7 +53,7 @@
   (fn [key f mp]
     (insert key (f (lookup key mp)) mp)))
 
-'(:test "modify-map"
+(:test "modify-map"
   [ (modify-map :a (fn [x] (+ x 1)) {:a 5})
      ==> {:a 6} ])
 

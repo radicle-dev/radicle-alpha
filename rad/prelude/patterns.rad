@@ -111,7 +111,7 @@
       :else
       (pat v))))
 
-'(:test "basic pattern matching"
+(:test "basic pattern matching"
        [ (match 42 12 :not-42 'x x) ==> 42 ]
        [ (match 42 12 :not-42 42 :yes) ==> :yes ]
        [ (match :fourty-two :not-42 :no :fourty-two :yes) ==> :yes ]
@@ -135,7 +135,7 @@
       (maybe->>= v
                  (fn [x] (match-pat pat x))))))
 
-'(:test "Just patterns"
+(:test "Just patterns"
        [ (match [:just 42] (/Just 'x) x _ :no) ==> 42 ]
        [ (match :nothing   (/Just 'x) x _ :yes) ==> :yes ])
 
@@ -161,7 +161,7 @@
       [:just {}]
       :nothing)))
 
-'(:test "List pattern matching"
+(:test "List pattern matching"
        [ (match (list) /nil :yes _ :no) ==> :yes ]
        [ (match (list 1 2 3) /nil :no (/cons 'x 'xs) [x xs]) ==> [1 (2 3)]])
 
@@ -174,7 +174,7 @@
         [:just {}]
         :nothing))))
 
-'(:test "Predicate patterns"
+(:test "Predicate patterns"
        [ (match (list)
                 (/? (fn [l] (< 0 (length l)))) :no
                 _ :yes) ==> :yes]
@@ -193,7 +193,7 @@
                    (fn [bs] [:just (insert var v bs)])))
       (throw 'pattern-error "The first argument of `/as` should be an atom."))))
 
-'(:test "As-patterns work"
+(:test "As-patterns work"
        [ (match [1 2 3]
                 (/as 'xs [_ 7 _]) :no
                 (/as 'xs [_ _ 3]) xs) ==> [1 2 3]]
@@ -202,7 +202,7 @@
                 [_ _ (/as 'xs [_ _])] xs) ==> [3 4]]
        )
 
-'(:test "Non-linear patterns"
+(:test "Non-linear patterns"
   [ (match [1 1 1]
            ['x 'x 'x] x)  ==> 1
   ]

@@ -18,7 +18,7 @@
         (eq? command :next)    (modify-ref i (fn [x] (+ x 1)))
         :else                  (throw 'invalid-counter-command "Counters only accept `:current` and `:next` commands.")))))
 
-'(:test "make-counter"
+(:test "make-counter"
   [:setup
    (do (def c1 (make-counter))
        (def c2 (make-counter))

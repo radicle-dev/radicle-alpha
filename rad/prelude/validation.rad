@@ -109,7 +109,7 @@
         (lookup :signature d)
         (show (delete-many [:author :signature] d)))))]))
 
-'(:test "signed"
+(:test "signed"
   [:setup
    (do (def keys (gen-key-pair! (default-ecc-curve)))
        (def sk (lookup :private-key keys))

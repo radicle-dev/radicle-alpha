@@ -8,6 +8,7 @@
 
 ;; nil
 
+(import prelude/basic)
 (import prelude/recursion ['Y2])
 
 (def nil "The empty list." (list))
@@ -18,7 +19,7 @@
   "True if 'seq' is empty, false otherwise."
   (fn [ls] (or (eq? ls nil) (eq? ls []))))
 
-'(:test "empty"
+(:test "empty"
   [ (empty? (list 2)) ==> #f ]
   [ (empty? [2]) ==> #f ]
   [ (empty? []) ==> #t ]
@@ -36,7 +37,7 @@
             (go (cons (head new) acc) (tail new)))))
     (go (list) ls)))
 
-'(:test "reverse"
+(:test "reverse"
   [ (reverse (list 1 2 3)) ==> (3 2 1) ]
 )
 
@@ -49,7 +50,7 @@
         (list to)
         (cons from (range (+ 1 from) to)))))
 
-'(:test "range"
+(:test "range"
   [ (range 1 5) ==> (1 2 3 4 5) ]
 )
 
@@ -60,7 +61,7 @@
   (fn [list1 list2]
     (foldr (fn [a b] (cons a b)) list2 list1)))
 
-'(:test "concat"
+(:test "concat"
   [ (concat '(1 2 3) '(4 5 6)) ==> (1 2 3 4 5 6) ]
 )
 
@@ -74,7 +75,7 @@
         (pred (head ls)) (cons (head ls) (filter pred (tail ls)))
         :else            (filter pred (tail ls)))))
 
-'(:test "filter"
+(:test "filter"
   [ (filter (fn [x] (< x 10)) (list 3 10 11))
      ==> (3) ]
 )

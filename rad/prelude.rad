@@ -1,4 +1,4 @@
-;; (def prelude/ (file-module! "rad/prelude/test.rad"))
+(load! "rad/prelude/test.rad")
 (file-module! "rad/prelude/basic.rad")
 (file-module! "rad/prelude/patterns.rad")
 (file-module! "rad/prelude/io.rad")
@@ -29,7 +29,7 @@
 (import prelude/lens)
 (import prelude/chain)
 (import prelude/state-machine)
-(import prelude/validation)
+(import prelude/validation 'validator)
 (import prelude/util)
 
 (def pure-prelude-files

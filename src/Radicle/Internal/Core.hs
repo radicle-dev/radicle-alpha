@@ -616,7 +616,7 @@ specialForms = Map.fromList $ first Ident <$>
   , ("scope", \case
         [] -> pure nil
         (e:es) -> NonEmpty.last <$> withEnv identity (traverse baseEval (e :| es)))
-  , ( "module", createModule "module: ")
+  , ( "module", createModule "module")
   , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -716,15 +716,17 @@ createModule ctx = \case
       exports' <- baseEval exports
       case (name', doc', exports') of
         (Atom n, String d, Vec is) -> do
-          is' <- traverse isAtom is ?? toLangError (OtherError $ ctx <> "Module export vector should only contain atoms")
+          is' <- traverse isAtom is ?? toLangError (OtherError $ ctx <> ": Module export vector should only contain atoms")
           e <- withEnv identity $ do
-                  traverse_ baseEval forms
+                  traverse_ eval forms
                   gets bindingsEnv
           let m :: Value = toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (toList is'))
           defineAtom n (Just d) m
           pure (Keyword (Ident "ok"))
-        (x,y,z) -> throwErrorHere $ OtherError $ ctx <> show (Ann.untag x, Ann.untag y, Ann.untag z)
-    v -> throwErrorHere $ OtherError $ ctx <> show (Ann.untag <$> v)
+        _ -> err
+    _ -> err
+  where
+    err = throwErrorHere $ OtherError $ ctx <> ": Modules should start with an atom for the name, then a docstring, and then an exports vector"
 
 -- * From/ToRadicle
 
