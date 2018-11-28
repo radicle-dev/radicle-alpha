@@ -1,0 +1,50 @@
+- package:
+  - name: radicle
+  - section:
+    # BEGIN ignore everything because this target is not build by
+    # default.
+    - name: exe:radicle-client-ghcjs
+    - message:
+      - name: Module not compiled
+      - module: GHCJS.hs
+    - message:
+      - name: Redundant build-depends entry
+      - depends:
+        - bytestring
+        - exceptions
+        - ghcjs-base
+        - ghcjs-dom
+        - http-media
+        - protolude
+        - radicle
+        - servant
+        - servant-client-ghcjs
+    # END
+  - section:
+    - name: test:spec
+    - message:
+      - name: Redundant build-depends entry
+      - depends:
+        # Required as compiler plugin
+        - tasty-discover
+    - message:
+      # BEGIN export all for ease of debugging
+      - name: Weeds exported
+      - module:
+        - name: Radicle.Internal.TestCapabilities
+        - identifier:
+          - TestLang
+          - clientPrimFns
+          - runTestWith'
+      - module:
+        - name: Radicle.Tests
+        - identifier:
+          - ansi
+          - assertReplInteraction
+          - atom
+          - int
+          - kw
+          - parseTest
+          - prettyEither
+          - stackTraceLines
+      # END

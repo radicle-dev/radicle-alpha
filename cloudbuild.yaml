@@ -18,7 +18,7 @@ steps:
     - |
       stack config set system-ghc --global true
       stack config set install-ghc --global false
-      stack install stylish-haskell hlint
+      stack install stylish-haskell hlint weeder
 
   - id: "Format"
     name: 'haskell:8.4.3'
@@ -41,7 +41,14 @@ steps:
       apt-get -y install postgresql libpq-dev
       stack build --fast --test --no-terminal --pedantic
 
+  - id: "Lint (weeder)"
+    waitFor: ["Test & Build"]
+    name: 'haskell:8.4.3'
+    env: ["STACK_ROOT=/workspace/.stack"]
+    args: ["stack", "exec", "--", "weeder", "--match"]
+
   - id: "Build reference document"
+    waitFor: ["Test & Build"]
     name: 'haskell:8.4.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
