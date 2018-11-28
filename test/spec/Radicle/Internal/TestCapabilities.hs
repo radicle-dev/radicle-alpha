@@ -132,7 +132,7 @@ storagePrimFns =
                 let exprs = case Map.lookup id chains of
                         Nothing  -> []
                         Just res -> toList $ Seq.drop index res
-                pure $ Right $ List exprs
+                pure $ Right exprs
             )
         }
 

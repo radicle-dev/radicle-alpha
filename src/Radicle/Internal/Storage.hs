@@ -38,7 +38,7 @@ type StorageSend m = Text -> Seq Value -> m (Either Text ())
 -- | Receive a list of expressions from a chain. The chain is identified by the first
 -- argument. The second argument is the index from which to start.
 -- Morally this is @'Data.List.drop' index chain@.
-type StorageReceive m = Text -> Int -> m (Either Text Value)
+type StorageReceive m = Text -> Int -> m (Either Text [Value])
 
 buildStoragePrimFns :: Monad m => StorageBackend m -> PrimFns m
 buildStoragePrimFns backend =
@@ -73,7 +73,7 @@ buildStoragePrimFns backend =
                       case res of
                           Left err -> throwErrorHere . OtherError
                                     $ receiveName <> ": request failed: " <> show err
-                          Right v' -> pure v'
+                          Right v' -> pure $ List v'
           (String _, v) -> throwErrorHere $ TypeError receiveName 1 TNumber v
           (v, _)        -> throwErrorHere $ TypeError receiveName 0 TString v
       )

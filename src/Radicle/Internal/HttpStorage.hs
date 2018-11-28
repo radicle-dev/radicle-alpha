@@ -68,7 +68,7 @@ chainSubmitEndpoint = Proxy
 
 -- | Endpoint to obtain all entries in a chain starting from the given
 -- index. Responds with a Radicle vector of the expressions.
-type ChainSinceEndpoint = "since" :> Capture "index" Int :> Get '[PlainText] Value
+type ChainSinceEndpoint = "since" :> Capture "index" Int :> Get '[PlainText] Values
 
 chainSinceEndpoint :: Proxy ChainSinceEndpoint
 chainSinceEndpoint = Proxy
@@ -111,8 +111,8 @@ httpStoragePrimFns' mgr =
 submit :: [Value] -> ClientM Value
 submit = client chainSubmitEndpoint . Values
 
-since :: Int -> ClientM Value
-since = client chainSinceEndpoint
+since :: Int -> ClientM [Value]
+since idx = getValues <$> client chainSinceEndpoint idx
 
 runClientM' :: (MonadIO m) => Text -> HttpClient.Manager -> ClientM a -> m (Either ServantError a)
 runClientM' baseUrl manager endpoint = liftIO $ do

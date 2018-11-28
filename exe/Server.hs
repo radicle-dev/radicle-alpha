@@ -131,8 +131,8 @@ submit conn chains name (Values vals) = do
 
 
 -- | Get all expressions submitted to a chain since 'index'.
-since :: Connection -> Text -> Int -> Handler Value
-since conn name index = liftIO $ List <$> getSinceDB conn name index
+since :: Connection -> Text -> Int -> Handler Values
+since conn name index = liftIO $ Values <$> getSinceDB conn name index
 
 jsonOutputs :: Chains -> Text -> Handler [Maybe A.Value]
 jsonOutputs st name = do
