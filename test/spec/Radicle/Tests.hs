@@ -5,7 +5,6 @@ import           Protolude hiding (toList)
 
 import           Codec.Serialise (Serialise, deserialise, serialise)
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromJust)
 import           Data.Scientific (Scientific)
 import           Data.Sequence (Seq(..))
 import           Data.String.Interpolate (i)
@@ -664,8 +663,7 @@ test_repl =
     [ testCase "evaluates correctly" $ do
         let input = [ "((fn [x] x) #t)" ]
             output = [ "#t" ]
-        (_, result) <- runInRepl input
-        result @==> output
+        assertReplInteraction input output
 
     , testCase "handles env modifications" $ do
         let input = [ "(def id (fn [x] x))"
@@ -674,8 +672,7 @@ test_repl =
             output = [ "()"
                      , "#t"
                      ]
-        (_, result) <- runInRepl input
-        result @==> output
+        assertReplInteraction input output
 
     , testCase "handles 'eval' redefinition" $ do
         let input = [ "(def eval (fn [expr env] (list #t env)))"
@@ -684,8 +681,7 @@ test_repl =
             output = [ "()"
                      , "#t"
                      ]
-        (_, result) <- runInRepl input
-        result @==> output
+        assertReplInteraction input output
 
     , testCase "(def eval base-eval) doesn't change things" $ do
         let input = [ "(def eval base-eval)"
@@ -696,27 +692,20 @@ test_repl =
                      , "()"
                      , "#t"
                      ]
-        (_, result) <- runInRepl input
-        result @==> output
+        assertReplInteraction input output
 
     , testCase "exceptions are non-fatal" $ do
         let input = [ "(throw 'something \"something happened\")"
                     , "#t"
                     ]
-        (_, result) <- runInRepl input
-        result @==> [ "#t" ]
+        assertReplInteraction input ["#t"]
 
     , testCase "load! a non-existent file is a non-fatal exception" $ do
         let input = [ "(load! \"not-a-thing.rad\")"
                     , "#t"
                     ]
-        (_, result) <- runInRepl input
-        result @==> [ "#t"]
+        assertReplInteraction input ["#t"]
     ]
-    where
-      -- In addition to the output of the lines tested, tests get
-      -- printed, so we take only the last few output lines.
-      r @==> out = reverse (take (length out) r) @?= (ansi <$> out)
 
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
@@ -814,14 +803,8 @@ test_macros =
                     , ":quit"
                     , "x"
                     ]
-            output = [ ansi "0" ]
-        (_, result) <- runInRepl input
-        result @==> output
+        assertReplInteraction input ["0"]
     ]
-  where
-    -- In addition to the output of the lines tested, 'should-be's get
-    -- printed, so we take only the last few output lines.
-    r @==> out = reverse (take (length out) r) @?= out
 
 
 -- * Utils
@@ -844,16 +827,22 @@ prettyEither :: Either (LangError Value) Value -> T.Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e
 prettyEither (Right v) = renderPrettyDef v
 
--- Find repl.rad, give it all other files as possible imports, and run
--- it.
-runInRepl :: [Text] -> IO (Either (LangError Value) Value, [Text])
-runInRepl inp = do
-        (dir, srcs) <- sourceFiles
-        srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
-        let replSrc = head [ src | (name, src) <- srcMap
-                                 , "repl.rad" `T.isSuffixOf` name
-                                 ]
-        pure $ runTestWithFiles testBindings inp (Map.fromList srcMap) (fromJust replSrc)
+-- | Run a REPL with the given input lines and expected output.
+--
+-- We only assert the expected output against the end of the actual
+-- output. This means that if @expected@ is @[a, b]@ then we only assert
+-- that the last two lines of the actual output equal @[a, b]@.
+assertReplInteraction :: [Text] -> [Text] -> IO ()
+assertReplInteraction input expected = do
+    (dir, srcs) <- sourceFiles
+    srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
+    let (result, output) = runTestWithFiles testBindings input (Map.fromList srcMap) "(load! \"rad/repl.rad\")"
+    case result of
+        Left err -> assertFailure $ "Error thrown in Repl: " <> toS (renderPrettyDef err)
+        Right _  -> pure ()
+    -- In addition to the output of the lines tested, tests get
+    -- printed, so we take only the last few output lines.
+    reverse (take (length expected) output) @=? map ansi expected
 
 ansi :: Text -> Text
 ansi t = case parseTest t of

@@ -69,8 +69,11 @@ data LangErrorData r =
     | NonHashableKey
     | OtherError Text
     | ParseError (Par.ParseError Char Void)
+    -- | Raised if @(throw ident value)@ is evaluated. Arguments are
+    -- provided by the call to @throw@.
     | ThrownError Ident r
     | PatternMatchError PatternMatchError
+    -- | Raised if the effectful @exit!@ primitive is evaluated.
     | Exit
     deriving (Eq, Show, Read, Generic, Functor)
 
