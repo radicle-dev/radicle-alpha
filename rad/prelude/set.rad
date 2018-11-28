@@ -1,6 +1,6 @@
 'prelude/set
 
-""
+"Sets, built using dicts."
 
 '[set/empty set/insert set/delete set/member? set/to-vec set/from-seq]
 

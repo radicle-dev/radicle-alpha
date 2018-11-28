@@ -1,6 +1,6 @@
 'prelude/list
 
-""
+"Functions for manipulating lists."
 
 ['nil 'empty? 'reverse 'range 'concat 'filter]
 

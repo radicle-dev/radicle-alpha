@@ -1,4 +1,5 @@
 (load! "rad/prelude/test.rad")
+
 (file-module! "rad/prelude/basic.rad")
 (file-module! "rad/prelude/patterns.rad")
 (file-module! "rad/prelude/io.rad")

@@ -1,6 +1,6 @@
 'prelude/patterns
 
-""
+"Custom patterns."
 
 '[match-pat _ /? /as /cons /nil /Just]
 

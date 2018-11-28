@@ -1,6 +1,6 @@
 'prelude/util
 
-""
+"Utility functions. For the moment just a counter."
 
 ['make-counter]
 

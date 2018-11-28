@@ -1,6 +1,6 @@
 'prelude/ref
 
-""
+"Functions for dealing with reference cells."
 
 ['modify-ref]
 

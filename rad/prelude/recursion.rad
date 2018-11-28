@@ -1,6 +1,6 @@
 'prelude/recursion
 
-""
+"Some recursion combinators."
 
 ['Y 'Y2]
 

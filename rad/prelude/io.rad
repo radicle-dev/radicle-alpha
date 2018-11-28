@@ -1,6 +1,6 @@
 'prelude/io
 
-""
+"Some basic I/O functions."
 
 '[read-line! send-code! read-code!]
 

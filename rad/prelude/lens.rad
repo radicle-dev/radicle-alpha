@@ -1,6 +1,6 @@
 'prelude/lens
 
-""
+"Functional references."
 
 ['make-lens 'view 'set 'id-lens '.. '... 'over '@ '@nth 'view-ref 'set-ref 'over-ref]
 

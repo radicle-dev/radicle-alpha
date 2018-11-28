@@ -127,7 +127,7 @@
   (fn [id]
     (lookup id (list-issues!))))
 
-'(:test
+(:test
  "The monadic issues chain works."
  [:setup
   (do (create-issues-chain!)

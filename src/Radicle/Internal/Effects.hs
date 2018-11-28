@@ -5,7 +5,6 @@ module Radicle.Internal.Effects where
 import           Protolude hiding (TypeError, toList)
 
 import qualified Data.Map as Map
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Time as Time
 import           GHC.Exts (IsList(..))

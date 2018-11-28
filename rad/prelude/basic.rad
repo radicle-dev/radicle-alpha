@@ -1,6 +1,6 @@
 'prelude/basic
 
-"Basic function which need to be defined early because they are so useful for
+"Basic functions which need to be defined early because they are so useful for
 other core modules."
 
 '[or some empty-seq? length maybe->>= maybe-foldlM]
