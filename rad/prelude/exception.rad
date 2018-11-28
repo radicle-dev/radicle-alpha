@@ -1,6 +1,10 @@
+'prelude/exception
+
+""
+
 []
 
-(:test "catch handles scope correctly"
+'(:test "catch handles scope correctly"
   ;; Issue #191, catch used to accidentally use the lexical environment of
   ;; the `throw` that generated the exception.
   [ ((fn [body handler] (catch 'any (body) handler)) (fn [] (throw 'foo "foo")) (fn [e] #t)) ==> #t ]

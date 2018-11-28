@@ -289,19 +289,20 @@ replPrimFns = fromList $ allDocs $
             t_ <- readFileS filename
             t <- hoistEither . first (toLangError . OtherError) $ t_
             vs <- readValues ("file-module!: " <> filename) t
-            let nonTests = filter nonTest vs
-            case nonTests of
-              (Vec exports : es) -> do
-                as <- traverse baseEval exports
-                is <- traverse isAtom as ?? toLangError (OtherError $ "Exports must be a vector of symbols: " <> renderCompactPretty (Vec exports))
-                e <- withEnv identity $ do
-                  traverse_ baseEval es
-                  gets bindingsEnv
-                pure $ toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (toList is))
-              _ -> throwErrorHere $ OtherError $ "file-module! " <> filename <> " must start with an export list"
+            -- let nonTests = filter nonTest vs
+            createModule ("file-module! - " <> filename <> " : ") vs
+            -- case vs of
+            --   (Vec exports : es) -> do
+            --     as <- traverse baseEval exports
+            --     is <- traverse isAtom as ?? toLangError (OtherError $ "Exports must be a vector of symbols: " <> renderCompactPretty (Vec exports))
+            --     e <- withEnv identity $ do
+            --       traverse_ baseEval es
+            --       gets bindingsEnv
+            --     pure $ toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (toList is))
+            --   _ -> throwErrorHere $ OtherError $ "file-module! " <> filename <> " must start with an export list"
           v -> throwErrorHere $ TypeError "file-module!" 0 TString v
       )
     ]
-  where
-    nonTest (List (Keyword (Ident "test") :_)) = False
-    nonTest _                                  = True
+  -- where
+  --   nonTest (List (Keyword (Ident "test") :_)) = False
+  --   nonTest _                                  = True

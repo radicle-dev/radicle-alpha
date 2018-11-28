@@ -44,7 +44,7 @@
             (eval expr env))
         (eval expr env))))
 
-(:test "'test' works (including :setup)"
+'(:test "'test' works (including :setup)"
     [:setup
        (do
           (def x 3)
@@ -61,7 +61,7 @@
     [received ==> (0)]
 )
 
-(:test "'test' handles exceptions properly"
+'(:test "'test' handles exceptions properly"
     [:setup
       (do
         (def x (catch 'any (throw 'blah) (fn [x] #t)))

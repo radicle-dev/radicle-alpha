@@ -1,3 +1,7 @@
+'prelude/bool
+
+"Functions for dealing with truthiness and #f."
+
 []
 
 ;; boolean functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -15,7 +19,7 @@
   (fn [x y]
     (if x y x)))
 
-(:test "and"
+'(:test "and"
   [ (and #t #t) ==> #t ]
   [ (and #t #f) ==> #f ]
   [ (and #f #t) ==> #f ]
@@ -28,7 +32,7 @@
   "Checks that all the items of a list are truthy."
   (fn [xs] (foldr and #t xs)))
 
-(:test "all"
+'(:test "all"
   [ (all '())            ==> #t ]
   [ (all '(#t))          ==> #t ]
   [ (all '(#f))          ==> #f ]

@@ -1,3 +1,7 @@
+'prelude/recursion
+
+""
+
 ['Y 'Y2]
 
 ;; y-combinators ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -15,7 +19,7 @@
      (fn [g]
        (h (fn [arg1 arg2] ((g g) arg1 arg2)))))))
 
-(:test "Y combinator"
+'(:test "Y combinator"
   [ (do
       (def fac (Y (fn [f] (fn [x] (if (< x 2) 1 (* x (f (- x 1))))))))
       (fac 10)) ==> 3628800

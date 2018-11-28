@@ -23,6 +23,7 @@ import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
+import qualified Data.Set as Set
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
@@ -615,6 +616,7 @@ specialForms = Map.fromList $ first Ident <$>
   , ("scope", \case
         [] -> pure nil
         (e:es) -> NonEmpty.last <$> withEnv identity (traverse baseEval (e :| es)))
+  , ( "module", createModule "module: ")
   , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -705,6 +707,26 @@ specialForms = Map.fromList $ first Ident <$>
           defineAtom name doc_ v
           pure nil
         _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
+
+createModule :: Monad m => Text -> [Value] -> Lang m Value
+createModule ctx = \case
+  (name : doc : exports : forms) -> do
+    name' <- baseEval name
+    doc' <- baseEval doc
+    exports' <- baseEval exports
+    case (name', doc', exports') of
+      (Atom n, String d, Vec is) -> do
+        is' <- traverse isAtom is ?? toLangError (OtherError $ ctx <> "Module export vector should only contain atoms")
+        e <- withEnv identity $ do
+                traverse_ baseEval forms
+                gets bindingsEnv
+        let m :: Value = toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (toList is'))
+        defineAtom n (Just d) m
+        pure (Keyword (Ident "ok"))
+      _ -> err
+  _ -> err
+  where
+    err = throwErrorHere $ OtherError $ ctx <> "A module should start with a name-atom, a docstring, and an exports vector"
 
 -- * From/ToRadicle
 

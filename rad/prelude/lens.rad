@@ -1,3 +1,7 @@
+'prelude/lens
+
+""
+
 ['make-lens 'view 'set 'id-lens '.. '... 'over '@ '@nth 'view-ref 'set-ref 'over-ref]
 
 ;; Lenses ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -63,22 +67,22 @@
 (:test "view lens"
   [ (view (@ :one) {:one 1 :two 2}) ==> 1 ])
 
-(:test "set lens"
+'(:test "set lens"
   [ (set (@ :two) 42 {:one 1 :two 2}) ==> {:one 1 :two 42} ])
 
-(:test "over lens"
+'(:test "over lens"
   [ (over (@ :one)
           (fn [x] (+ x 1))
           {:one 1 :two 2})
     ==> {:one 2 :two 2} ])
 
-(:test "lens composition"
+'(:test "lens composition"
   [ (over (.. (@ :a) (@ :b))
           (fn [x] (+ x 1))
           {:a {:b 2}})
      ==> {:a {:b 3}} ])
 
-(:test "deep lenses"
+'(:test "deep lenses"
   [ (over (... (list (@ :a) (@ :b) (@ :c)))
           (fn [x] (+ x 1))
           {:a {:b {:c 0}}})
@@ -94,7 +98,7 @@
       (fn [val s]
          (<> (take n s) (add-left val (drop (+ n 1) s)))))))
 
-(:test "@nth"
+'(:test "@nth"
   [ (view (@nth 1) [0 1]) ==> 1 ]
   [ (over (@nth 1) (fn [x] (+ x 1)) [0 1]) ==> [0 2] ])
 
