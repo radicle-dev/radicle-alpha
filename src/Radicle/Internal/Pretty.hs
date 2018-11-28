@@ -21,7 +21,7 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Type
 
 class PrettyV a where
-  prettyV :: a -> Doc Type
+    prettyV :: a -> Doc Type
 
 -- | We can't just pretty print the pointer id since that would break
 -- referential transparency, so instead we just label refs as '<ref>'
@@ -32,37 +32,36 @@ instance Pretty Ident where
     pretty (Ident i) = pretty i
 
 instance PrettyV Type where
-  prettyV = prettyV . typeToValue
+    prettyV = prettyV . typeToValue
 
 instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t ValueF) where
-    prettyV v = case v of
-        Atom i -> annotate TAtom $ pretty i
-        Keyword i -> annotate TKeyword $ ":" <> pretty i
+    prettyV v = annotate (valType v) $ case v of
+        Atom i -> pretty i
+        Keyword i -> ":" <> pretty i
         Ref i -> prettyV i
-        String t -> annotate TString $ "\"" <> pretty (escapeStr t) <> "\""
-        Number (a :% b) -> annotate TNumber $ pretty a <> if b == 1 then "" else "/" <> pretty b
-        Boolean True -> annotate TBoolean $ "#t"
-        Boolean False -> annotate TBoolean $ "#f"
-        List vs -> annotate TList $ case vs of
+        String t -> "\"" <> pretty (escapeStr t) <> "\""
+        Number (a :% b) -> pretty a <> if b == 1 then "" else "/" <> pretty b
+        Boolean True -> "#t"
+        Boolean False -> "#f"
+        List vs -> case vs of
           []   -> "()"
           [v'] -> parens $ prettyV v'
           _    -> parens $ hang 1 (sep $ prettyV <$> vs)
-        Vec vs -> annotate TVec $ case vs of
+        Vec vs -> case vs of
           Empty        -> "[]"
           v' :<| Empty -> brackets $ prettyV v'
           _            -> brackets . sep $ prettyV <$> toList vs
-        PrimFn i -> annotate TFunction $ pretty i
-        Dict mp -> annotate TDict $ braces . align $
+        PrimFn i -> pretty i
+        Dict mp -> braces . align $
             sep [ prettyV k <+> prettyV val
                 | (k, val) <- Map.toList mp ]
         Lambda ids vals _ ->
-          let args :: Ann.Annotated t ValueF = Vec $ Seq.fromList (Atom <$> ids) in
-          annotate TFunction $ parens $
-          annotate TAtom "fn"
-          <+> align (sep
-                      [ prettyV args
-                      , sep $ prettyV <$> toList vals
-                      ])
+          let args :: Ann.Annotated t ValueF = Vec $ Seq.fromList (Atom <$> ids)
+          in parens $
+               annotate TAtom "fn" <+>
+               align (sep [ prettyV args
+                          , sep $ prettyV <$> toList vals
+                          ])
       where
         -- We print string literals escaped just like Haskell does.
         escapeStr = T.init . T.tail . show
@@ -142,12 +141,18 @@ renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . prettyV
 
 toAnsi :: Type -> Term.AnsiStyle
 toAnsi = \case
-  TKeyword -> color Magenta
-  TString -> color Green
-  TNumber -> color Yellow
-  TBoolean -> color Cyan
-  TRef -> color Red
-  _ -> mempty
+    TKeyword -> color Magenta
+    TString -> color Green
+    TNumber -> color Yellow
+    TBoolean -> color Cyan
+    TRef -> color Red
+    _ -> mempty
 
+-- | Like 'renderPrettyDef', but includes escape sequences for terminal colours.
+--
+-- Examples:
+--
+-- >>> renderAnsi (asValue (List [String "hi", Keyword (Ident "there")]))
+-- "\ESC[0m(\ESC[0;92m\"hi\"\ESC[0m \ESC[0;95m:there\ESC[0m)\ESC[0m"
 renderAnsi :: PrettyV v => v -> Text
 renderAnsi = Term.renderStrict . reAnnotateS toAnsi . layoutSmart defaultLayoutOptions . prettyV

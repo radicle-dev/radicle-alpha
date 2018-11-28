@@ -600,6 +600,11 @@ test_pretty =
             pp = renderPrettyDef v
             v_ = parseTest pp
         in v_ == Right v
+    , testCase "renderAnsi renders colours" $ do
+        renderAnsi (kw "hello") @?= "\ESC[0;95m:hello\ESC[0m"
+        renderAnsi (asValue (String "hello")) @?= "\ESC[0;92m\"hello\"\ESC[0m"
+        renderAnsi (int 42) @?= "\ESC[0;93m42\ESC[0m"
+        renderAnsi (asValue (Boolean True)) @?= "\ESC[0;96m#t\ESC[0m"
     ]
   where
     apl cols = AvailablePerLine cols 1
@@ -658,7 +663,7 @@ test_repl :: [TestTree]
 test_repl =
     [ testCase "evaluates correctly" $ do
         let input = [ "((fn [x] x) #t)" ]
-            output = [ ansi "#t" ]
+            output = [ "#t" ]
         (_, result) <- runInRepl input
         result @==> output
 
@@ -670,7 +675,7 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @==> (ansi <$> output)
+        result @==> output
 
     , testCase "handles 'eval' redefinition" $ do
         let input = [ "(def eval (fn [expr env] (list #t env)))"
@@ -680,7 +685,7 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @==> (ansi <$> output)
+        result @==> output
 
     , testCase "(def eval base-eval) doesn't change things" $ do
         let input = [ "(def eval base-eval)"
@@ -692,26 +697,26 @@ test_repl =
                      , "#t"
                      ]
         (_, result) <- runInRepl input
-        result @==> (ansi <$> output)
+        result @==> output
 
     , testCase "exceptions are non-fatal" $ do
         let input = [ "(throw 'something \"something happened\")"
                     , "#t"
                     ]
         (_, result) <- runInRepl input
-        result @==> [ ansi "#t" ]
+        result @==> [ "#t" ]
 
     , testCase "load! a non-existent file is a non-fatal exception" $ do
         let input = [ "(load! \"not-a-thing.rad\")"
                     , "#t"
                     ]
         (_, result) <- runInRepl input
-        result @==> [ ansi "#t"]
+        result @==> [ "#t"]
     ]
     where
       -- In addition to the output of the lines tested, tests get
       -- printed, so we take only the last few output lines.
-      r @==> out = reverse (take (length out) r) @?= out
+      r @==> out = reverse (take (length out) r) @?= (ansi <$> out)
 
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
@@ -852,5 +857,5 @@ runInRepl inp = do
 
 ansi :: Text -> Text
 ansi t = case parseTest t of
-  Left _ -> panic "Error adding colour codes to value string: original string does not parse."
-  Right v -> renderAnsi v
+    Left _ -> panic "Error adding colour codes to value string: original string does not parse."
+    Right v -> renderAnsi v
