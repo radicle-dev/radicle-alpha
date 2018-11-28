@@ -591,7 +591,7 @@ purePrimFns = fromList $ allDocs $
             Just is -> Map.restrictKeys allMod (Set.fromList is)
             Nothing -> allMod
       let qualified = Env $ case prefix_ of
-            Just p -> Map.mapKeysMonotonic ((p <> Ident "/") <>) toImport
+            Just p  -> Map.mapKeysMonotonic ((p <> Ident "/") <>) toImport
             Nothing -> toImport
       s <- get
       put $ s { bindingsEnv = qualified <> bindingsEnv s }

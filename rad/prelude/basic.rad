@@ -3,7 +3,7 @@
 "Basic function which need to be defined early because they are so useful for
 other core modules."
 
-['or 'some 'empty-seq? 'length]
+'[or some empty-seq? length maybe->>= maybe-foldlM]
 
 ;; or
 
@@ -51,3 +51,23 @@ other core modules."
   [ (length (list)) ==> 0]
   [ (length (list 2)) ==> 1]
 )
+
+(def maybe->>=
+  "Monadic bind for the maybe monad."
+  (fn [v f]
+    (if (vector? v)
+      (if (eq? (length v) 2)
+        (if (eq? (nth 0 v) :just)
+          (f (nth 1 v))
+          :nothing)
+        :nothing)
+      :nothing)))
+
+(def-rec maybe-foldlM
+  "Monadic fold over the elements of a seq, associating to the left (i.e. from
+  left to right) in the maybe monad."
+  (fn [f i xs]
+    (if (empty-seq? xs)
+      [:just i]
+      (maybe->>= (f i (nth 0 xs))
+                 (fn [b] (maybe-foldlM f b (drop 1 xs)))))))

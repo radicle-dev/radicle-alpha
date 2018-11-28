@@ -2,7 +2,7 @@
 
 ""
 
-['send-code!]
+'[read-line! send-code! read-code!]
 
 ;; read-line
 (def read-line!

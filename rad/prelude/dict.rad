@@ -2,13 +2,11 @@
 
 "Functions for manipualting dicts."
 
-'[values delete-many]
+'[dict-from-seq keys values rekey modify-map delete-many]
 
 ;; dict functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; dict-from-list
-
-(def dict-from-list
+(def dict-from-seq
   "Creates a dictionary from a list of key-value pairs."
   (fn [xs]
     (foldr (fn [kv acc] (insert (head kv) (head (tail kv)) acc)) (dict) xs)))

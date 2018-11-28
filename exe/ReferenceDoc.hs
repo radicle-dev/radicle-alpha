@@ -40,6 +40,7 @@ main = do
              "These are the functions that are available in a new radicle chain after"
           <> " the prelude has been loaded."
         ]
+      , sec "Modules" modules "Functions for creating and importing modules."
       , sec "Basics" basics
             "Basic function used for checking equality, determining the type of a value, etc."
       , sec "Numerical functions" maths "Operations on numbers."
@@ -75,6 +76,7 @@ main = do
             \ before sending these to a remote chain."
       ]
 
+    modules = ["file-module!", "file-to-module", "import", "module-from-env"]
     basics =
       [ "eq?", "not", "and", "or", "all", "some", "show", "string-append", "string-length"
       , "apply", "type", "atom?", "boolean?", "string?", "number?", "keyword?", "vector?", "list?"
@@ -86,7 +88,7 @@ main = do
     seqs = ["empty-seq?", "nth", "foldl", "foldr", "map", "seq", "take", "drop", "sort-by", "zip"]
     lists =
       [ "list", "nil", "head", "tail", "empty?", "cons", "reverse", "length", "concat"
-      , "filter", "range", "list-with-head" ]
+      , "filter", "range" ]
     vecs = ["<>", "add-left", "add-right"]
     dicts =
       ["dict", "lookup", "insert", "delete", "dict-from-list", "keys", "values", "rekey"
@@ -94,7 +96,7 @@ main = do
     sets = ["set/empty", "set/insert", "set/delete", "set/member?", "set/delete", "set/from-seq", "set/to-vec"]
     strings = ["intercalate", "unlines", "string-replace", "unwords"]
     structs = ["member?"]
-    patterns = ["match-pat", "_", "/?", "/nil", "/cons", "/as", "non-linear-merge"]
+    patterns = ["match-pat", "_", "/?", "/nil", "/cons", "/as"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
     docs = ["help", "doc", "doc!", "apropos!", "is-test-env"]
     io =
@@ -120,7 +122,8 @@ main = do
     typ s = "Functions for manipulating " <> s <> "."
 
     -- Functions which shouldn't be in the reference docs.
-    doNotInclude = ["head-shots", "get-head-shot", "eval__", "kim-trans", "pr-thread", "pr-trans", "_initial-prompt-text"]
+    modulesNames = ["prelude/basic", "prelude/bool", "prelude/chain", "prelude/dict", "prelude/exception", "prelude/io", "prelude/lens", "prelude/list", "prelude/patterns", "prelude/recursion", "prelude/ref", "prelude/set", "prelude/state-machine", "prelude/util", "prelude/validation"]
+    doNotInclude = ["head-shots", "get-head-shot", "eval__", "kim-trans", "pr-thread", "pr-trans", "_initial-prompt-text"] ++ modulesNames
 
     allFns =
          basics ++ maths ++ evalFns ++ envStuff ++ seqs ++ lists ++ vecs

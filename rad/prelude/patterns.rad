@@ -2,32 +2,9 @@
 
 ""
 
-['_ '/cons]
+'[match-pat _ /? /as /cons /nil /Just]
 
 (import prelude/basic)
-
-;; Because pattern matching uses the Maybe-monad, it's helpful to define some
-;; essential Maybe-monad function now.
-
-(def maybe->>=
-  "Monadic bind for the maybe monad."
-  (fn [v f]
-    (if (vector? v)
-      (if (eq? (length v) 2)
-        (if (eq? (nth 0 v) :just)
-          (f (nth 1 v))
-          :nothing)
-        :nothing)
-      :nothing)))
-
-(def-rec maybe-foldlM
-  "Monadic fold over the elements of a seq, associating to the left (i.e. from
-  left to right) in the maybe monad."
-  (fn [f i xs]
-    (if (empty-seq? xs)
-      [:just i]
-      (maybe->>= (f i (nth 0 xs))
-                 (fn [b] (maybe-foldlM f b (drop 1 xs)))))))
 
 (def exclusive-dict-merge
   "Merges two dicts while checking for key conflicts. Returns `{:merge

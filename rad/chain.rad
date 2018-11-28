@@ -2,7 +2,7 @@
 
 ""
 
-['load-chain 'eval-in-chain 'update-chain-ref]
+'[new-chain load-chain eval-in-chain update-chain-ref eval updatable-eval update-chain eval-fn-app]
 
 (import prelude/ref ['modify-ref])
 (import prelude/lens ['.. '... 'view 'over '@])

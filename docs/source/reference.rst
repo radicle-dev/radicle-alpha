@@ -4,6 +4,31 @@ Radicle Reference
 These are the functions that are available in a new radicle chain after
 the prelude has been loaded.
 
+Modules
+-------
+
+Functions for creating and importing modules.
+
+``file-module!``
+~~~~~~~~~~~~~~~~
+
+Creates a module from the code in a file.
+
+``(file-to-module file)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Make the text of a file into a module declaration.
+
+``import``
+~~~~~~~~~~
+
+Import a module
+
+``module-from-env``
+~~~~~~~~~~~~~~~~~~~
+
+Function for creating modules.
+
 Basics
 ------
 
@@ -253,13 +278,6 @@ Returns 'list' with only the elements that satisfy 'filter-cond'.
 
 Returns a list with all integers from ``from`` to ``end``, inclusive.
 
-``(list-with-head x f g)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a value ``x``, and two functions ``f`` and ``g``, checks if ``x``
-is a list with a head. If so applies ``f`` to the head, otherwise calls
-``g`` with no args.
-
 Vectors
 -------
 
@@ -389,10 +407,10 @@ Given ``k`` and a dict ``d``, returns a dict with the same associations
 as ``d`` but without the key ``k``. If ``d`` isn't a dict then an
 exception is thrown.
 
-``(dict-from-list xs)``
-~~~~~~~~~~~~~~~~~~~~~~~
+``(dict-from-seq xs)``
+~~~~~~~~~~~~~~~~~~~~~~
 
-Creates a dictionary from a list of key-value pairs.
+Creates a dictionary from a seq of key-value pairs.
 
 ``(keys d)``
 ~~~~~~~~~~~~
@@ -433,14 +451,6 @@ associated to that key.
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Delete several keys from a dict.
-
-``(exclusive-dict-merge m n)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Merges two dicts while checking for key conflicts. Returns
-``{:merge   m :conflicts c}`` where ``m`` is the merged dict for all
-non-conflicting keys and ``c`` is a dict with all the conflicting keys,
-mapping to pairs of values, one from each input dict.
 
 Sets
 ----
@@ -564,13 +574,6 @@ A pattern for lists with a head and a tail.
 As pattern. Takes a variable and a sub-pattern. If the subpattern
 matches then the whole pattern matches and furthermore the variable is
 bound to the matched value.
-
-``(non-linear-merge m n)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The bindings merge strategy for non-linear patterns. Use this function
-to merge bindings returned by sub-patterns if you want your pattern to
-be non-linear.
 
 Refs
 ----
@@ -1003,43 +1006,20 @@ functions before sending these to a remote chain.
 
 Return an empty chain dictionary with the given url.
 
-``(@var ident)``
-~~~~~~~~~~~~~~~~
-
-A lens for variables in states of chains.
-
 ``(eval-in-chain expr chain)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Evaluates 'expr' in the 'chain' and returns a dict with the ':result'
 and the resulting ':chain'.
 
-``(enter-remote-chain! url env)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Make the eval behave as that of a remote chain. The second param is the
-env to return to after :quit.
-
-``(update-chain! chain)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
+``(update-chain chain)``
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Takes a chain, and returns a new chain updated with the new expressions
 from the remote chain
 
-``(add-quit after-quit-state before-quit-eval)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Adds a ``:quit`` command to ``before-quit-eval``, which switches to
-``after-quit-state`` (and to the eval in that state)
-
-``(add-send! oeval)``
-~~~~~~~~~~~~~~~~~~~~~
-
-Add a ``:send`` special form that sends the contents of ``_input`` to
-the chain ``_cur-chain``
-
-``(load-chain! url)``
-~~~~~~~~~~~~~~~~~~~~~
+``(load-chain url)``
+~~~~~~~~~~~~~~~~~~~~
 
 Takes a ``url``, and fetches the inputs of a remote chain and return a
 chain dictionary with the chain state.
@@ -1054,11 +1034,6 @@ List of files which together define the pure prelude.
 
 The pure prelude.
 
-``(store-exprs evalfn)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Store each new evaluated expression in ``_inputs``
-
 ``(eval-fn-app state f arg cb)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1066,41 +1041,8 @@ Given a state, a function, an argument and a callback, returns the
 result of evaluating the function call on the arg in the given state,
 while also calling the callback on the result.
 
-``(state-machine-eval voters init-state init-transition)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Returns an eval which operates a state machine whose transition function
-may be updated. To update the transition function all voters must agree
-on it.
-
-``(state-machine-input state i)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Handle an input in the morphing state-machine.
-
-``(state-machine-new-trans state func)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Trigger a new vote.
-
-``(state-machine-agree state voters userid)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Vote to agree on a new transition function.
-
-``(state-machine-disagree state voters userid)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Vote to disagree on a new transition function.
-
-``(simple-trans f)``
-~~~~~~~~~~~~~~~~~~~~
-
-Given a function ``f``, makes a transition function who's output is also
-the next state.
-
-``(update-chain-ref! chain-ref)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(update-chain-ref chain-ref)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Update ``chain-ref`` containing a chain with the new expressions from
 the remote chain

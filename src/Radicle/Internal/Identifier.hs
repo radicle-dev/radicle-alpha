@@ -5,11 +5,11 @@ module Radicle.Internal.Identifier where
 import qualified Prelude
 import           Protolude
 
+import           Codec.Serialise (Serialise)
 import           Data.Char (isAlphaNum, isLetter, isUpper, toLower)
+import           Data.Data (Data)
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import           Codec.Serialise (Serialise)
-import           Data.Data (Data)
 
 -- These are made top-level so construction of arbitrary instances that matches
 -- parsing is easier. Note that additionally an identifier must not be a valid

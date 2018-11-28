@@ -50,6 +50,7 @@
    ))
 
 (def file-to-module
+  "Make the text of a file into a module declaration."
   (fn [file]
     (string-append "(module " (read-file! file) " )")))
 
