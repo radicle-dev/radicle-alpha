@@ -5,7 +5,7 @@
 module Radicle.Internal.Core where
 
 import qualified Prelude
-import           Protolude hiding (Constructor, TypeError, (<>))
+import           Protolude hiding (Constructor, Handle, TypeError, (<>))
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
@@ -14,19 +14,20 @@ import           Control.Monad.State
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
 import           Data.Copointed (Copointed(..))
+import qualified GHC.IO.Handle as Handle
 import           Data.Data (Data)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
-import System.Process (CmdSpec(..), CreateProcess(..), StdStream(..))
 import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
+import           System.Process (CmdSpec(..), CreateProcess(..), StdStream(..))
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
@@ -167,6 +168,11 @@ readRef (Reference r) = do
         Nothing -> throwErrorHere $ Impossible "undefined reference"
         Just v  -> pure v
 
+-- | As with References, we keep a counter for each handle, and in the
+-- environment map those to actual handles.
+newtype Hdl = Hdl { getHandle :: Int }
+    deriving (Show, Read, Ord, Eq, Generic, Serialise)
+
 -- | An expression or value in the language.
 data ValueF r =
     -- | A regular (hyperstatic) variable.
@@ -182,6 +188,7 @@ data ValueF r =
     -- | Map from *pure* Values -- annotations shouldn't change lookup semantics.
     | DictF (Map.Map Value r)
     | RefF Reference
+    | HandleF Hdl
     -- | Takes the arguments/parameters, a body, and possibly a closure.
     --
     -- The value of an application of a lambda is always the last value in the
@@ -214,6 +221,7 @@ hashable = \case
   Keyword _ -> True
   PrimFn _ -> False
   Ref _ -> False
+  Handle _ -> False
   Lambda{} -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
@@ -226,7 +234,8 @@ dict kvs =
   then pure $ Dict kvs
   else throwErrorHere NonHashableKey
 
-{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Ref, Lambda #-}
+{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict
+  , Ref, Handle, Lambda #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -279,6 +288,11 @@ pattern Ref :: ValueConC t => Reference -> Annotated t ValueF
 pattern Ref i <- (Ann.match -> RefF i)
     where
     Ref = Ann.annotate . RefF
+
+pattern Handle :: ValueConC t => Hdl -> Annotated t ValueF
+pattern Handle i <- (Ann.match -> HandleF i)
+    where
+    Handle = Ann.annotate . HandleF
 
 pattern Lambda :: ValueConC t => [Ident] -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
@@ -379,10 +393,12 @@ instance GhcExts.IsList (PrimFns m) where
 
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
-    { bindingsEnv     :: Env Value
-    , bindingsPrimFns :: prims
-    , bindingsRefs    :: IntMap Value
-    , bindingsNextRef :: Int
+    { bindingsEnv        :: Env Value
+    , bindingsPrimFns    :: prims
+    , bindingsRefs       :: IntMap Value
+    , bindingsNextRef    :: Int
+    , bindingsHandles    :: IntMap Handle.Handle
+    , bindingsNextHandle :: Int
     } deriving (Eq, Show, Functor, Generic)
 
 -- | The environment in which expressions are evaluated.
@@ -769,10 +785,10 @@ instance ToRad Ann.WithPos (Bindings m) where
         ]
 instance (CPA t) => ToRad t StdStream where
     toRad x = case x of
-        Inherit -> Keyword $ Ident "inherit"
+        Inherit    -> Keyword $ Ident "inherit"
         CreatePipe -> Keyword $ Ident "create-pipe"
-        NoStream -> Keyword $ Ident "no-stream"
-        _ -> panic "Cannot convert handle"
+        NoStream   -> Keyword $ Ident "no-stream"
+        _          -> panic "Cannot convert handle"
 instance (CPA t) => ToRad t CmdSpec where
     toRad x = case x of
         ShellCommand comm ->
