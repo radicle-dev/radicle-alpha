@@ -141,6 +141,7 @@ instance {-# OVERLAPPING #-} Stdin TestLang where
 instance {-# OVERLAPPING #-} Stdout TestLang where
     putStrS t = lift $
         modify (\ws -> ws { worldStateStdout = t:worldStateStdout ws })
+    supportsANSI = pure False
 
 instance {-# OVERLAPPING #-} ReadFile TestLang where
   readFileS fn = do

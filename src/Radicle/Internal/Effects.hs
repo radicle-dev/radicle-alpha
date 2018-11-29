@@ -6,8 +6,6 @@ import           Protolude hiding (TypeError, toList)
 
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import           Data.Text.Prettyprint.Doc (reAnnotate)
-import           Data.Text.Prettyprint.Doc.Render.Terminal (putDoc)
 import qualified Data.Time as Time
 import           GHC.Exts (IsList(..))
 import           System.Console.Haskeline
@@ -57,7 +55,7 @@ repl histFile preFileName preCode bindings = do
         $ void $ interpretMany preFileName preCode
     case r of
         Left (LangError _ Exit) -> pure ()
-        Left e                  -> putDoc $ reAnnotate toAnsi $ prettyV e
+        Left e                  -> putPrettyAnsi e
         Right ()                -> pure ()
 
 completion :: Monad m => CompletionFunc m
@@ -82,7 +80,7 @@ replPrimFns = fromList $ allDocs $
       , "Pretty-prints a value."
       , \case
         [x] -> do
-            putStrS (renderAnsi x)
+            putPrettyAnsi x
             pure nil
         xs  -> throwErrorHere $ WrongNumberOfArgs "print!" 1 (length xs))
 
@@ -144,10 +142,10 @@ replPrimFns = fromList $ allDocs $
                                 (\err -> case err of
                                    LangError _ Exit -> pure (pure nil)
                                    LangError _ (Impossible _) -> do
-                                       putStrS (renderAnsi err)
+                                       putPrettyAnsi err
                                        throwError err
                                    _ -> do
-                                       putStrS (renderAnsi err)
+                                       putPrettyAnsi err
                                        put st
                                        pure (loop action))
                         go = do

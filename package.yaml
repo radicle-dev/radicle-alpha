@@ -22,6 +22,7 @@ library:
   source-dirs: src
   dependencies:
   - aeson
+  - ansi-terminal
   - bytestring
   - containers
   - cryptonite

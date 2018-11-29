@@ -1,12 +1,14 @@
 module RadicleExe (main) where
 
-import           Options.Applicative
 import           Prelude (String)
 import           Protolude hiding (TypeError, option, sourceFile)
-import           Radicle
+
+import           Options.Applicative
 import           System.Directory (doesFileExist)
 
+import           Radicle
 import           Radicle.Internal.HttpStorage
+import           Radicle.Internal.Pretty (putPrettyAnsi)
 
 main :: IO ()
 main = do
@@ -19,9 +21,9 @@ main = do
         (result, _state) <- runLang bindings prog
         case result of
             Left (LangError _ Exit) -> pure ()
-            Left e                  -> do putStrLn $ renderAnsi e
+            Left e                  -> do putPrettyAnsi e
                                           exitWith (ExitFailure 1)
-            Right v                 -> putStrLn $ renderAnsi v
+            Right v                 -> putPrettyAnsi v
     else do
         src <- readSource (sourceFile opts')
         hist <- case histFile opts' of
