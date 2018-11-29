@@ -12,6 +12,7 @@ import           Data.String.QQ (s)
 import qualified Data.Text as T
 import System.Process (CmdSpec(..), StdStream(..))
 import           GHC.Exts (fromList, toList)
+import System.IO.Unsafe (unsafePerformIO)
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
@@ -614,7 +615,8 @@ test_repl_primops :: [TestTree]
 test_repl_primops =
     [ testProperty "(read (get-line!)) returns the input line" $ \(v :: Value) ->
         let prog = [i|(eq? (read (get-line!)) (quote #{renderPrettyDef v}))|]
-            res = run [renderPrettyDef v] $ toS prog
+            -- We're not actually using IO
+            res = unsafePerformIO $ run [renderPrettyDef v] $ toS prog
         in counterexample prog $ res == Right (Boolean True)
 
     , testCase "catch catches read-line errors" $ do
@@ -622,20 +624,22 @@ test_repl_primops =
                  (catch 'any (read-line!) (fn [x] "caught"))
                  |]
             input = ["\"blah"]
-            res = run input prog
+        res <- run input prog
         res @?= Right (String "caught")
     , testCase "read-file! can read a file" $ do
         let prog = "(read-file! \"foobar.rad\")"
             files = Map.singleton "foobar.rad" "foobar"
-        runFiles files prog @?= Right (String "foobar")
+        res <- runFiles files prog
+        res @?= Right (String "foobar")
     , testCase "load! can load definitions" $ do
         let prog = [s|
                    (load! "foo.rad")
                    (+ foo bar)
                    |]
             files = Map.singleton "foo.rad" "(def foo 42) (def bar 8)"
-        runFiles files prog @?= Right (int 50)
-    , testCase "generating and verifying cryptographic signatures works" $
+        res <- runFiles files prog
+        res @?= Right (int 50)
+    , testCase "generating and verifying cryptographic signatures works" $ do
         let prog = [s|
                    (def my-keys (gen-key-pair! (default-ecc-curve)))
                    (def not-my-keys (gen-key-pair! (default-ecc-curve)))
@@ -644,15 +648,17 @@ test_repl_primops =
                    (def ff (verify-signature (lookup :public-key not-my-keys) sig "hello"))
                    (list tt ff)
                    |]
-        in run [] prog @?= Right (List [Boolean True, Boolean False])
-    , testCase "uuid! generates a valid uuid" $
+        res <- run [] prog
+        res @?= Right (List [Boolean True, Boolean False])
+    , testCase "uuid! generates a valid uuid" $ do
         let prog = [s| (uuid? (uuid!)) |]
-        in run [] prog @?= Right (Boolean True)
+        res <- run [] prog
+        res @?= Right (Boolean True)
     ]
   where
-    run stdin' prog = fst $ runTestWith testBindings stdin' prog
-    runFiles :: Map Text Text -> Text -> Either (LangError Value) Value
-    runFiles files prog = fst $ runTestWithFiles testBindings [] files prog
+    run stdin' prog = fst <$> runTestWith testBindings stdin' prog
+    runFiles :: Map Text Text -> Text -> IO (Either (LangError Value) Value)
+    runFiles files prog = fst <$> runTestWithFiles testBindings [] files prog
 
 test_repl :: [TestTree]
 test_repl =
@@ -787,10 +793,11 @@ test_source_files = do
             contents <- readFile (dir <> f)
             pure (toS f, contents)
         contents <- readFile (dir <> file)
-        let keyPair :: Text  = case runTest testBindings "(gen-key-pair! (default-ecc-curve))" of
-                    Right kp -> renderCompactPretty kp
-                    Left _   -> panic "Couldn't generate keypair file."
-        let (r, out) = runTestWithFiles testBindings [] (Map.insert "my-keys.rad" keyPair (fromList allFiles)) contents
+        keyPair :: Text <- runTest testBindings "(gen-key-pair! (default-ecc-curve))" >>= \case
+            Right kp -> pure $ renderCompactPretty kp
+            Left _   -> panic "Couldn't generate keypair file."
+        (r, out) <- runTestWithFiles testBindings [] (Map.insert "my-keys.rad"
+            keyPair (fromList allFiles)) contents
         let makeTest line =
                 let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
                          $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line

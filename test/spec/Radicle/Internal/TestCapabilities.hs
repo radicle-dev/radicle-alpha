@@ -11,6 +11,7 @@ import qualified Data.Time as Time
 import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
 import           System.Process (CreateProcess)
+import System.IO.Unsafe (unsafePerformIO)
 
 import           Radicle
 import           Radicle.Internal.Core (addBinding)
@@ -37,16 +38,16 @@ data WorldState = WorldState
     }
 
 
-type TestLang = Lang (State WorldState)
+type TestLang = Lang (StateT WorldState IO)
 
 -- | Run a possibly side-effecting program with the given stdin input lines.
 runTestWithFiles
-    :: Bindings (PrimFns (State WorldState))
+    :: Bindings (PrimFns (StateT WorldState IO))
     -> [Text]  -- The stdin (errors if it runs out)
     -> Map Text Text -- The files
     -> Text -- The program
-    -> (Either (LangError Value) Value, [Text])
-runTestWithFiles bindings inputs files action =
+    -> IO (Either (LangError Value) Value, [Text])
+runTestWithFiles bindings inputs files action = do
     let ws = WorldState
             { worldStateStdin = inputs
             , worldStateStdout = []
@@ -58,15 +59,15 @@ runTestWithFiles bindings inputs files action =
             , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
             , worldStateProcess = []
             }
-    in case runState (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws of
-        (val, st) -> (val, worldStateStdout st)
+    (val, st) <- runStateT (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws
+    pure (val, worldStateStdout st)
 
 -- | Run a possibly side-effecting program with the given stdin input lines.
 runTestWith
-    :: Bindings (PrimFns (State WorldState))
+    :: Bindings (PrimFns (StateT WorldState IO))
     -> [Text]  -- The stdin (errors if it runs out)
     -> Text -- The program
-    -> (Either (LangError Value) Value, [Text])
+    -> IO (Either (LangError Value) Value, [Text])
 runTestWith bindings inputs action = runTestWithFiles bindings inputs mempty action
 
 -- | Like `runTestWith`, but uses the pureEnv
@@ -74,18 +75,18 @@ runTestWith'
     :: [Text]
     -> Text
     -> (Either (LangError Value) Value, [Text])
-runTestWith' = runTestWith pureEnv
+runTestWith' a b = unsafePerformIO $ runTestWith pureEnv a b
 
 -- | Run a test without stdin/stdout
 runTest
-    :: Bindings (PrimFns (State WorldState))
+    :: Bindings (PrimFns (StateT WorldState IO))
     -> Text
-    -> Either (LangError Value) Value
-runTest bnds prog = fst $ runTestWith bnds [] prog
+    -> IO (Either (LangError Value) Value)
+runTest bnds prog = fst <$> runTestWith bnds [] prog
 
 -- | Like 'runTest', but uses the pureEnv
 runTest' :: Text -> Either (LangError Value) Value
-runTest' = runTest pureEnv
+runTest' a = unsafePerformIO $ runTest pureEnv a
 
 -- | The radicle source files, along with their directory.
 sourceFiles :: IO (FilePath, [FilePath])
@@ -96,13 +97,13 @@ sourceFiles = do
 
 -- | Bindings with REPL and client stuff mocked, and with -- a 'test-env__'
 -- variable set to true.
-testBindings :: Bindings (PrimFns (State WorldState))
+testBindings :: Bindings (PrimFns (StateT WorldState IO))
 testBindings
     = addBinding (unsafeToIdent "test-env__") Nothing (Boolean True)
     $ addPrimFns clientPrimFns replBindings
 
 -- | Mocked versions of 'send!' and 'receive!'
-clientPrimFns :: PrimFns (State WorldState)
+clientPrimFns :: PrimFns (StateT WorldState IO)
 clientPrimFns = fromList . allDocs $ [sendPrimop, receivePrimop]
   where
     sendPrimop =
@@ -153,14 +154,14 @@ instance {-# OVERLAPPING #-} ReadFile TestLang where
         Just f  -> pure $ Right f
         Nothing -> throwErrorHere . OtherError $ "File not found: " <> fn
 
-instance MonadRandom (State WorldState) where
+instance Monad m => MonadRandom (StateT WorldState m) where
     getRandomBytes i = do
         drg <- gets worldStateDRG
         let (a, drg') = CryptoRand.randomBytesGenerate i drg
         modify $ \ws -> ws { worldStateDRG = drg' }
         pure a
 
-instance UUID.MonadUUID (State WorldState) where
+instance Monad m => UUID.MonadUUID (StateT WorldState m) where
     uuid = do
         i <- gets worldStateUUID
         modify $ \ws -> ws { worldStateUUID = i + 1 }
@@ -169,10 +170,11 @@ instance UUID.MonadUUID (State WorldState) where
         prefix = "00000000-0000-0000-0000-"
         pad i = toS $ prefix <> replicate (12 - length i) '0' <> i
 
-instance CurrentTime (State WorldState) where
-  currentTime = gets worldStateCurrentTime
+instance CurrentTime (StateT WorldState IO) where
+    currentTime = gets worldStateCurrentTime
 
-instance System (State WorldState) where
-  systemS proc = do
-     modify $ \ws -> ws { worldStateProcess = (proc):worldStateProcess ws }
-     pure (Nothing, Nothing, ExitSuccess
+instance System (StateT WorldState IO) where
+    systemS proc = lift $ systemS proc
+    waitForProcessS = lift . waitForProcessS
+    hPutStrS a b = lift $ hPutStrS a b
+    hGetLineS = lift . hGetLineS
