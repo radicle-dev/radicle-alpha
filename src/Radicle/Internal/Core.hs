@@ -86,18 +86,18 @@ errorDataToValue e = case e of
     Impossible _ -> throwErrorHere e
     TypeError i -> makeVal
         ( "type-error"
-        , [("info", String i)]
+        , [("info", String () i)]
         )
     WrongNumberOfArgs i expected actual -> makeVal
         ( "wrong-number-of-args"
         , [ ("function", makeA $ Ident i)
-          , ("expected", Number $ fromIntegral expected)
-          , ("actual", Number $ fromIntegral actual)]
+          , ("expected", Number () $ fromIntegral expected)
+          , ("actual", Number () $ fromIntegral actual)]
         )
     NonHashableKey -> makeVal ( "non-hashable-key", [])
     OtherError i -> makeVal
         ( "other-error"
-        , [("info", String i)]
+        , [("info", String () i)]
         )
     ParseError _ -> makeVal ("parse-error", [])
     ThrownError label val -> pure (label, val)
@@ -117,7 +117,7 @@ newRef v = do
     put $ b { bindingsNextRef = succ ix
             , bindingsRefs = IntMap.insert ix v $ bindingsRefs b
             }
-    pure . Ref $ Reference ix
+    pure . Ref () $ Reference ix
 
 -- | Read the value of a reference.
 readRef :: Monad m => Reference -> Lang m Value'
@@ -171,10 +171,10 @@ type AllAre (f :: * -> Constraint) x =
    , f (Extra "vec" x), f (Extra "primfn" x), f (Extra "dict" x)
    , f (Extra "ref" x) , f (Extra "handle" x), f (Extra "lambda" x)
    )
-instance AllAre Serialise x => Serialise (Value x)
-instance AllAre Eq x => Eq (Value x)
-instance AllAre Show x => Show (Value x)
-instance AllAre Ord x => Ord (Value x)
+-- instance AllAre Serialise x => Serialise (Value x)
+deriving instance AllAre Eq x => Eq (Value x)
+deriving instance AllAre Show x => Show (Value x)
+deriving instance AllAre Ord x => Ord (Value x)
 
 -- | Whether a 'Value' is annotated or not.
 data IsAnnotated
@@ -196,8 +196,6 @@ data Is (hashable :: IsData) (annotated :: IsAnnotated)
 type Data = Value (Is 'Data 'NotAnnotated)
 type Expr = Value (Is 'NotPure 'Annotated)
 type Value' = Value (Is 'NotPure 'NotAnnotated)
-type PureNotAnnotValue = Value (Is 'NotData 'NotAnnotated)
-type AnyValue = forall a b. Value (Is a b)
 
 -- | Extra indicates what the additional field contains, for each type of
 -- Value.
@@ -211,13 +209,9 @@ type family Extra (con :: Symbol) stage where
     Extra "lambda" (Is 'Data b)         = Void
     Extra "lambda" (Is x b)             = ()
     Extra "ref"    (Is 'Data b)         = Void
-    Extra "ref"    (Is x b)             = Void
+    Extra "ref"    (Is x b)             = ()
     Extra x        (Is b 'Annotated)    = Ann.SrcPos
     Extra x        (Is b 'NotAnnotated) = ()
-
--- class MkExtra a where
---     type Extra' a
---     mkExtra :: (Extra' a
 
 -- Should just be a prism
 isAtom :: Value vt -> Maybe Ident
@@ -228,16 +222,16 @@ instance A.FromJSON Data where
   parseJSON = \case
     A.Number n -> pure $ Number () (toRational n)
     A.String s -> pure $ String () s
-    A.Array ls -> List . toList <$> traverse parseJSON ls
+    A.Array ls -> List () . toList <$> traverse parseJSON ls
     A.Bool b -> pure $ Boolean () b
     A.Null -> pure $ Keyword () (Ident "null")
     A.Object hm -> do
       let kvs = HashMap.toList hm
       vs <- traverse parseJSON (snd <$> kvs)
-      pure . Dict () . Map.fromList $ zip (String . fst <$> kvs) vs
+      pure . Dict () . Map.fromList $ zip (String () . fst <$> kvs) vs
 
-instance A.ToJSON Data where
-    toJSON = _
+-- instance A.ToJSON Data where
+--     toJSON = _
 
 -- | An identifier in the language.
 --
@@ -267,8 +261,8 @@ instance GhcExts.IsList (Env s) where
 
 -- | PrimFn mappings. The parameter specifies the monad the primops run in.
 newtype PrimFns m
-  = PrimFns { getPrimFns :: Map Ident (Doc.Docd ([Value'] -> Lang m Value')) }
-  deriving (Semigroup, Monoid)
+    = PrimFns { getPrimFns :: Map Ident (Doc.Docd ([Value'] -> Lang m Value')) }
+    deriving (Semigroup, Monoid)
 
 instance GhcExts.IsList (PrimFns m) where
     type Item (PrimFns m) = (Ident, Maybe Text, [Value'] -> Lang m Value')
@@ -286,7 +280,8 @@ data Bindings prims = Bindings
 -- | The environment in which expressions are evaluated.
 newtype LangT valTyp r m a = LangT
     { fromLangT :: ExceptT (LangError (Value valTyp)) (StateT r m) a }
-    deriving (Functor, Applicative, Monad, MonadError (LangError (Value valTyp)), MonadIO, MonadState r)
+    deriving ( Functor, Applicative, Monad, MonadError (LangError (Value valTyp))
+             , MonadIO, MonadState r)
 
 instance MonadTrans (LangT valTyp r) where lift = LangT . lift . lift
 
@@ -372,9 +367,9 @@ eval :: Monad m => Value' -> Lang m Value'
 eval val = do
     e <- lookupAtom (Ident "eval")
     st <- gets toRad
-    logValPos e $ callFn e [val, st] >>= updateEnvAndReturn
+    callFn e [val, st] >>= updateEnvAndReturn
   where
-    updateEnvAndReturn :: Monad m => Value vt -> Lang vt m (Value vt)
+    updateEnvAndReturn :: Monad m => Value' -> Lang m Value'
     updateEnvAndReturn v = case v of
         List _ [val', newSt] -> do
             prims <- gets bindingsPrimFns
@@ -386,7 +381,7 @@ eval val = do
 
 
 -- | The built-in, original, eval.
-baseEval :: Monad m => Expr -> Lang m Value'
+baseEval :: Monad m => Value' -> Lang m Value'
 baseEval val = case val of
     Atom _ i -> lookupAtom i
     List _ (f:vs) -> f $$ vs
@@ -395,10 +390,10 @@ baseEval val = case val of
                             2
                             (length xs)
     Vec a xs -> Vec a <$> traverse baseEval xs
-    Dict a mp -> do
-        let evalBoth (a,b) = (,) <$> baseEval a <*> baseEval b
+    Dict _ mp -> do
+        let evalBoth (a,b) = (,) <$> baseEval (removeAnnotations a) <*> baseEval b
         kvs <- traverse evalBoth (Map.toList mp)
-        Dict a $ Map.fromList kvs
+        mkDict kvs
     autoquote -> pure autoquote
 
 specialForms
@@ -413,7 +408,7 @@ specialForms = Map.fromList $ first Ident <$>
                   atoms <- traverse isAtom (toList atoms_)
                       ?? toLangError (TypeError "fn: expecting a list of symbols")
                   e <- gets bindingsEnv
-                  pure (Lambda atoms (b :| bs) e)
+                  pure (Lambda () atoms (b :| bs) e)
                 _ -> throwErrorHere $ OtherError
                       "fn: first argument must be a vector of argument symbols,\
                       \ and then at least one form for the body"
@@ -475,7 +470,7 @@ specialForms = Map.fromList $ first Ident <$>
       val' <- baseEval val
       case val' of
         Lambda _ is b e -> do
-          let v = Lambda _ is b (Env . Map.insert name (Doc.Docd doc_ v) . fromEnv $ e)
+          let v = Lambda () is b (Env . Map.insert name (Doc.Docd doc_ v) . fromEnv $ e)
           defineAtom name doc_ v
           pure nil
         _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
@@ -701,8 +696,8 @@ f $$ vs = case f of
 nil :: (Extra "list" x ~ ()) => Value x
 nil = List () []
 
--- quote :: Value x -> Value x
--- quote v = List [Atom (Ident "quote"), v]
+quote :: Value' -> Value'
+quote v = List () [Atom () (Ident "quote"), v]
 
 
 -- list :: [Value x] -> Value x
@@ -815,4 +810,45 @@ instance (FromRad a, FromRadFields as) => FromRadFields (a, as) where
     _ -> panic "impossible"
 
 instance FromRadFields () where
-  fromRadFields _ _ = pure ()
+    fromRadFields _ _ = pure ()
+
+valueAsData :: Value' -> Maybe Data
+valueAsData x = case x of
+    List _ ls -> List () <$> traverse valueAsData ls
+    Atom _ a -> Just $ Atom () a
+    -- | Symbolic identifiers that evaluate to themselves.
+    Keyword _ i -> Just $ Keyword () i
+    String _ t -> Just $ String () t
+    Number _ r -> Just $ Number () r
+    Boolean _ b -> Just $ Boolean () b
+    Dict _ d -> Dict () <$> traverse valueAsData d
+    Vec _ vs -> Vec () <$> traverse valueAsData vs
+    Lambda _ _ _ _ -> Nothing
+    PrimFn _ _ -> Nothing
+    Ref _ _ -> Nothing
+    Handle _ _ -> Nothing
+
+
+mkDict :: Monad m => [(Value', Value')] -> Lang m Value'
+mkDict xs = Dict () . Map.fromList <$> traverse go xs
+  where
+    go (k, v) = case valueAsData k of
+        Nothing -> throwErrorHere $ TypeError
+            "Expected a hashable value when making a dict."
+        Just k' -> pure (k', v)
+
+removeAnnotations :: Value a -> Value'
+removeAnnotations x = case x of
+    List _ ls -> List () (removeAnnotations <$> ls)
+    Atom _ a -> Atom () a
+    -- | Symbolic identifiers that evaluate to themselves.
+    Keyword _ i -> Keyword () i
+    String _ t -> String () t
+    Number _ r -> Number () r
+    Boolean _ b -> Boolean () b
+    Dict _ d -> Dict () (removeAnnotations <$> d)
+    Vec _ vs -> Vec () (removeAnnotations <$> vs)
+    Handle _ h -> Handle () h
+    Ref _ r -> Ref () r
+    Lambda _ a b c -> Lambda () a (removeAnnotations <$> b) (removeAnnotations <$> c)
+    PrimFn _ f -> PrimFn () f
