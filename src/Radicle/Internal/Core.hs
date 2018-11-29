@@ -401,6 +401,57 @@ data Bindings prims = Bindings
     , bindingsNextHandle :: Int
     } deriving (Eq, Show, Functor, Generic)
 
+-- | Extract an environment and references from a Radicle value and put
+-- them as the current bindings. Primitive functions are not changed.
+--
+-- Throws 'OtherError' if @value@ cannot be parsed.
+--
+-- prop> gets bindingsToRadcile >>= setBindings = pure ()
+setBindings :: Monad m => Value -> Lang m ()
+setBindings value = do
+    case bindingsFromRadicle value of
+        Left e  -> throwErrorHere $ OtherError $ "Invalid bindings: " <> e
+        Right newBindings -> do
+            prims <- gets bindingsPrimFns
+            handles <- gets bindingsHandles
+            nextHandle <- gets bindingsNextHandle
+            put $ newBindings
+                { bindingsPrimFns = prims
+                , bindingsHandles = handles
+                , bindingsNextHandle = nextHandle
+                }
+  where
+    bindingsFromRadicle x = case x of
+        Dict d -> do
+            env' <- kwLookup "env" d ?? "Expecting 'env' key"
+            refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
+            refs <- makeRefs refs'
+            env <- envFromRad env'
+            pure $ Bindings env () refs (length refs) mempty 0
+        _ -> throwError "Expecting dict"
+    makeRefs refs = case refs of
+        List ls -> pure (IntMap.fromList $ zip [0..] ls)
+        _       -> throwError $ "Expecting dict"
+    envFromRad env = case env of
+        Dict d -> fmap (Env . Map.fromList)
+                $ forM (Map.toList d) $ \(k, v) -> case k of
+            Atom i -> (i, ) <$> fromRad v
+            k'     -> Left $ "Expecting atom keys. Got: " <> show k'
+        _ -> Left "Expecting dict"
+
+-- | Serializes the environment and references into a Radicle value.
+--
+-- prop> gets bindingsToRadcile >>= setBindings = pure ()
+bindingsToRadicle :: Bindings a -> Value
+bindingsToRadicle x =
+    Dict $ Map.fromList
+        [ (Keyword $ Ident "env", env)
+        , (Keyword $ Ident "refs", refs)
+        ]
+  where
+    env = Dict . Map.mapKeys Atom . Map.map toRad . fromEnv $ bindingsEnv x
+    refs = List $ IntMap.elems (bindingsRefs x)
+
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
     { fromLangT :: ExceptT (LangError Value) (StateT r m) a }
@@ -429,16 +480,6 @@ runLang
     -> Lang m a
     -> m (Either (LangError Value) a, Bindings (PrimFns m))
 runLang e l = runStateT (runExceptT $ fromLangT l) e
-
--- | Like 'local' or 'withState'. Will run an action with a modified environment
--- and then restore the original bindings.
-withBindings :: Monad m => (Bindings (PrimFns m) -> Bindings (PrimFns m)) -> Lang m a -> Lang m a
-withBindings modifier action = do
-    oldBnds <- get
-    modify modifier
-    res <- action
-    put oldBnds
-    pure res
 
 -- | Like 'local' or 'withState'. Will run an action with a modified environment
 -- and then restore the original environment. Other bindings (i.e. primops and
@@ -484,18 +525,15 @@ defineAtom i d v = modify $ addBinding i d v
 eval :: Monad m => Value -> Lang m Value
 eval val = do
     e <- lookupAtom (Ident "eval")
-    st <- gets toRad
-    logValPos e $ callFn e [val, st] >>= updateEnvAndReturn
-  where
-    updateEnvAndReturn :: Monad m => Value -> Lang m Value
-    updateEnvAndReturn v = case v of
-        List [val', newSt] -> do
-            prims <- gets bindingsPrimFns
-            newSt' <- either (throwErrorHere . OtherError) pure
-                      (fromRad newSt :: Either Text (Bindings ()))
-            put $ newSt' { bindingsPrimFns = prims }
-            pure val'
-        _ -> throwErrorHere $ OtherError "eval: should return list with value and new env"
+    logValPos e $ do
+        st <- gets bindingsToRadicle
+        result <- callFn e [val, st]
+        case result of
+            List [val', newSt] -> do
+                setBindings newSt
+                pure val'
+            _ -> throwErrorHere
+               $ OtherError "eval: should return list with value and new env"
 
 
 -- | The built-in, original, eval.
@@ -672,28 +710,6 @@ instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
       doc <- traverse fromRad (kwLookup "doc" d)
       pure (Doc.Docd doc val)
     fromRad _ = Left "Expecting a dict."
-instance FromRad Ann.WithPos (Env Value) where
-    fromRad x = case x of
-        Dict d -> fmap (Env . Map.fromList)
-                $ forM (Map.toList d) $ \(k, v) -> case k of
-            Atom i -> do
-              docd <- fromRad v
-              pure (i, docd)
-            k'     -> Left $ "Expecting atom keys. Got: " <> show k'
-        _ -> Left "Expecting dict"
-instance FromRad Ann.WithPos (Bindings ()) where
-    fromRad x = case x of
-        Dict d -> do
-            env' <- kwLookup "env" d ?? "Expecting 'env' key"
-            refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
-            refs <- makeRefs refs'
-            env <- fromRad env'
-            pure $ Bindings env () refs (length refs)
-        _ -> throwError "Expecting dict"
-      where
-        makeRefs refs = case refs of
-            List ls -> pure (IntMap.fromList $ zip [0..] ls)
-            _       -> throwError $ "Expecting dict"
 instance CPA t => FromRad t CmdSpec where
     fromRad x = case x of
         Vec (Keyword (Ident "shell") Seq.:<| arg Seq.:<| Seq.Empty) ->
@@ -776,13 +792,6 @@ instance CPA t => ToRad t (Doc.Docd (Annotated t ValueF)) where
     toRad (Doc.Docd d_ v) = Dict $ Map.fromList $ ( Keyword (Ident "val"), v) : case d_ of
       Just d  -> [ (Keyword (Ident "doc"), toRad d) ]
       Nothing -> []
-instance ToRad Ann.WithPos (Env Value) where
-    toRad x = Dict . Map.mapKeys Atom . Map.map toRad $ fromEnv x
-instance ToRad Ann.WithPos (Bindings m) where
-    toRad x = Dict $ Map.fromList
-        [ (Keyword $ Ident "env", toRad $ bindingsEnv x)
-        , (Keyword $ Ident "refs", List $ IntMap.elems (bindingsRefs x))
-        ]
 instance (CPA t) => ToRad t StdStream where
     toRad x = case x of
         Inherit    -> Keyword $ Ident "inherit"

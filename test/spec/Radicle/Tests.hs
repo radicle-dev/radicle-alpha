@@ -709,10 +709,6 @@ test_from_to_radicle =
         [ testForType (Proxy :: Proxy ()) ]
     , testGroup "(Foo, Foo)"
         [ testForType (Proxy :: Proxy (Foo, Foo)) ]
-    , testGroup "Env Value"
-        [ testForType (Proxy :: Proxy (Env Value)) ]
-    , testGroup "Bindings ()"
-        [ testForType (Proxy :: Proxy (Bindings ())) ]
     , testGroup "Scientific"
         [ testForType (Proxy :: Proxy Scientific) ]
     , testGroup "Text"
