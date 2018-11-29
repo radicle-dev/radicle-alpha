@@ -24,45 +24,55 @@
   (fn [x]
     (put-str! (show x))))
 
-
 (def shell!
-  "(shell! command stdin) executes 'command' using the shell with 'stdin' as
+  "(shell! command stdin) executes 'command' using the shell with 'to-write' as
    input. Returns the exit code. Stdout and stderr are inherited.
    Example: (shell! \"ls -Glah\" \"\")
    "
-  (fn [command stdin]
+  (fn [command to-write]
     (def cp
       { :cmdspec [:shell command]
         :stdin :create-pipe
         :stdout :inherit
         :stderr :inherit
       })
-    (system! cp stdin)))
+    (match (system! cp)
+      [[:just 'stdin] :nothing :nothing 'ph] (do (write-handle! stdin to-write)
+                                                 (wait-for-process! ph))
+      _ (throw 'io-error "expected only stdin to be open"))))
 
-(def shell-with-stdout!
-  "(shell-with-stdout! command stdin) executes 'command' using the shell with
-   'stdin' as input. Returns the exit code. Stderr is inherited.
-   Example: (shell! \"ls -Glah\" \"\")
-   "
-  (fn [command stdin]
-    (def cp
-      { :cmdspec [:shell command]
-        :stdin :create-pipe
-        :stdout :create-pipe
-        :stderr :inherit
-      })
-    (system! cp stdin)))
+;; (def shell-with-stdout!
+;;   "(shell-with-stdout! command stdin) executes 'command' using the shell with
+;;    'stdin' as input. Returns the exit code. Stderr is inherited.
+;;    Example: (shell! \"ls -Glah\" \"\")
+;;    "
+;;   (fn [command stdin]
+;;     (def cp
+;;       { :cmdspec [:shell command]
+;;         :stdin :create-pipe
+;;         :stdout :create-pipe
+;;         :stderr :inherit
+;;       })
+;;     (match (system! cp)
+;;       [[:just 'stdin] [:just 'stdout] :nothing 'ph]
+;;           (do (write-handle! stdin to-write)
+;;               (read-line-handle
+;;               (wait-for-process! ph))
+;;       _ (throw 'io-error "expected only stdin to be open"))))
 
 (def process!
-  "(process! command args stdin) executes 'command' using 'execvp'. with 'stdin' as
+  "(process! command args to-write) executes 'command' using 'execvp'. with 'to-write' as
    input. Returns the exit code.
    Example: (process! \"ls\" [\"-Glah\"] \"\"
   "
-  (fn [command args stdin]
+  (fn [command args to-write]
     (def cp
       { :cmdspec [:raw command args]
         :stdin :create-pipe
-        :stdout :create-pipe
+        :stdout :inherit
         :stderr :inherit
       })
-    (system! cp stdin)))
+    (match (system! cp)
+      [[:just 'stdin] :nothing :nothing 'ph] (do (write-handle! stdin to-write)
+                                                 (wait-for-process! ph))
+      _ (throw 'io-error "expected only stdin to be open"))))
