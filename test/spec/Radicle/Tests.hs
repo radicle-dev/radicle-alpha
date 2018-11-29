@@ -10,9 +10,9 @@ import           Data.Sequence (Seq(..))
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
-import System.Process (CmdSpec(..), StdStream(..))
 import           GHC.Exts (fromList, toList)
-import System.IO.Unsafe (unsafePerformIO)
+import           System.IO.Unsafe (unsafePerformIO)
+import           System.Process (CmdSpec(..), StdStream(..))
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
@@ -802,7 +802,7 @@ test_source_files = do
                 let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
                          $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line
                 in testCase (toS name) $
-                    if "' succeeded\"" `T.isSuffixOf` line
+                    if "' succeeded" `T.isSuffixOf` line
                         then pure ()
                         else assertFailure . toS $ "test failed: " <> line
         let doesntThrow = if isRight r
@@ -810,7 +810,7 @@ test_source_files = do
                 else assertFailure $ "Expected Right, got: " <> toS (prettyEither r)
         pure $ [testGroup file
             $ testCase "doesn't throw" doesntThrow
-            : [ makeTest ln | ln <- reverse out, "\"Test" `T.isPrefixOf` ln ]]
+            : [ makeTest ln | ln <- reverse out, "Test" `T.isPrefixOf` ln ]]
 
 test_macros :: [TestTree]
 test_macros =

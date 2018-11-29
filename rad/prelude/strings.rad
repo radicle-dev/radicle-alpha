@@ -27,5 +27,5 @@
     (intercalate " " x)))
 
 (:test "words"
-  [ (lines ["hi" "there"]) ==> "hi there" ]
+  [ (words ["hi" "there"]) ==> "hi there" ]
 )
