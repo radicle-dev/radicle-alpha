@@ -58,7 +58,7 @@ thisPos :: HasCallStack => SrcPos
 thisPos = InternalPos $ T.intercalate "\n" (map prettyCallSite $ getCallStack callStack)
   where
     prettyCallSite (f, SrcLoc{..}) =
-        toS $ srcLocFile <> show srcLocStartLine <> ":" <> show srcLocStartCol <> " " <> f
+        toS $ srcLocFile <> ":" <> show srcLocStartLine <> ":" <> show srcLocStartCol <> " " <> f
 
 data WithPos a = WithPos SrcPos a
     deriving (Read, Show, Generic, Functor, Foldable, Traversable)
