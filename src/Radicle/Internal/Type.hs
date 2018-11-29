@@ -17,6 +17,8 @@ data Type
   | TDict
   | TStructure
   | TRef
+  | THandle
+  | TProcHandle
   deriving (Eq, Show, Read, Generic)
 
 instance Serialise Type

@@ -83,7 +83,7 @@ replPrimFns = fromList $ allDocs $
         (String x) -> do
             putStrS x
             pure nil
-        _ -> throwErrorHere $ TypeError "put-str!: expects a string"
+        v -> throwErrorHere $ TypeError "put-str!" 0 TString v
       )
     , ( "doc!"
       , "Prints the documentation attached to a value and returns `()`. To retrieve\
@@ -208,15 +208,48 @@ replPrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
       )
     , ( "system!"
-      , "(system! proc stdin) execute a system process. Returns the exit code.\
-        \ `stdin` is a string, and `proc` a process object.\
+      , "(system! proc) execute a system process. Returns the exit code.\
+        \ `proc` is a process object.\
         \ Note that this is quite a low-level function; higher-level ones are more convenient."
-      , \case
-          [proc, String stdin'] -> do
-            proc' <- hoistEither $ first (toLangError . OtherError) $ fromRad proc
-            res <- systemS proc' stdin'
-            pure $ toRad res
-          xs -> throwErrorHere $ WrongNumberOfArgs "process!" 3 (length xs)
+      , oneArg "system!" $ \proc -> do
+          proc' <- hoistEither $ first (toLangError . OtherError) $ fromRad proc
+          res <- systemS proc'
+          let ifJustCreate x = case x of
+                Nothing -> pure Nothing
+                Just v  -> Just <$> newHandle v
+          case res of
+              (a, b, c, ph) -> do
+                  a' <- ifJustCreate a
+                  b' <- ifJustCreate b
+                  c' <- ifJustCreate c
+                  ph' <- newProcessHandle ph
+                  pure $ toRad (a', b', c', ph')
+      )
+    , ( "write-handle!"
+      , ""
+      , twoArg "write-handle!" $ \case
+          (Handle h, String msg) -> do
+              h' <- lookupHandle h
+              hPutStrS h' msg
+              pure $ Keyword $ Ident "ok"
+          (Handle _, v) -> throwErrorHere $ TypeError "write-handle!" 1 TString v
+          (v, _) -> throwErrorHere $ TypeError "write-handle!" 1 THandle v
+      )
+    , ( "read-line-handle!"
+      , ""
+      , oneArg "read-line-handle!" $ \case
+          Handle h -> do
+              h' <- lookupHandle h
+              String <$> hGetLineS h'
+          v -> throwErrorHere $ TypeError "read-line-handle!" 0 THandle v
+      )
+    , ( "wait-for-process!"
+      , ""
+      , oneArg "wait-for-process!" $ \case
+          ProcHandle h -> do
+              h' <- lookupProcHandle h
+              toRad <$> waitForProcessS h'
+          v -> throwErrorHere $ TypeError "wait-for-process!" 0 TProcHandle v
       )
     , ( "exit!"
       , "Exit the interpreter immediately."

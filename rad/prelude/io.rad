@@ -20,6 +20,7 @@
           "Send code from a file to a remote chain.")
 
 (def print!
+  "Print a value to the console or stdout."
   (fn [x]
     (put-str! (show x))))
 
@@ -50,7 +51,7 @@
         :stdout :create-pipe
         :stderr :inherit
       })
-    (system! cl stdin)))
+    (system! cp stdin)))
 
 (def process!
   "(process! command args stdin) executes 'command' using 'execvp'. with 'stdin' as
@@ -58,4 +59,10 @@
    Example: (process! \"ls\" [\"-Glah\"] \"\"
   "
   (fn [command args stdin]
-    (system! [:raw command args] stdin)))
+    (def cp
+      { :cmdspec [:raw command args]
+        :stdin :create-pipe
+        :stdout :create-pipe
+        :stderr :inherit
+      })
+    (system! cp stdin)))

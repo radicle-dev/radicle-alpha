@@ -16,7 +16,6 @@
 (load! "rad/state-machine.rad")
 (load! "rad/prelude/validation.rad")
 (load! "rad/prelude/util.rad")
-(load! "rad/prelude/io-utils.rad")
 
 (def pure-prelude-files
   (list

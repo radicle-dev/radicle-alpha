@@ -27,7 +27,7 @@ import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
-import           System.Process (CmdSpec(..), CreateProcess(..), StdStream(..))
+import           System.Process (CmdSpec(..), CreateProcess(..), StdStream(..), ProcessHandle)
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
@@ -168,10 +168,49 @@ readRef (Reference r) = do
         Nothing -> throwErrorHere $ Impossible "undefined reference"
         Just v  -> pure v
 
--- | As with References, we keep a counter for each handle, and in the
--- environment map those to actual handles.
+-- | As with References and ProcHdls, we keep a counter for each handle, and in
+-- the environment map those to actual handles.
 newtype Hdl = Hdl { getHandle :: Int }
     deriving (Show, Read, Ord, Eq, Generic, Serialise)
+
+-- | Create a new handle.
+newHandle :: Monad m => Handle.Handle -> Lang m Value
+newHandle h = do
+    b <- get
+    let ix = bindingsNextHandle b
+    put $ b { bindingsNextHandle = succ ix
+            , bindingsHandles = IntMap.insert ix h $ bindingsHandles b
+            }
+    pure $ Handle $ Hdl ix
+
+lookupHandle :: Monad m => Hdl -> Lang m Handle.Handle
+lookupHandle (Hdl h) = do
+    hdls <- gets bindingsHandles
+    case IntMap.lookup h hdls of
+        Nothing -> throwErrorHere $ Impossible "no such handle"
+        Just v  -> pure v
+
+-- | As with References and Hdls, we keep a counter for each handle, and in the
+-- environment map those to actual handles.
+newtype ProcHdl = ProcHdl { getProcHandle :: Int }
+    deriving (Show, Read, Ord, Eq, Generic, Serialise)
+
+lookupProcHandle :: Monad m => ProcHdl -> Lang m ProcessHandle
+lookupProcHandle (ProcHdl h) = do
+    hdls <- gets bindingsProcHandles
+    case IntMap.lookup h hdls of
+        Nothing -> throwErrorHere $ Impossible "no such process handle"
+        Just v  -> pure v
+
+-- | Create a new process handle.
+newProcessHandle :: Monad m => ProcessHandle -> Lang m Value
+newProcessHandle h = do
+    b <- get
+    let ix = bindingsNextProcHandle b
+    put $ b { bindingsNextProcHandle = succ ix
+            , bindingsProcHandles = IntMap.insert ix h $ bindingsProcHandles b
+            }
+    pure $ ProcHandle $ ProcHdl ix
 
 -- | An expression or value in the language.
 data ValueF r =
@@ -189,6 +228,7 @@ data ValueF r =
     | DictF (Map.Map Value r)
     | RefF Reference
     | HandleF Hdl
+    | ProcHandleF ProcHdl
     -- | Takes the arguments/parameters, a body, and possibly a closure.
     --
     -- The value of an application of a lambda is always the last value in the
@@ -210,6 +250,8 @@ valType = \case
   PrimFn _ -> TFunction
   Dict _ -> TDict
   Ref _ -> TRef
+  Handle _ -> THandle
+  ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
@@ -222,6 +264,7 @@ hashable = \case
   PrimFn _ -> False
   Ref _ -> False
   Handle _ -> False
+  ProcHandle _ -> False
   Lambda{} -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
@@ -235,7 +278,7 @@ dict kvs =
   else throwErrorHere NonHashableKey
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict
-  , Ref, Handle, Lambda #-}
+  , Ref, Handle, ProcHandle, Lambda #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -293,6 +336,11 @@ pattern Handle :: ValueConC t => Hdl -> Annotated t ValueF
 pattern Handle i <- (Ann.match -> HandleF i)
     where
     Handle = Ann.annotate . HandleF
+
+pattern ProcHandle :: ValueConC t => ProcHdl -> Annotated t ValueF
+pattern ProcHandle i <- (Ann.match -> ProcHandleF i)
+    where
+    ProcHandle = Ann.annotate . ProcHandleF
 
 pattern Lambda :: ValueConC t => [Ident] -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
@@ -399,7 +447,12 @@ data Bindings prims = Bindings
     , bindingsNextRef    :: Int
     , bindingsHandles    :: IntMap Handle.Handle
     , bindingsNextHandle :: Int
-    } deriving (Eq, Show, Functor, Generic)
+    , bindingsProcHandles :: IntMap ProcessHandle
+    , bindingsNextProcHandle :: Int
+    } deriving (Functor, Generic)
+
+emptyBindings :: Bindings (PrimFns m)
+emptyBindings = Bindings mempty mempty mempty 0 mempty 0 mempty 0
 
 -- | Extract an environment and references from a Radicle value and put
 -- them as the current bindings. Primitive functions are not changed.
@@ -415,10 +468,14 @@ setBindings value = do
             prims <- gets bindingsPrimFns
             handles <- gets bindingsHandles
             nextHandle <- gets bindingsNextHandle
+            procHandles <- gets bindingsProcHandles
+            nextProcHandle <- gets bindingsNextProcHandle
             put $ newBindings
                 { bindingsPrimFns = prims
                 , bindingsHandles = handles
                 , bindingsNextHandle = nextHandle
+                , bindingsProcHandles = procHandles
+                , bindingsNextProcHandle = nextProcHandle
                 }
   where
     bindingsFromRadicle x = case x of
@@ -427,7 +484,11 @@ setBindings value = do
             refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
             refs <- makeRefs refs'
             env <- envFromRad env'
-            pure $ Bindings env () refs (length refs) mempty 0
+            pure $ emptyBindings
+                { bindingsEnv = env
+                , bindingsRefs = refs
+                , bindingsNextRef = length refs
+                }
         _ -> throwError "Expecting dict"
     makeRefs refs = case refs of
         List ls -> pure (IntMap.fromList $ zip [0..] ls)
@@ -764,7 +825,11 @@ instance CPA t => ToRad t () where
 instance CPA t => ToRad t Bool where
     toRad = Boolean
 instance (CPA t, ToRad t a, ToRad t b) => ToRad t (a,b) where
-    toRad (x,y) = Vec $ toRad x :<| toRad y :<| Empty
+    toRad (a,b) = Vec $ toRad a :<| toRad b :<| Empty
+instance (CPA t, ToRad t a, ToRad t b, ToRad t c) => ToRad t (a,b,c) where
+    toRad (a,b,c) = Vec $ toRad a :<| toRad b :<| toRad c :<| Empty
+instance (CPA t, ToRad t a, ToRad t b, ToRad t c, ToRad t d) => ToRad t (a,b,c,d) where
+    toRad (a,b,c,d) = Vec $ toRad a :<| toRad b :<| toRad c :<| toRad d :<| Empty
 instance (CPA t, ToRad t a) => ToRad t (Maybe a) where
     toRad Nothing  = Keyword (Ident "nothing")
     toRad (Just x) = Vec $ Keyword (Ident "just") :<| toRad x :<| Empty

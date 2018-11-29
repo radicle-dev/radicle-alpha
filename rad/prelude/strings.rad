@@ -1,11 +1,12 @@
 (def intercalate
-  (fn [sep str]
-    (if (eq? (length str) 0)
+  "Intercalates a string in a list of strings"
+  (fn [sep strs]
+    (if (eq? (length strs) 0)
         ""
         (foldl
           string-append
-          (head str)
-          (map (fn [ln] (string-append sep ln)) (tail str))))))
+          (head strs)
+          (map (fn [ln] (string-append sep ln)) (tail strs))))))
 
 (:test "intercalate"
   [ (intercalate "aa" ["hi" "there"]) ==> "hiaathere" ]

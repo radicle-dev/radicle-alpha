@@ -33,7 +33,7 @@ data WorldState = WorldState
     , worldStateUUID         :: Int
     , worldStateRemoteChains :: Map Text (Seq.Seq Value)
     , worldStateCurrentTime  :: Time.UTCTime
-    , worldStateProcess      :: [(CreateProcess, Text)]
+    , worldStateProcess      :: [(CreateProcess)]
     }
 
 
@@ -173,6 +173,6 @@ instance CurrentTime (State WorldState) where
   currentTime = gets worldStateCurrentTime
 
 instance System (State WorldState) where
-  systemS proc pstdin = do
-     modify $ \ws -> ws { worldStateProcess = (proc, pstdin):worldStateProcess ws }
-     pure ExitSuccess
+  systemS proc = do
+     modify $ \ws -> ws { worldStateProcess = (proc):worldStateProcess ws }
+     pure (Nothing, Nothing, ExitSuccess

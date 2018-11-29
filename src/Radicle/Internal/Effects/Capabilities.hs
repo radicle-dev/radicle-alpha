@@ -12,9 +12,13 @@ import           Data.Time
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.Exit (ExitCode)
-import           System.IO (isEOF)
-import           System.Process (CreateProcess)
-import           Turtle (select, system, textToLines)
+import           System.IO (isEOF, hGetLine)
+import           System.Process
+                 ( CreateProcess
+                 , ProcessHandle
+                 , createProcess
+                 , waitForProcess
+                 )
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
@@ -50,18 +54,30 @@ instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . toS
     supportsANSI = pure True
 
+
 class (Monad m) => System m where
     systemS
       :: CreateProcess
-      -> Text -- ^ stdin
-      -> m ExitCode
+      -> m (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
+    waitForProcessS :: ProcessHandle -> m ExitCode
+    hPutStrS :: Handle -> Text -> m ()
+    hGetLineS :: Handle -> m Text
 
 instance System m => System (Lang m) where
-    systemS proc pstdin = lift $ systemS proc pstdin
+    systemS proc = lift $ systemS proc
+    waitForProcessS = lift . waitForProcessS
+    hPutStrS a b = lift $ hPutStrS a b
+    hGetLineS = lift . hGetLineS
 instance System IO where
-    systemS proc pstdin = system proc $ select . toList $ textToLines pstdin
+    systemS = createProcess
+    waitForProcessS = waitForProcess
+    hPutStrS = hPutStr
+    hGetLineS x = toS <$> hGetLine x
 instance System m => System (InputT m) where
-    systemS proc pstdin = lift $ systemS proc pstdin
+    systemS proc = lift $ systemS proc
+    waitForProcessS = lift . waitForProcessS
+    hPutStrS a b = lift $ hPutStrS a b
+    hGetLineS = lift . hGetLineS
 
 class (Monad m) => Exit m where
     exitS :: m ()

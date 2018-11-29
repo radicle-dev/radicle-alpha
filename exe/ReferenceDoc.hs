@@ -16,13 +16,11 @@ import           Text.Pandoc
 
 main :: IO ()
 main = do
-    res_ <- runInputT defaultSettings $
-             interpret
+    (_, s) <- runInputT defaultSettings $
+             interpretWithState
                "reference-doc"
-               "(do (load! \"rad/prelude.rad\") (get-current-env))"
+               "(load! \"rad/prelude.rad\")"
                replBindings
-    res <- res_ `lPanic` "Error running the prelude."
-    s :: Bindings () <- fromRad res `lPanic` "Couldn't convert radicle state."
     let vars = GhcExts.toList (bindingsEnv s)
     let undocd = [ fromIdent iden | (iden, Nothing, _) <- vars ]
     checkAllDocumented undocd
@@ -50,6 +48,7 @@ main = do
       , sec "Sequences" seqs $ typ "boths lists and vectors"
       , sec "Dicts" dicts $ typ "dicts"
       , sec "Sets" sets $ typ "sets"
+      , sec "Strings" strings $ typ "strings"
       , sec "Structures" structs $ typ "lists, vectors and dicts"
       , sec "Patterns" patterns
             "Pattern matching is first-class in radicle so new patterns can easily be defined. These are the most essential."
@@ -91,8 +90,9 @@ main = do
     vecs = ["<>", "add-left", "add-right"]
     dicts =
       ["dict", "lookup", "insert", "delete", "dict-from-list", "keys", "values", "rekey"
-      , "map-values", "modify-map", "delete-many", "exclusive-dict-merge"]
+      , "map-values", "map-keys", "modify-map", "delete-many", "exclusive-dict-merge"]
     sets = ["set/empty", "set/insert", "set/delete", "set/member?", "set/delete", "set/from-seq", "set/to-vec"]
+    strings = ["intercalate", "lines", "string-replace", "words"]
     structs = ["member?"]
     patterns = ["match-pat", "_", "/?", "/nil", "/cons", "/as", "non-linear-merge"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
@@ -100,6 +100,7 @@ main = do
     io =
       [ "print!", "get-line!"
       , "load!", "read-file!", "read-code!", "send-code!"
+      , "put-str!", "process!", "shell!", "shell-with-stdout!", "system!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"
       , "now!"]
     maybe' = ["/Just", "maybe->>=", "maybe-foldlM"]
@@ -123,7 +124,8 @@ main = do
 
     allFns =
          basics ++ maths ++ evalFns ++ envStuff ++ seqs ++ lists ++ vecs
-      ++ dicts ++ sets ++ structs ++ patterns ++ refs ++ docs ++ io ++ maybe' ++ lens ++ validation ++ crypto ++ chainTools
+      ++ dicts ++ sets ++ strings ++ structs ++ patterns ++ refs ++ docs ++ io ++ maybe'
+      ++ lens ++ validation ++ crypto ++ chainTools
       ++ doNotInclude
 
     valueDoc env name =

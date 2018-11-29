@@ -38,12 +38,14 @@ library:
   - pointed
   - prettyprinter
   - prettyprinter-ansi-terminal
+  - process
   - servant
   - servant-client
   - scientific
   - serialise
   - template-haskell
   - text
+  - turtle
   - time
   - unordered-containers
   - uuid
@@ -61,6 +63,7 @@ tests:
     - filemanip
     - interpolate
     - megaparsec
+    - process
     - QuickCheck
     - quickcheck-instances
     - scientific

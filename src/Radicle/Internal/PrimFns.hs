@@ -25,7 +25,7 @@ import qualified Radicle.Internal.UUID as UUID
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
 pureEnv =
-    addPrimFns purePrimFns $ Bindings e mempty mempty 0 mempty 0
+    addPrimFns purePrimFns $ Bindings e mempty mempty 0 mempty 0 mempty 0
   where
     e = fromList . allDocs $
           [ ( "eval"
@@ -259,7 +259,7 @@ purePrimFns = fromList $ allDocs $
             let kvs = Map.toList m
             vs <- traverse (\v -> callFn f [v]) (fst <$> kvs)
             pure . Dict . Map.fromList $ zip vs (snd <$> kvs)
-          _ -> throwErrorHere $ TypeError $ "map-values: second argument must be a dict"
+          (_, v) -> throwErrorHere $ TypeError "map-keys" 1 TDict v
       )
 
     -- Structures
@@ -297,7 +297,9 @@ purePrimFns = fromList $ allDocs $
       , "Replace all occurrences of the first argument with the second in the third."
       , \case
          [String old, String new, String str] -> pure $ String $ T.replace old new str
-         [_, _, _] -> throwErrorHere $ TypeError "string:replace non-string argument"
+         [String _, String _, v] -> throwErrorHere $ TypeError "string-replace" 2 TString v
+         [String _, v, _] -> throwErrorHere $ TypeError "string-replace" 1 TString v
+         [v, _, _] -> throwErrorHere $ TypeError "string-replace" 0 TString v
          xs -> throwErrorHere $ WrongNumberOfArgs "string-replace" 3 (length xs)
       )
     , ( "insert"

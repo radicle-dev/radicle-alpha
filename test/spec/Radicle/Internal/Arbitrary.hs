@@ -65,7 +65,7 @@ instance Arbitrary a => Arbitrary (Bindings a) where
         env <- arbitrary
         prims <- arbitrary
         pure $ Bindings env prims (IntMap.fromList $ zip [0..] refs)
-            (length refs) mempty 0
+            (length refs) mempty 0 mempty 0
 
 instance Arbitrary a => Arbitrary (Doc.Docd a) where
     arbitrary = Doc.Docd Nothing <$> arbitrary

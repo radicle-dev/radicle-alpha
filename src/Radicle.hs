@@ -16,6 +16,7 @@ module Radicle
     -- | The definition of the core language.
     -- ** Evaluation
       interpret
+    , interpretWithState
     , interpretMany
     , eval
     -- ** Datatypes

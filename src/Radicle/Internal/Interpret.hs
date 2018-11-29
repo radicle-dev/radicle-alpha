@@ -26,11 +26,21 @@ interpret
     -> Text                 -- ^ Source code to be interpreted
     -> Bindings (PrimFns m) -- ^ Bindings to be used
     -> m (Either (LangError Value) Value)
-interpret sourceName expr bnds = do
+interpret sourceName expr bnds
+    = fst <$> interpretWithState sourceName expr bnds
+
+-- | Like 'interpret', but also returns the resulting state.
+interpretWithState
+    :: Monad m
+    => Text                 -- ^ Name of source file (for error reporting)
+    -> Text                 -- ^ Source code to be interpreted
+    -> Bindings (PrimFns m) -- ^ Bindings to be used
+    -> m (Either (LangError Value) Value, Bindings (PrimFns m))
+interpretWithState sourceName expr bnds = do
     let parsed = runIdentity (runParserT (spaceConsumer *> valueP <* eof) (toS sourceName) expr)
     case parsed of
-        Left e  -> pure . Left $ LangError [Ann.thisPos] (ParseError e)
-        Right v -> fst <$> runLang bnds (eval v)
+        Left e  -> pure (Left (LangError [Ann.thisPos] (ParseError e)), bnds)
+        Right v -> runLang bnds (eval v)
 
 -- | Parse and evaluate a Text as multiple expressions.
 --
@@ -55,3 +65,5 @@ interpretMany sourceName src = case parseValues sourceName src of
             Just e -> pure e
             _ -> throwErrorHere
                $ OtherError "InterpretMany should be called with at least one expression."
+
+
