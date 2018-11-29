@@ -12,9 +12,6 @@ dependencies:
 - base >=4 && <5
 - protolude
 
-when:
- - condition: impl(ghcjs)
-   dependencies: ghcjs-dom
 ghc-options:
   -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
@@ -28,20 +25,16 @@ library:
   - bytestring
   - containers
   - cryptonite
-  - data-default
-  - deriving-compat
   - directory
   - filepath
   - generics-eot
   - haskeline
   - http-client
-  - http-media
   - megaparsec
   - mtl
   - pointed
   - prettyprinter
   - prettyprinter-ansi-terminal
-  - recursion-schemes
   - servant
   - servant-client
   - scientific
@@ -62,13 +55,11 @@ tests:
     - radicle
     - containers
     - cryptonite
-    - directory
     - filemanip
     - interpolate
     - megaparsec
     - QuickCheck
     - quickcheck-instances
-    - safe
     - scientific
     - serialise
     - string-qq
@@ -86,7 +77,6 @@ tests:
     other-modules:
     - Paths_radicle
     dependencies:
-    - radicle
     - doctest
     - Glob
     - hpack
@@ -99,7 +89,6 @@ executables:
     dependencies:
     - radicle
     - directory
-    - exceptions
     - optparse-applicative
     when:
       - condition: impl(ghcjs)
@@ -143,6 +132,7 @@ executables:
       - condition: impl(ghcjs)
         then:
           buildable: true
+          dependencies: ghcjs-dom
         else:
           buildable: false
     # XXX(xla): We need to remove the debug linking as it produces output js of
@@ -194,7 +184,6 @@ executables:
     dependencies:
     - radicle
     - containers
-    - errors
     - time
     - github
     - optparse-applicative
