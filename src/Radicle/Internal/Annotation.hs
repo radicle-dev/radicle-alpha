@@ -4,8 +4,9 @@ module Radicle.Internal.Annotation where
 
 import           Codec.Serialise (Serialise)
 import           Data.Copointed (Copointed(..))
-import           Data.Text (pack)
-import           Protolude
+import qualified Data.Text as T
+import           GHC.Stack
+import           Protolude hiding (SrcLoc)
 import qualified Text.Megaparsec.Pos as Par
 
 import           Radicle.Internal.Orphans ()
@@ -54,7 +55,10 @@ data SrcPos = SrcPos Par.SourcePos
 instance Serialise SrcPos
 
 thisPos :: HasCallStack => SrcPos
-thisPos = InternalPos (pack (prettyCallStack callStack))
+thisPos = InternalPos $ T.intercalate "\n" (map prettyCallSite $ getCallStack callStack)
+  where
+    prettyCallSite (f, SrcLoc{..}) =
+        toS $ srcLocFile <> ":" <> show srcLocStartLine <> ":" <> show srcLocStartCol <> " " <> f
 
 data WithPos a = WithPos SrcPos a
     deriving (Read, Show, Generic, Functor, Foldable, Traversable)
@@ -73,4 +77,3 @@ instance Copointed WithPos where
 
 instance Annotation WithPos where
     toAnnotation = WithPos thisPos
-
