@@ -32,6 +32,7 @@
 (def shell!
   "(shell! command stdin) executes 'command' using the shell with 'to-write' as
    input. Returns the exit code. Stdout and stderr are inherited.
+   WARNING: using 'shell!' with unsanitized user input is a security hazard!
    Example: (shell! \"ls -Glah\" \"\")
    "
   (fn [command to-write]
@@ -49,6 +50,7 @@
 (def process!
   "(process! command args to-write) executes 'command' using 'execvp'. with 'to-write' as
    input. Returns the exit code.
+   See 'man exec' for more information on 'execvp'.
    Example: (process! \"ls\" [\"-Glah\"] \"\"
   "
   (fn [command args to-write]
