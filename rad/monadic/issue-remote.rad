@@ -11,7 +11,7 @@
 
 (def issue-counter
   "We use a stateful counter for giving issues numbers."
-  (lookup :next (make-counter)))
+  (make-counter))
 
 (def used-nonces
   "We keep track of the UUIDs which have been used as nonces in inputs."
@@ -104,7 +104,7 @@
   "Create an issue from a dict, checking that it is valid and storing it in `issues`."
   (fn [i]
     (validator/issue-input i)
-    (def n (issue-counter))
+    (def n (issue-counter :next))
     (def i_
       (strip-input
        (<> i

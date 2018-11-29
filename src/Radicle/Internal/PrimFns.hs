@@ -468,6 +468,9 @@ purePrimFns = fromList $ allDocs $
     , ( "show"
       , "Returns a string representing the argument value."
       , oneArg "show" (pure . String . renderPrettyDef))
+    , ( "pretty"
+      , "Returns a pretty-printed ANSI-colored string representing the argument value."
+      , oneArg "show" (pure . String . renderAnsi))
     , ( "seq"
       , "Given a structure `s`, returns a sequence. Lists and vectors are returned\
         \ without modification while for dicts a vector of key-value-pairs is returned:\

@@ -24,6 +24,11 @@
   (fn [x]
     (put-str! (show x))))
 
+(def pretty-print!
+  "Print a value to the console or stdout."
+  (fn [x]
+    (put-str! (pretty x))))
+
 (def shell!
   "(shell! command stdin) executes 'command' using the shell with 'to-write' as
    input. Returns the exit code. Stdout and stderr are inherited.
