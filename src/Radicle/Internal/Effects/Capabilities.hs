@@ -47,11 +47,6 @@ instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . toS
     supportsANSI = pure True
 
-class (Monad m) => Exit m where
-    exitS :: m ()
-instance Exit m => Exit (Lang m) where
-    exitS = lift exitS
-
 class Monad m => CurrentTime m where
   currentTime :: m UTCTime
 
