@@ -22,7 +22,7 @@ import qualified Text.Megaparsec.Pos as Par
 import           Radicle
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary ()
-import           Radicle.Internal.Core (asValue, noStack)
+import           Radicle.Internal.Core (addBinding, asValue, noStack)
 import           Radicle.Internal.Foo (Foo)
 import           Radicle.Internal.TestCapabilities
 
@@ -93,7 +93,7 @@ test_eval =
 
     , testProperty "'eq?' considers equal values equal" $ \(val :: Value) -> do
         let prog = [i|(eq? #{renderPrettyDef val} #{renderPrettyDef val})|]
-            res  = runTest' $ toS prog
+            res  = runPureCode $ toS prog
         counterexample prog $  isLeft res || res == Right (Boolean True)
 
     , testCase "'eq?' works for quoted values" $ do
@@ -106,7 +106,7 @@ test_eval =
         -- We quote the values to prevent errors from being thrown
         let prog = [i|(eq? (quote #{renderPrettyDef v1})
                            (quote #{renderPrettyDef v2}))|]
-            res  = runTest' $ toS prog
+            res  = runPureCode $ toS prog
         -- Either evaluation failed or their equal.
         counterexample prog $ isLeft res || res == Right (Boolean False)
 
@@ -158,7 +158,7 @@ test_eval =
     , testProperty "'string-append' concatenates string" $ \ss -> do
         let args = T.unwords $ renderPrettyDef . asValue . String <$> ss
             prog = "(string-append " <> args <> ")"
-            res  = runTest' prog
+            res  = runPureCode prog
             expected = Right . String $ mconcat ss
             info = "Expected:\n" <> prettyEither expected <>
                    "Got:\n" <> prettyEither res
@@ -166,10 +166,10 @@ test_eval =
 
     , testProperty "'string-length' returns length of a string" $ \x -> do
         let prog = "(string-length " <> renderPrettyDef (asValue (String x)) <> ")"
-            res  = runTest' prog
+            res  = runPureCode prog
             expected = Right $ int $ fromIntegral $ T.length x
             info = "Expected:\n" <> prettyEither (Right (String x)) <>
-                   "Got:\n" <> prettyEither (runTest' prog)
+                   "Got:\n" <> prettyEither (runPureCode prog)
         counterexample (toS info) $ res == expected
 
     , testCase "'foldl' foldls the list" $ do
@@ -196,15 +196,15 @@ test_eval =
     , testCase "'eval' only evaluates the first quote" $ do
         let prog1 = [s|(head (eval (quote (quote (+ 3 2))) (get-current-env)))|]
             prog2 = [s|(quote (+ 3 2))|]
-            res1 = runTest' prog1
-            res2 = runTest' prog2
+            res1 = runPureCode prog1
+            res2 = runPureCode prog2
         res1 @?= res2
 
     , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
         let prog1 = [i| (head (eval (fn [] #{renderPrettyDef _v}) (get-current-env))) |]
             prog2 = [i| (fn [] #{renderPrettyDef _v}) |]
-            res1 = runTest' $ toS prog1
-            res2 = runTest' $ toS prog2
+            res1 = runPureCode $ toS prog1
+            res2 = runPureCode $ toS prog2
             info = "Expected:\n" <> prettyEither res2
                 <> "\nGot:\n" <> prettyEither res1
         counterexample (toS info) $ res1 == res2
@@ -340,12 +340,12 @@ test_eval =
 
     , testProperty "'>' works" $ \(x, y) -> do
         let prog = [i|(> #{renderPrettyDef . asValue $ Number x} #{renderPrettyDef . asValue $ Number y})|]
-            res  = runTest' $ toS prog
+            res  = runPureCode $ toS prog
         counterexample prog $ res == Right (Boolean (x > y))
 
     , testProperty "'<' works" $ \(x, y) -> do
         let prog = [i|(< #{renderPrettyDef . asValue $ Number x} #{renderPrettyDef . asValue $ Number y})|]
-            res  = runTest' $ toS prog
+            res  = runPureCode $ toS prog
         counterexample prog $ res == Right (Boolean (x < y))
 
     , testCase "'def' fails when first arg is not an atom" $ do
@@ -393,7 +393,7 @@ test_eval =
                 (write-ref x 6)
                 (read-ref x)
                 |]
-            res = runTest' prog
+            res = runPureCode prog
         res @?= Right (int 6)
 
     , testCase "mutations to refs are persisted beyond a lambda's scope" $ do
@@ -418,8 +418,8 @@ test_eval =
             (ref-incer foo)
             (read-ref foo)
             |]
-        runTest' prog @?= Right (int 1)
-        runTest' prog2 @?= Right (int 1)
+        runPureCode prog @?= Right (int 1)
+        runPureCode prog2 @?= Right (int 1)
 
     , testCase "muliple refs mutated in multiple lambdas" $ do
         let prog = [s|
@@ -438,36 +438,36 @@ test_eval =
             (c1)
             (list (c1) (c2))
             |]
-        runTest' prog @?= Right (List [int 3, int 1])
+        runPureCode prog @?= Right (List [int 3, int 1])
 
     , testProperty "read-ref . ref == id" $ \(v :: Value) -> do
-        let derefed = runTest' $ toS [i|(read-ref (ref #{renderPrettyDef v}))|]
-            orig    = runTest' $ toS [i|#{renderPrettyDef v}|]
+        let derefed = runPureCode $ toS [i|(read-ref (ref #{renderPrettyDef v}))|]
+            orig    = runPureCode $ toS [i|#{renderPrettyDef v}|]
             info    = "Expected:\n" <> toS (prettyEither orig)
                    <> "\nGot:\n" <> toS (prettyEither derefed)
         counterexample info $ noStack derefed == noStack orig
 
     , testCase "'show' works" $ do
-        runTest' "(show 'a)" @?= Right (String "a")
-        runTest' "(show ''a)" @?= Right (String "(quote a)")
-        runTest' "(show \"hello\")" @?= Right (String "\"hello\"")
-        runTest' "(show 42)" @?= Right (String "42")
-        runTest' "(show 1/3)" @?= Right (String "1/3")
-        runTest' "(show #t)" @?= Right (String "#t")
-        runTest' "(show #f)" @?= Right (String "#f")
-        runTest' "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1 \"foo\" (b (quote x) 2 \"bar\"))")
-        runTest' "(show [1 :a])" @?= Right (String "[1 :a]")
-        runTest' "eval" @?= Right (PrimFn [ident|base-eval|])
-        runTest' "(show (dict 'a 1))" @?= Right (String "{a 1}")
-        runTest' "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
+        runPureCode "(show 'a)" @?= Right (String "a")
+        runPureCode "(show ''a)" @?= Right (String "(quote a)")
+        runPureCode "(show \"hello\")" @?= Right (String "\"hello\"")
+        runPureCode "(show 42)" @?= Right (String "42")
+        runPureCode "(show 1/3)" @?= Right (String "1/3")
+        runPureCode "(show #t)" @?= Right (String "#t")
+        runPureCode "(show #f)" @?= Right (String "#f")
+        runPureCode "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1 \"foo\" (b (quote x) 2 \"bar\"))")
+        runPureCode "(show [1 :a])" @?= Right (String "[1 :a]")
+        runPureCode "eval" @?= Right (PrimFn [ident|base-eval|])
+        runPureCode "(show (dict 'a 1))" @?= Right (String "{a 1}")
+        runPureCode "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
     , testCase "'read' works" $
-        runTest' "(read \"(:hello 42)\")" @?= Right (List [Keyword [ident|hello|], int 42])
+        runPureCode "(read \"(:hello 42)\")" @?= Right (List [Keyword [ident|hello|], int 42])
 
     , testCase "'to-json' works" $ do
-        runTest' "(to-json (dict \"foo\" #t))" @?= Right (String "{\"foo\":true}")
-        runTest' "(to-json (dict \"key\" (list 1 \"value\")))" @?= Right (String "{\"key\":[1,\"value\"]}")
-        noStack (runTest' "(to-json (dict 1 2))") @?= Left (OtherError "Could not serialise value to JSON")
+        runPureCode "(to-json (dict \"foo\" #t))" @?= Right (String "{\"foo\":true}")
+        runPureCode "(to-json (dict \"key\" (list 1 \"value\")))" @?= Right (String "{\"key\":[1,\"value\"]}")
+        noStack (runPureCode "(to-json (dict 1 2))") @?= Left (OtherError "Could not serialise value to JSON")
 
     , testCase "def-rec can define recursive functions" $ do
         let prog = [s|
@@ -478,7 +478,7 @@ test_eval =
                     (+ n (triangular (- n 1))))))
             (triangular 10)
             |]
-        runTest' prog @?= Right (int 55)
+        runPureCode prog @?= Right (int 55)
 
     , testCase "def-rec errors when defining a non-function" $
         failsWith "(def-rec x 42)" (OtherError "def-rec can only be used to define functions")
@@ -489,7 +489,7 @@ test_eval =
             (def outer (fn [] (inner)))
             (outer)
             |]
-        case runTest' prog of
+        case runPureCode prog of
             Left (LangError stack (UnknownIdentifier (Identifier "notdefined"))) ->
                 assertEqual "correct line numbers" [3,2,1,1] (stackTraceLines stack)
             r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
@@ -500,14 +500,14 @@ test_eval =
             (def inner (fn [] (notdefined)))
             (callit inner)
             |]
-        case runTest' prog of
+        case runPureCode prog of
             Left (LangError stack (UnknownIdentifier (Identifier "notdefined"))) ->
                 assertEqual "correct line numbers" [3,1,2,2] (stackTraceLines stack)
             r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
     ]
   where
-    failsWith src err    = noStack (runTest' src) @?= Left err
-    succeedsWith src val = runTest' src @?= Right val
+    failsWith src err    = noStack (runPureCode src) @?= Left err
+    succeedsWith src val = runPureCode src @?= Right val
 
 stackTraceLines :: [Ann.SrcPos] -> [Int]
 stackTraceLines = concatMap go
@@ -629,7 +629,7 @@ test_repl_primops =
     , testCase "read-file! can read a file" $ do
         let prog = "(read-file! \"foobar.rad\")"
             files = Map.singleton "foobar.rad" "foobar"
-        res <- runFiles files prog
+        res <- runCodeWithFiles files prog
         res @?= Right (String "foobar")
     , testCase "load! can load definitions" $ do
         let prog = [s|
@@ -637,7 +637,7 @@ test_repl_primops =
                    (+ foo bar)
                    |]
             files = Map.singleton "foo.rad" "(def foo 42) (def bar 8)"
-        res <- runFiles files prog
+        res <- runCodeWithFiles files prog
         res @?= Right (int 50)
     , testCase "generating and verifying cryptographic signatures works" $ do
         let prog = [s|
@@ -656,9 +656,9 @@ test_repl_primops =
         res @?= Right (Boolean True)
     ]
   where
-    run stdin' prog = fst <$> runTestWith testBindings stdin' prog
-    runFiles :: Map Text Text -> Text -> IO (Either (LangError Value) Value)
-    runFiles files prog = fst <$> runTestWithFiles testBindings [] files prog
+    run stdin' prog =
+        let ws = defaultWorldState { worldStateStdin = stdin' }
+        in fst <$> runCode' ws (pure ()) prog
 
 test_repl :: [TestTree]
 test_repl =
@@ -786,26 +786,37 @@ test_source_files = do
     tests <- join <$> traverse testOne ["rad/prelude.rad", "rad/monadic/issues.rad"]
     pure $ testGroup "Radicle source file tests" tests
   where
+    -- If the @test-env__@ is defined and true in the radicle
+    -- environment then the @:test@ macro will execute some code.
+    -- enableSelfTest :: Bindings a -> Bindings a
+    enableSelfTest :: Monad m => Lang m ()
+    enableSelfTest = modify $ addBinding (unsafeToIdent "test-env__") Nothing (Boolean True)
+
     testOne :: FilePath -> IO [TestTree]
     testOne file = do
-        keyPair :: Text <- runTest testBindings "(gen-key-pair! (default-ecc-curve))" >>= \case
+        ws' <- worldStateWithSource
+        keyPair :: Text <- runCode "(gen-key-pair! (default-ecc-curve))" >>= \case
             Right kp -> pure $ renderCompactPretty kp
             Left _   -> panic "Couldn't generate keypair file."
-        srcs <- Map.insert "my-keys.rad" keyPair <$> sourceFiles
-        (r, out) <- runTestWithFiles testBindings [] srcs $ toS $ "(load! \"" <> file <> "\")"
-        let makeTest line =
-                let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
-                         $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line
-                in testCase (toS name) $
-                    if "' succeeded" `T.isSuffixOf` line
-                        then pure ()
-                        else assertFailure . toS $ "test failed: " <> line
+        let ws = addFileToWorld "my-keys.rad" keyPair ws'
+        (r, out) <- runCode' ws enableSelfTest $ toS $ "(load! \"" <> file <> "\")"
         let doesntThrow = if isRight r
                 then pure ()
                 else assertFailure $ "Expected Right, got: " <> toS (prettyEither r)
         pure $ [testGroup file
             $ testCase "doesn't throw" doesntThrow
             : [ makeTest ln | ln <- reverse out, "Test" `T.isPrefixOf` ln ]]
+
+    -- | Takes an output generated by the @:test@ macro and turn it into
+    -- a 'TestTree' that passes if the macro test passes.
+    makeTest :: Text -> TestTree
+    makeTest line =
+            let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
+                     $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line
+            in testCase (toS name) $
+                if "' succeeded" `T.isSuffixOf` line
+                    then pure ()
+                    else assertFailure . toS $ "test failed: " <> line
 
 test_macros :: [TestTree]
 test_macros =
@@ -847,8 +858,7 @@ prettyEither (Right v) = renderPrettyDef v
 -- that the last two lines of the actual output equal @[a, b]@.
 assertReplInteraction :: [Text] -> [Text] -> IO ()
 assertReplInteraction input expected = do
-    srcs <- sourceFiles
-    (result, output) <- runTestWithFiles testBindings input srcs "(load! \"rad/repl.rad\")"
+    (result, output) <- runCodeWithInput input "(load! \"rad/repl.rad\")"
     case result of
         Left err -> assertFailure $ "Error thrown in Repl: " <> toS (renderPrettyDef err)
         Right _  -> pure ()
