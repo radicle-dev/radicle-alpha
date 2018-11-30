@@ -1,6 +1,13 @@
 -- | This module defines instances for the classes in
 -- Radicle.Internal.Subscriber.Capabilities that may be used for testing.
-module Radicle.Internal.TestCapabilities where
+module Radicle.Internal.TestCapabilities (
+      sourceFiles
+    , runTestWithFiles
+    , runTest
+    , testBindings
+    , runTest'
+    , runTestWith
+    ) where
 
 import           Protolude hiding (TypeError)
 
@@ -63,13 +70,6 @@ runTestWith
     -> Text -- The program
     -> IO (Either (LangError Value) Value, [Text])
 runTestWith bindings inputs action = runTestWithFiles bindings inputs mempty action
-
--- | Like `runTestWith`, but uses the pureEnv
-runTestWith'
-    :: [Text]
-    -> Text
-    -> (Either (LangError Value) Value, [Text])
-runTestWith' a b = unsafePerformIO $ runTestWith pureEnv a b
 
 -- | Run a test without stdin/stdout
 runTest

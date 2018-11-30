@@ -31,12 +31,6 @@
       # BEGIN export all for ease of debugging
       - name: Weeds exported
       - module:
-        - name: Radicle.Internal.TestCapabilities
-        - identifier:
-          - TestLang
-          - runTestWith'
-          - storagePrimFns
-      - module:
         - name: Radicle.Tests
         - identifier:
           - assertReplInteraction
