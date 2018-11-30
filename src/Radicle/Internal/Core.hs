@@ -14,7 +14,6 @@ import           Control.Monad.State
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
 import           Data.Copointed (Copointed(..))
-import qualified GHC.IO.Handle as Handle
 import           Data.Data (Data)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.IntMap as IntMap
@@ -27,7 +26,9 @@ import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
-import           System.Process (CmdSpec(..), CreateProcess(..), StdStream(..), ProcessHandle)
+import qualified GHC.IO.Handle as Handle
+import           System.Process
+                 (CmdSpec(..), CreateProcess(..), ProcessHandle, StdStream(..))
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
@@ -183,6 +184,7 @@ newHandle h = do
             }
     pure $ Handle $ Hdl ix
 
+-- | Lookup a handle in the bindings, failing if it does not exist.
 lookupHandle :: Monad m => Hdl -> Lang m Handle.Handle
 lookupHandle (Hdl h) = do
     hdls <- gets bindingsHandles
@@ -195,6 +197,7 @@ lookupHandle (Hdl h) = do
 newtype ProcHdl = ProcHdl { getProcHandle :: Int }
     deriving (Show, Read, Ord, Eq, Generic, Serialise)
 
+-- | Lookup a process handle in the bindings, failing if it does not exist.
 lookupProcHandle :: Monad m => ProcHdl -> Lang m ProcessHandle
 lookupProcHandle (ProcHdl h) = do
     hdls <- gets bindingsProcHandles
@@ -441,13 +444,13 @@ instance GhcExts.IsList (PrimFns m) where
 
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
-    { bindingsEnv        :: Env Value
-    , bindingsPrimFns    :: prims
-    , bindingsRefs       :: IntMap Value
-    , bindingsNextRef    :: Int
-    , bindingsHandles    :: IntMap Handle.Handle
-    , bindingsNextHandle :: Int
-    , bindingsProcHandles :: IntMap ProcessHandle
+    { bindingsEnv            :: Env Value
+    , bindingsPrimFns        :: prims
+    , bindingsRefs           :: IntMap Value
+    , bindingsNextRef        :: Int
+    , bindingsHandles        :: IntMap Handle.Handle
+    , bindingsNextHandle     :: Int
+    , bindingsProcHandles    :: IntMap ProcessHandle
     , bindingsNextProcHandle :: Int
     } deriving (Functor, Generic)
 
