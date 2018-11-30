@@ -282,7 +282,8 @@ replPrimFns = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)
       )
     , ( "file-module!"
-      , "Creates a module from the code in a file."
+      , "Given a file whose code starts with module metadata, creates the module.\
+        \ That is, the file is evaluated as if the code was wrapped in `(module ...)`."
       , oneArg "file-module!" $ \case
           String filename -> do
             t_ <- readFileS filename
@@ -292,6 +293,3 @@ replPrimFns = fromList $ allDocs $
           v -> throwErrorHere $ TypeError "file-module!" 0 TString v
       )
     ]
-  -- where
-  --   nonTest (List (Keyword (Ident "test") :_)) = False
-  --   nonTest _                                  = True

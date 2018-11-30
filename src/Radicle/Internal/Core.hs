@@ -708,6 +708,8 @@ specialForms = Map.fromList $ first Ident <$>
           pure nil
         _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
 
+-- Given a list of forms, the first three of which should be module metadata,
+-- runs the rest of the forms in a new scope, and then defs the module value.
 createModule :: Monad m => Text -> [Value] -> Lang m Value
 createModule ctx = \case
     (name : doc : exports : forms) -> do
@@ -717,9 +719,7 @@ createModule ctx = \case
       case (name', doc', exports') of
         (Atom n, String d, Vec is) -> do
           is' <- traverse isAtom is ?? toLangError (OtherError $ ctx <> ": Module export vector should only contain atoms")
-          e <- withEnv identity $ do
-                  traverse_ eval forms
-                  gets bindingsEnv
+          e <- withEnv identity $ traverse_ eval forms *> gets bindingsEnv
           let m :: Value = toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (toList is'))
           defineAtom n (Just d) m
           pure (Keyword (Ident "ok"))

@@ -546,14 +546,22 @@ purePrimFns = fromList $ allDocs $
           (pat, v) -> callFn pat [v]
       )
     , ( "module-from-env"
-      , "Function for creating modules."
+      , "Creates a module with definitions for all the atoms given as inputs.\
+        \ The definitions are taken from the current scope. It is probably\
+        \ better to use the `module` special-form."
       , \xs -> do
           is <- traverse isAtom xs ?? toLangError (OtherError "module-from-env: all arguments must be atoms")
           e <- gets bindingsEnv
           pure $ toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList is)
       )
     , ( "import"
-      , "Import a module"
+      , "Import a module, making all the definitions of that module available\
+        \ in the current scope. The first argument must be a module to import.\
+        \ Two optional arguments affect how and which symbols are imported.\
+        \ `(import m 'foo)` will import all the symbols of `m` with the prefix\
+        \ `foo/`. `(import m '[f g])` will only import `f` and `g` from `m`.\
+        \ `(import m 'foo '[f g]')` will import `f` and `g` from `m` as `foo/f`\
+        \ and `foo/g`."
       , \case
           [v, Atom as] -> import' v Nothing (Just as)
           [v, Vec these, Atom as] -> do
