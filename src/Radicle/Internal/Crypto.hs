@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Radicle.Internal.Crypto
@@ -18,7 +19,7 @@ import           Crypto.Hash.Algorithms
 import           Crypto.PubKey.ECC.ECDSA
 import           Crypto.PubKey.ECC.Generate (generate)
 import           Crypto.PubKey.ECC.Types
-import           Crypto.Random
+import           "cryptonite" Crypto.Random
 import           Crypto.Random.Types (MonadRandom)
 
 import qualified Radicle.Internal.Annotation as Ann
