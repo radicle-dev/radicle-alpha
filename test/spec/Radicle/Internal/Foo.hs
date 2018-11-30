@@ -1,5 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-partial-fields #-}
 
+-- | The purpose of the 'Foo' datatype is to check the instances of
+-- 'FromRad' and 'ToRad' derived via generics.
 module Radicle.Internal.Foo (Foo) where
 
 import           Protolude
