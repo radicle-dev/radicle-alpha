@@ -167,7 +167,7 @@ purePrimFns = fromList $ allDocs $
           Vec Seq.Empty      -> throwErrorHere $ OtherError "tail: empty vector"
           v                  -> throwErrorHere $ TypeError "tail" 0 TSequence v)
 
-    -- Lists and Vecs
+    -- Sequences: Lists and Vecs
     , ( "drop"
       , "Returns all but the first `n` items of a sequence, unless the sequence is empty,\
         \ in which case an exception is thrown."
@@ -230,6 +230,18 @@ purePrimFns = fromList $ allDocs $
           (List _, v) -> throwErrorHere $ TypeError "zip" 1 TList v
           (Vec _, v) -> throwErrorHere $ TypeError "zip" 1 TList v
           (v, _) -> throwErrorHere $ TypeError "zip" 0 TSequence v
+      )
+    , ( "vec-to-list"
+      , "Transforms vectors to lists."
+      , oneArg "vec-to-list" $ \case
+          Vec xs -> pure (List (Protolude.toList xs))
+          v -> throwErrorHere $ TypeError "vec-to-list" 0 TVec v
+      )
+    , ( "list-to-vec"
+      , "Transforms lists into vectors."
+      , oneArg "list-to-vec" $ \case
+          List xs -> pure (Vec (Seq.fromList xs))
+          v -> throwErrorHere $ TypeError "list-to-vec" 0 TList v
       )
 
     -- Dicts
