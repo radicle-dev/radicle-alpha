@@ -18,6 +18,7 @@ import           Text.Megaparsec.Pos (sourcePosPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
+import           Radicle.Internal.Effects.Capabilities (Stdout(..))
 import           Radicle.Internal.Type
 
 class PrettyV a where
@@ -139,6 +140,17 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . prettyV
 renderPrettyDef :: PrettyV v => v -> Text
 renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . prettyV
 
+-- | Pretty print the value with colors if @m@ supports it.
+putPrettyAnsi :: (PrettyV v, Stdout m) => v -> m ()
+putPrettyAnsi value = do
+    supportsANSI' <- supportsANSI
+    let docStream = layoutSmart defaultLayoutOptions $ prettyV value
+    if supportsANSI'
+    then
+        putStrS $ Term.renderStrict $ reAnnotateS toAnsi docStream
+    else
+        putStrS $ renderStrict docStream
+
 toAnsi :: Type -> Term.AnsiStyle
 toAnsi = \case
     TKeyword -> color Magenta
@@ -147,12 +159,3 @@ toAnsi = \case
     TBoolean -> color Cyan
     TRef -> color Red
     _ -> mempty
-
--- | Like 'renderPrettyDef', but includes escape sequences for terminal colours.
---
--- Examples:
---
--- >>> renderAnsi (asValue (List [String "hi", Keyword (Ident "there")]))
--- "\ESC[0m(\ESC[0;92m\"hi\"\ESC[0m \ESC[0;95m:there\ESC[0m)\ESC[0m"
-renderAnsi :: PrettyV v => v -> Text
-renderAnsi = Term.renderStrict . reAnnotateS toAnsi . layoutSmart defaultLayoutOptions . prettyV

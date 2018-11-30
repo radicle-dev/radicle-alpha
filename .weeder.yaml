@@ -39,7 +39,6 @@
       - module:
         - name: Radicle.Tests
         - identifier:
-          - ansi
           - assertReplInteraction
           - atom
           - int

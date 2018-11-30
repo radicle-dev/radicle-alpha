@@ -9,6 +9,7 @@ import           Protolude
 
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
+import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.IO (isEOF)
 #ifdef ghcjs_HOST_OS
@@ -33,12 +34,18 @@ instance (MonadException m) => Stdin (InputT m) where
 
 class (Monad m) => Stdout m where
     putStrS :: Text -> m ()
+    -- | Return true if we can output ANSI control characters with
+    -- 'putStrS'.
+    supportsANSI :: m Bool
 instance {-# OVERLAPPABLE #-} Stdout m => Stdout (Lang m) where
     putStrS = lift . putStrS
+    supportsANSI = lift supportsANSI
 instance Stdout IO where
     putStrS = putStrLn
+    supportsANSI = hSupportsANSI stdout
 instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . toS
+    supportsANSI = pure True
 
 class (Monad m) => Exit m where
     exitS :: m ()
