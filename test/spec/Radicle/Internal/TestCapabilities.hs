@@ -15,6 +15,7 @@ import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Time as Time
+import           System.Directory (getCurrentDirectory)
 import qualified System.FilePath.Find as FP
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -24,8 +25,6 @@ import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Storage
 import qualified Radicle.Internal.UUID as UUID
-
-import           Paths_radicle
 
 
 data WorldState = WorldState
@@ -82,12 +81,18 @@ runTest bnds prog = fst <$> runTestWith bnds [] prog
 runTest' :: Text -> Either (LangError Value) Value
 runTest' a = unsafePerformIO $ runTest pureEnv a
 
--- | The radicle source files, along with their directory.
-sourceFiles :: IO (FilePath, [FilePath])
+
+-- | Loads the content for all radicle sources in the "./rad" folder.
+-- Returns a map from files names to contents.
+sourceFiles :: IO (Map Text Text)
 sourceFiles = do
-    dir <- getDataDir
-    allFiles <- FP.find FP.always (FP.extension FP.==? ".rad") dir
-    pure (dir <> "/", drop (length dir + 1) <$> allFiles)
+    dir <- getCurrentDirectory
+    absPaths <- FP.find FP.always (FP.extension FP.==? ".rad") dir
+    filesWithContent <- forM absPaths $ \absPath -> do
+        contents <- readFile absPath
+        let path = drop (length dir + 1) absPath
+        pure (toS path, contents)
+    pure $ Map.fromList filesWithContent
 
 -- | Bindings with REPL and client stuff mocked, and with -- a 'test-env__'
 -- variable set to true.
