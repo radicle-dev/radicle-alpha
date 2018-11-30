@@ -6,6 +6,7 @@
 
 ;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
 (def eval
+  "The evaluation function."
   (fn [expr env]
     (if (list? expr)
         (if (> (foldr (fn [x acc] (+ acc 1)) 0 expr) 0)

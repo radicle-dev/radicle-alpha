@@ -430,7 +430,8 @@ keys as ``d`` but ``f`` applied to all the associated values.
 ~~~~~~~~~~~~
 
 Given a function ``f`` and a dict ``d``, returns a dict with the same
-values as ``d`` but ``f`` applied to all the keys.
+values as ``d`` but ``f`` applied to all the keys. If ``f`` maps two
+keys to the same thing, the greatest key and value are kept.
 
 ``(modify-map key f mp)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -501,8 +502,8 @@ Functions for manipulating strings.
 
 Intercalates a string in a list of strings
 
-``(lines x)``
-~~~~~~~~~~~~~
+``(unlines x)``
+~~~~~~~~~~~~~~~
 
 Concatenate a list of strings, with newlines in between.
 
@@ -512,8 +513,8 @@ Concatenate a list of strings, with newlines in between.
 Replace all occurrences of the first argument with the second in the
 third.
 
-``(words x)``
-~~~~~~~~~~~~~
+``(unwords x)``
+~~~~~~~~~~~~~~~
 
 Concatenate a list of strings, with spaces in between.
 
@@ -754,24 +755,25 @@ Prints a string.
 ``(process! command args to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-(process! command args to-write) executes ``command`` using 'execvp'.
-with 'to-write' as input. Returns the exit code. See 'man exec' for more
-information on 'execvp'. Example: (process! "ls" ["-Glah"] "")
+Executes ``command`` using 'execvp'. with 'to-write' as input. Stdout
+and stderr are inherit. See 'man exec' for more information on 'execvp'.
+Example: ``(process! "ls" ["-Glah"] "")``.
 
 ``(shell! command to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-(shell! command stdin) executes ``command`` using the shell with
-``to-write`` as input. Returns the exit code. Stdout and stderr are
-inherited. WARNING: using ``shell!`` with unsanitized user input is a
-security hazard! Example: (shell! "ls -Glah" "")
+Executes ``command`` using the shell with ``to-write`` as input. Stdout
+and stderr are inherited. WARNING: using ``shell!`` with unsanitized
+user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
 
 ``system!``
 ~~~~~~~~~~~
 
-(system! proc) execute a system process. Returns the exit code. ``proc``
-is a process object. Note that this is quite a low-level function;
-higher-level ones are more convenient.
+(system! proc) execute a system process. Returns the dict with the form
+``{ :stdin maybe-handle      :stdout maybe-handle      :stderr maybe-handle      :proc prochandle    }``
+Where ``maybe-handle`` is either ``[:just handle]`` or ``:nothing``.
+Note that this is quite a low-level function; higher-level ones are more
+convenient.
 
 ``(send-prelude! chain-id)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

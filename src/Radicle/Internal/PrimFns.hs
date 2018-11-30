@@ -253,12 +253,13 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "map-keys"
       , "Given a function `f` and a dict `d`, returns a dict with the same values as `d`\
-        \ but `f` applied to all the keys."
+        \ but `f` applied to all the keys.\
+        \ If `f` maps two keys to the same thing, the greatest key and value are kept."
       , twoArg "map-keys" $ \case
           (f, Dict m) -> do
             let kvs = Map.toList m
             vs <- traverse (\v -> callFn f [v]) (fst <$> kvs)
-            pure . Dict . Map.fromList $ zip vs (snd <$> kvs)
+            dict . Map.fromList $ zip vs (snd <$> kvs)
           (_, v) -> throwErrorHere $ TypeError "map-keys" 1 TDict v
       )
 

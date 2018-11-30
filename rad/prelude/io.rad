@@ -24,7 +24,9 @@
     (put-str! (pretty x))))
 
 (def shell!
-  "(shell! command stdin) executes `command` using the shell with `to-write` as input. Returns the exit code. Stdout and stderr are inherited.  WARNING: using `shell!` with unsanitized user input is a security hazard!  Example: (shell! \"ls -Glah\" \"\") "
+  "Executes `command` using the shell with `to-write` as input. Stdout and stderr are inherited.
+WARNING: using `shell!` with unsanitized user input is a security hazard!
+Example: `(shell! \"ls -Glah\" \"\")`. "
   (fn [command to-write]
     (def cp
       { :cmdspec [:shell command]
@@ -33,12 +35,18 @@
         :stderr :inherit
       })
     (match (system! cp)
-      [[:just 'stdin] :nothing :nothing 'ph] (do (write-handle! stdin to-write)
-                                                 (wait-for-process! ph))
+      {:stdin [:just 'stdin]
+       :stdout :nothing
+       :stderr :nothing
+       :proc   'ph
+      } (do (write-handle! stdin to-write)
+            (wait-for-process! ph))
       _ (throw 'io-error "expected only stdin to be open"))))
 
 (def process!
-  "(process! command args to-write) executes `command` using 'execvp'. with 'to-write' as input. Returns the exit code.  See 'man exec' for more information on 'execvp'.  Example: (process! \"ls\" [\"-Glah\"] \"\") "
+  "Executes `command` using 'execvp'. with 'to-write' as input. Stdout and stderr are inherit.
+See 'man exec' for more information on 'execvp'.
+Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   (fn [command args to-write]
     (def cp
       { :cmdspec [:raw command args]
@@ -47,6 +55,10 @@
         :stderr :inherit
       })
     (match (system! cp)
-      [[:just 'stdin] :nothing :nothing 'ph] (do (write-handle! stdin to-write)
-                                                 (wait-for-process! ph))
+      {:stdin [:just 'stdin]
+       :stdout :nothing
+       :stderr :nothing
+       :proc   'ph
+      } (do (write-handle! stdin to-write)
+            (wait-for-process! ph))
       _ (throw 'io-error "expected only stdin to be open"))))

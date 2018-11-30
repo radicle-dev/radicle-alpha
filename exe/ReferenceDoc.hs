@@ -92,7 +92,7 @@ main = do
       ["dict", "lookup", "insert", "delete", "dict-from-list", "keys", "values", "rekey"
       , "map-values", "map-keys", "modify-map", "delete-many", "exclusive-dict-merge"]
     sets = ["set/empty", "set/insert", "set/delete", "set/member?", "set/delete", "set/from-seq", "set/to-vec"]
-    strings = ["intercalate", "lines", "string-replace", "words", "pretty"]
+    strings = ["intercalate", "unlines", "string-replace", "unwords", "pretty"]
     structs = ["member?"]
     patterns = ["match-pat", "_", "/?", "/nil", "/cons", "/as", "non-linear-merge"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]

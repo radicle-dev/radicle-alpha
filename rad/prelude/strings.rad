@@ -12,20 +12,20 @@
   [ (intercalate "aa" ["hi" "there"]) ==> "hiaathere" ]
 )
 
-(def lines
+(def unlines
   "Concatenate a list of strings, with newlines in between."
   (fn [x]
     (intercalate "\n" x)))
 
-(:test "lines"
-  [ (lines ["hi" "there"]) ==> "hi\nthere" ]
+(:test "unlines"
+  [ (unlines ["hi" "there"]) ==> "hi\nthere" ]
 )
 
-(def words
+(def unwords
   "Concatenate a list of strings, with spaces in between."
   (fn [x]
     (intercalate " " x)))
 
-(:test "words"
-  [ (words ["hi" "there"]) ==> "hi there" ]
+(:test "unwords"
+  [ (unwords ["hi" "there"]) ==> "hi there" ]
 )
