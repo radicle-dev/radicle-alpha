@@ -517,6 +517,12 @@ third.
 
 Concatenate a list of strings, with spaces in between.
 
+``pretty``
+~~~~~~~~~~
+
+Returns a pretty-printed ANSI-colored string representing the argument
+value.
+
 Structures
 ----------
 
@@ -735,38 +741,37 @@ Read code (as data) from a file. Returns a vector of expressions
 
 Send code from a file to a remote chain.
 
+``(pretty-print! x)``
+~~~~~~~~~~~~~~~~~~~~~
+
+Pretty print (ANSI) a value to the console or stdout.
+
 ``put-str!``
 ~~~~~~~~~~~~
 
 Prints a string.
 
-``(process! command args stdin)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(process! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-(process! command args stdin) executes 'command' using 'execvp'. with
-'stdin' as input. Returns the exit code. Example: (process! "ls"
-["-Glah"] ""
+(process! command args to-write) executes ``command`` using 'execvp'.
+with 'to-write' as input. Returns the exit code. See 'man exec' for more
+information on 'execvp'. Example: (process! "ls" ["-Glah"] "")
 
-``(shell! command stdin)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(shell! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-(shell! command stdin) executes 'command' using the shell with 'stdin'
-as input. Returns the exit code. Stdout and stderr are inherited.
-Example: (shell! "ls -Glah" "")
-
-``(shell-with-stdout! command stdin)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-(shell-with-stdout! command stdin) executes 'command' using the shell
-with 'stdin' as input. Returns the exit code. Stderr is inherited.
-Example: (shell! "ls -Glah" "")
+(shell! command stdin) executes ``command`` using the shell with
+``to-write`` as input. Returns the exit code. Stdout and stderr are
+inherited. WARNING: using ``shell!`` with unsanitized user input is a
+security hazard! Example: (shell! "ls -Glah" "")
 
 ``system!``
 ~~~~~~~~~~~
 
-(system! proc stdin) execute a system process. Returns the exit code.
-``stdin`` is a string, and ``proc`` a process object. Note that this is
-quite a low-level function; higher-level ones are more convenient.
+(system! proc) execute a system process. Returns the exit code. ``proc``
+is a process object. Note that this is quite a low-level function;
+higher-level ones are more convenient.
 
 ``(send-prelude! chain-id)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -795,6 +800,21 @@ Read a single line of input and interpret it as radicle data.
 ~~~~~~~~~
 
 Exit the interpreter immediately.
+
+``read-line-handle!``
+~~~~~~~~~~~~~~~~~~~~~
+
+Read a single line from a handle.
+
+``wait-for-process!``
+~~~~~~~~~~~~~~~~~~~~~
+
+Block until process terminates.
+
+``write-handle!``
+~~~~~~~~~~~~~~~~~
+
+Write a string to the provided handle.
 
 ``now!``
 ~~~~~~~~

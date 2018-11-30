@@ -226,7 +226,7 @@ replPrimFns = fromList $ allDocs $
                   pure $ toRad (a', b', c', ph')
       )
     , ( "write-handle!"
-      , ""
+      , "Write a string to the provided handle."
       , twoArg "write-handle!" $ \case
           (Handle h, String msg) -> do
               h' <- lookupHandle h
@@ -236,7 +236,7 @@ replPrimFns = fromList $ allDocs $
           (v, _) -> throwErrorHere $ TypeError "write-handle!" 1 THandle v
       )
     , ( "read-line-handle!"
-      , ""
+      , "Read a single line from a handle."
       , oneArg "read-line-handle!" $ \case
           Handle h -> do
               h' <- lookupHandle h
@@ -244,7 +244,7 @@ replPrimFns = fromList $ allDocs $
           v -> throwErrorHere $ TypeError "read-line-handle!" 0 THandle v
       )
     , ( "wait-for-process!"
-      , ""
+      , "Block until process terminates."
       , oneArg "wait-for-process!" $ \case
           ProcHandle h -> do
               h' <- lookupProcHandle h

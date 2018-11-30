@@ -4,20 +4,14 @@
   (fn [] (read (get-line!))))
 
 (def read-code!
+  "Read code (as data) from a file. Returns a vector of expressions"
   (fn [filename]
     (read-many (read-file! filename))))
 
-(document 'read-code!
-          '("filename" string)
-          "Read code (as data) from a file. Returns a vector of expressions")
-
 (def send-code!
+  "Send code from a file to a remote chain."
   (fn [chain-id filename]
     (send! chain-id (read-code! filename))))
-
-(document 'send-code!
-          '(("chain-id" string) ("filename" string))
-          "Send code from a file to a remote chain.")
 
 (def print!
   "Print a value to the console or stdout."
@@ -25,16 +19,12 @@
     (put-str! (show x))))
 
 (def pretty-print!
-  "Print a value to the console or stdout."
+  "Pretty print (ANSI) a value to the console or stdout."
   (fn [x]
     (put-str! (pretty x))))
 
 (def shell!
-  "(shell! command stdin) executes 'command' using the shell with 'to-write' as
-   input. Returns the exit code. Stdout and stderr are inherited.
-   WARNING: using 'shell!' with unsanitized user input is a security hazard!
-   Example: (shell! \"ls -Glah\" \"\")
-   "
+  "(shell! command stdin) executes `command` using the shell with `to-write` as input. Returns the exit code. Stdout and stderr are inherited.  WARNING: using `shell!` with unsanitized user input is a security hazard!  Example: (shell! \"ls -Glah\" \"\") "
   (fn [command to-write]
     (def cp
       { :cmdspec [:shell command]
@@ -48,11 +38,7 @@
       _ (throw 'io-error "expected only stdin to be open"))))
 
 (def process!
-  "(process! command args to-write) executes 'command' using 'execvp'. with 'to-write' as
-   input. Returns the exit code.
-   See 'man exec' for more information on 'execvp'.
-   Example: (process! \"ls\" [\"-Glah\"] \"\"
-  "
+  "(process! command args to-write) executes `command` using 'execvp'. with 'to-write' as input. Returns the exit code.  See 'man exec' for more information on 'execvp'.  Example: (process! \"ls\" [\"-Glah\"] \"\") "
   (fn [command args to-write]
     (def cp
       { :cmdspec [:raw command args]

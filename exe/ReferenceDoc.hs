@@ -92,17 +92,17 @@ main = do
       ["dict", "lookup", "insert", "delete", "dict-from-list", "keys", "values", "rekey"
       , "map-values", "map-keys", "modify-map", "delete-many", "exclusive-dict-merge"]
     sets = ["set/empty", "set/insert", "set/delete", "set/member?", "set/delete", "set/from-seq", "set/to-vec"]
-    strings = ["intercalate", "lines", "string-replace", "words"]
+    strings = ["intercalate", "lines", "string-replace", "words", "pretty"]
     structs = ["member?"]
     patterns = ["match-pat", "_", "/?", "/nil", "/cons", "/as", "non-linear-merge"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
     docs = ["help", "doc", "doc!", "apropos!", "document", "is-test-env"]
     io =
       [ "print!", "get-line!"
-      , "load!", "read-file!", "read-code!", "send-code!"
-      , "put-str!", "process!", "shell!", "shell-with-stdout!", "system!"
+      , "load!", "read-file!", "read-code!", "send-code!", "pretty-print!"
+      , "put-str!", "process!", "shell!", "system!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"
-      , "now!"]
+      , "read-line-handle!", "wait-for-process!", "write-handle!", "now!"]
     maybe' = ["/Just", "maybe->>=", "maybe-foldlM"]
     lens = ["@", "@nth", "make-lens", "view", "view-ref", "set", "set-ref", "over", "over-ref", "id-lens", "..", "..."]
     validation =
