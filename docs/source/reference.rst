@@ -14,11 +14,6 @@ Functions for creating and importing modules.
 
 Creates a module from the code in a file.
 
-``(file-to-module file)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Make the text of a file into a module declaration.
-
 ``import``
 ~~~~~~~~~~
 

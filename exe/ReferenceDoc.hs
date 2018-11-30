@@ -76,7 +76,7 @@ main = do
             \ before sending these to a remote chain."
       ]
 
-    modules = ["file-module!", "file-to-module", "import", "module-from-env"]
+    modules = ["file-module!", "import", "module-from-env"]
     basics =
       [ "eq?", "not", "and", "or", "all", "some", "show", "string-append", "string-length"
       , "apply", "type", "atom?", "boolean?", "string?", "number?", "keyword?", "vector?", "list?"
@@ -122,7 +122,7 @@ main = do
     typ s = "Functions for manipulating " <> s <> "."
 
     -- Functions which shouldn't be in the reference docs.
-    modulesNames = ["prelude/basic", "prelude/bool", "prelude/chain", "prelude/dict", "prelude/exception", "prelude/io", "prelude/lens", "prelude/list", "prelude/patterns", "prelude/recursion", "prelude/ref", "prelude/set", "prelude/state-machine", "prelude/util", "prelude/validation"]
+    modulesNames = ["prelude/test", "prelude/basic", "prelude/bool", "prelude/chain", "prelude/dict", "prelude/exception", "prelude/io", "prelude/lens", "prelude/list", "prelude/patterns", "prelude/recursion", "prelude/ref", "prelude/set", "prelude/state-machine", "prelude/util", "prelude/validation"]
     doNotInclude = ["head-shots", "get-head-shot", "eval__", "kim-trans", "pr-thread", "pr-trans", "_initial-prompt-text"] ++ modulesNames
 
     allFns =

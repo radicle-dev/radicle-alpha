@@ -2,10 +2,10 @@
 
 "Functions for simulating remote chains."
 
-'[new-chain load-chain eval-in-chain update-chain-ref eval updatable-eval update-chain eval-fn-app]
+'[new-chain load-chain eval-in-chain update-chain-ref eval updatable-eval update-chain eval-fn-app send-prelude!]
 
-(import prelude/ref ['modify-ref])
-(import prelude/lens ['.. '... 'view 'over '@])
+(import prelude/ref '[modify-ref])
+(import prelude/lens '[.. ... view over @])
 
 ;; Chains: Functions for dealing with chains.
 
@@ -192,3 +192,50 @@
                               (base-eval (nth 1 expr) state)
                               (sub-eval expr state))
              _ (sub-eval expr state)))))
+
+(def pure-prelude-files
+  (list
+   ;; "rad/prelude/test.rad" ;; pure unless test env
+   "rad/prelude/basic.rad"
+   "rad/prelude/patterns.rad"
+   "rad/prelude/pure-should-be.rad"
+   "rad/prelude/recursion.rad"
+   "rad/prelude/bool.rad"
+   "rad/prelude/list.rad"
+   "rad/prelude/dict.rad"
+   "rad/prelude/set.rad"
+   "rad/prelude/ref.rad"
+   "rad/prelude/lens.rad"
+   "rad/state-machine.rad"
+   "rad/prelude/validation.rad"
+   "rad/prelude/util.rad"
+   ))
+
+(document 'pure-prelude-files
+          '()
+          "List of files which together define the pure prelude.")
+
+(def file-to-module
+  "Make the text of a file into a module declaration."
+  (fn [file]
+    (string-append "(module " (read-file! file) " )")))
+
+(def pure-prelude-code
+  (read-many
+   (string-append
+    (file-to-module "rad/prelude/test.rad")
+    "(import prelude/test)"
+    (apply string-append
+           (map file-to-module pure-prelude-files)))))
+
+(document 'pure-prelude-code
+          '()
+          "The pure prelude.")
+
+(def send-prelude!
+  (fn [chain-id]
+    (send! chain-id pure-prelude-code)))
+
+(document 'send-prelude!
+          '(("chain-id" string))
+"Send the pure prelude to a chain.")
