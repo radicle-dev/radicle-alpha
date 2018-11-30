@@ -1,77 +1,51 @@
 {:module 'prelude/test
- :doc "An eval used for testing."
- :exports ['eval]}
+ :doc "Provides eval that adds a `:test` macro."
+ :exports '[run run-all]}
 
-;; testing functions
+(def run
+  "Run the tests in `test-def` and print the result. `test-def` is a `{:env env
+  :tests tests :name name}` dictionary where `env` is a radicle environment and
+  `tests` is a list of quoted test cases with an optional `:setup` item.
+  ```
+  '(
+    [:setup (do
+      (def foo #t)
+    )]
+    [ foo ==> #t ]
+    [ (not foo) ==> #f ]
+  )
+  ```
+  "
+  (fn [test-def]
+    (def test-env (lookup :env test-def))
+    (def test-name (lookup :name test-def))
+    (def error
+      (fn [msg]
+        (put-str! (string-append "Test '" test-name "' failed: " msg))))
+    ;; Check a single test in a given env
+    (def check-single
+      (fn [single ix senv]
+        (def lhs (nth 0 single))
+        (def marker (nth 1 single))
+        (def rhs (nth 2 single))
+        (if (eq? marker '==>)
+            (do
+              (def lhs-res (head (eval lhs senv)))
+              (if (eq? lhs-res rhs)
+                  (put-str! (string-append "Test '" test-name " (" (show ix) ")' succeeded"))
+                  (error (string-append "failed: got " (show lhs-res) " but expected " (show rhs)))))
+            (error "Expected and actual not separate by ==>"))
+        (+ ix 1)))
+    (def test-contents (lookup :tests test-def))
+    (def maybe-setup (nth 0 test-contents))
+    ;; If first block starts with :setup, run tests in that env
+    (if (eq? (nth 0 maybe-setup) :setup)
+        (do (def setup-env (nth 1 (eval (nth 1 maybe-setup) test-env)))
+            (foldl (fn [ix x] (check-single x ix setup-env)) 1 (tail test-contents)))
+        (foldl (fn [ix x] (check-single x ix test-env)) 1 test-contents))
+))
 
-(def is-test-env
-  "True iff file is being run as part of the Haskell suite"
-  (catch 'any (eq? test-env__ #t) (fn [x] #f)))
-
-;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
-(def eval
-  "The evaluation function."
-  (fn [expr env]
-    (if (list? expr)
-        (if (> (foldr (fn [x acc] (+ acc 1)) 0 expr) 0)
-            (if (eq? (head expr) :test)
-                (if is-test-env
-                  (do
-                    (def test-name (nth 1 expr))
-                    (def error
-                      (fn [msg]
-                        (put-str! (string-append "Test '" test-name "' failed: " msg))))
-                    ;; Check a single test in a given env
-                    (def check-single
-                      (fn [single ix senv]
-                        (def lhs (nth 0 single))
-                        (def marker (nth 1 single))
-                        (def rhs (nth 2 single))
-                        (if (eq? marker '==>)
-                            (do
-                              (def lhs-res (head (eval lhs senv)))
-                              (if (eq? lhs-res rhs)
-                                  (put-str! (string-append "Test '" test-name " (" (show ix) ")' succeeded"))
-                                  (error (string-append "failed: got " (show lhs-res) " but expected " (show rhs)))))
-                            (error "Expected and actual not separate by ==>"))
-                        (+ ix 1)))
-                    (def test-contents (drop 2 expr))
-                    (def maybe-setup (nth 0 test-contents))
-                    ;; If first block starts with :setup, run tests in that env
-                    (if (eq? (nth 0 maybe-setup) :setup)
-                        (do (def setup-env (nth 1 (eval (nth 1 maybe-setup) env)))
-                            (foldl (fn [ix x] (check-single x ix setup-env)) 1 (tail test-contents)))
-                        (foldl (fn [ix x] (check-single x ix env)) 1 test-contents))
-                    (list :ok env))
-                  (list :ok env))
-                (eval expr env))
-            (eval expr env))
-        (eval expr env))))
-
-(:test "'test' works (including :setup)"
-    [:setup
-       (do
-          (def x 3)
-          (def y (ref 0))
-          (write-ref y 1)
-          ;; Test the mocked send!/receive!
-          (def chain-name (uuid!))
-          (send! chain-name [0])
-          (def received (receive! chain-name 0)))
-    ]
-    [(+ 3 2) ==> 5]
-    [x       ==> 3]
-    [(read-ref y) ==> 1]
-    [received ==> (0)]
-)
-
-(:test "'test' handles exceptions properly"
-    [:setup
-      (do
-        (def x (catch 'any (throw 'blah) (fn [x] #t)))
-        (def y (catch 'any (throw 'blah) (fn [x] #f)))
-      )
-    ]
-    [x ==> #t]
-    [y ==> #f]
-)
+(def run-all
+  "Run all `tests`."
+  (fn [tests]
+    (map (fn [t] (run t)) tests)))

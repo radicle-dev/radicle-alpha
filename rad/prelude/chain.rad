@@ -213,8 +213,8 @@
 
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new chain."
-  (<> [(file-to-module "rad/prelude/test.rad")
-       '(import prelude/test :unqualified)]
+  (<> [(file-to-module "rad/prelude/test-eval.rad")
+       '(import prelude/test-eval '[eval tests] :unqualified)]
       (map file-to-module pure-prelude-files)))
 
 (def send-prelude!

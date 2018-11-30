@@ -22,7 +22,7 @@ import qualified Text.Megaparsec.Pos as Par
 import           Radicle
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary ()
-import           Radicle.Internal.Core (addBinding, asValue, noStack)
+import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Foo)
 import           Radicle.Internal.TestCapabilities
 
@@ -687,7 +687,7 @@ test_repl_primops =
   where
     run stdin' prog =
         let ws = defaultWorldState { worldStateStdin = stdin' }
-        in fst <$> runCode' ws (pure ()) prog
+        in fst <$> runCodeWithWorld ws prog
 
 test_repl :: [TestTree]
 test_repl =
@@ -806,21 +806,13 @@ test_cbor =
             counterexample info $ got == expected
 
 
--- Tests radicle files. These should use the ':test' macro to ensure
--- they are in the proper format.
--- Note that loaded files will also be tested, so there's no need to test files
--- loaded by the prelude individually.
+-- | Call @(run-all-tests)@ which runs all tests defined in the
+-- Radicle source with the @:test@ macro.
 test_source_files :: IO TestTree
 test_source_files = do
     tests <- join <$> traverse testOne ["rad/prelude.rad", "rad/monadic/issues.rad"]
     pure $ testGroup "Radicle source file tests" tests
   where
-    -- If the @test-env__@ is defined and true in the radicle
-    -- environment then the @:test@ macro will execute some code.
-    -- enableSelfTest :: Bindings a -> Bindings a
-    enableSelfTest :: Monad m => Lang m ()
-    enableSelfTest = modify $ addBinding (unsafeToIdent "test-env__") Nothing (Boolean True)
-
     testOne :: FilePath -> IO [TestTree]
     testOne file = do
         ws' <- worldStateWithSource
@@ -828,7 +820,10 @@ test_source_files = do
             Right kp -> pure $ renderCompactPretty kp
             Left _   -> panic "Couldn't generate keypair file."
         let ws = addFileToWorld "my-keys.rad" keyPair ws'
-        (r, out) <- runCode' ws enableSelfTest $ toS $ "(load! \"" <> file <> "\")"
+        let code = "(load! \"" <> file <> "\")"
+                <> "(import prelude/test)"
+                <> "(prelude/test/run-all (read-ref tests))"
+        (r, out) <- runCodeWithWorld ws $ toS code
         let doesntThrow = if isRight r
                 then pure ()
                 else assertFailure $ "Expected Right, got: " <> toS (prettyEither r)
