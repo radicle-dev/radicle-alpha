@@ -34,8 +34,8 @@
         - name: Radicle.Internal.TestCapabilities
         - identifier:
           - TestLang
-          - clientPrimFns
           - runTestWith'
+          - storagePrimFns
       - module:
         - name: Radicle.Tests
         - identifier:
