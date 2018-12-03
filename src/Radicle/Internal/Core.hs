@@ -462,7 +462,7 @@ emptyBindings = Bindings mempty mempty mempty 0 mempty 0 mempty 0
 --
 -- Throws 'OtherError' if @value@ cannot be parsed.
 --
--- prop> gets bindingsToRadcile >>= setBindings = pure ()
+-- prop> \x -> runLang x (gets bindingsToRadicle >>= setBindings) = runLang x (pure ())
 setBindings :: Monad m => Value -> Lang m ()
 setBindings value = do
     case bindingsFromRadicle value of
