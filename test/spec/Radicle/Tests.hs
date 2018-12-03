@@ -733,8 +733,8 @@ test_from_to_radicle =
         ]
 
     , testGroup "CmdSpec"
-        [ Vec (fromList [(kw "shell"), String "blah blah"]) ~~ ShellCommand "blah blah"
-        , Vec (fromList [(kw "raw"), String "blah", Vec $ fromList [String "blah", String "blah"]])
+        [ Vec (fromList [kw "shell", String "blah blah"]) ~~ ShellCommand "blah blah"
+        , Vec (fromList [kw "raw", String "blah", Vec $ fromList [String "blah", String "blah"]])
               ~~ RawCommand "blah" ["blah", "blah"]
         ]
     ]

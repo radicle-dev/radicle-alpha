@@ -16,7 +16,7 @@
   - {name: [Data.ByteString.Lazy.Char8], as: L8}
 
 - functions:
-  - {name: unsafePerformIO, within: []}
+  - {name: unsafePerformIO, within: [Radicle.Tests, Radicle.Internal.TestCapabilities]}
 
 - warn: {lhs: foldl, rhs: foldl'}
 - warn: {lhs: return, rhs: pure}

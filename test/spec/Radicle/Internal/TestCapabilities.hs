@@ -11,7 +11,6 @@ import qualified Data.Time as Time
 import           GHC.Exts (fromList)
 import qualified System.FilePath.Find as FP
 import           System.IO.Unsafe (unsafePerformIO)
-import           System.Process (CreateProcess)
 
 import           Radicle
 import           Radicle.Internal.Core (addBinding)
@@ -34,7 +33,6 @@ data WorldState = WorldState
     , worldStateUUID         :: Int
     , worldStateRemoteChains :: Map Text (Seq.Seq Value)
     , worldStateCurrentTime  :: Time.UTCTime
-    , worldStateProcess      :: [(CreateProcess)]
     }
 
 
@@ -57,7 +55,6 @@ runTestWithFiles bindings inputs files action = do
             , worldStateUUID = 0
             , worldStateRemoteChains = mempty
             , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
-            , worldStateProcess = []
             }
     (val, st) <- runStateT (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws
     pure (val, worldStateStdout st)
