@@ -44,15 +44,14 @@ extra-deps:
 - cborg-0.2.0.0
 - acid-state-0.14.3
 
-image:
-  containers:
-    - base: "fpco/ubuntu-with-libgmp:14.04"
-      name: "radicle/server"
-      executables:
-        - server
-
 # Override default flag values for local packages and extra-deps
 # flags: {}
+
+docker:
+  enable: false
+  # The default "host" does not work if the host version of stack is
+  # not statically linked, which is the case on Arch.
+  stack-exe: download
 
 # Extra package databases containing global packages
 # extra-package-dbs: []

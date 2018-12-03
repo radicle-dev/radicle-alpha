@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:11-alpine
+    ports:
+    - "15432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+  radicle-server:
+    image: eu.gcr.io/opensourcecoin/radicle-server
+    build: .
+    depends_on:
+    - postgres
+    command:
+    - radicle-server
+    - --host=postgres
+    - --db=postgres
+    ports:
+    - "8024:8000"
+
+volumes:
+  pg-data: {}

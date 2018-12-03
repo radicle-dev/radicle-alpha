@@ -28,6 +28,16 @@ rad> (def-rec fac (fn [n] (if (eq? n 0) 1 (* n (fac (- n 1))))))
 rad> (fac 6)
 ```
 
+## Radicle Server
+
+`radicle-server` is a service that hosts Radicle state machines and persists
+them to PostgreSQL.
+
+The lastest master build of this service is distributed as the Docker image
+`eu.gcr.io/opensourcecoin/radicle-server`. To build the image locally run
+`images/radicle-server/build.sh`. You can also use
+`images/radicle-server/docker-compose.yaml`.
+
 ## Development
 
 You can run tests with `stack test`.
