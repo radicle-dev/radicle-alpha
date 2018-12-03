@@ -12,13 +12,9 @@ import           Data.Time
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.Exit (ExitCode)
-import           System.IO (isEOF, hGetLine)
+import           System.IO (hGetLine, isEOF)
 import           System.Process
-                 ( CreateProcess
-                 , ProcessHandle
-                 , createProcess
-                 , waitForProcess
-                 )
+                 (CreateProcess, ProcessHandle, createProcess, waitForProcess)
 #ifdef ghcjs_HOST_OS
 import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)

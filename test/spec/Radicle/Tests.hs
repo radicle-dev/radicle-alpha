@@ -747,7 +747,7 @@ test_from_to_radicle =
            fromRad v @?= Right v'
            untag (toRad v' :: Value) @?= untag v
     testForType
-        :: forall a. (Arbitrary a, Show a, ToRad Ann.WithPos a, FromRad Ann.WithPos a, Eq a)
+        :: forall a . (Arbitrary a, Show a, ToRad Ann.WithPos a, FromRad Ann.WithPos a, Eq a)
         => Proxy a -> TestTree
     testForType _ =
         testProperty "fromRadicle . toRadicle == id" $ \(v :: a ) -> do
@@ -796,8 +796,9 @@ test_source_files = do
         keyPair :: Text <- runTest testBindings "(gen-key-pair! (default-ecc-curve))" >>= \case
             Right kp -> pure $ renderCompactPretty kp
             Left _   -> panic "Couldn't generate keypair file."
-        (r, out) <- runTestWithFiles testBindings [] (Map.insert "my-keys.rad"
-            keyPair (fromList allFiles)) contents
+        (r, out) <- runTestWithFiles testBindings []
+                        (Map.insert "my-keys.rad" keyPair (fromList allFiles))
+                        contents
         let makeTest line =
                 let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
                          $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line
@@ -836,8 +837,8 @@ atom = Atom . unsafeToIdent
 int :: Integer -> Value
 int = Number . fromIntegral
 
--- -- | Like 'parse', but uses "(test)" as the source name and the default set of
--- -- primops.
+-- | Like 'parse', but uses "(test)" as the source name and the default set of
+-- primops.
 parseTest :: MonadError Text m => Text -> m Value
 parseTest t = parse "(test)" t
 
@@ -854,7 +855,7 @@ assertReplInteraction :: [Text] -> [Text] -> IO ()
 assertReplInteraction input expected = do
     (dir, srcs) <- sourceFiles
     srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
-    let (result, output) = runTestWithFiles testBindings input (Map.fromList srcMap) "(load! \"rad/repl.rad\")"
+    (result, output) <- runTestWithFiles testBindings input (Map.fromList srcMap) "(load! \"rad/repl.rad\")"
     case result of
         Left err -> assertFailure $ "Error thrown in Repl: " <> toS (renderPrettyDef err)
         Right _  -> pure ()
