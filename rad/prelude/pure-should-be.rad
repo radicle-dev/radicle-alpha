@@ -1,8 +1,6 @@
-'prelude/should-be
-
-"An old testing function."
-
-[]
+{:module 'prelude/should-be
+ :doc "An old testing function."
+ :exports []}
 
 ;; A version of should-be for pure environments.
 

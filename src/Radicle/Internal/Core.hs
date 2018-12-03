@@ -71,6 +71,8 @@ data LangErrorData r =
     -- args
     | WrongNumberOfArgs Text Int Int
     | NonHashableKey
+    | MissingModuleDeclaration
+    | InvalidModuleDeclaration Text Value
     | OtherError Text
     | ParseError (Par.ParseError Char Void)
     -- | Raised if @(throw ident value)@ is evaluated. Arguments are
@@ -134,6 +136,8 @@ errorDataToValue e = case e of
           , ("actual", Number $ fromIntegral actual)]
         )
     NonHashableKey -> makeVal ( "non-hashable-key", [])
+    MissingModuleDeclaration -> makeVal ( "missing-module-declaration", [])
+    InvalidModuleDeclaration t v -> makeVal ( "invalid-module-declaration", [("info", String t), ("declaration", v)])
     OtherError i -> makeVal
         ( "other-error"
         , [("info", String i)]
@@ -616,7 +620,7 @@ specialForms = Map.fromList $ first Ident <$>
   , ("scope", \case
         [] -> pure nil
         (e:es) -> NonEmpty.last <$> withEnv identity (traverse baseEval (e :| es)))
-  , ( "module", createModule "module")
+  , ( "module", createModule )
   , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -708,27 +712,41 @@ specialForms = Map.fromList $ first Ident <$>
           pure nil
         _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
 
+data ModuleMeta = ModuleMeta
+  { name :: Ident
+  , exports :: [Ident]
+  , doc :: Text
+  }
+
 -- Given a list of forms, the first three of which should be module metadata,
 -- runs the rest of the forms in a new scope, and then defs the module value.
-createModule :: Monad m => Text -> [Value] -> Lang m Value
-createModule ctx = \case
-    (name : doc : exports : forms) -> do
-      name' <- baseEval name
-      doc' <- baseEval doc
-      exports' <- baseEval exports
-      case (name', doc', exports') of
-        (Atom n, String d, Vec is) -> do
-          is' <- traverse isAtom is ?? toLangError (OtherError $ ctx <> ": Module export vector should only contain atoms")
-          e <- withEnv identity $ traverse_ eval forms *> gets bindingsEnv
-          let m :: Value = toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (toList is'))
-          defineAtom n (Just d) m
-          pure (Keyword (Ident "ok"))
-        _ -> err
-    _ -> err
+createModule :: forall m. Monad m => [Value] -> Lang m Value
+createModule = \case
+    (m : forms) -> do
+      m' <- baseEval m >>= meta
+      e <- withEnv identity $ traverse_ eval forms *> gets bindingsEnv
+      let env = toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (exports m'))
+      let modu = Dict $ Map.fromList
+                  [ (Keyword (Ident "env"), env)
+                  , (Keyword (Ident "exports"), Vec (Seq.fromList (Atom <$> exports m')))
+                  ]
+      defineAtom (name m') (Just (doc m')) modu
+      pure (Keyword (Ident "ok"))
+    _ ->  throwErrorHere MissingModuleDeclaration
   where
-    err = throwErrorHere $ OtherError $ ctx <> ": Modules should start with an atom for the name, then a docstring, and then an exports vector"
+    meta v@(Dict d) = do
+      name <- modLookup v "module" d "missing `:module` key"
+      doc  <- modLookup v "doc" d "missing `:doc` key"
+      exports <- modLookup v "exports" d "Missing `:exports` key"
+      case (name, doc, exports) of
+        (Atom n, String ds, Vec es) -> do
+          is <- traverse isAtom es ?? toLangError (InvalidModuleDeclaration "`:exports` must be a vector of atoms" v)
+          pure $ ModuleMeta n (toList is) ds
+        _ -> throwErrorHere (InvalidModuleDeclaration "`:module` must be an atom, `:doc` must be a string and `:exports` must be a vector" v)
+    meta v = throwErrorHere (InvalidModuleDeclaration "must be dict" v)
+    modLookup v k d e = kwLookup k d ?? toLangError (InvalidModuleDeclaration e v)
 
--- * From/ToRadicle
+-- * From/ ToRadicle
 
 type CPA t = (Ann.Annotation t, Copointed t)
 

@@ -1,8 +1,6 @@
-'prelude/test
-
-"An eval used for testing."
-
-['eval]
+{:module 'prelude/test
+ :doc "An eval used for testing."
+ :exports ['eval]}
 
 ;; testing functions
 

@@ -1,8 +1,6 @@
-'prelude/io
-
-"Some basic I/O functions."
-
-'[read-line! send-code! read-code!]
+{:module 'prelude/io
+ :doc "Some basic I/O functions."
+ :exports '[read-line! send-code! read-code!]}
 
 ;; read-line
 (def read-line!

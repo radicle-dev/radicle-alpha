@@ -1,8 +1,6 @@
-'prelude/recursion
-
-"Some recursion combinators."
-
-['Y 'Y2]
+{:module 'prelude/recursion
+ :doc "Some recursion combinators."
+ :exports ['Y 'Y2]}
 
 ;; y-combinators ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

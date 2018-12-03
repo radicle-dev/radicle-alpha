@@ -175,6 +175,7 @@ executables:
     - containers
     - haskeline
     - text
+    - yaml
     ghc-options: -main-is ReferenceDoc
 
   radicle-github-issues:

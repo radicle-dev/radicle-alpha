@@ -545,15 +545,15 @@ purePrimFns = fromList $ allDocs $
           (x@(Atom _), v) -> pure $ toRad (Just (Dict (Map.singleton x v)))
           (pat, v) -> callFn pat [v]
       )
-    , ( "module-from-env"
-      , "Creates a module with definitions for all the atoms given as inputs.\
-        \ The definitions are taken from the current scope. It is probably\
-        \ better to use the `module` special-form."
-      , \xs -> do
-          is <- traverse isAtom xs ?? toLangError (OtherError "module-from-env: all arguments must be atoms")
-          e <- gets bindingsEnv
-          pure $ toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList is)
-      )
+    -- , ( "module-from-env"
+    --   , "Creates a module with definitions for all the atoms given as inputs.\
+    --     \ The definitions are taken from the current scope. It is probably\
+    --     \ better to use the `module` special-form."
+    --   , \xs -> do
+    --       is <- traverse isAtom xs ?? toLangError (OtherError "module-from-env: all arguments must be atoms")
+    --       e <- gets bindingsEnv
+    --       pure $ toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList is)
+    --   )
     , ( "import"
       , "Import a module, making all the definitions of that module available\
         \ in the current scope. The first argument must be a module to import.\
@@ -604,7 +604,8 @@ purePrimFns = fromList $ allDocs $
           (v, _) -> throwErrorHere $ TypeError name 0 TNumber v
       )
 
-    import' v is_ prefix_ = do
+    import' (Dict d) is_ prefix_ = do
+      v <- kwLookup "env" d ?? toLangError (OtherError "Modules should have an `:env` key")
       e <- fromRadOtherErr v
       let allMod = fromEnv e
       let toImport = case is_ of
@@ -616,6 +617,7 @@ purePrimFns = fromList $ allDocs $
       s <- get
       put $ s { bindingsEnv = qualified <> bindingsEnv s }
       pure ok
+    import' _ _ _ = throwErrorHere (OtherError "Modules must be dicts")
 
 -- * Helpers
 

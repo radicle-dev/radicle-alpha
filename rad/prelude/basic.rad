@@ -1,9 +1,6 @@
-'prelude/basic
-
-"Basic functions which need to be defined early because they are so useful for
-other core modules."
-
-'[or some empty-seq? length maybe->>= maybe-foldlM]
+{:module  'prelude/basic
+ :doc     "Basic function used for checking equality, determining the type of a value, etc."
+ :exports '[or some empty-seq? length maybe->>= maybe-foldlM]}
 
 ;; or
 

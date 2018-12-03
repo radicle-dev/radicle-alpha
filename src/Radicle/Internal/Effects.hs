@@ -289,7 +289,7 @@ replPrimFns = fromList $ allDocs $
             t_ <- readFileS filename
             t <- hoistEither . first (toLangError . OtherError) $ t_
             vs <- readValues ("file-module!: " <> filename) t
-            createModule ("file-module! - " <> filename) vs
+            createModule vs
           v -> throwErrorHere $ TypeError "file-module!" 0 TString v
       )
     ]

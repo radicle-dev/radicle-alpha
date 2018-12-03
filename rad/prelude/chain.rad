@@ -1,8 +1,6 @@
-'prelude/chain
-
-"Functions for simulating remote chains."
-
-'[new-chain load-chain eval-in-chain update-chain-ref eval updatable-eval update-chain eval-fn-app send-prelude!]
+{:module 'prelude/chain
+ :doc "Functions for simulating remote chains."
+ :exports '[new-chain load-chain eval-in-chain update-chain-ref eval updatable-eval update-chain eval-fn-app send-prelude!]}
 
 (import prelude/ref '[modify-ref])
 (import prelude/lens '[.. ... view over @])
@@ -205,7 +203,7 @@
    "rad/prelude/set.rad"
    "rad/prelude/ref.rad"
    "rad/prelude/lens.rad"
-   "rad/state-machine.rad"
+   "rad/prelude/state-machine.rad"
    "rad/prelude/validation.rad"
    "rad/prelude/util.rad"])
 

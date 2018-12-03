@@ -28,7 +28,9 @@
   "monadic/radicle/issues")
 
 (def issues-chain
-  (ref (load-chain "http://radicle.xyz/chains/radicle-issues")))
+  ;;(ref (load-chain "http://radicle.xyz/chains/radicle-issues"))
+  (ref (load-chain "localhost:8000/chains/radicle-issues"))
+  )
 
 (def create-issues-chain!
   "Create a remote issue chain with the given url."

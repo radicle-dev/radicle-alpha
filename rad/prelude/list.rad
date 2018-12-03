@@ -1,8 +1,6 @@
-'prelude/list
-
-"Functions for manipulating lists."
-
-['nil 'empty? 'reverse 'range 'concat 'filter]
+{:module 'prelude/list
+ :doc "Functions for manipulating lists."
+ :exports ['nil 'empty? 'reverse 'range 'concat 'filter]}
 
 ;; List functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

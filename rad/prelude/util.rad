@@ -1,8 +1,6 @@
-'prelude/util
-
-"Utility functions. For the moment just a counter."
-
-['make-counter]
+{:module 'prelude/util
+ :doc "Utility functions. For the moment just a counter."
+ :exports ['make-counter]}
 
 (import prelude/ref)
 

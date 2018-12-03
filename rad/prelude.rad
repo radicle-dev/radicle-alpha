@@ -12,8 +12,8 @@
 (file-module! "rad/prelude/set.rad")
 (file-module! "rad/prelude/ref.rad")
 (file-module! "rad/prelude/lens.rad")
-(file-module! "rad/chain.rad")
-(file-module! "rad/state-machine.rad")
+(file-module! "rad/prelude/chain.rad")
+(file-module! "rad/prelude/state-machine.rad")
 (file-module! "rad/prelude/validation.rad")
 (file-module! "rad/prelude/util.rad")
 

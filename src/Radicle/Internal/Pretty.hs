@@ -102,6 +102,11 @@ instance PrettyV r => PrettyV (LangErrorData r) where
                                  <+> "Expected:" <+> pretty x
                                  <+> "Got:" <+> pretty y
         NonHashableKey -> "Non-hashable key in dict."
+        MissingModuleDeclaration -> "Modules must start with a metadata declaration"
+        InvalidModuleDeclaration t decl -> vsep
+          [ "Invalid module declaration:" <+> pretty t <> ":"
+          , indent 2 $ prettyV decl
+          ]
         OtherError t -> "Error:" <+> pretty t
         SpecialForm f t -> "Error using special form" <+> pretty f <> ":" <+> pretty t <> "."
         ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)

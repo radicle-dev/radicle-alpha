@@ -1,8 +1,6 @@
-'prelude/lens
-
-"Functional references."
-
-['make-lens 'view 'set 'id-lens '.. '... 'over '@ '@nth 'view-ref 'set-ref 'over-ref]
+{:module 'prelude/lens
+ :doc "Functional references."
+ :exports ['make-lens 'view 'set 'id-lens '.. '... 'over '@ '@nth 'view-ref 'set-ref 'over-ref]}
 
 (import prelude/ref)
 

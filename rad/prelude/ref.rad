@@ -1,12 +1,7 @@
-'prelude/ref
+{:module 'prelude/ref
+ :doc "Functions for dealing with reference cells."
+ :exports ['modify-ref]}
 
-"Functions for dealing with reference cells."
-
-['modify-ref]
-
-;; ref functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; modify-ref
 (def modify-ref
   "Modify 'ref' by applying the provided function. Returns the new value."
   (fn [r f]

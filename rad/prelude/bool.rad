@@ -1,8 +1,6 @@
-'prelude/bool
-
-"Functions for dealing with truthiness and #f."
-
-'[not and or all]
+{:module 'prelude/bool
+ :doc "Functions for dealing with truthiness and #f."
+ :exports '[not and all]}
 
 ;; boolean functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
