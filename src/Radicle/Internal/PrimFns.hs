@@ -517,16 +517,6 @@ purePrimFns = fromList $ allDocs $
           String t -> pure . Boolean . UUID.isUUID $ t
           v -> throwErrorHere $ TypeError "uuid?" 0 TString v
       )
-    , ( "document"
-      , "Used to add documentation to variables."
-      , \case
-          [Atom i, List _, String desc] -> do
-            v <- lookupAtom i
-            defineAtom i (Just desc) v
-            pure nil
-          [_,_,_] -> throwErrorHere $ OtherError "document: expects an atom, a list of argument docs, and a string."
-          xs -> throwErrorHere $ WrongNumberOfArgs "document" 3 (length xs)
-      )
     , ( "doc"
       , "Returns the documentation string for a variable. To print it instead, use `doc!`."
       , oneArg "doc" $ \case
