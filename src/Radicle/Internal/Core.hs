@@ -503,7 +503,9 @@ setBindings value = do
 
 -- | Serializes the environment and references into a Radicle value.
 --
--- prop> gets bindingsToRadcile >>= setBindings = pure ()
+-- Satisfies the expected properties with `setBindings`:
+--    * `gets bindingsToRadicle >>= setBindings == pure ()`
+--    * `setBindings x >> gets bindingsToRadicle == setBindings x >> pure x`
 bindingsToRadicle :: Bindings a -> Value
 bindingsToRadicle x =
     Dict $ Map.fromList
