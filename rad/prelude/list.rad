@@ -6,11 +6,9 @@
 
 ;; empty?
 
-(def empty? (fn [ls] (or (eq? ls nil) (eq? ls []))))
-
-(document 'empty?
-  '(("seq" sequence))
-  "True if 'seq' is empty, false otherwise.")
+(def empty?
+  "True if 'seq' is empty, false otherwise."
+  (fn [ls] (or (eq? ls nil) (eq? ls []))))
 
 (:test "empty"
   [ (empty? (list 2)) ==> #f ]
@@ -20,18 +18,15 @@
 
 ;; reverse
 
-(def reverse (fn [ls]
-  (def go (Y2 (fn [go]
-    (fn [acc new]
-      (if (empty? new)
-          acc
-          (go (cons (head new) acc) (tail new)))))))
-  (go (list) ls)))
-
-(document 'reverse
-  '(("list" list))
-  "Returns the reversed 'list'.")
-
+(def reverse
+  "Returns the reversed 'list'."
+  (fn [ls]
+    (def go (Y2 (fn [go]
+      (fn [acc new]
+        (if (empty? new)
+            acc
+            (go (cons (head new) acc) (tail new)))))))
+    (go (list) ls)))
 
 (:test "reverse"
   [ (reverse (list 1 2 3)) ==> (3 2 1) ]
@@ -39,14 +34,12 @@
 
 ;; range
 
-(def range (Y2 (fn [range] (fn [from to]
-  (if (eq? from to)
-      (list to)
-      (cons from (range (+ 1 from) to)))))))
-
-(document 'range
-  '(("start" number) ("end" number))
-  "Returns a list with all integers from 'start' to 'end', inclusive.")
+(def range
+  "Returns a list with all integers from 'start' to 'end', inclusive."
+  (Y2 (fn [range] (fn [from to]
+    (if (eq? from to)
+        (list to)
+        (cons from (range (+ 1 from) to)))))))
 
 (:test "range"
   [ (range 1 5) ==> (1 2 3 4 5) ]
@@ -54,12 +47,10 @@
 
 ;; concat
 
-(def concat (fn [list1 list2]
-  (foldr (fn [a b] (cons a b)) list2 list1)))
-
-(document 'concat
-  '(("list1" list) ("list2" list))
-  "Concatenates 'list1' and 'list2'.")
+(def concat
+  "Concatenates 'list1' and 'list2'."
+  (fn [list1 list2]
+    (foldr (fn [a b] (cons a b)) list2 list1)))
 
 (:test "concat"
   [ (concat '(1 2 3) '(4 5 6)) ==> (1 2 3 4 5 6) ]
@@ -67,16 +58,14 @@
 
 ;; filter
 
-(def filter (Y2 (fn [filter] (fn [pred ls]
-  (if (empty? ls)
-      ls
-  (if (pred (head ls))
-      (cons (head ls) (filter pred (tail ls)))
-      (filter pred (tail ls))))))))
-
-(document 'filter
-  '(("filter-cond" function) ("list" list))
-  "Returns 'list' with only the elements that satisfy 'filter-cond'.")
+(def filter
+  "Returns 'list' with only the elements that satisfy 'filter-cond'."
+    (Y2 (fn [filter] (fn [pred ls]
+      (if (empty? ls)
+          ls
+      (if (pred (head ls))
+          (cons (head ls) (filter pred (tail ls)))
+          (filter pred (tail ls))))))))
 
 (:test "filter"
   [ (filter (fn [x] (< x 10)) (list 3 10 11))

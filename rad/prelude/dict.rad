@@ -3,12 +3,9 @@
 ;; dict-from-list
 
 (def dict-from-list
+  "Creates a dictionary from a list of key-value pairs."
   (fn [xs]
     (foldr (fn [kv acc] (insert (head kv) (head (tail kv)) acc)) (dict) xs)))
-
-(document 'dict-from-list
-  '(("list" list))
-  "Creates a dictionary from a list of key-value pairs.")
 
 (:test "dict-from-list"
   [ (dict-from-list (list (list :one 1) (list :two 2)))
@@ -35,13 +32,11 @@
 )
 
 ;; rekey
-(def rekey (fn [old-key new-key mp]
-  (def old-val (lookup old-key mp))
-  (delete old-key (insert new-key old-val mp))))
-
-(document 'rekey
-  '(("old-key" any) ("new-key" any) ("dict" dict))
-  "Change the key from 'old-key' to 'new-key' in 'dict'. If 'new-key' already exists, it is overwritten.")
+(def rekey
+  "Change the key from 'old-key' to 'new-key' in 'dict'. If 'new-key' already exists, it is overwritten."
+  (fn [old-key new-key mp]
+    (def old-val (lookup old-key mp))
+    (delete old-key (insert new-key old-val mp))))
 
 (:test "rekey"
   [ (rekey :a :b {:a 5}) ==> {:b 5} ])

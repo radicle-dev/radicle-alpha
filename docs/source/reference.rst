@@ -662,11 +662,6 @@ retrieve the docstring as a value use ``doc`` instead.
 
 Prints documentation for all documented variables in scope.
 
-``document``
-~~~~~~~~~~~~
-
-Used to add documentation to variables.
-
 ``is-test-env``
 ~~~~~~~~~~~~~~~
 
@@ -1044,14 +1039,14 @@ from the remote chain
 ``(add-quit after-quit-state before-quit-eval)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Adds a ':quit' command to 'before-quit-eval', which switches to
-'after-quit-state' (and to the eval in that state)
+Adds a ``:quit`` command to ``before-quit-eval``, which switches to
+``after-quit-state`` (and to the eval in that state)
 
 ``(add-send oeval)``
 ~~~~~~~~~~~~~~~~~~~~
 
-Add a :send special form that sends the contents of *input to the
-chain*\ cur-chain
+Add a ``:send`` special form that sends the contents of ``_input`` to
+the chain ``_cur-chain``
 
 ``(load-chain url)``
 ~~~~~~~~~~~~~~~~~~~~
@@ -1072,7 +1067,7 @@ The pure prelude.
 ``(store-exprs evalfn)``
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Store each new evaluated expression in '_inputs'
+Store each new evaluated expression in ``_inputs``
 
 ``(eval-fn-app state f arg cb)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1117,5 +1112,5 @@ the next state.
 ``(update-chain-ref chain-ref)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Update a ref containing a chain with the new expressions from the remote
-chain
+Update ``chain-ref`` containing a chain with the new expressions from
+the remote chain

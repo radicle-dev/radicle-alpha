@@ -96,7 +96,7 @@ main = do
     structs = ["member?"]
     patterns = ["match-pat", "_", "/?", "/nil", "/cons", "/as", "non-linear-merge"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
-    docs = ["help", "doc", "doc!", "apropos!", "document", "is-test-env"]
+    docs = ["help", "doc", "doc!", "apropos!", "is-test-env"]
     io =
       [ "print!", "get-line!"
       , "load!", "read-file!", "read-code!", "send-code!"
