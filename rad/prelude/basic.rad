@@ -1,12 +1,9 @@
 ;; or
 
 (def or
+  "Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'"
   (fn [x y]
     (if x x y)))
-
-(document 'or
-          '(("arg1" any) ("arg2" any))
-          "Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'")
 
 (:test "or"
        [ (or #t #t) ==> #t ]
@@ -39,12 +36,9 @@
 ;; length
 
 (def length
+  "Returns the length of 'list'."
   (fn [xs]
     (foldr (fn [x acc] (+ acc 1)) 0 xs)))
-
-(document 'length
-  '(("list" list))
-  "Returns the length of 'list'.")
 
 (:test "length"
   [ (length (list)) ==> 0]

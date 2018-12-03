@@ -11,19 +11,17 @@
     (... [(@ :env) (@ ident) (@ :val)])))
 
 (def new-chain
+  "Return an empty chain dictionary with the given url."
   (fn [url]
     {:state (pure-env)
      :inputs []
      :url url
      :index 0}))
 
-(document 'new-chain
-          '(("url" string))
-          "Return an empty chain dictionary with the given url.")
-
 ;; eval-in-chain
 
 (def eval-in-chain
+  "Evaluates 'expr' in the 'chain' and returns a dict with the ':result' and the resulting ':chain'."
   (fn [expr chain]
     (def chain-eval (view (.. (@ :state) (@var 'eval)) chain))
     (def x (chain-eval expr (lookup :state chain)))
@@ -40,10 +38,6 @@
                     chain))))
     {:chain new-chain
      :result result }))
-
-(document 'eval-in-chain
-          '(("expr" any) ("chain" chain))
-          "Evaluates 'expr' in the 'chain' and returns a dict with the ':result' and the resulting ':chain'.")
 
 (:test "eval-in-chain"
   [:setup
@@ -89,13 +83,10 @@
 ;; update-chain-ref
 
 (def update-chain-ref
+  "Update `chain-ref` containing a chain with the new expressions from the remote chain"
   (fn [chain-ref]
     (modify-ref chain-ref update-chain)
     :ok))
-
-(document 'update-chain-ref
-          '(("chain" chain))
-          "Update a ref containing a chain with the new expressions from the remote chain")
 
 (:test "update-chain-ref"
   [:setup
@@ -112,30 +103,25 @@
 ;; add-quit
 
 (def add-quit
+  "Adds a `:quit` command to `before-quit-eval`, which switches to `after-quit-state` (and to the eval in that state)"
   (fn [after-quit-state before-quit-eval]
     (fn [expr env]
       (if (eq? expr :quit)
           (list :ok after-quit-state)
           (before-quit-eval expr env)))))
 
-(document 'add-quit
-          '(("after-quit-state" dict) ("before-quit-eval" fn))
-          "Adds a ':quit' command to 'before-quit-eval', which switches to 'after-quit-state' (and to the eval in that state)")
-
 ;; store-exprs
 
 (def store-exprs
+  "Store each new evaluated expression in `_inputs`"
  (fn [evalfn]
      (fn [expr env]
          (def env_ (over (@var '_inputs) (fn [x] (add-right expr x)) env))
          (evalfn expr env_ ))))
 
-(document 'store-exprs
-          '(("eval" fn))
-          "Store each new evaluated expression in '_inputs'")
-
 ;; add-send
 (def add-send
+  "Add a `:send` special form that sends the contents of `_input` to the chain `_cur-chain`"
   (fn [oeval]
       (fn [expr env]
           (if (eq? expr :send)
@@ -145,10 +131,6 @@
                   (def env_ (set inpl [] env))
                   (list :ok env_))
               ((store-exprs oeval) expr env)))))
-
-(document 'add-send
-          '(("eval-fn" fn))
-          "Add a :send special form that sends the contents of _input to the chain _cur-chain")
 
 ;; enter-remote-chain
 (def enter-remote-chain
