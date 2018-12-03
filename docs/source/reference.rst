@@ -127,16 +127,6 @@ values.
 Throws an exception. The first argument should be an atom used as a
 label for the exception, the second can be any value.
 
-``(Y h)``
-~~~~~~~~~
-
-A combinator used to create recursive functions of one variable.
-
-``(Y2 h)``
-~~~~~~~~~~
-
-A combinator used to create recursive functions of two variables.
-
 ``to-json``
 ~~~~~~~~~~~
 
@@ -241,7 +231,7 @@ Adds an element to the front of a list.
 ``(reverse ls)``
 ~~~~~~~~~~~~~~~~
 
-Returns the reversed 'list'.
+Returns the reversed 'ls'.
 
 ``(length xs)``
 ~~~~~~~~~~~~~~~
@@ -261,7 +251,7 @@ Returns 'list' with only the elements that satisfy 'filter-cond'.
 ``(range from to)``
 ~~~~~~~~~~~~~~~~~~~
 
-Returns a list with all integers from 'start' to 'end', inclusive.
+Returns a list with all integers from ``from`` to ``end``, inclusive.
 
 ``(list-with-head x f g)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

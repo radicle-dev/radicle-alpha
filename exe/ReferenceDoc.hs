@@ -78,7 +78,7 @@ main = do
     basics =
       [ "eq?", "not", "and", "or", "all", "some", "show", "string-append", "string-length"
       , "apply", "type", "atom?", "boolean?", "string?", "number?", "keyword?", "vector?", "list?"
-      , "dict?", "read", "read-many", "throw", "Y", "Y2", "to-json", "uuid?", "make-counter"
+      , "dict?", "read", "read-many", "throw", "to-json", "uuid?", "make-counter"
       , "public-key?" ]
     maths = ["+", "*", "-", "/", "<", ">", "integral?"]
     evalFns = ["base-eval", "eval", "updatable-eval"]
