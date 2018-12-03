@@ -50,9 +50,9 @@
   [ (view (.. (@ :chain) (@ :index)) res)  ==> 2                   ]
 )
 
-;; update-chain
+;; update-chain!
 
-(def update-chain
+(def update-chain!
   "Takes a chain, and returns a new chain updated with the new expressions from the remote chain"
   (fn [chain]
     (def new-inputs
@@ -63,39 +63,39 @@
         (view (@ :chain) x)))
     (foldl upd-ch chain new-inputs)))
 
-(:test "update-chain"
+(:test "update-chain!"
   [:setup
     (do
        (def chain-name (uuid!))
        (def chain (new-chain chain-name))
        (send! chain-name ['(+ 3 2)])
        (send! chain-name ['(+ 3 3)])
-       (def chain (update-chain chain)))
+       (def chain (update-chain! chain)))
   ]
   [ (lookup :inputs chain) ==> [(+ 3 2) (+ 3 3)]]
 )
 
-(def load-chain
+(def load-chain!
   "Takes a `url`, and fetches the inputs of a remote chain and return a chain dictionary with the chain state."
   (fn [url]
-    (update-chain (new-chain url))))
+    (update-chain! (new-chain url))))
 
-;; update-chain-ref
+;; update-chain-ref!
 
-(def update-chain-ref
+(def update-chain-ref!
   "Update `chain-ref` containing a chain with the new expressions from the remote chain"
   (fn [chain-ref]
-    (modify-ref chain-ref update-chain)
+    (modify-ref chain-ref update-chain!)
     :ok))
 
-(:test "update-chain-ref"
+(:test "update-chain-ref!"
   [:setup
     (do
        (def chain-name (uuid!))
        (def chain (ref (new-chain chain-name)))
        (send! chain-name ['(+ 3 2)])
        (send! chain-name ['(+ 3 3)])
-       (update-chain-ref chain))
+       (update-chain-ref! chain))
   ]
   [ (lookup :inputs (read-ref chain)) ==> [(+ 3 2) (+ 3 3)]]
 )
@@ -119,8 +119,8 @@
          (def env_ (over (@var '_inputs) (fn [x] (add-right expr x)) env))
          (evalfn expr env_ ))))
 
-;; add-send
-(def add-send
+;; add-send!
+(def add-send!
   "Add a `:send` special form that sends the contents of `_input` to the chain `_cur-chain`"
   (fn [oeval]
       (fn [expr env]
@@ -132,11 +132,11 @@
                   (list :ok env_))
               ((store-exprs oeval) expr env)))))
 
-;; enter-remote-chain
-(def enter-remote-chain
+;; enter-remote-chain!
+(def enter-remote-chain!
   "Make the eval behave as that of a remote chain. The second param is the env to return to after :quit."
   (fn [url env]
-    (def chain (load-chain url))
+    (def chain (load-chain! url))
     (def chain-state (lookup :state chain))
     (def mod-state1
       (over (@ :env) (fn [x] (insert '_inputs {:val []} x)) chain-state))
@@ -146,7 +146,7 @@
             mod-state1))
     (def mod-state3
       (over (@var 'eval)
-            (fn [x] (add-send (add-quit env x)))
+            (fn [x] (add-send! (add-quit env x)))
             mod-state2))
     (list :ok mod-state3)))
 
@@ -160,7 +160,7 @@
       (if (list? expr)
           (cond
             (eq? (head expr) :enter-chain)
-              (enter-remote-chain (head (eval__ (nth 1 expr) env)) env)
+              (enter-remote-chain! (head (eval__ (nth 1 expr) env)) env)
             :else (eval__ expr env))
           (eval__ expr env))))
 

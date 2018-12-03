@@ -34,7 +34,7 @@
    "rad/prelude/util.rad"
    ))
 
-(def pure-prelude-code
+(def pure-prelude-code!
   "The pure prelude."
   (read-many
     (apply string-append
@@ -43,7 +43,7 @@
 (def send-prelude!
   "Send the pure prelude to a chain."
   (fn [chain-id]
-    (send! chain-id pure-prelude-code)))
+    (send! chain-id pure-prelude-code!)))
 
 (def _initial-prompt-text
   "Text used for greeting in the repl."

@@ -10,13 +10,13 @@
   "The name of this chain."
   "monadic/radicle/issues")
 
-(def issues-chain
-  (ref (load-chain "http://radicle.xyz/chains/radicle-issues")))
+(def issues-chain!
+  (ref (load-chain! "http://radicle.xyz/chains/radicle-issues")))
 
 (def create-issues-chain!
   "Create a remote issue chain with the given url."
   (fn []
-    (def url (lookup :url (read-ref issues-chain)))
+    (def url (lookup :url (read-ref issues-chain!)))
     (send-prelude! url)
     (send-code! url "rad/monadic/issue-remote.rad")))
 
@@ -56,13 +56,13 @@
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."
   (fn [i]
-    (send! (lookup :url (read-ref issues-chain))
+    (send! (lookup :url (read-ref issues-chain!))
            [(list 'create-issue (sign-entity! i))])))
 
 (def add-comment!
   "Create a remote comment with the keys in `my-keys.rad`."
   (fn [c]
-    (send! (lookup :url (read-ref issues-chain))
+    (send! (lookup :url (read-ref issues-chain!))
            [(list 'add-comment (sign-entity! c))])))
 
 (def simple-create-issue!
@@ -75,15 +75,15 @@
   (fn [in b]
     (add-comment! (simple-comment in b))))
 
-(def list-issues
+(def list-issues!
   "Return the full map of issues."
   (fn []
-    (lookup :result (eval-in-chain '(list-issues) (read-ref issues-chain)))))
+    (lookup :result (eval-in-chain '(list-issues) (read-ref issues-chain!)))))
 
-(def fetch
+(def fetch!
   "Update the locally cached state of the chain."
   (fn []
-    (update-chain-ref issues-chain)))
+    (update-chain-ref! issues-chain!)))
 
 (def import-github
   "Imports the github issues stored in file `githubissues.rad`. To create this
@@ -117,15 +117,15 @@
      ": "
      (lookup :title i))))
 
-(def list-last
+(def list-last!
   "Get the last `n` issues."
   (fn [n]
-    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues))))
+    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues!))))
     (take n is)))
 
-(def get-by-id
+(def get-by-id!
   (fn [id]
-    (lookup id (list-issues))))
+    (lookup id (list-issues!))))
 
 (:test
  "The monadic issues chain works."
@@ -135,12 +135,12 @@
       (simple-create-issue! "title1" "body1")
       (simple-add-comment! 0 "comment0")
       (simple-add-comment! 1 "comment1")
-      (fetch)
-      (def is (list-issues)))]
+      (fetch!)
+      (def is (list-issues!)))]
  [ (length (seq is)) ==> 2 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
  [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment1" ]
  [ (short (head (values is))) ==> "0: title0" ]
- [ (short (head (list-last 1))) ==> "1: title1" ]
+ [ (short (head (list-last! 1))) ==> "1: title1" ]
 )

@@ -864,4 +864,4 @@ assertReplInteraction input expected = do
         Right _  -> pure ()
     -- In addition to the output of the lines tested, tests get
     -- printed, so we take only the last few output lines.
-    reverse (take (length expected) output) @=? expected
+    reverse (take (length expected) output) @?= expected
