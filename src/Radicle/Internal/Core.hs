@@ -462,23 +462,21 @@ emptyBindings = Bindings mempty mempty mempty 0 mempty 0 mempty 0
 --
 -- Throws 'OtherError' if @value@ cannot be parsed.
 --
--- prop> \x -> runLang x (gets bindingsToRadicle >>= setBindings) = runLang x (pure ())
+-- Satisfies the expected properties with `bindingsToRadicle`:
+--    * `gets bindingsToRadicle >>= setBindings == pure ()`
+--    * `setBindings x >> gets bindingsToRadicle == setBindings x >> pure x`
 setBindings :: Monad m => Value -> Lang m ()
 setBindings value = do
     case bindingsFromRadicle value of
         Left e  -> throwErrorHere $ OtherError $ "Invalid bindings: " <> e
         Right newBindings -> do
-            prims <- gets bindingsPrimFns
-            handles <- gets bindingsHandles
-            nextHandle <- gets bindingsNextHandle
-            procHandles <- gets bindingsProcHandles
-            nextProcHandle <- gets bindingsNextProcHandle
+            bnds <- get
             put $ newBindings
-                { bindingsPrimFns = prims
-                , bindingsHandles = handles
-                , bindingsNextHandle = nextHandle
-                , bindingsProcHandles = procHandles
-                , bindingsNextProcHandle = nextProcHandle
+                { bindingsPrimFns = bindingsPrimFns bnds
+                , bindingsHandles = bindingsHandles bnds
+                , bindingsNextHandle = bindingsNextHandle bnds
+                , bindingsProcHandles = bindingsProcHandles bnds
+                , bindingsNextProcHandle = bindingsNextProcHandle bnds
                 }
   where
     bindingsFromRadicle x = case x of
