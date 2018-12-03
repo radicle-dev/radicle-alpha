@@ -92,14 +92,14 @@ main = do
       ["dict", "lookup", "insert", "delete", "dict-from-list", "keys", "values", "rekey"
       , "map-values", "map-keys", "modify-map", "delete-many", "exclusive-dict-merge"]
     sets = ["set/empty", "set/insert", "set/delete", "set/member?", "set/delete", "set/from-seq", "set/to-vec"]
-    strings = ["intercalate", "unlines", "string-replace", "unwords", "pretty"]
+    strings = ["intercalate", "unlines", "string-replace", "unwords"]
     structs = ["member?"]
     patterns = ["match-pat", "_", "/?", "/nil", "/cons", "/as", "non-linear-merge"]
     refs = ["ref", "read-ref", "write-ref", "modify-ref"]
     docs = ["help", "doc", "doc!", "apropos!", "document", "is-test-env"]
     io =
       [ "print!", "get-line!"
-      , "load!", "read-file!", "read-code!", "send-code!", "pretty-print!"
+      , "load!", "read-file!", "read-code!", "send-code!"
       , "put-str!", "process!", "shell!", "system!"
       , "send-prelude!", "subscribe-to!", "uuid!", "read-line!", "exit!"
       , "read-line-handle!", "wait-for-process!", "write-handle!", "now!"]

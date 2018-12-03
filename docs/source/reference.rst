@@ -518,12 +518,6 @@ third.
 
 Concatenate a list of strings, with spaces in between.
 
-``pretty``
-~~~~~~~~~~
-
-Returns a pretty-printed ANSI-colored string representing the argument
-value.
-
 Structures
 ----------
 
@@ -741,11 +735,6 @@ Read code (as data) from a file. Returns a vector of expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Send code from a file to a remote chain.
-
-``(pretty-print! x)``
-~~~~~~~~~~~~~~~~~~~~~
-
-Pretty print (ANSI) a value to the console or stdout.
 
 ``put-str!``
 ~~~~~~~~~~~~

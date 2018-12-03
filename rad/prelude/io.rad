@@ -18,11 +18,6 @@
   (fn [x]
     (put-str! (show x))))
 
-(def pretty-print!
-  "Pretty print (ANSI) a value to the console or stdout."
-  (fn [x]
-    (put-str! (pretty x))))
-
 (def shell!
   "Executes `command` using the shell with `to-write` as input. Stdout and stderr are inherited.
 WARNING: using `shell!` with unsanitized user input is a security hazard!
