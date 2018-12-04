@@ -1,12 +1,16 @@
 -- | This module defines instances for the classes in
 -- Radicle.Internal.Subscriber.Capabilities that may be used for testing.
 module Radicle.Internal.TestCapabilities (
-      sourceFiles
-    , runTestWithFiles
-    , runTest
-    , testBindings
-    , runTest'
-    , runTestWith
+      runCode
+    , runCode'
+    , runPureCode
+    , runCodeWithInput
+    , runCodeWithFiles
+
+    , WorldState(..)
+    , defaultWorldState
+    , worldStateWithSource
+    , addFileToWorld
     ) where
 
 import           Protolude hiding (TypeError)
@@ -17,10 +21,8 @@ import qualified Data.Sequence as Seq
 import qualified Data.Time as Time
 import           System.Directory (getCurrentDirectory)
 import qualified System.FilePath.Find as FP
-import           System.IO.Unsafe (unsafePerformIO)
 
 import           Radicle
-import           Radicle.Internal.Core (addBinding)
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Storage
@@ -30,7 +32,6 @@ import qualified Radicle.Internal.UUID as UUID
 data WorldState = WorldState
     { worldStateStdin        :: [Text]
     , worldStateStdout       :: [Text]
-    , worldStateEnv          :: Env Value
     , worldStateFiles        :: Map Text Text
     , worldStateDRG          :: CryptoRand.ChaChaDRG
     , worldStateUUID         :: Int
@@ -38,49 +39,60 @@ data WorldState = WorldState
     , worldStateCurrentTime  :: Time.UTCTime
     }
 
+defaultWorldState :: WorldState
+defaultWorldState =
+    WorldState
+    { worldStateStdin = []
+    , worldStateStdout = []
+    , worldStateFiles = mempty
+    , worldStateDRG = CryptoRand.drgNewSeed (CryptoRand.seedFromInteger 4) -- chosen by fair dice roll
+    , worldStateUUID = 0
+    , worldStateRemoteChains = mempty
+    , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
+    }
+
+worldStateWithSource :: IO WorldState
+worldStateWithSource = do
+    sources <- sourceFiles
+    pure $ defaultWorldState { worldStateFiles = sources }
+
+addFileToWorld :: Text -> Text -> WorldState -> WorldState
+addFileToWorld name contents ws = ws { worldStateFiles = Map.insert name contents (worldStateFiles ws) }
 
 type TestLang = Lang (StateT WorldState IO)
 
--- | Run a possibly side-effecting program with the given stdin input lines.
-runTestWithFiles
-    :: Bindings (PrimFns (StateT WorldState IO))
-    -> [Text]  -- The stdin (errors if it runs out)
-    -> Map Text Text -- The files
-    -> Text -- The program
-    -> IO (Either (LangError Value) Value, [Text])
-runTestWithFiles bindings inputs files action = do
-    let ws = WorldState
-            { worldStateStdin = inputs
-            , worldStateStdout = []
-            , worldStateEnv = bindingsEnv bindings
-            , worldStateFiles = files
-            , worldStateDRG = CryptoRand.drgNewSeed (CryptoRand.seedFromInteger 4) -- chosen by fair dice roll
-            , worldStateUUID = 0
-            , worldStateRemoteChains = mempty
-            , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
-            }
-    (val, st) <- runStateT (fmap fst $ runLang bindings $ interpretMany "[test]" action) ws
-    pure (val, worldStateStdout st)
+-- | Run Radicle code in a REPL environment.
+runCode :: Text -> IO (Either (LangError Value) Value)
+runCode code = fst <$> runCode' defaultWorldState (pure ()) code
 
--- | Run a possibly side-effecting program with the given stdin input lines.
-runTestWith
-    :: Bindings (PrimFns (StateT WorldState IO))
-    -> [Text]  -- The stdin (errors if it runs out)
-    -> Text -- The program
-    -> IO (Either (LangError Value) Value, [Text])
-runTestWith bindings inputs action = runTestWithFiles bindings inputs mempty action
+-- | Run Radicle code in a REPL environment, with all library files
+-- readable, and with the provided stdin lines.
+--
+-- The second item is the stdout.
+runCodeWithInput :: [Text] -> Text -> IO (Either (LangError Value) Value, [Text])
+runCodeWithInput input code = do
+    ws' <- worldStateWithSource
+    let ws = ws' { worldStateStdin = input }
+    runCode' ws (pure ()) code
 
--- | Run a test without stdin/stdout
-runTest
-    :: Bindings (PrimFns (StateT WorldState IO))
-    -> Text
-    -> IO (Either (LangError Value) Value)
-runTest bnds prog = fst <$> runTestWith bnds [] prog
+-- | Run Radicle code in a REPL environment with the given files
+-- readable.
+runCodeWithFiles :: Map Text Text -> Text -> IO (Either (LangError Value) Value)
+runCodeWithFiles files code =
+    let ws = defaultWorldState { worldStateFiles = files }
+    in fst <$> runCode' ws (pure ()) code
 
--- | Like 'runTest', but uses the pureEnv
-runTest' :: Text -> Either (LangError Value) Value
-runTest' a = unsafePerformIO $ runTest pureEnv a
+-- | Run radicle code in a pure environment.
+runPureCode :: Text -> Either (LangError Value) Value
+runPureCode code =
+    let prog = interpretMany "[test]" code
+    in evalState (fst <$> runLang pureEnv prog) defaultWorldState
 
+runCode' :: WorldState -> TestLang () -> Text -> IO (Either (LangError Value) Value, [Text])
+runCode' ws init code = do
+    let prog = init >> interpretMany "[test]" code
+    (result, ws') <- runStateT (fst <$> runLang testBindings prog) ws
+    pure $ (result, worldStateStdout ws')
 
 -- | Loads the content for all radicle sources in the "./rad" folder.
 -- Returns a map from files names to contents.
@@ -94,13 +106,9 @@ sourceFiles = do
         pure (toS path, contents)
     pure $ Map.fromList filesWithContent
 
--- | Bindings with REPL and client stuff mocked, and with -- a 'test-env__'
--- variable set to true.
+-- | Bindings with REPL and client stuff mocked.
 testBindings :: Bindings (PrimFns (StateT WorldState IO))
-testBindings
-    = addBinding (unsafeToIdent "test-env__") Nothing (Boolean True)
-    $ addPrimFns storagePrimFns replBindings
-
+testBindings = addPrimFns storagePrimFns replBindings
 
 -- | Provides @send!@ and @receive!@ functions that store chains in a
 -- 'Map' in the 'WorldState'.
