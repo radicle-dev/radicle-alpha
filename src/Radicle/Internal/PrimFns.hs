@@ -549,19 +549,18 @@ purePrimFns = fromList $ allDocs $
       , "Import a module, making all the definitions of that module available\
         \ in the current scope. The first argument must be a module to import.\
         \ Two optional arguments affect how and which symbols are imported.\
-        \ `(import m 'foo)` will import all the symbols of `m` with the prefix\
+        \ `(import m :as 'foo)` will import all the symbols of `m` with the prefix\
         \ `foo/`. `(import m '[f g])` will only import `f` and `g` from `m`.\
-        \ `(import m 'foo '[f g]')` will import `f` and `g` from `m` as `foo/f`\
-        \ and `foo/g`."
+        \ `(import m '[f g] :as 'foo')` will import `f` and `g` from `m` as `foo/f`\
+        \ and `foo/g`. To import definitions with no qualification at all, use\
+        \ `(import m :unqualified)`."
       , \case
-          [v] -> import' v Nothing Nothing
-          [v, Vec these] -> do
-            is <- Protolude.toList <$> traverse isAtom these ?? toLangError (OtherError "import: must be given a vector of symbols to import")
-            import' v (Just is) Nothing
-          [v, q] -> import' v Nothing (Just q)
-          [v, Vec these, q] -> do
-            is <- Protolude.toList <$> traverse isAtom these ?? toLangError (OtherError "import: must be given a vector of symbols to import")
-            import' v (Just is) (Just q)
+          [v]                                           -> import' v Nothing FullyQualified
+          [v, Vec these]                                -> import' v (Just these) FullyQualified
+          [v, Keyword (Ident "as"), Atom q]             -> import' v Nothing (Qualified q)
+          [v, Vec these, Keyword (Ident "as"), Atom q]  -> import' v (Just these) (Qualified q)
+          [v, Keyword (Ident "unqualified")]            -> import' v Nothing Unqualified
+          [v, Vec these, Keyword (Ident "unqualified")] -> import' v (Just these) Unqualified
           _ -> throwErrorHere $ OtherError "import: expects a module, an optional list of symbols to import, and an optional qualifier."
       )
     ]
@@ -594,27 +593,30 @@ purePrimFns = fromList $ allDocs $
           (v, _) -> throwErrorHere $ TypeError name 0 TNumber v
       )
 
-    import' (Dict d) is_ prefix_ = do
+    import' (Dict d) v_ qual = do
       v <- kwLookup "env" d ?? toLangError (OtherError "Modules should have an `:env` key")
       n <- kwLookup "module" d ?? toLangError (OtherError "Modules should have an `:module` key")
       case n of
         Atom name -> do
           e <- hoistEither $ first (toLangError . OtherError) $ envFromRad v
           let allMod = fromEnv e
-          let toImport = case is_ of
-                Just is -> Map.restrictKeys allMod (Set.fromList is)
-                Nothing -> allMod
-          qualifier <- case prefix_ of
-                Just (Atom q) -> pure ((q <> Ident "/") <>)
-                Just (Keyword (Ident "unqualified")) -> pure identity
-                Just _ -> throwErrorHere (OtherError "Can only qualify imports with an atom or `:unqualified`")
-                Nothing -> pure ((name <> Ident "/") <>)
+          toImport <- case v_ of
+                Just vs -> do
+                  is <- Protolude.toList <$> traverse isAtom vs ?? toLangError (OtherError "import: must be given a vector of symbols to import")
+                  pure $ Map.restrictKeys allMod (Set.fromList is)
+                Nothing -> pure allMod
+          let qualifier = case qual of
+                Qualified q    -> ((q <> Ident "/") <>)
+                Unqualified    -> identity
+                FullyQualified -> ((name <> Ident "/") <>)
           let qualified = Env $ Map.mapKeysMonotonic qualifier toImport
           s <- get
           put $ s { bindingsEnv = qualified <> bindingsEnv s }
           pure ok
         _ -> throwErrorHere (OtherError "The `:module` key of a module should be an atom.")
     import' _ _ _ = throwErrorHere (OtherError "Modules must be dicts")
+
+data ImportQual = Unqualified | FullyQualified | Qualified Ident
 
 -- * Helpers
 

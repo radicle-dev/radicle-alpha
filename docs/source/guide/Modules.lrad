@@ -59,7 +59,7 @@ including a list of atoms:
 Which would only import `my-module/foo`. And you can also use a custom
 qualifier:
 
-    (import my-module 'baz)
+    (import my-module :as 'baz)
 
 After which we can:
 
@@ -70,8 +70,8 @@ So we could import our taxes module twive using different qualifiers:
     (def taxes-fr (make-taxes 20/100))
     (def taxes-de (make-taxes 19/100))
 
-    (import taxes-de 'de)
-    (import taxes-fr 'fr)
+    (import taxes-de :as 'de)
+    (import taxes-fr :as 'fr)
 
     (print!
      (string-append
@@ -92,7 +92,7 @@ And then we can:
 
 Qualification and import lists can be combined like so:
 
-    (import my-module ['bar] 'useful)
+    (import my-module ['bar] :as 'useful)
 
 Would only add `useful/bar` to the current scope:
 
