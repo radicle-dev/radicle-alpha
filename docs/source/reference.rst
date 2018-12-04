@@ -358,10 +358,11 @@ That is, the file is evaluated as if the code was wrapped in
 Import a module, making all the definitions of that module available in
 the current scope. The first argument must be a module to import. Two
 optional arguments affect how and which symbols are imported.
-``(import m 'foo)`` will import all the symbols of ``m`` with the prefix
-``foo/``. ``(import m '[f g])`` will only import ``f`` and ``g`` from
-``m``. ``(import m 'foo '[f g]')`` will import ``f`` and ``g`` from
-``m`` as ``foo/f`` and ``foo/g``.
+``(import m :as 'foo)`` will import all the symbols of ``m`` with the
+prefix ``foo/``. ``(import m '[f g])`` will only import ``f`` and ``g``
+from ``m``. ``(import m '[f g] :as 'foo')`` will import ``f`` and ``g``
+from ``m`` as ``foo/f`` and ``foo/g``. To import definitions with no
+qualification at all, use ``(import m :unqualified)``.
 
 ``get-current-env``
 ~~~~~~~~~~~~~~~~~~~

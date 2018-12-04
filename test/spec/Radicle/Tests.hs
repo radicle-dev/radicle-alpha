@@ -512,8 +512,8 @@ test_eval =
                         (def y 2)
                         (def z (+ x y)))
                       (import foo)
-                      (import foo 'bar)
-                      (import foo ['z] 'baz)
+                      (import foo :as 'bar)
+                      (import foo ['z] :as 'baz)
                       (import foo :unqualified)
                       (list foo/z bar/z baz/z z)|]
         prog `succeedsWith` List (replicate 4 (Number 3))

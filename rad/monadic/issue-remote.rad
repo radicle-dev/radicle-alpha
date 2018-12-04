@@ -3,9 +3,9 @@
 
 (import prelude/bool :unqualified)
 (import prelude/dict :unqualified)
-(import prelude/set 'set)
+(import prelude/set :as 'set)
 (import prelude/ref :unqualified)
-(import prelude/validation 'validator)
+(import prelude/validation :as 'validator)
 (import prelude/patterns :unqualified)
 (import prelude/util :unqualified)
 (import prelude/lens :unqualified)

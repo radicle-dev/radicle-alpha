@@ -6,6 +6,8 @@
 
 (load! "rad/prelude.rad")
 
+(import prelude/lens :unqualified)
+
 (def radicle-issues-chain-id
   "The name of this chain."
   "monadic/radicle/issues")
