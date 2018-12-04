@@ -14,8 +14,8 @@ import qualified Data.Text as T
 import           Data.Yaml hiding (Value)
 import qualified GHC.Exts as GhcExts
 import           Radicle
+import           Radicle.Internal.Core
 import           Radicle.Internal.Identifier
-import Radicle.Internal.Core
 import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
 

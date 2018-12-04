@@ -720,9 +720,9 @@ specialForms = Map.fromList $ first Ident <$>
         _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
 
 data ModuleMeta = ModuleMeta
-  { name :: Ident
+  { name    :: Ident
   , exports :: [Ident]
-  , doc :: Text
+  , doc     :: Text
   }
 
 -- | Given a list of forms, the first of which should be module declaration,

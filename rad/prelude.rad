@@ -26,6 +26,7 @@
 (import prelude/ref :unqualified)
 (import prelude/validation 'validator)
 (import prelude/util :unqualified)
+(import prelude/chain :unqualified)
 
 (def _initial-prompt-text
   "Text used for greeting in the repl."
