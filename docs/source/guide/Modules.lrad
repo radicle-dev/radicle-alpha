@@ -1,12 +1,10 @@
 # Modules
 
-Modules are dicts with some metadata about a module, and an `:env` key
-containing a radicle environment.
+To create a module, use the `module` special form. All modules must start with a
+*module declaration* which provides the module with a name, documentation string
+and an exports vector. Module declarations are evaluated, so you must quote any
 
-To create a module, you can use the `module` special form. All modules must
-start with a *module declaration* which provides the module with a name,
-documentation and an exports vector. Module declarations are evaluated, so you
-must quote any symbols.
+Here is a simple example of a module:
 
     (module
       {:module  'my-module
@@ -22,13 +20,33 @@ must quote any symbols.
       (def bar
         (fn [x] (foo (+ x 2)))))
 
-Once a `module` special form has been evaluated, the module *value* is in scope
-(not the definition *of* the module), which means you can import it:
+To import a module, use `import`:
 
     (import my-module)
 
-By default this will import all the definition of `my-module` in fully-qualified
-form, which means `my-module/foo` and `my-module/bar` (but not
+The definitions inside a module are evaluated in the current scope, so you can
+use whatever has already been defined. The form returns the module value, which
+can be passed around just like any other value. This means that we can write
+functions which create modules:
+
+    (def make-taxes
+      (fn [VAT]
+        (module
+         {:module 'taxes
+          :doc    "Calculates taxes."
+          :exports ['add-VAT]}
+         (def add-VAT (fn [x] (* (+ 1 VAT) x))))))
+
+And then we could use this module with different values of `VAT`:
+
+    (import (make-taxes 2/10))
+    ;; We also need to import `prelude/io` to be able to use `print!`
+    (import (file-module! "rad/prelude/io.rad") :unqualified)
+
+    (print! (string-append "100 EUR + VAT is: " (show (taxes/add-VAT 100))))
+
+By default `import` will add all the definitions of the module in
+fully-qualified form, which means `my-module/foo` and `my-module/bar` (but not
 `my-module/foo-helper`) are in scope:
 
     (print! (my-module/bar 0))
@@ -46,6 +64,22 @@ qualifier:
 After which we can:
 
     (print! (baz/bar 42))
+
+So we could import our taxes module twive using different qualifiers:
+
+    (def taxes-fr (make-taxes 20/100))
+    (def taxes-de (make-taxes 19/100))
+
+    (import taxes-de 'de)
+    (import taxes-fr 'fr)
+
+    (print!
+     (string-append
+      "100 EUR + VAT is "
+      (show (de/add-VAT 100))
+      " EUR in Germany and "
+      (show (fr/add-VAT 100))
+      " EUR in France."))
 
 If you really want to import all the definitions without a qualification, then
 you can use the keyword `:unqualified` like so:
@@ -68,3 +102,6 @@ When working at the REPL, the function `file-module!` is also available, which
 can create a module from a file. It assumes the file starts with a module
 declaration, and is then equivalent to wrapping the contents of the file in
 `(module ...)`.
+
+Modules can be passed around and manipulated because they are just dicts with
+some metadata, and an `:env` key containing a radicle environment.

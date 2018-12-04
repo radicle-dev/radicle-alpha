@@ -740,7 +740,7 @@ createModule = \case
                   , (Keyword (Ident "exports"), Vec (Seq.fromList (Atom <$> exports m')))
                   ]
       defineAtom (name m') (Just (doc m')) modu
-      pure (Keyword (Ident "ok"))
+      pure modu
     _ ->  throwErrorHere MissingModuleDeclaration
   where
     meta v@(Dict d) = do
