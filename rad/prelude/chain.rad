@@ -2,8 +2,8 @@
  :doc "Functions for simulating remote chains."
  :exports '[new-chain load-chain eval-in-chain update-chain-ref eval updatable-eval update-chain eval-fn-app send-prelude!]}
 
-(import prelude/ref '[modify-ref])
-(import prelude/lens '[.. ... view over @])
+(import prelude/ref '[modify-ref] :unqualified)
+(import prelude/lens '[.. ... view over @] :unqualified)
 
 ;; Chains: Functions for dealing with chains.
 
@@ -215,7 +215,7 @@
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new chain."
   (<> [(file-to-module "rad/prelude/test.rad")
-       '(import prelude/test)]
+       '(import prelude/test :unqualified)]
       (map file-to-module pure-prelude-files)))
 
 (def send-prelude!

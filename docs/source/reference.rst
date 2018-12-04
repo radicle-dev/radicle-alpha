@@ -8,15 +8,8 @@ Primitive functions
 -------------------
 
 Primitive functions are those that are built into the compiler. They are
-available on new chains but may be shadowed by later definitions. Those
+available on all chains but may be shadowed by later definitions. Those
 that end in a ``!`` are only available locally, not on 'pure' chains.
-
-``base-eval``
-~~~~~~~~~~~~~
-
-The default evaluation function. Expects an expression and a radicle
-state. Return a list of length 2 consisting of the result of the
-evaluation and the new state.
 
 ``*``
 ~~~~~
@@ -554,7 +547,8 @@ Prints documentation for all documented variables in scope.
 Prelude modules
 ---------------
 
-These are the prelude modules and the functions these modules expose.
+These are the modules included in the radicle prelude and the functions
+these modules expose.
 
 ``prelude/basic``
 -----------------

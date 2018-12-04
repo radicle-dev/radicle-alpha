@@ -1,14 +1,14 @@
 ;; Issue chain
 ;; Meant to be sent to a chain with send-code!
 
-(import prelude/bool)
-(import prelude/dict)
-(import prelude/set)
-(import prelude/ref)
+(import prelude/bool :unqualified)
+(import prelude/dict :unqualified)
+(import prelude/set 'set)
+(import prelude/ref :unqualified)
 (import prelude/validation 'validator)
-(import prelude/patterns)
-(import prelude/util)
-(import prelude/lens)
+(import prelude/patterns :unqualified)
+(import prelude/util :unqualified)
+(import prelude/lens :unqualified)
 
 (def chain-id
   "The name of this chain."

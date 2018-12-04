@@ -2,7 +2,7 @@
  :doc "Functional references."
  :exports ['make-lens 'view 'set 'id-lens '.. '... 'over '@ '@nth 'view-ref 'set-ref 'over-ref]}
 
-(import prelude/ref)
+(import prelude/ref :unqualified)
 
 ;; Lenses ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

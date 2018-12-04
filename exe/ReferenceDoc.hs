@@ -2,28 +2,28 @@
 
 -- | This executable generates the radicle reference docs. This is a markdown
 -- document which contains documentation for all the primitive functions and all
--- the functions defined in the prelude.
+-- the functions defined in the prelude modules.
 module ReferenceDoc (main) where
 
 import           Protolude
 
 import qualified Data.Default as Default
+import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
-import Data.List ((\\))
 import qualified Data.Text as T
+import           Data.Yaml hiding (Value)
 import qualified GHC.Exts as GhcExts
 import           Radicle
 import           Radicle.Internal.Identifier
 import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
-import Data.Yaml hiding (Value)
 
 data Content = Content
-  { intro :: Text
-  , primFnsDoc :: Text
+  { intro             :: Text
+  , primFnsDoc        :: Text
   , preludeModulesDoc :: Text
-  , primFns :: [Text]
-  , modules :: [Text]
+  , primFns           :: [Text]
+  , modules           :: [Text]
   } deriving (Generic)
 
 instance FromJSON Content
@@ -35,7 +35,7 @@ main = do
              interpret
                "reference-doc"
                (   "(do"
-                <> "(file-module! \"rad/prelude/test.rad\") (import prelude/test)"
+                <> "(file-module! \"rad/prelude/test.rad\") (import prelude/test :unqualified)"
                 <> foldMap (\m -> "(file-module! \"rad/" <> m <> ".rad\")") (modules content)
                 <> "(get-current-env))")
                replBindings
@@ -59,7 +59,6 @@ main = do
       , Para $ inlinePandoc $ preludeModulesDoc content
       ] ++ foldMap (module' e) (modules content)
 
-    defs :: Value -> Map Text (Text, Value)
     defs v = let env :: Env Value = fromRad v `lPanic` "Couldn't convert radicle value to as environment"
              in Map.fromList [ (fromIdent iden, (docString, val)) | (iden, Just docString, val) <- GhcExts.toList env ]
 

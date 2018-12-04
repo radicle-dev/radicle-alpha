@@ -1,5 +1,5 @@
 (file-module! "rad/prelude/test.rad")
-(import prelude/test)
+(import prelude/test :unqualified)
 
 (file-module! "rad/prelude/basic.rad")
 (file-module! "rad/prelude/patterns.rad")
@@ -17,22 +17,15 @@
 (file-module! "rad/prelude/validation.rad")
 (file-module! "rad/prelude/util.rad")
 
-(import prelude/basic)
-(import prelude/patterns)
-(import prelude/strings)
-(import prelude/io)
-(import prelude/bool)
-(import prelude/exception)
-(import prelude/recursion)
-(import prelude/list)
-(import prelude/dict)
-(import prelude/set)
-(import prelude/ref)
-(import prelude/lens)
-(import prelude/chain)
-(import prelude/state-machine)
+(import prelude/basic :unqualified)
+(import prelude/patterns :unqualified)
+(import prelude/io :unqualified)
+(import prelude/bool :unqualified)
+(import prelude/list :unqualified)
+(import prelude/dict :unqualified)
+(import prelude/ref :unqualified)
 (import prelude/validation 'validator)
-(import prelude/util)
+(import prelude/util :unqualified)
 
 (def _initial-prompt-text
   "Text used for greeting in the repl."

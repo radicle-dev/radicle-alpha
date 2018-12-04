@@ -1,30 +1,30 @@
 {:module 'prelude/set
  :doc "Sets, built using dicts."
- :exports '[set/empty set/insert set/delete set/member? set/to-vec set/from-seq]}
+ :exports '[empty insert delete member? to-vec from-seq]}
 
-(def set/empty
+(def empty
   "An empty set."
   {})
 
-(def set/insert
+(def insert
   "Insert a value into a set."
   (fn [x s]
     (insert x #t s)))
 
-(def set/delete
+(def delete
   "Delete a value from a set."
   (fn [x s]
     (delete x s)))
 
-(def set/member?
+(def member?
   "Query if an value is an element of a set."
   (fn [x s]
     (member? x s)))
 
-(def set/to-vec
+(def to-vec
   "Convert a set to a vector."
   (fn [s] (keys s)))
 
-(def set/from-seq
+(def from-seq
   "Create a set from a sequence."
   (fn [xs] (foldr set/insert {} xs)))

@@ -2,12 +2,10 @@
  :doc "Functions for manipulating lists."
  :exports ['nil 'empty? 'reverse 'range 'concat 'filter]}
 
-;; List functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 ;; nil
 
-(import prelude/basic)
-(import prelude/recursion ['Y2])
+(import prelude/basic :unqualified)
+(import prelude/recursion ['Y2] 'rec)
 
 (def nil "The empty list." (list))
 

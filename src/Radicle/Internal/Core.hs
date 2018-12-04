@@ -718,8 +718,9 @@ data ModuleMeta = ModuleMeta
   , doc :: Text
   }
 
--- Given a list of forms, the first three of which should be module metadata,
--- runs the rest of the forms in a new scope, and then defs the module value.
+-- | Given a list of forms, the first of which should be module declaration,
+-- runs the rest of the forms in a new scope, and then defs the module value
+-- according to the name in the declaration.
 createModule :: forall m. Monad m => [Value] -> Lang m Value
 createModule = \case
     (m : forms) -> do
@@ -727,7 +728,8 @@ createModule = \case
       e <- withEnv identity $ traverse_ eval forms *> gets bindingsEnv
       let env = toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (exports m'))
       let modu = Dict $ Map.fromList
-                  [ (Keyword (Ident "env"), env)
+                  [ (Keyword (Ident "module"), Atom (name m'))
+                  , (Keyword (Ident "env"), env)
                   , (Keyword (Ident "exports"), Vec (Seq.fromList (Atom <$> exports m')))
                   ]
       defineAtom (name m') (Just (doc m')) modu

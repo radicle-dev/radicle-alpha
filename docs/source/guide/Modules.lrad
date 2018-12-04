@@ -1,0 +1,70 @@
+# Modules
+
+Modules are dicts with some metadata about a module, and an `:env` key
+containing a radicle environment.
+
+To create a module, you can use the `module` special form. All modules must
+start with a *module declaration* which provides the module with a name,
+documentation and an exports vector. Module declarations are evaluated, so you
+must quote any symbols.
+
+    (module
+      {:module  'my-module
+       :doc     "Just for showing off modules."
+       :exports '[foo bar]}
+
+      (def foo-helper
+        (fn [x] (+ x 1)))
+
+      (def foo
+        (fn [x] (foo-helper (foo-helper x))))
+
+      (def bar
+        (fn [x] (foo (+ x 2)))))
+
+Once a `module` special form has been evaluated, the module *value* is in scope
+(not the definition *of* the module), which means you can import it:
+
+    (import my-module)
+
+By default this will import all the definition of `my-module` in fully-qualified
+form, which means `my-module/foo` and `my-module/bar` (but not
+`my-module/foo-helper`) are in scope:
+
+    (print! (my-module/bar 0))
+
+You can narrow down exactly which definitions you would like to import by
+including a list of atoms:
+
+    (import my-module ['foo])
+
+Which would only import `my-module/foo`. And you can also use a custom
+qualifier:
+
+    (import my-module 'baz)
+
+After which we can:
+
+    (print! (baz/bar 42))
+
+If you really want to import all the definitions without a qualification, then
+you can use the keyword `:unqualified` like so:
+
+    (import my-module :unqualified)
+
+And then we can:
+
+    (print! (foo 128))
+
+Qualification and import lists can be combined like so:
+
+    (import my-module ['bar] 'useful)
+
+Would only add `useful/bar` to the current scope:
+
+    (print! (useful/bar 0))
+
+When working at the REPL, the function `file-module!` is also available, which
+can create a module from a file. It assumes the file starts with a module
+declaration, and is then equivalent to wrapping the contents of the file in
+`(module ...)`.

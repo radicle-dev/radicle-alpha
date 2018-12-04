@@ -2,7 +2,7 @@
  :doc     "Pattern matching is first-class in radicle so new patterns can easily be defined. These are the most essential."
  :exports '[match-pat _ /? /as /cons /nil /just]}
 
-(import prelude/basic)
+(import prelude/basic :unqualified)
 
 (def exclusive-dict-merge
   "Merges two dicts while checking for key conflicts. Returns `{:merge

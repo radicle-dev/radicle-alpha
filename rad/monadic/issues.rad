@@ -7,21 +7,21 @@
 (load! "rad/prelude/test.rad")
 
 (file-module! "rad/prelude/basic.rad")
-(import prelude/basic)
+(import prelude/basic :unqualified)
 
 (file-module! "rad/prelude/io.rad")
-(import prelude/io)
+(import prelude/io :unqualified)
 
 (file-module! "rad/prelude/ref.rad")
 
 (file-module! "rad/prelude/dict.rad")
-(import prelude/dict)
+(import prelude/dict :unqualified)
 
 (file-module! "rad/prelude/lens.rad")
-(import prelude/lens)
+(import prelude/lens :unqualified)
 
-(file-module! "rad/chain.rad")
-(import prelude/chain)
+(file-module! "rad/prelude/chain.rad")
+(import prelude/chain 'chain)
 
 (def radicle-issues-chain-id
   "The name of this chain."
@@ -29,14 +29,14 @@
 
 (def issues-chain
   ;;(ref (load-chain "http://radicle.xyz/chains/radicle-issues"))
-  (ref (load-chain "localhost:8000/chains/radicle-issues"))
+  (ref (chain/load-chain "localhost:8000/chains/radicle-issues"))
   )
 
 (def create-issues-chain!
   "Create a remote issue chain with the given url."
   (fn []
-    (def url (lookup :url (read-ref issues-chain!)))
-    (send-prelude! url)
+    (def url (lookup :url (read-ref issues-chain)))
+    (chain/send-prelude! url)
     (send-code! url "rad/monadic/issue-remote.rad")))
 
 (def sign-entity!
@@ -97,12 +97,12 @@
 (def list-issues!
   "Return the full map of issues."
   (fn []
-    (lookup :result (eval-in-chain '(list-issues) (read-ref issues-chain!)))))
+    (lookup :result (chain/eval-in-chain '(list-issues) (read-ref issues-chain)))))
 
 (def fetch!
   "Update the locally cached state of the chain."
   (fn []
-    (update-chain-ref! issues-chain!)))
+    (chain/update-chain-ref! issues-chain)))
 
 (def import-github
   "Imports the github issues stored in file `githubissues.rad`. To create this

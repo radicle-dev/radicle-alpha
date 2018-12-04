@@ -563,15 +563,14 @@ purePrimFns = fromList $ allDocs $
         \ `(import m 'foo '[f g]')` will import `f` and `g` from `m` as `foo/f`\
         \ and `foo/g`."
       , \case
-          [v, Atom as] -> import' v Nothing (Just as)
-          [v, Vec these, Atom as] -> do
-            is <- Protolude.toList <$> traverse isAtom these ?? toLangError (OtherError "import: must be given a vector of symbols to import")
-            import' v (Just is) (Just as)
           [v] -> import' v Nothing Nothing
           [v, Vec these] -> do
             is <- Protolude.toList <$> traverse isAtom these ?? toLangError (OtherError "import: must be given a vector of symbols to import")
             import' v (Just is) Nothing
-          [v, _] -> throwErrorHere $ TypeError "import" 0 TAtom v
+          [v, q] -> import' v Nothing (Just q)
+          [v, Vec these, q] -> do
+            is <- Protolude.toList <$> traverse isAtom these ?? toLangError (OtherError "import: must be given a vector of symbols to import")
+            import' v (Just is) (Just q)
           _ -> throwErrorHere $ OtherError "import: expects a module, an optional list of symbols to import, and an optional qualifier."
       )
     ]
@@ -606,17 +605,24 @@ purePrimFns = fromList $ allDocs $
 
     import' (Dict d) is_ prefix_ = do
       v <- kwLookup "env" d ?? toLangError (OtherError "Modules should have an `:env` key")
-      e <- fromRadOtherErr v
-      let allMod = fromEnv e
-      let toImport = case is_ of
-            Just is -> Map.restrictKeys allMod (Set.fromList is)
-            Nothing -> allMod
-      let qualified = Env $ case prefix_ of
-            Just p  -> Map.mapKeysMonotonic ((p <> Ident "/") <>) toImport
-            Nothing -> toImport
-      s <- get
-      put $ s { bindingsEnv = qualified <> bindingsEnv s }
-      pure ok
+      n <- kwLookup "module" d ?? toLangError (OtherError "Modules should have an `:module` key")
+      case n of
+        Atom name -> do
+          e <- fromRadOtherErr v
+          let allMod = fromEnv e
+          let toImport = case is_ of
+                Just is -> Map.restrictKeys allMod (Set.fromList is)
+                Nothing -> allMod
+          qualifier <- case prefix_ of
+                Just (Atom q) -> pure ((q <> Ident "/") <>)
+                Just (Keyword (Ident "unqualified")) -> pure identity
+                Just _ -> throwErrorHere (OtherError "Can only qualify imports with an atom or `:unqualified`")
+                Nothing -> pure ((name <> Ident "/") <>)
+          let qualified = Env $ Map.mapKeysMonotonic qualifier toImport
+          s <- get
+          put $ s { bindingsEnv = qualified <> bindingsEnv s }
+          pure ok
+        _ -> throwErrorHere (OtherError "The `:module` key of a module should be an atom.")
     import' _ _ _ = throwErrorHere (OtherError "Modules must be dicts")
 
 -- * Helpers

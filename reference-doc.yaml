@@ -1,10 +1,20 @@
 ---
-intro: This is the `radicle` reference document, with documentation for all functions which come as part of the standard distribution.
-primFnsDoc: Primitive functions are those that are built into the compiler. They are available on new chains but may be shadowed by later definitions. Those that end in a `!` are only available locally, not on 'pure' chains.
-preludeModulesDoc: These are the prelude modules and the functions these modules expose.
+
+intro: >-
+  This is the `radicle` reference document, with documentation for all functions
+  which come as part of the standard distribution.
+
+primFnsDoc: >-
+  Primitive functions are those that are built into the compiler. They are
+  available on all chains but may be shadowed by later definitions. Those that
+  end in a `!` are only available locally, not on 'pure' chains.
+
+preludeModulesDoc: >-
+  These are the modules included in the radicle prelude and the functions these
+  modules expose.
+
 primFns:
 # Basics
-- base-eval
 - "*"
 - "+"
 - "-"
@@ -18,6 +28,9 @@ primFns:
 - exit!
 - read
 - read-many
+# Eval
+- base-eval
+- eval
 # Refs
 - ref
 - read-ref
@@ -96,6 +109,8 @@ primFns:
 - doc!
 - document
 - apropos!
+
+# All modules apart from prelude/test
 modules:
 - prelude/basic
 - prelude/patterns
