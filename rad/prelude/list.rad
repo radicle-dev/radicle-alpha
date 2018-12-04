@@ -19,13 +19,13 @@
 ;; reverse
 
 (def reverse
-  "Returns the reversed 'list'."
+  "Returns the reversed 'ls'."
   (fn [ls]
-    (def go (Y2 (fn [go]
+    (def-rec go
       (fn [acc new]
         (if (empty? new)
             acc
-            (go (cons (head new) acc) (tail new)))))))
+            (go (cons (head new) acc) (tail new)))))
     (go (list) ls)))
 
 (:test "reverse"
@@ -34,12 +34,12 @@
 
 ;; range
 
-(def range
-  "Returns a list with all integers from 'start' to 'end', inclusive."
-  (Y2 (fn [range] (fn [from to]
+(def-rec range
+  "Returns a list with all integers from `from` to `end`, inclusive."
+  (fn [from to]
     (if (eq? from to)
         (list to)
-        (cons from (range (+ 1 from) to)))))))
+        (cons from (range (+ 1 from) to)))))
 
 (:test "range"
   [ (range 1 5) ==> (1 2 3 4 5) ]
@@ -58,14 +58,13 @@
 
 ;; filter
 
-(def filter
+(def-rec filter
   "Returns 'list' with only the elements that satisfy 'filter-cond'."
-    (Y2 (fn [filter] (fn [pred ls]
-      (if (empty? ls)
-          ls
-      (if (pred (head ls))
-          (cons (head ls) (filter pred (tail ls)))
-          (filter pred (tail ls))))))))
+    (fn [pred ls]
+      (cond
+        (empty? ls)      ls
+        (pred (head ls)) (cons (head ls) (filter pred (tail ls)))
+        :else            (filter pred (tail ls)))))
 
 (:test "filter"
   [ (filter (fn [x] (< x 10)) (list 3 10 11))

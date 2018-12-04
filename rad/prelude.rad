@@ -5,7 +5,6 @@
 (load! "rad/prelude/io.rad")
 (load! "rad/prelude/bool.rad")
 (load! "rad/prelude/exception.rad")
-(load! "rad/prelude/recursion.rad")
 (load! "rad/prelude/list.rad")
 (load! "rad/prelude/dict.rad")
 (load! "rad/prelude/set.rad")
@@ -22,7 +21,6 @@
    "rad/prelude/test.rad" ;; pure unless test env
    "rad/prelude/basic.rad"
    "rad/prelude/patterns.rad"
-   "rad/prelude/recursion.rad"
    "rad/prelude/bool.rad"
    "rad/prelude/list.rad"
    "rad/prelude/dict.rad"
