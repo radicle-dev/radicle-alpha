@@ -253,11 +253,14 @@ replPrimFns = fromList $ allDocs $
           (v, _) -> throwErrorHere $ TypeError "write-handle!" 0 THandle v
       )
     , ( "read-line-handle!"
-      , "Read a single line from a handle."
+      , "Read a single line from a handle. Returns the string read, or the\
+        \ keyword `:eof` if an EOF is encountered."
       , oneArg "read-line-handle!" $ \case
           Handle h -> do
               h' <- lookupHandle h
-              String <$> hGetLineS h'
+              hGetLineS h' >>= \case
+                  Nothing -> pure . Keyword $ Ident "eof"
+                  Just v -> pure $ String v
           v -> throwErrorHere $ TypeError "read-line-handle!" 0 THandle v
       )
     , ( "wait-for-process!"

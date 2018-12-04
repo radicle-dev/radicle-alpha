@@ -1,6 +1,6 @@
 (def fzf-select-by-key!
   "Select from keys in `dict` with `fzf`, returning the corresponding values"
   (fn [dict]
-    (def result (process! "/usr/bin/env" ["fzf"] (lines (keys dict))))
+    (def result (process-with-stdout! "/usr/bin/env" ["fzf"] (unlines (keys dict))))
     ;; TODO: pattern match on exit code when pattern matching is merged
     (lookup (string-replace "\n" "" (nth 1 result)) dict)))

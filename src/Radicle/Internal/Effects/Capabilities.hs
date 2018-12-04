@@ -13,6 +13,7 @@ import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.Exit (ExitCode)
 import           System.IO (hGetLine, isEOF)
+import           System.IO.Error (isEOFError)
 import           System.Process
                  (CreateProcess, ProcessHandle, createProcess, waitForProcess)
 #ifdef ghcjs_HOST_OS
@@ -57,7 +58,8 @@ class (Monad m) => System m where
       -> m (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
     waitForProcessS :: ProcessHandle -> m ExitCode
     hPutStrS :: Handle -> Text -> m ()
-    hGetLineS :: Handle -> m Text
+    -- | hGetLine should return Nothing on EOF.
+    hGetLineS :: Handle -> m (Maybe Text)
 
 instance System m => System (Lang m) where
     systemS proc = lift $ systemS proc
@@ -68,7 +70,10 @@ instance System IO where
     systemS = createProcess
     waitForProcessS = waitForProcess
     hPutStrS = hPutStr
-    hGetLineS x = toS <$> hGetLine x
+    hGetLineS x =
+        catchJust (\e -> if isEOFError e then Just () else Nothing)
+                  (Just . toS <$> hGetLine x)
+                  (\() -> pure Nothing)
 instance System m => System (InputT m) where
     systemS proc = lift $ systemS proc
     waitForProcessS = lift . waitForProcessS
