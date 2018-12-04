@@ -2,7 +2,7 @@
 
 To create a module, use the `module` special form. All modules must start with a
 *module declaration* which provides the module with a name, documentation string
-and an exports vector. Module declarations are evaluated, so you must quote any
+and an exports vector. Module declarations are evaluated, so you must quote any exports.
 
 Here is a simple example of a module:
 
