@@ -109,7 +109,7 @@ replPrimFns = fromList $ allDocs $
 
     , ( "set-env!"
       , "Given an atom `x` and a value `v`, sets the value associated to `x` in\
-        \ the current environemtn to be `v`. Doesn't evaluate `v`."
+        \ the current environment to be `v`. Doesn't evaluate `v`."
       , \case
         [Atom x, v] -> do
             defineAtom x Nothing v

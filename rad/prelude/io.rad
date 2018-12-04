@@ -39,8 +39,8 @@ Example: `(shell! \"ls -Glah\" \"\")`. "
       _ (throw 'io-error "expected only stdin to be open"))))
 
 (def process!
-  "Executes `command` using 'execvp'. with 'to-write' as input. Stdout and stderr are inherit.
-See 'man exec' for more information on 'execvp'.
+  "Executes `command` using `execvp` with `to-write` as input. Stdout and stderr are inherit.
+See `man exec` for more information on `execvp`.
 Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   (fn [command args to-write]
     (def cp

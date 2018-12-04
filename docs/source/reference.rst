@@ -28,7 +28,7 @@ Returns ``y`` if ``x`` is not ``#f``, otherwise returns ``x``
 ``(or x y)``
 ~~~~~~~~~~~~
 
-Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'
+Returns ``x`` if ``x`` is not ``#f``, otherwise returns ``y``
 
 ``(all xs)``
 ~~~~~~~~~~~~
@@ -218,10 +218,10 @@ an exception.
 Given a non-empty sequence, returns the sequence of all the elements but
 the first. If the sequence is empty, throws an exception.
 
-``(empty? ls)``
-~~~~~~~~~~~~~~~
+``(empty? seq)``
+~~~~~~~~~~~~~~~~
 
-True if 'seq' is empty, false otherwise.
+True if ``seq`` is empty, false otherwise.
 
 ``cons``
 ~~~~~~~~
@@ -231,27 +231,27 @@ Adds an element to the front of a list.
 ``(reverse ls)``
 ~~~~~~~~~~~~~~~~
 
-Returns the reversed 'ls'.
+Returns the reversed list ``ls``.
 
 ``(length xs)``
 ~~~~~~~~~~~~~~~
 
-Returns the length of 'list'.
+Returns the length of ``xs``.
 
 ``(concat list1 list2)``
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Concatenates 'list1' and 'list2'.
+Concatenates ``list1`` and ``list2``.
 
 ``(filter pred ls)``
 ~~~~~~~~~~~~~~~~~~~~
 
-Returns 'list' with only the elements that satisfy 'filter-cond'.
+Returns ``ls`` with only the elements that satisfy ``pred``.
 
 ``(range from to)``
 ~~~~~~~~~~~~~~~~~~~
 
-Returns a list with all integers from ``from`` to ``end``, inclusive.
+Returns a list with all integers from ``from`` to ``to``, inclusive.
 
 ``(list-with-head x f g)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -289,7 +289,7 @@ Functions for manipulating boths lists and vectors.
 ``(empty-seq? xs)``
 ~~~~~~~~~~~~~~~~~~~
 
-Returns true if the input is an empty sequence (either list or vector).
+Returns true if ``xs`` is an empty sequence (either list or vector).
 
 ``nth``
 ~~~~~~~
@@ -397,18 +397,18 @@ Creates a dictionary from a list of key-value pairs.
 ``(keys d)``
 ~~~~~~~~~~~~
 
-Given a ``dict``, returns a vector of its keys.
+Given a dict ``d``, returns a vector of its keys.
 
 ``(values d)``
 ~~~~~~~~~~~~~~
 
-Given a ``dict``, returns a vector of its values.
+Given a dict ``d``, returns a vector of its values.
 
-``(rekey old-key new-key mp)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(rekey old-key new-key d)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Change the key from 'old-key' to 'new-key' in 'dict'. If 'new-key'
-already exists, it is overwritten.
+Change the key from ``old-key`` to ``new-key`` in a dict ``d``. If
+``new-key`` already exists, it is overwritten.
 
 ``map-values``
 ~~~~~~~~~~~~~~
@@ -423,22 +423,22 @@ Given a function ``f`` and a dict ``d``, returns a dict with the same
 values as ``d`` but ``f`` applied to all the keys. If ``f`` maps two
 keys to the same thing, the greatest key and value are kept.
 
-``(modify-map key f mp)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
+``(modify-map k f d)``
+~~~~~~~~~~~~~~~~~~~~~~
 
-Given a key, a function and a dict, applies the function to the value
-associated to that key.
+Given a key ``k``, a function ``f`` and a dict ``d``, applies the
+function to the value associated to that key.
 
 ``(delete-many ks d)``
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Delete several keys from a dict.
+Delete several keys ``ks`` from a dict ``d``.
 
 ``(exclusive-dict-merge m n)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Merges two dicts while checking for key conflicts. Returns
-``{:merge   m :conflicts c}`` where ``m`` is the merged dict for all
+``{:merge m :conflicts c}`` where ``m`` is the merged dict for all
 non-conflicting keys and ``c`` is a dict with all the conflicting keys,
 mapping to pairs of values, one from each input dict.
 
@@ -596,7 +596,7 @@ Given a reference ``r`` and a value ``v``, updates the value stored in
 ``(modify-ref r f)``
 ~~~~~~~~~~~~~~~~~~~~
 
-Modify 'ref' by applying the provided function. Returns the new value.
+Modify ``r`` by applying the function ``f``. Returns the new value.
 
 Evaluation functions
 --------------------
@@ -682,7 +682,7 @@ Replaces the radicle state with the one provided.
 ~~~~~~~~~~~~
 
 Given an atom ``x`` and a value ``v``, sets the value associated to
-``x`` in the current environemtn to be ``v``. Doesn't evaluate ``v``.
+``x`` in the current environment to be ``v``. Doesn't evaluate ``v``.
 
 Input/Output
 ------------
@@ -729,9 +729,9 @@ Prints a string.
 ``(process! command args to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Executes ``command`` using 'execvp'. with 'to-write' as input. Stdout
-and stderr are inherit. See 'man exec' for more information on 'execvp'.
-Example: ``(process! "ls" ["-Glah"] "")``.
+Executes ``command`` using ``execvp`` with ``to-write`` as input. Stdout
+and stderr are inherit. See ``man exec`` for more information on
+``execvp``. Example: ``(process! "ls" ["-Glah"] "")``.
 
 ``(shell! command to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -817,8 +817,8 @@ Monadic bind for the maybe monad.
 ``(maybe-foldlM f i xs)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Monadic fold over the elements of a seq, associating to the left (i.e.
-from left to right) in the maybe monad.
+Monadic fold over the elements of a sequence ``xs``, associating to the
+left (i.e. from left to right) in the maybe monad.
 
 Lenses
 ------
@@ -848,7 +848,7 @@ View a value through a lens.
 ``(view-ref r lens)``
 ~~~~~~~~~~~~~~~~~~~~~
 
-Like 'view', but for refs.
+Like ``view``, but for refs.
 
 ``(set lens new-view target)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -858,7 +858,7 @@ Set a value though a lens.
 ``(set-ref r lens v)``
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Like 'set', but for refs.
+Like ``set``, but for refs.
 
 ``(over lens f target)``
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -868,7 +868,7 @@ Modify a value through a lens.
 ``(over-ref r lens f)``
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Like 'over', but for refs.
+Like ``over``, but for refs.
 
 ``id-lens``
 ~~~~~~~~~~~
@@ -1011,14 +1011,14 @@ A lens for variables in states of chains.
 ``(eval-in-chain expr chain)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Evaluates 'expr' in the 'chain' and returns a dict with the ':result'
-and the resulting ':chain'.
+Evaluates ``expr`` in the ``chain`` and returns a dict with the
+``:result`` and the resulting ``:chain``.
 
 ``(enter-remote-chain! url env)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Make the eval behave as that of a remote chain. The second param is the
-env to return to after :quit.
+env to return to after ``:quit``.
 
 ``(update-chain! chain)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -13,7 +13,7 @@
       :nothing)))
 
 (def-rec maybe-foldlM
-  "Monadic fold over the elements of a seq, associating to the left (i.e. from
+  "Monadic fold over the elements of a sequence `xs`, associating to the left (i.e. from
   left to right) in the maybe monad."
   (fn [f i xs]
     (if (empty-seq? xs)
@@ -22,10 +22,10 @@
                  (fn [b] (maybe-foldlM f b (drop 1 xs)))))))
 
 (def exclusive-dict-merge
-  "Merges two dicts while checking for key conflicts. Returns `{:merge
-  m :conflicts c}` where `m` is the merged dict for all non-conflicting keys and
-  `c` is a dict with all the conflicting keys, mapping to pairs of values, one
-  from each input dict."
+  "Merges two dicts while checking for key conflicts. Returns
+  `{:merge m :conflicts c}` where `m` is the merged dict for all non-conflicting
+  keys and `c` is a dict with all the conflicting keys, mapping to pairs of
+  values, one from each input dict."
   (fn [m n]
     (foldr (fn [kv acc]
              (def k (nth 0 kv))

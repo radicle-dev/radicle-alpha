@@ -14,7 +14,7 @@
 ;; keys
 
 (def keys
-  "Given a `dict`, returns a vector of its keys."
+  "Given a dict `d`, returns a vector of its keys."
   (fn [d]
     (map head (seq d))))
 
@@ -23,7 +23,7 @@
 )
 
 (def values
-  "Given a `dict`, returns a vector of its values."
+  "Given a dict `d`, returns a vector of its values."
   (fn [d]
     (map (fn [x] (nth 1 x)) (seq d))))
 
@@ -33,25 +33,25 @@
 
 ;; rekey
 (def rekey
-  "Change the key from 'old-key' to 'new-key' in 'dict'. If 'new-key' already exists, it is overwritten."
-  (fn [old-key new-key mp]
-    (def old-val (lookup old-key mp))
-    (delete old-key (insert new-key old-val mp))))
+  "Change the key from `old-key` to `new-key` in a dict `d`. If `new-key` already exists, it is overwritten."
+  (fn [old-key new-key d]
+    (def old-val (lookup old-key d))
+    (delete old-key (insert new-key old-val d))))
 
 (:test "rekey"
   [ (rekey :a :b {:a 5}) ==> {:b 5} ])
 
 ;; modify-map
 (def modify-map
-  "Given a key, a function and a dict, applies the function to the value associated to that key."
-  (fn [key f mp]
-    (insert key (f (lookup key mp)) mp)))
+  "Given a key `k`, a function `f` and a dict `d`, applies the function to the value associated to that key."
+  (fn [k f d]
+    (insert k (f (lookup k d)) d)))
 
 (:test "modify-map"
   [ (modify-map :a (fn [x] (+ x 1)) {:a 5})
      ==> {:a 6} ])
 
 (def delete-many
-  "Delete several keys from a dict."
+  "Delete several keys `ks` from a dict `d`."
   (fn [ks d]
     (foldr (fn [k d] (delete k d)) d ks)))
