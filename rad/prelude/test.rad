@@ -40,7 +40,7 @@
         (def rhs (nth 2 single))
         (if (eq? marker '==>)
             (do
-              (def lhs-res (head (eval lhs senv)))
+              (def lhs-res (first (eval lhs senv)))
               (if (eq? lhs-res rhs)
                   (put-str! (string-append "Test '" test-name " (" (show ix) ")' succeeded"))
                   (error (string-append "failed: got " (show lhs-res) " but expected " (show rhs)))))
@@ -51,7 +51,7 @@
     ;; If first block starts with :setup, run tests in that env
     (if (eq? (nth 0 maybe-setup) :setup)
         (do (def setup-env (nth 1 (eval (nth 1 maybe-setup) test-env)))
-            (foldl (fn [ix x] (check-single x ix setup-env)) 1 (tail test-contents)))
+            (foldl (fn [ix x] (check-single x ix setup-env)) 1 (rest test-contents)))
         (foldl (fn [ix x] (check-single x ix test-env)) 1 test-contents))
 ))
 

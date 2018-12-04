@@ -154,8 +154,8 @@
   (fn [expr env]
       (if (list? expr)
           (cond
-            (eq? (head expr) :enter-chain)
-              (enter-remote-chain! (head (eval__ (nth 1 expr) env)) env)
+            (eq? (first expr) :enter-chain)
+              (enter-remote-chain! (first (eval__ (nth 1 expr) env)) env)
             :else (eval__ expr env))
           (eval__ expr env))))
 
@@ -165,7 +165,7 @@
   state, while also calling the callback on the result."
   (fn [state f arg cb]
     (def exec (base-eval (list f (list 'quote arg)) state))
-    (cb (head exec))
+    (cb (first exec))
     exec))
 
 (def updatable-eval

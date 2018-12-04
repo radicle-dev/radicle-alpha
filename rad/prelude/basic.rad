@@ -1,8 +1,16 @@
 {:module  'prelude/basic
  :doc     "Basic function used for checking equality, determining the type of a value, etc."
- :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem?]}
+ :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem? head tail]}
 
 ;; or
+
+(def head
+  "Backwards compatible alias for `first`."
+  first)
+
+(def tail
+  "Backwards compatible alias for `rest`."
+  rest)
 
 (def or
   "Returns `x` if `x` is not `#f`, otherwise returns `y`"

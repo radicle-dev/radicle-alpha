@@ -15,7 +15,7 @@
   "Evaluation function that adds :test macro to register tests."
   (fn [expr env]
     (if (list? expr)
-        (if (eq? (head expr) :test)
+        (if (eq? (first expr) :test)
             (do
                 (def bindings (lookup :env env))
                 (def test-def {:tests (drop 2 expr) :name (nth 1 expr) :env env})

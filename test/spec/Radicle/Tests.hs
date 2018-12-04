@@ -64,12 +64,12 @@ test_eval =
         let prog = [s|(cons #t (list #f))|]
         prog `succeedsWith` List [Boolean True, Boolean False]
 
-    , testCase "'head' returns the first element of a list" $ do
-        let prog = [s|(head (list #t #f))|]
+    , testCase "'first' returns the first element of a list" $ do
+        let prog = [s|(first (list #t #f))|]
         prog `succeedsWith` Boolean True
 
-    , testCase "'tail' returns the tail of a list" $ do
-        let prog = [s|(tail (list #t #f #t))|]
+    , testCase "'rest' returns the tail of a list" $ do
+        let prog = [s|(rest (list #t #f #t))|]
         prog `succeedsWith` List [Boolean False, Boolean True]
 
     , testCase "'drop' drops" $ do
@@ -198,18 +198,18 @@ test_eval =
         prog `succeedsWith` List [List [int 1, int 1]]
 
     , testCase "'eval' evaluates the list" $ do
-        let prog = [s|(head (eval (quote #t) (get-current-env)))|]
+        let prog = [s|(first (eval (quote #t) (get-current-env)))|]
         prog `succeedsWith` Boolean True
 
     , testCase "'eval' only evaluates the first quote" $ do
-        let prog1 = [s|(head (eval (quote (quote (+ 3 2))) (get-current-env)))|]
+        let prog1 = [s|(first (eval (quote (quote (+ 3 2))) (get-current-env)))|]
             prog2 = [s|(quote (+ 3 2))|]
             res1 = runPureCode prog1
             res2 = runPureCode prog2
         res1 @?= res2
 
     , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
-        let prog1 = [i| (head (eval (fn [] #{renderPrettyDef _v}) (get-current-env))) |]
+        let prog1 = [i| (first (eval (fn [] #{renderPrettyDef _v}) (get-current-env))) |]
             prog2 = [i| (fn [] #{renderPrettyDef _v}) |]
             res1 = runPureCode $ toS prog1
             res2 = runPureCode $ toS prog2
