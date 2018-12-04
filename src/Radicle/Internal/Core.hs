@@ -466,28 +466,32 @@ setBindings value = do
                 , bindingsProcHandles = bindingsProcHandles bnds
                 , bindingsNextProcHandle = bindingsNextProcHandle bnds
                 }
+
+bindingsFromRadicle :: Value -> Either Text (Bindings (PrimFns m))
+bindingsFromRadicle x = case x of
+    Dict d -> do
+        env' <- kwLookup "env" d ?? "Expecting 'env' key"
+        refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
+        refs <- makeRefs refs'
+        env <- envFromRad env'
+        pure $ emptyBindings
+            { bindingsEnv = env
+            , bindingsRefs = refs
+            , bindingsNextRef = length refs
+            }
+    _ -> throwError "Expecting dict"
   where
-    bindingsFromRadicle x = case x of
-        Dict d -> do
-            env' <- kwLookup "env" d ?? "Expecting 'env' key"
-            refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
-            refs <- makeRefs refs'
-            env <- envFromRad env'
-            pure $ emptyBindings
-                { bindingsEnv = env
-                , bindingsRefs = refs
-                , bindingsNextRef = length refs
-                }
-        _ -> throwError "Expecting dict"
     makeRefs refs = case refs of
         List ls -> pure (IntMap.fromList $ zip [0..] ls)
         _       -> throwError $ "Expecting dict"
-    envFromRad env = case env of
-        Dict d -> fmap (Env . Map.fromList)
-                $ forM (Map.toList d) $ \(k, v) -> case k of
-            Atom i -> (i, ) <$> fromRad v
-            k'     -> Left $ "Expecting atom keys. Got: " <> show k'
-        _ -> Left "Expecting dict"
+
+envFromRad :: Value -> Either Text (Env Value)
+envFromRad env = case env of
+    Dict d -> fmap (Env . Map.fromList)
+            $ forM (Map.toList d) $ \(k, v) -> case k of
+        Atom i -> (i, ) <$> fromRad v
+        k'     -> Left $ "Expecting atom keys. Got: " <> show k'
+    _ -> Left "Expecting dict"
 
 -- | Serializes the environment and references into a Radicle value.
 --
@@ -501,8 +505,11 @@ bindingsToRadicle x =
         , (Keyword $ Ident "refs", refs)
         ]
   where
-    env = Dict . Map.mapKeys Atom . Map.map toRad . fromEnv $ bindingsEnv x
+    env = envToRadicle (bindingsEnv x)
     refs = List $ IntMap.elems (bindingsRefs x)
+
+envToRadicle :: Env Value -> Value
+envToRadicle = Dict . Map.mapKeys Atom . Map.map toRad . fromEnv
 
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
@@ -726,7 +733,7 @@ createModule = \case
     (m : forms) -> do
       m' <- baseEval m >>= meta
       e <- withEnv identity $ traverse_ eval forms *> gets bindingsEnv
-      let env = toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (exports m'))
+      let env = envToRadicle $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (exports m'))
       let modu = Dict $ Map.fromList
                   [ (Keyword (Ident "module"), Atom (name m'))
                   , (Keyword (Ident "env"), env)

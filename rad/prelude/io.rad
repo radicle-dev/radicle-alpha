@@ -1,6 +1,6 @@
 {:module 'prelude/io
  :doc "Some basic I/O functions."
- :exports '[read-line! send-code! read-code!]}
+ :exports '[print! shell! process! read-line! send-code! read-code!]}
 
 ;; read-line
 (def read-line!

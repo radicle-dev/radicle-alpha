@@ -15,6 +15,7 @@ import           Data.Yaml hiding (Value)
 import qualified GHC.Exts as GhcExts
 import           Radicle
 import           Radicle.Internal.Identifier
+import Radicle.Internal.Core
 import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
 
@@ -40,7 +41,7 @@ main = do
                 <> "(get-current-env))")
                replBindings
     let res = res_ `lPanic` "Error running the prelude."
-    let s :: Bindings () = fromRad res `lPanic` "Couldn't convert radicle state."
+    let s = bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
     let vars = GhcExts.toList (bindingsEnv s)
     checkAllDocumented [ fromIdent iden | (iden, Nothing, _) <- vars ]
     let e = Map.fromList [ (fromIdent iden, (docString, val)) | (iden, Just docString, val) <- vars ]
@@ -59,7 +60,7 @@ main = do
       , Para $ inlinePandoc $ preludeModulesDoc content
       ] ++ foldMap (module' e) (modules content)
 
-    defs v = let env :: Env Value = fromRad v `lPanic` "Couldn't convert radicle value to as environment"
+    defs v = let env = envFromRad v `lPanic` "Couldn't convert radicle value to as environment"
              in Map.fromList [ (fromIdent iden, (docString, val)) | (iden, Just docString, val) <- GhcExts.toList env ]
 
     module' env name = case lkp name env "Couldn't find module in the env" of

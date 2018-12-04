@@ -608,7 +608,7 @@ purePrimFns = fromList $ allDocs $
       n <- kwLookup "module" d ?? toLangError (OtherError "Modules should have an `:module` key")
       case n of
         Atom name -> do
-          e <- fromRadOtherErr v
+          e <- hoistEither $ first (toLangError . OtherError) $ envFromRad v
           let allMod = fromEnv e
           let toImport = case is_ of
                 Just is -> Map.restrictKeys allMod (Set.fromList is)

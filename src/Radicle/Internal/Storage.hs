@@ -17,6 +17,7 @@ import           Protolude hiding (TypeError)
 import           GHC.Exts (fromList)
 
 import           Radicle.Internal.Core
+import           Radicle.Internal.Identifier
 import qualified Radicle.Internal.Number as Num
 import qualified Radicle.Internal.PrimFns as PrimFns
 import           Radicle.Internal.Type

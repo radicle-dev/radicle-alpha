@@ -28,9 +28,7 @@
   "monadic/radicle/issues")
 
 (def issues-chain
-  ;;(ref (load-chain "http://radicle.xyz/chains/radicle-issues"))
-  (ref (chain/load-chain "localhost:8000/chains/radicle-issues"))
-  )
+  (ref (chain/load-chain! "localhost:8000/chains/radicle-issues")))
 
 (def create-issues-chain!
   "Create a remote issue chain with the given url."
@@ -75,13 +73,13 @@
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."
   (fn [i]
-    (send! (lookup :url (read-ref issues-chain!))
+    (send! (lookup :url (read-ref issues-chain))
            [(list 'create-issue (sign-entity! i))])))
 
 (def add-comment!
   "Create a remote comment with the keys in `my-keys.rad`."
   (fn [c]
-    (send! (lookup :url (read-ref issues-chain!))
+    (send! (lookup :url (read-ref issues-chain))
            [(list 'add-comment (sign-entity! c))])))
 
 (def simple-create-issue!
@@ -94,7 +92,7 @@
   (fn [in b]
     (add-comment! (simple-comment in b))))
 
-(def list-issues!
+(def list-issues
   "Return the full map of issues."
   (fn []
     (lookup :result (chain/eval-in-chain '(list-issues) (read-ref issues-chain)))))
@@ -136,15 +134,15 @@
      ": "
      (lookup :title i))))
 
-(def list-last!
+(def list-last
   "Get the last `n` issues."
   (fn [n]
-    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues!))))
+    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues))))
     (take n is)))
 
-(def get-by-id!
+(def get-by-id
   (fn [id]
-    (lookup id (list-issues!))))
+    (lookup id (list-issues))))
 
 (:test
  "The monadic issues chain works."
