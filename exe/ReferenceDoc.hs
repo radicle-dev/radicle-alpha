@@ -76,7 +76,7 @@ main = do
     export _ _                     = panic "Export was not an atom."
 
     valueDoc env name =
-        case lkp name env ("couldn't find value " <> show (Map.keys env)) of
+        case lkp name env "couldn't find value" of
             (docString, Lambda args _ _) ->
                 let callExample = "(" <> T.intercalate " " (name : map fromIdent args) <> ")"
                 in [ Header 3 nullAttr [Code nullAttr (toS callExample) ]

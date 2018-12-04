@@ -80,63 +80,20 @@ Parses a string into a radicle value. Does not evaluate the value.
 Parses a string into a vector of radicle values. Does not evaluate the
 values.
 
-``throw``
-~~~~~~~~~
+``base-eval``
+~~~~~~~~~~~~~
 
-Throws an exception. The first argument should be an atom used as a
-label for the exception, the second can be any value.
+The default evaluation function. Expects an expression and a radicle
+state. Return a list of length 2 consisting of the result of the
+evaluation and the new state.
 
-``to-json``
-~~~~~~~~~~~
+``(eval expr env)``
+~~~~~~~~~~~~~~~~~~~
 
-Returns a JSON formatted string representing the input value.
+The evaluation function.
 
-``uuid?``
-~~~~~~~~~
-
-Checks if a string has the format of a UUID.
-
-``(make-counter)``
-~~~~~~~~~~~~~~~~~~
-
-Creates a stateful counter. Returns a dict with two keys: the function
-at ``:next-will-be`` will return the next number (without incrementing
-it), while the function at ``:next`` increments the number and returns
-it.
-
-``public-key?``
-~~~~~~~~~~~~~~~
-
-Checks if a value represents a valid public key.
-
-Numerical functions
--------------------
-
-Operations on numbers.
-
-``+``
-~~~~~
-
-Adds two numbers together.
-
-``*``
-~~~~~
-
-Multiplies two numbers together.
-
-``-``
-~~~~~
-
-Substracts one number from another.
-
-``/``
-~~~~~
-
-Divides one number by another. Throws an exception if the second
-argument is 0.
-
-``<``
-~~~~~
+``ref``
+~~~~~~~
 
 Creates a ref with the argument as the initial value.
 
@@ -167,30 +124,10 @@ an exception.
 
 Adds an element to the front of a list.
 
-``(reverse ls)``
-~~~~~~~~~~~~~~~~
+``add-left``
+~~~~~~~~~~~~
 
-Returns the reversed 'ls'.
-
-``(length xs)``
-~~~~~~~~~~~~~~~
-
-Returns the length of 'list'.
-
-``(concat list1 list2)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Concatenates 'list1' and 'list2'.
-
-``(filter pred ls)``
-~~~~~~~~~~~~~~~~~~~~
-
-Returns 'list' with only the elements that satisfy 'filter-cond'.
-
-``(range from to)``
-~~~~~~~~~~~~~~~~~~~
-
-Returns a list with all integers from ``from`` to ``end``, inclusive.
+Adds an element to the left side of a vector.
 
 ``add-right``
 ~~~~~~~~~~~~~
@@ -325,6 +262,13 @@ structure ``s`` may be a list, vector or dict. If it is a list or a
 vector, it checks if ``v`` is one of the items. If ``s`` is a dict, it
 checks if ``v`` is one of the keys.
 
+``map-keys``
+~~~~~~~~~~~~
+
+Given a function ``f`` and a dict ``d``, returns a dict with the same
+values as ``d`` but ``f`` applied to all the keys. If ``f`` maps two
+keys to the same thing, the greatest key and value are kept.
+
 ``map-values``
 ~~~~~~~~~~~~~~
 
@@ -341,6 +285,12 @@ arguments isn't a string then an exception is thrown.
 ~~~~~~~~~~~~~~~~~
 
 Returns the length of a string.
+
+``string-replace``
+~~~~~~~~~~~~~~~~~~
+
+Replace all occurrences of the first argument with the second in the
+third.
 
 ``type``
 ~~~~~~~~
@@ -480,10 +430,10 @@ Given an elliptic curve, generates a cryptographic key-pair. Use
 Given a private key and a message (a string), generates a cryptographic
 signature for the message.
 
-``print!``
-~~~~~~~~~~
+``put-str!``
+~~~~~~~~~~~~
 
-Pretty-prints a value.
+Prints a string.
 
 ``get-line!``
 ~~~~~~~~~~~~~
@@ -501,11 +451,35 @@ Evaluates the contents of a file. Each seperate radicle expression is
 
 Reads the contents of a file and returns it as a string.
 
+``read-line-handle!``
+~~~~~~~~~~~~~~~~~~~~~
+
+Read a single line from a handle.
+
 ``now!``
 ~~~~~~~~
 
 Returns a timestamp for the current Coordinated Universal Time (UTC),
 right now, formatted according to ISO 8601.
+
+``system!``
+~~~~~~~~~~~
+
+(system! proc) execute a system process. Returns the dict with the form
+``{ :stdin maybe-handle      :stdout maybe-handle      :stderr maybe-handle      :proc prochandle    }``
+Where ``maybe-handle`` is either ``[:just handle]`` or ``:nothing``.
+Note that this is quite a low-level function; higher-level ones are more
+convenient.
+
+``wait-for-process!``
+~~~~~~~~~~~~~~~~~~~~~
+
+Block until process terminates.
+
+``write-handle!``
+~~~~~~~~~~~~~~~~~
+
+Write a string to the provided handle.
 
 ``subscribe-to!``
 ~~~~~~~~~~~~~~~~~
@@ -515,15 +489,8 @@ The dict ``s`` should have a function ``getter`` at the key ``:getter``.
 This function is called repeatedly (with no arguments), its result is
 then evaluated and passed to ``f``.
 
-``map-keys``
-~~~~~~~~~~~~
-
-Given a function ``f`` and a dict ``d``, returns a dict with the same
-values as ``d`` but ``f`` applied to all the keys. If ``f`` maps two
-keys to the same thing, the greatest key and value are kept.
-
-``(modify-map key f mp)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
+``doc``
+~~~~~~~
 
 Returns the documentation string for a variable. To print it instead,
 use ``doc!``.
@@ -533,11 +500,6 @@ use ``doc!``.
 
 Prints the documentation attached to a value and returns ``()``. To
 retrieve the docstring as a value use ``doc`` instead.
-
-``document``
-~~~~~~~~~~~~
-
-Used to add documentation to variables.
 
 ``apropos!``
 ~~~~~~~~~~~~
@@ -576,34 +538,8 @@ Returns true if the input is an empty sequence (either list or vector).
 
 Returns the length of 'list'.
 
-Strings
--------
-
-Functions for manipulating strings.
-
-``(intercalate sep strs)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Intercalates a string in a list of strings
-
-``(unlines x)``
-~~~~~~~~~~~~~~~
-
-Concatenate a list of strings, with newlines in between.
-
-``string-replace``
-~~~~~~~~~~~~~~~~~~
-
-Replace all occurrences of the first argument with the second in the
-third.
-
-``(unwords x)``
-~~~~~~~~~~~~~~~
-
-Concatenate a list of strings, with spaces in between.
-
-Structures
-----------
+``(maybe->>= v f)``
+~~~~~~~~~~~~~~~~~~~
 
 Monadic bind for the maybe monad.
 
@@ -666,6 +602,25 @@ Pattern which matches ``[:just x]``.
 --------------
 
 Some basic I/O functions.
+
+``(print! x)``
+~~~~~~~~~~~~~~
+
+Print a value to the console or stdout.
+
+``(shell! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Executes ``command`` using the shell with ``to-write`` as input. Stdout
+and stderr are inherited. WARNING: using ``shell!`` with unsanitized
+user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
+
+``(process! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Executes ``command`` using 'execvp'. with 'to-write' as input. Stdout
+and stderr are inherit. See 'man exec' for more information on 'execvp'.
+Example: ``(process! "ls" ["-Glah"] "")``.
 
 ``(read-line!)``
 ~~~~~~~~~~~~~~~~
@@ -740,12 +695,12 @@ True if 'seq' is empty, false otherwise.
 ``(reverse ls)``
 ~~~~~~~~~~~~~~~~
 
-Returns the reversed 'list'.
+Returns the reversed 'ls'.
 
-``is-test-env``
-~~~~~~~~~~~~~~~
+``(range from to)``
+~~~~~~~~~~~~~~~~~~~
 
-True iff file is being run as part of the Haskell suite
+Returns a list with all integers from ``from`` to ``end``, inclusive.
 
 ``(concat list1 list2)``
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -765,7 +720,7 @@ Functions for manipualting dicts.
 ``(dict-from-seq xs)``
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Creates a dictionary from a seq of key-value pairs.
+Creates a dictionary from a list of key-value pairs.
 
 ``(keys d)``
 ~~~~~~~~~~~~
@@ -777,10 +732,11 @@ Given a ``dict``, returns a vector of its keys.
 
 Given a ``dict``, returns a vector of its values.
 
-``(print! x)``
-~~~~~~~~~~~~~~
+``(rekey old-key new-key mp)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Print a value to the console or stdout.
+Change the key from 'old-key' to 'new-key' in 'dict'. If 'new-key'
+already exists, it is overwritten.
 
 ``(modify-map key f mp)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -798,61 +754,33 @@ Delete several keys from a dict.
 
 Sets, built using dicts.
 
-``set/empty``
-~~~~~~~~~~~~~
+``empty``
+~~~~~~~~~
 
 An empty set.
 
-``(set/insert x s)``
-~~~~~~~~~~~~~~~~~~~~
+``(insert x s)``
+~~~~~~~~~~~~~~~~
 
 Insert a value into a set.
 
-``(set/delete x s)``
-~~~~~~~~~~~~~~~~~~~~
+``(delete x s)``
+~~~~~~~~~~~~~~~~
 
 Delete a value from a set.
 
-``(set/member? x s)``
-~~~~~~~~~~~~~~~~~~~~~
+``(member? x s)``
+~~~~~~~~~~~~~~~~~
 
 Query if an value is an element of a set.
 
-``(set/to-vec s)``
-~~~~~~~~~~~~~~~~~~
+``(to-vec s)``
+~~~~~~~~~~~~~~
 
 Convert a set to a vector.
 
-``put-str!``
-~~~~~~~~~~~~
-
-Prints a string.
-
-``(process! command args to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Executes ``command`` using 'execvp'. with 'to-write' as input. Stdout
-and stderr are inherit. See 'man exec' for more information on 'execvp'.
-Example: ``(process! "ls" ["-Glah"] "")``.
-
-``(shell! command to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Executes ``command`` using the shell with ``to-write`` as input. Stdout
-and stderr are inherited. WARNING: using ``shell!`` with unsanitized
-user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
-
-``system!``
-~~~~~~~~~~~
-
-(system! proc) execute a system process. Returns the dict with the form
-``{ :stdin maybe-handle      :stdout maybe-handle      :stderr maybe-handle      :proc prochandle    }``
-Where ``maybe-handle`` is either ``[:just handle]`` or ``:nothing``.
-Note that this is quite a low-level function; higher-level ones are more
-convenient.
-
-``(send-prelude! chain-id)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(from-seq xs)``
+~~~~~~~~~~~~~~~~~
 
 Create a set from a sequence.
 
@@ -876,23 +804,8 @@ Functional references.
 
 Makes a lens out of a getter and a setter.
 
-``read-line-handle!``
-~~~~~~~~~~~~~~~~~~~~~
-
-Read a single line from a handle.
-
-``wait-for-process!``
-~~~~~~~~~~~~~~~~~~~~~
-
-Block until process terminates.
-
-``write-handle!``
-~~~~~~~~~~~~~~~~~
-
-Write a string to the provided handle.
-
-``now!``
-~~~~~~~~
+``(view lens target)``
+~~~~~~~~~~~~~~~~~~~~~~
 
 View a value through a lens.
 
@@ -956,8 +869,8 @@ Functions for simulating remote chains.
 
 Return an empty chain dictionary with the given url.
 
-``(load-chain url)``
-~~~~~~~~~~~~~~~~~~~~
+``(load-chain! url)``
+~~~~~~~~~~~~~~~~~~~~~
 
 Takes a ``url``, and fetches the inputs of a remote chain and return a
 chain dictionary with the chain state.
@@ -968,11 +881,11 @@ chain dictionary with the chain state.
 Evaluates 'expr' in the 'chain' and returns a dict with the ':result'
 and the resulting ':chain'.
 
-``(update-chain-ref chain-ref)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(update-chain-ref! chain-ref)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Update a ref containing a chain with the new expressions from the remote
-chain
+Update ``chain-ref`` containing a chain with the new expressions from
+the remote chain
 
 ``(eval expr env)``
 ~~~~~~~~~~~~~~~~~~~
@@ -988,8 +901,8 @@ Given an evaluation function ``f``, returns a new one which augments
 ``f`` with a new command ``(update expr)`` which evaluates arbitrary
 expression using ``base-eval``.
 
-``(update-chain chain)``
-~~~~~~~~~~~~~~~~~~~~~~~~
+``(update-chain! chain)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Takes a chain, and returns a new chain updated with the new expressions
 from the remote chain
@@ -1095,58 +1008,7 @@ Utility functions. For the moment just a counter.
 ``(make-counter)``
 ~~~~~~~~~~~~~~~~~~
 
-Given a private key and a message (a string), generates a cryptographic
-signature for the message.
-
-Chain tools
------------
-
-These functions can be used to simulate remote chains in the local REPL.
-This is useful for experimenting with inputs or even new evaluation
-functions before sending these to a remote chain.
-
-``(new-chain url)``
-~~~~~~~~~~~~~~~~~~~
-
-Return an empty chain dictionary with the given url.
-
-``(eval-in-chain expr chain)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Evaluates 'expr' in the 'chain' and returns a dict with the ':result'
-and the resulting ':chain'.
-
-``(update-chain chain)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Takes a chain, and returns a new chain updated with the new expressions
-from the remote chain
-
-``(load-chain url)``
-~~~~~~~~~~~~~~~~~~~~
-
-Takes a ``url``, and fetches the inputs of a remote chain and return a
-chain dictionary with the chain state.
-
-``pure-prelude-files``
-~~~~~~~~~~~~~~~~~~~~~~
-
-List of files which together define the pure prelude.
-
-``pure-prelude-code!``
-~~~~~~~~~~~~~~~~~~~~~~
-
-The pure prelude.
-
-``(eval-fn-app state f arg cb)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a state, a function, an argument and a callback, returns the
-result of evaluating the function call on the arg in the given state,
-while also calling the callback on the result.
-
-``(update-chain-ref chain-ref)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Update ``chain-ref`` containing a chain with the new expressions from
-the remote chain
+Creates a stateful counter. Returns a dict with two keys: the function
+at ``:next-will-be`` will return the next number (without incrementing
+it), while the function at ``:next`` increments the number and returns
+it.

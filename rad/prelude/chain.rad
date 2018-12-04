@@ -1,6 +1,6 @@
 {:module 'prelude/chain
  :doc "Functions for simulating remote chains."
- :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval updatable-eval update-chain eval-fn-app send-prelude!]}
+ :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval updatable-eval update-chain! eval-fn-app send-prelude!]}
 
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/lens '[.. ... view over @] :unqualified)
