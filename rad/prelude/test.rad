@@ -1,6 +1,16 @@
 {:module 'prelude/test
  :doc "Provides eval that adds a `:test` macro."
- :exports '[run run-all]}
+ :exports '[run run-all assert-equal]}
+
+(def assert-equal
+  "Compares `actual` with `expected` with `eq?`. If the values are not equal an
+  `'assertion-error` is thrown. Otherwise `actual` is retuned."
+  (fn [actual expected]
+    (if (eq? actual expected)
+        actual
+        (throw 'assertion-error (string-append "failed: got " (show actual) " but expected " (show expected))))
+))
+
 
 (def run
   "Run the tests in `test-def` and print the result. `test-def` is a `{:env env

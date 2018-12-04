@@ -842,6 +842,11 @@ test_source_files = do
                     then pure ()
                     else assertFailure . toS $ "test failed: " <> line
 
+test_counter :: TestTree
+test_counter = testCase "rad/examples/counter.rad" $ do
+    res <- runCodeWithSourceFiles "(load! \"rad/examples/counter.rad\") (counter/run-test)"
+    res @?= Right (kw "test-ok")
+
 test_macros :: [TestTree]
 test_macros =
     [ testCase ":enter-chain keeps old bindings" $ do
