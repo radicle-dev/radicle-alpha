@@ -292,6 +292,14 @@ Returns the length of a string.
 Replace all occurrences of the first argument with the second in the
 third.
 
+``foldl-string``
+~~~~~~~~~~~~~~~~
+
+A left fold on a string. That is, given a function ``f``, an initial
+accumulator value ``init``, and a string ``s``, reduce ``s`` by applying
+``f`` to the accumulator and the next character in the string
+repeatedly.
+
 ``type``
 ~~~~~~~~
 

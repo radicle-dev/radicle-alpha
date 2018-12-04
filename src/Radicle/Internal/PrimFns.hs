@@ -376,6 +376,21 @@ purePrimFns = fromList $ allDocs $
             Right _ -> pure $ Boolean True
           v -> throwErrorHere $ TypeError "integral?" 0 TNumber v
       )
+    , ( "foldl-string"
+      , "A left fold on a string. That is, given a function `f`, an initial\
+        \ accumulator value `init`, and a string `s`, reduce `s` by applying `f`\
+        \ to the accumulator and the next character in the string repeatedly."
+      , \case
+          [fn, ini, String v] -> do
+              let folder f = T.foldl g (pure ini) v
+                    where
+                      g x y = join (fmap (`f` y) x)
+              folder (\b a -> callFn fn [b, String $ T.singleton a])
+          [_, _, x]           -> throwErrorHere
+                               $ TypeError "foldl-string" 2 TString x
+          xs                  -> throwErrorHere
+                               $ WrongNumberOfArgs "foldl-string" 3 (length xs)
+      )
     , ( "foldl"
       , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
         \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
