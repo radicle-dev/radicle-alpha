@@ -3,10 +3,10 @@
 
 (file-module! "rad/prelude/basic.rad")
 (file-module! "rad/prelude/patterns.rad")
+(file-module! "rad/prelude/strings.rad")
 (file-module! "rad/prelude/io.rad")
 (file-module! "rad/prelude/bool.rad")
 (file-module! "rad/prelude/exception.rad")
-(file-module! "rad/prelude/recursion.rad")
 (file-module! "rad/prelude/list.rad")
 (file-module! "rad/prelude/dict.rad")
 (file-module! "rad/prelude/set.rad")
@@ -19,6 +19,7 @@
 
 (import prelude/basic :unqualified)
 (import prelude/patterns :unqualified)
+(import prelude/strings 'string)
 (import prelude/io :unqualified)
 (import prelude/bool :unqualified)
 (import prelude/list :unqualified)

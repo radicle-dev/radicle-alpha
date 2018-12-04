@@ -598,6 +598,26 @@ Empty-list pattern.
 
 Pattern which matches ``[:just x]``.
 
+``prelude/strings``
+-------------------
+
+String manipulation functions.
+
+``(intercalate sep strs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Intercalates a string in a list of strings
+
+``(unlines x)``
+~~~~~~~~~~~~~~~
+
+Concatenate a list of strings, with newlines in between.
+
+``(unwords x)``
+~~~~~~~~~~~~~~~
+
+Concatenate a list of strings, with spaces in between.
+
 ``prelude/io``
 --------------
 
@@ -661,21 +681,6 @@ Checks that all the items of a list are truthy.
 ---------------------
 
 Tests for exceptions.
-
-``prelude/recursion``
----------------------
-
-Some recursion combinators.
-
-``(Y h)``
-~~~~~~~~~
-
-A combinator used to create recursive functions of one variable.
-
-``(Y2 h)``
-~~~~~~~~~~
-
-A combinator used to create recursive functions of two variables.
 
 ``prelude/list``
 ----------------

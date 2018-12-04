@@ -5,7 +5,6 @@
 ;; nil
 
 (import prelude/basic :unqualified)
-(import prelude/recursion ['Y2] 'rec)
 
 (def nil "The empty list." (list))
 

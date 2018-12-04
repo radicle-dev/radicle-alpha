@@ -119,10 +119,10 @@ primFns:
 modules:
 - prelude/basic
 - prelude/patterns
+- prelude/strings
 - prelude/io
 - prelude/bool
 - prelude/exception
-- prelude/recursion
 - prelude/list
 - prelude/dict
 - prelude/set
