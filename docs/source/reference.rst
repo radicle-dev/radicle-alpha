@@ -1014,14 +1014,14 @@ A lens for variables in states of chains.
 Evaluates 'expr' in the 'chain' and returns a dict with the ':result'
 and the resulting ':chain'.
 
-``(enter-remote-chain url env)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(enter-remote-chain! url env)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Make the eval behave as that of a remote chain. The second param is the
 env to return to after :quit.
 
-``(update-chain chain)``
-~~~~~~~~~~~~~~~~~~~~~~~~
+``(update-chain! chain)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Takes a chain, and returns a new chain updated with the new expressions
 from the remote chain
@@ -1032,14 +1032,14 @@ from the remote chain
 Adds a ``:quit`` command to ``before-quit-eval``, which switches to
 ``after-quit-state`` (and to the eval in that state)
 
-``(add-send oeval)``
-~~~~~~~~~~~~~~~~~~~~
+``(add-send! oeval)``
+~~~~~~~~~~~~~~~~~~~~~
 
 Add a ``:send`` special form that sends the contents of ``_input`` to
 the chain ``_cur-chain``
 
-``(load-chain url)``
-~~~~~~~~~~~~~~~~~~~~
+``(load-chain! url)``
+~~~~~~~~~~~~~~~~~~~~~
 
 Takes a ``url``, and fetches the inputs of a remote chain and return a
 chain dictionary with the chain state.
@@ -1049,8 +1049,8 @@ chain dictionary with the chain state.
 
 List of files which together define the pure prelude.
 
-``pure-prelude-code``
-~~~~~~~~~~~~~~~~~~~~~
+``pure-prelude-code!``
+~~~~~~~~~~~~~~~~~~~~~~
 
 The pure prelude.
 
@@ -1099,8 +1099,8 @@ Vote to disagree on a new transition function.
 Given a function ``f``, makes a transition function who's output is also
 the next state.
 
-``(update-chain-ref chain-ref)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(update-chain-ref! chain-ref)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Update ``chain-ref`` containing a chain with the new expressions from
 the remote chain

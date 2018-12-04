@@ -77,14 +77,14 @@ SCRIPT
   get-value )
     radicle - <<-SCRIPT
       (load! "rad/prelude.rad")
-      (def chain (load-chain "${chain}"))
+      (def chain (load-chain! "${chain}"))
       (lookup :result (eval-in-chain '(get-value) chain))
 SCRIPT
     ;;
   increment )
     radicle - <<-SCRIPT
       (load! "rad/prelude.rad")
-      (def chain (load-chain "${chain}"))
+      (def chain (load-chain! "${chain}"))
       (def expr '(increment))
       (def result (lookup :result (eval-in-chain expr chain)))
       (send! "${chain}" [expr])
