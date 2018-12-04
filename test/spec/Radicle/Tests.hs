@@ -788,17 +788,11 @@ test_source_files = do
   where
     testOne :: FilePath -> IO [TestTree]
     testOne file = do
-        (dir, files) <- sourceFiles
-        allFiles <- forM files $ \f -> do
-            contents <- readFile (dir <> f)
-            pure (toS f, contents)
-        contents <- readFile (dir <> file)
         keyPair :: Text <- runTest testBindings "(gen-key-pair! (default-ecc-curve))" >>= \case
             Right kp -> pure $ renderCompactPretty kp
             Left _   -> panic "Couldn't generate keypair file."
-        (r, out) <- runTestWithFiles testBindings []
-                        (Map.insert "my-keys.rad" keyPair (fromList allFiles))
-                        contents
+        srcs <- Map.insert "my-keys.rad" keyPair <$> sourceFiles
+        (r, out) <- runTestWithFiles testBindings [] srcs $ toS $ "(load! \"" <> file <> "\")"
         let makeTest line =
                 let name = T.reverse $ T.drop 1 $ T.dropWhile (/= '\'')
                          $ T.reverse $ T.drop 1 $ T.dropWhile (/= '\'') line
@@ -853,9 +847,8 @@ prettyEither (Right v) = renderPrettyDef v
 -- that the last two lines of the actual output equal @[a, b]@.
 assertReplInteraction :: [Text] -> [Text] -> IO ()
 assertReplInteraction input expected = do
-    (dir, srcs) <- sourceFiles
-    srcMap <- forM srcs (\src -> (T.pack src ,) <$> readFile (dir <> src))
-    (result, output) <- runTestWithFiles testBindings input (Map.fromList srcMap) "(load! \"rad/repl.rad\")"
+    srcs <- sourceFiles
+    (result, output) <- runTestWithFiles testBindings input srcs "(load! \"rad/repl.rad\")"
     case result of
         Left err -> assertFailure $ "Error thrown in Repl: " <> toS (renderPrettyDef err)
         Right _  -> pure ()

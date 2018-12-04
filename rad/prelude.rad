@@ -21,7 +21,6 @@
    "rad/prelude/test.rad" ;; pure unless test env
    "rad/prelude/basic.rad"
    "rad/prelude/patterns.rad"
-   "rad/prelude/pure-should-be.rad"
    "rad/prelude/recursion.rad"
    "rad/prelude/bool.rad"
    "rad/prelude/list.rad"
