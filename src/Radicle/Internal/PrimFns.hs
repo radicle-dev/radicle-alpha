@@ -545,15 +545,6 @@ purePrimFns = fromList $ allDocs $
           (x@(Atom _), v) -> pure $ toRad (Just (Dict (Map.singleton x v)))
           (pat, v) -> callFn pat [v]
       )
-    -- , ( "module-from-env"
-    --   , "Creates a module with definitions for all the atoms given as inputs.\
-    --     \ The definitions are taken from the current scope. It is probably\
-    --     \ better to use the `module` special-form."
-    --   , \xs -> do
-    --       is <- traverse isAtom xs ?? toLangError (OtherError "module-from-env: all arguments must be atoms")
-    --       e <- gets bindingsEnv
-    --       pure $ toRad $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList is)
-    --   )
     , ( "import"
       , "Import a module, making all the definitions of that module available\
         \ in the current scope. The first argument must be a module to import.\

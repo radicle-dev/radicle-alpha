@@ -4,24 +4,7 @@
 ;; Create a remote issue chain. Returns a ref for the chain that you
 ;; can assign to a variable.
 
-(load! "rad/prelude/test.rad")
-
-(file-module! "rad/prelude/basic.rad")
-(import prelude/basic :unqualified)
-
-(file-module! "rad/prelude/io.rad")
-(import prelude/io :unqualified)
-
-(file-module! "rad/prelude/ref.rad")
-
-(file-module! "rad/prelude/dict.rad")
-(import prelude/dict :unqualified)
-
-(file-module! "rad/prelude/lens.rad")
-(import prelude/lens :unqualified)
-
-(file-module! "rad/prelude/chain.rad")
-(import prelude/chain 'chain)
+(load! "rad/prelude.rad")
 
 (def radicle-issues-chain-id
   "The name of this chain."
