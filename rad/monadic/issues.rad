@@ -132,7 +132,8 @@
 (:test
  "The monadic issues chain works."
  [:setup
-  (do (create-issues-chain!)
+  (do (write-ref issues-chain (chain/new-chain "http://localhost:8024/chains/fxoo"))
+      (create-issues-chain!)
       (simple-create-issue! "title0" "body0")
       (simple-create-issue! "title1" "body1")
       (simple-add-comment! 0 "comment0")

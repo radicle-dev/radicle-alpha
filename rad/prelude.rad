@@ -1,5 +1,5 @@
-(file-module! "rad/prelude/test.rad")
-(import prelude/test '[eval] :unqualified)
+(file-module! "rad/prelude/test-eval.rad")
+(import prelude/test-eval '[eval tests] :unqualified)
 
 (file-module! "rad/prelude/basic.rad")
 (file-module! "rad/prelude/patterns.rad")
@@ -16,6 +16,7 @@
 (file-module! "rad/prelude/state-machine.rad")
 (file-module! "rad/prelude/validation.rad")
 (file-module! "rad/prelude/util.rad")
+(file-module! "rad/prelude/test.rad")
 
 (import prelude/basic :unqualified)
 (import prelude/patterns :unqualified)

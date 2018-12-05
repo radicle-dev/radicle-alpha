@@ -36,7 +36,7 @@ main = do
              interpret
                "reference-doc"
                (   "(do"
-                <> "(file-module! \"rad/prelude/test.rad\") (import prelude/test :unqualified)"
+                <> "(file-module! \"rad/prelude/test-eval.rad\") (import prelude/test-eval '[eval tests] :unqualified)"
                 <> foldMap (\m -> "(file-module! \"rad/" <> m <> ".rad\")") (modules content)
                 <> "(get-current-env))")
                replBindings
@@ -91,7 +91,7 @@ main = do
       vs -> panic $ "The following functions have no documentation strings: " <> T.intercalate ", " vs
 
     checkAllInReference content e =
-      let notDocumented = Map.keys e \\ (primFns content ++ modules content ++ ["prelude/test"]) in
+      let notDocumented = Map.keys e \\ (primFns content ++ modules content ++ ["prelude/test-eval", "tests"]) in
       if null notDocumented
         then pure ()
       else panic $ "The following functions need to be added to the reference doc: " <> T.intercalate ", " notDocumented

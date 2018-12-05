@@ -90,7 +90,7 @@ evaluation and the new state.
 ``(eval expr env)``
 ~~~~~~~~~~~~~~~~~~~
 
-The evaluation function.
+Evaluation function that adds :test macro to register tests.
 
 ``ref``
 ~~~~~~~

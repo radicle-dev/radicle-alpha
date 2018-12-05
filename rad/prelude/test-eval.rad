@@ -1,0 +1,58 @@
+{:module 'prelude/test-eval
+ :doc
+   "Provides eval that adds a `:test` macro. If an the eval encounters an
+   expression of the form `(:test \"desc\" tests...)` we add it to the vector
+   stored in the `tests` ref. The tests are then run by `rad/prelude/test.rad`."
+ :exports '[eval tests]}
+
+(def tests
+  "Reference that collects tests defined with the `:test` macro. This
+  value is updated by a custom `eval`."
+  (ref []))
+
+;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
+(def eval
+  "Evaluation function that adds :test macro to register tests."
+  (fn [expr env]
+    (if (list? expr)
+        (if (eq? (head expr) :test)
+            (do
+                (def bindings (lookup :env env))
+                (def test-def {:tests (drop 2 expr) :name (nth 1 expr) :env env})
+                (def next-tests {:val test-def})
+                (def bindings_ (insert 'next-tests__ next-tests bindings))
+                (def env (insert :env bindings_ env))
+                (eval '(do
+                  (write-ref tests (add-right next-tests__ (read-ref tests)))
+                  :nil
+                ) env))
+            (eval expr env))
+        (eval expr env))))
+
+(:test "'test' works (including :setup)"
+    [:setup
+       (do
+          (def x 3)
+          (def y (ref 0))
+          (write-ref y 1)
+          ;; Test the mocked send!/receive!
+          (def chain-name (uuid!))
+          (send! chain-name [0])
+          (def received (receive! chain-name 0)))
+    ]
+    [(+ 3 2) ==> 5]
+    [x       ==> 3]
+    [(read-ref y) ==> 1]
+    [received ==> (0)]
+)
+
+(:test "'test' handles exceptions properly"
+    [:setup
+      (do
+        (def x (catch 'any (throw 'blah) (fn [x] #t)))
+        (def y (catch 'any (throw 'blah) (fn [x] #f)))
+      )
+    ]
+    [x ==> #t]
+    [y ==> #f]
+)
