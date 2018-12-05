@@ -127,20 +127,22 @@ storagePrimFns =
             ( "send!"
             , "Mocked version of `send!` that stores sent values in a map with chains as keys."
             , \id values -> do
+                chains <- gets worldStateRemoteChains
+                let exprs = Map.findWithDefault mempty id chains
+                let newExprs = exprs Seq.>< values
                 modify $ \s ->
-                   s { worldStateRemoteChains
-                       = Map.insertWith (flip (Seq.><)) id values $ worldStateRemoteChains s }
-                pure $ Right ()
+                   s { worldStateRemoteChains = Map.insert id newExprs $ worldStateRemoteChains s }
+                pure $ Right $ Seq.length newExprs
             )
         , storageReceive =
             ( "receive!"
             , "Mocked version of `receive!` that retrieves values from a map with chains as keys."
-            , \id index -> do
+            , \id maybeIndex -> do
                 chains <- gets worldStateRemoteChains
-                let exprs = case Map.lookup id chains of
-                        Nothing  -> []
-                        Just res -> toList $ Seq.drop index res
-                pure $ Right exprs
+                let exprs = Map.findWithDefault mempty id chains
+                let index = fromMaybe 0 maybeIndex
+                let newIndex = Seq.length exprs
+                pure $ Right $ (newIndex, toList $ Seq.drop index exprs)
             )
         }
 

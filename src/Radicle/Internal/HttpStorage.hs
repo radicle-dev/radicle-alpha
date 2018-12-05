@@ -59,15 +59,17 @@ instance MimeUnrender PlainText Values where
               where err' :: LangError Value
                     err' = LangError [thisPos] (ParseError err)
 
--- | Endpoint to submit an expression to a chain. Responds with @:ok@ if the
--- expression has been submitted sucessfully.
+-- | Endpoint to submit an expression to a chain. Responds with the
+-- index of the submitted expression. The index is an integer encoded
+-- as a Radicle value.
 type ChainSubmitEndpoint = "submit" :> ReqBody '[PlainText] Values :> Post '[PlainText] Value
 
 chainSubmitEndpoint :: Proxy ChainSubmitEndpoint
 chainSubmitEndpoint = Proxy
 
--- | Endpoint to obtain all entries in a chain starting from the given
--- index. Responds with a Radicle vector of the expressions.
+-- | Endpoint to obtain all entries in a chain starting from and
+-- including the given index. Responds with a Radicle vector of the
+-- expressions.
 type ChainSinceEndpoint = "since" :> Capture "index" Int :> Get '[PlainText] Values
 
 chainSinceEndpoint :: Proxy ChainSinceEndpoint
@@ -90,19 +92,39 @@ httpStoragePrimFns' mgr =
     buildStoragePrimFns StorageBackend
         { storageSend =
             ( "send!"
-            , "Given a URL (string) and a value, sends the value `v` to the remote\
-              \ chain located at the URL for evaluation."
+            , "Given a URL string and a value, sends the value `v` to the remote\
+              \ chain located at the URL for evaluation. Returns the index of the\
+              \ submitted input."
             , \url values -> do
                 res <- liftIO $ runClientM' url mgr (submit $ toList values)
-                pure $ bimap formatServantError (const ()) res
+                pure $ case res of
+                    Left servantError -> Left $ formatServantError servantError
+                    Right val -> case fromRad val of
+                        Left err -> Left $ "cannot parse server response: " <> err
+                        Right n -> Right n
             )
         , storageReceive =
             ( "receive!"
-            , "Given a URL (string) and a integral number `n`, queries the remote chain\
-              \ for the last `n` inputs that have been evaluated."
-            , \url index -> do
-                res <- liftIO $ runClientM' url mgr (since index)
-                pure $ first formatServantError res
+            , "Given a URL string and a `[:just n]`, where `n` is an integer, returns\
+              \ all inputs from the remote chain after index `n`. If the second argument\
+              \ is `:nothing` all inputs are returned."
+            , \url maybeIndex -> do
+                -- There is mismatch between the HTTP API and the
+                -- storage interface that we need to account for here.
+                -- 1. If we send the index `n` to the HTTP API the
+                --    response will include the input with index `n`, the
+                --    storage interface however says that it should not.
+                --    To account for this we increase the index we
+                --    receive by one.
+                -- 2. The HTTP API always exepcts an index, so we use
+                --    @-1@ if @Nothing@ is provided.
+                -- 3. Th HTTP API does not return the index of the last
+                --    input in the response. We calculate it locally
+                let index = fromMaybe (-1) maybeIndex
+                res <- liftIO $ runClientM' url mgr (since (index + 1))
+                pure $ case res of
+                    Left err     -> Left $ formatServantError err
+                    Right values -> Right (length values + index, values)
             )
         }
   where

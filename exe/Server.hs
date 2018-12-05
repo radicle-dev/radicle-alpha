@@ -77,7 +77,9 @@ serverApi = Proxy
 
 -- * Helpers
 
-insertExpr :: Connection -> Chains -> Text -> [Value] -> IO (Either Text ())
+-- | Returns the ID of the last inserted expression which is the chain
+-- length minus one.
+insertExpr :: Connection -> Chains -> Text -> [Value] -> IO (Either Text Int)
 insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
     let maybeChain = Map.lookup name c
     chain <- case maybeChain of
@@ -98,7 +100,7 @@ insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
              let chain' = chain { chainState = newSt
                                 , chainEvalPairs = chainEvalPairs chain Seq.>< news
                                 }
-             pure (Map.insert name chain' c, Right ())
+             pure (Map.insert name chain' c, Right $ Seq.length (chainEvalPairs chain') - 1)
 
 
 -- | Load the state from the DB, returning an MVar with resulting state
@@ -136,7 +138,7 @@ submit conn chains name (Values vals) = do
     res <- liftIO $ insertExpr conn chains name vals
     case res of
         Left err -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 err }
-        Right _  -> pure $ Keyword $ unsafeToIdent "ok"
+        Right id  -> pure $ Number $ toRational id
 
 
 -- | Get all expressions submitted to a chain since 'index'.

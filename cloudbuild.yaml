@@ -143,7 +143,8 @@ steps:
     - "-c"
     - |
       set -euxo pipefail
-      stack exec radicle - <<<'(load! "rad/examples/counter.rad") (counter/run-test)'
+      stack exec -- radicle - <<<'(load! "rad/examples/counter.rad") (counter/run-test)'
+      stack exec -- radicle test/server.rad radicle-server
 
   - id: "Save cache"
     waitFor:
