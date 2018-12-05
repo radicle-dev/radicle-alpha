@@ -383,7 +383,7 @@ purePrimFns = fromList $ allDocs $
           (fn, ini, String v) -> do
               let folder f = T.foldl g (pure ini) v
                     where
-                      g x y = join (fmap (`f` y) x)
+                      g x y = x >>= (`f` y)
               folder (\b a -> callFn fn [b, String $ T.singleton a])
           (_, _, x)           -> throwErrorHere
                                $ TypeError "foldl-string" 2 TString x
