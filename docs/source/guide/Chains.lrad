@@ -47,7 +47,7 @@ subsequently will have access to the atom `foo` defined as the keyword
 `:bar`.
 
 Using another REPL we can use the `:enter-chain` macro to inspect the
-updated remote chain.
+remote chain.
 
 ```
 (:enter-chain "http://localhost:8000/chains/my-first-chain")
@@ -58,18 +58,3 @@ foo   ;; ==> :bar
 Every expression put into the REPL after the `:enter-chain` macro will
 be evaluated in the context of the chain. The special `:quit` macro
 will leave the chain context and revert to the original REPL context.
-
-Next we will use `:enter-chain` to evaluate and send expressions to the
-remote chain.
-
-```
-(:enter-chain "http://localhost:8000/chains/my-first-chain")
-(def bar foo)
-(def quux 4)
-:send  ;; ==> :ok
-:quit
-```
-
-The `:send` macro will call `send!` for every expression input on the
-REPL. This means that the state of “my-first-chain” will no define both
-`bar` and `quux`.
