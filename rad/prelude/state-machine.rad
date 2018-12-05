@@ -1,3 +1,6 @@
+{:module 'prelude/state-machine
+ :doc "An eval for running a state-machine with an updatable transition function."
+ :exports []}
 
 (def head-shots
   "Avatars for some of the monadic team members."

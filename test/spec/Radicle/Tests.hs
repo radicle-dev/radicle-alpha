@@ -504,6 +504,28 @@ test_eval =
             Left (LangError stack (UnknownIdentifier (Identifier "notdefined"))) ->
                 assertEqual "correct line numbers" [3,1,2,2] (stackTraceLines stack)
             r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
+
+    , testCase "Modules work" $ do
+        let prog = [s|(module
+                        {:module 'foo :doc "" :exports '[z]}
+                        (def x 1)
+                        (def y 2)
+                        (def z (+ x y)))
+                      (import foo)
+                      (import foo :as 'bar)
+                      (import foo ['z] :as 'baz)
+                      (import foo :unqualified)
+                      (list foo/z bar/z baz/z z)|]
+        prog `succeedsWith` List (replicate 4 (Number 3))
+    , testCase "Modules don't leak non-exported defs" $ do
+        let prog = [s|(module
+                        {:module 'foo :doc "" :exports '[z]}
+                        (def x 1)
+                        (def y 2)
+                        (def z (+ x y)))
+                      (import foo :unqualified)
+                      x|]
+        prog `failsWith` UnknownIdentifier [ident|x|]
     ]
   where
     failsWith src err    = noStack (runPureCode src) @?= Left err

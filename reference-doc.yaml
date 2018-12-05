@@ -1,0 +1,134 @@
+---
+
+intro: >-
+  This is the `radicle` reference document, with documentation for all functions
+  which come as part of the standard distribution.
+
+primFnsDoc: >-
+  Primitive functions are those that are built into the compiler. They are
+  available on all chains but may be shadowed by later definitions. Those that
+  end in a `!` are only available locally, not on 'pure' chains.
+
+preludeModulesDoc: >-
+  These are the modules included in the radicle prelude and the functions these
+  modules expose.
+
+primFns:
+# Basics
+- "*"
+- "+"
+- "-"
+- "/"
+- "<"
+- ">"
+- eq?
+- apply
+- show
+- throw
+- exit!
+- read
+- read-many
+# Eval
+- base-eval
+- eval
+# Refs
+- ref
+- read-ref
+- write-ref
+# Pattern matching
+- match-pat
+# Sequences
+- head
+- cons
+- add-left
+- add-right
+- <>
+- list
+- list-to-vec
+- vec-to-list
+- zip
+- map
+- foldl
+- foldr
+- drop
+- sort-by
+- tail
+- take
+- nth
+- seq
+# Dicts
+- dict
+- lookup
+- insert
+- delete
+- member?
+- map-keys
+- map-values
+# Strings
+- string-append
+- string-length
+- string-replace
+# Types
+- type
+- atom?
+- keyword?
+- boolean?
+- string?
+- number?
+- integral?
+- vector?
+- list?
+- dict?
+# Modules
+- file-module!
+- import
+# Environment
+- get-current-env
+- pure-env
+- set-current-env
+- set-env!
+# JSON
+- to-json
+# UUIDs
+- uuid!
+- uuid?
+# Crypto
+- default-ecc-curve
+- verify-signature
+- public-key?
+- gen-key-pair!
+- gen-signature!
+# I/O
+- put-str!
+- get-line!
+- load!
+- read-file!
+- read-line-handle!
+- now!
+- system!
+- wait-for-process!
+- write-handle!
+# Repl
+- subscribe-to!
+# Documentation
+- doc
+- doc!
+- apropos!
+
+# All modules apart from prelude/test
+modules:
+- prelude/basic
+- prelude/patterns
+- prelude/strings
+- prelude/io
+- prelude/bool
+- prelude/exception
+- prelude/list
+- prelude/dict
+- prelude/set
+- prelude/ref
+- prelude/lens
+- prelude/chain
+- prelude/state-machine
+- prelude/validation
+- prelude/util

@@ -1,9 +1,13 @@
+{-# LANGUAGE PatternSynonyms #-}
+
 module Radicle.Internal.Identifier where
 
 import qualified Prelude
 import           Protolude
 
+import           Codec.Serialise (Serialise)
 import           Data.Char (isAlphaNum, isLetter, isUpper, toLower)
+import           Data.Data (Data)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
@@ -67,3 +71,20 @@ kebabCons = T.intercalate "-" . fmap (toS . lowerFirst) . go .keywordWord
 
     -- Makes a string safe to use in a keyword.
     keywordWord = concat . fmap keywordChar
+
+-- | An identifier in the language.
+--
+-- Not all `Text`s are valid identifiers, so use 'Ident' at your own risk.
+-- `mkIdent` is the safe version.
+newtype Ident = Ident { fromIdent :: Text }
+    deriving (Eq, Show, Read, Ord, Generic, Data, Serialise, Semigroup)
+
+pattern Identifier :: Text -> Ident
+pattern Identifier t <- Ident t
+
+-- | Convert a text to an identifier.
+--
+-- Unsafe! Only use this if you know the string at compile-time and know it's a
+-- valid identifier. Otherwise, use 'mkIdent'.
+unsafeToIdent :: Text -> Ident
+unsafeToIdent = Ident

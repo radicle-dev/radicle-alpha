@@ -1,3 +1,10 @@
+{:module 'prelude/chain
+ :doc "Functions for simulating remote chains."
+ :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval updatable-eval update-chain! eval-fn-app send-prelude!]}
+
+(import prelude/ref '[modify-ref] :unqualified)
+(import prelude/lens '[.. ... view over @] :unqualified)
+
 ;; Chains: Functions for dealing with chains.
 
 ;; A chain is conceptually:
@@ -178,10 +185,39 @@
   command `(update expr)` which evaluates arbitrary expression using `base-eval`."
   (fn [sub-eval]
     (fn [expr state]
-      (list-with-head
-       expr
-       (fn [cmd]
-         (if (eq? cmd 'update)
-           (base-eval (nth 1 expr) state)
-           (sub-eval expr state)))
-       (fn [] (sub-eval expr state))))))
+      (match expr
+             (/cons 'cmd _) (if (eq? cmd 'update)
+                              (base-eval (nth 1 expr) state)
+                              (sub-eval expr state))
+             _ (sub-eval expr state)))))
+
+(def pure-prelude-files
+  "List of files which together define the pure prelude."
+  ["rad/prelude/basic.rad"
+   "rad/prelude/patterns.rad"
+   "rad/prelude/strings.rad"
+   "rad/prelude/bool.rad"
+   "rad/prelude/list.rad"
+   "rad/prelude/dict.rad"
+   "rad/prelude/set.rad"
+   "rad/prelude/ref.rad"
+   "rad/prelude/lens.rad"
+   "rad/prelude/state-machine.rad"
+   "rad/prelude/validation.rad"
+   "rad/prelude/util.rad"])
+
+(def file-to-module
+  "Make the text of a file into code for a module."
+  (fn [file]
+    (cons 'module (vec-to-list (read-many (read-file! file))))))
+
+(def pure-prelude-code
+  "Code for the pure prelude. Useful as the first inputs to a new chain."
+  (<> [(file-to-module "rad/prelude/test.rad")
+       '(import prelude/test :unqualified)]
+      (map file-to-module pure-prelude-files)))
+
+(def send-prelude!
+  "Send the pure prelude to a chain."
+  (fn [chain-id]
+    (send! chain-id pure-prelude-code)))

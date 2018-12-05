@@ -1,3 +1,10 @@
+{:module 'prelude/strings
+ :doc    "String manipulation functions."
+ :exports '[intercalate unlines unwords]
+ }
+
+(import prelude/basic :unqualified)
+
 (def intercalate
   "Intercalates a string in a list of strings"
   (fn [sep strs]

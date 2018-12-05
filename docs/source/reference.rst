@@ -1,169 +1,25 @@
 Radicle Reference
 =================
 
-These are the functions that are available in a new radicle chain after
-the prelude has been loaded.
+This is the ``radicle`` reference document, with documentation for all
+functions which come as part of the standard distribution.
 
-Basics
-------
-
-Basic function used for checking equality, determining the type of a
-value, etc.
-
-``eq?``
-~~~~~~~
-
-Checks if two values are equal.
-
-``(not x)``
-~~~~~~~~~~~
-
-True if ``x`` is ``#f``, false otherwise.
-
-``(and x y)``
-~~~~~~~~~~~~~
-
-Returns ``y`` if ``x`` is not ``#f``, otherwise returns ``x``
-
-``(or x y)``
-~~~~~~~~~~~~
-
-Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'
-
-``(all xs)``
-~~~~~~~~~~~~
-
-Checks that all the items of a list are truthy.
-
-``(some xs)``
-~~~~~~~~~~~~~
-
-Checks that there is a least one truthy value in a list.
-
-``show``
-~~~~~~~~
-
-Returns a string representing the argument value.
-
-``string-append``
-~~~~~~~~~~~~~~~~~
-
-Concatenates a variable number of string arguments. If one of the
-arguments isn't a string then an exception is thrown.
-
-``string-length``
-~~~~~~~~~~~~~~~~~
-
-Returns the length of a string.
-
-``apply``
-~~~~~~~~~
-
-Calls the first argument (a function) using as arguments the elements of
-the the second argument (a list).
-
-``type``
-~~~~~~~~
-
-Returns a keyword representing the type of the argument; one of:
-``:atom``, ``:keyword``, ``:string``, ``:number``, ``:boolean``,
-``:list``, ``:vector``, ``:function``, ``:dict``, ``:ref``,
-``:function``.
-
-``atom?``
-~~~~~~~~~
-
-Checks if the argument is a atom.
-
-``boolean?``
-~~~~~~~~~~~~
-
-Checks if the argument is a boolean.
-
-``string?``
-~~~~~~~~~~~
-
-Checks if the argument is a string.
-
-``number?``
-~~~~~~~~~~~
-
-Checks if the argument is a number.
-
-``keyword?``
-~~~~~~~~~~~~
-
-Checks if the argument is a keyword.
-
-``vector?``
-~~~~~~~~~~~
-
-Checks if the argument is a vector.
-
-``list?``
-~~~~~~~~~
-
-Checks if the argument is a list.
-
-``dict?``
-~~~~~~~~~
-
-Checks if the argument is a dict.
-
-``read``
-~~~~~~~~
-
-Parses a string into a radicle value. Does not evaluate the value.
-
-``read-many``
-~~~~~~~~~~~~~
-
-Parses a string into a vector of radicle values. Does not evaluate the
-values.
-
-``throw``
-~~~~~~~~~
-
-Throws an exception. The first argument should be an atom used as a
-label for the exception, the second can be any value.
-
-``to-json``
-~~~~~~~~~~~
-
-Returns a JSON formatted string representing the input value.
-
-``uuid?``
-~~~~~~~~~
-
-Checks if a string has the format of a UUID.
-
-``(make-counter)``
-~~~~~~~~~~~~~~~~~~
-
-Creates a stateful counter. Returns a dict with two keys: the function
-at ``:next-will-be`` will return the next number (without incrementing
-it), while the function at ``:next`` increments the number and returns
-it.
-
-``public-key?``
-~~~~~~~~~~~~~~~
-
-Checks if a value represents a valid public key.
-
-Numerical functions
+Primitive functions
 -------------------
 
-Operations on numbers.
-
-``+``
-~~~~~
-
-Adds two numbers together.
+Primitive functions are those that are built into the compiler. They are
+available on all chains but may be shadowed by later definitions. Those
+that end in a ``!`` are only available locally, not on 'pure' chains.
 
 ``*``
 ~~~~~
 
 Multiplies two numbers together.
+
+``+``
+~~~~~
+
+Adds two numbers together.
 
 ``-``
 ~~~~~
@@ -186,25 +42,76 @@ Checks if a number is strictly less than another.
 
 Checks if a number is strictly greater than another.
 
-``integral?``
-~~~~~~~~~~~~~
-
-Checks if a number is an integer.
-
-Lists
------
-
-Functions for manipulating lists.
-
-``list``
-~~~~~~~~
-
-Turns the arguments into a list.
-
-``nil``
+``eq?``
 ~~~~~~~
 
-The empty list.
+Checks if two values are equal.
+
+``apply``
+~~~~~~~~~
+
+Calls the first argument (a function) using as arguments the elements of
+the the second argument (a list).
+
+``show``
+~~~~~~~~
+
+Returns a string representing the argument value.
+
+``throw``
+~~~~~~~~~
+
+Throws an exception. The first argument should be an atom used as a
+label for the exception, the second can be any value.
+
+``exit!``
+~~~~~~~~~
+
+Exit the interpreter immediately.
+
+``read``
+~~~~~~~~
+
+Parses a string into a radicle value. Does not evaluate the value.
+
+``read-many``
+~~~~~~~~~~~~~
+
+Parses a string into a vector of radicle values. Does not evaluate the
+values.
+
+``base-eval``
+~~~~~~~~~~~~~
+
+The default evaluation function. Expects an expression and a radicle
+state. Return a list of length 2 consisting of the result of the
+evaluation and the new state.
+
+``(eval expr env)``
+~~~~~~~~~~~~~~~~~~~
+
+The evaluation function.
+
+``ref``
+~~~~~~~
+
+Creates a ref with the argument as the initial value.
+
+``read-ref``
+~~~~~~~~~~~~
+
+Returns the current value of a ref.
+
+``write-ref``
+~~~~~~~~~~~~~
+
+Given a reference ``r`` and a value ``v``, updates the value stored in
+``r`` to be ``v`` and returns ``v``.
+
+``match-pat``
+~~~~~~~~~~~~~
+
+The most basic built-in pattern-matching dispatch function.
 
 ``head``
 ~~~~~~~~
@@ -212,64 +119,10 @@ The empty list.
 Retrieves the first element of a sequence if it exists. Otherwise throws
 an exception.
 
-``tail``
-~~~~~~~~
-
-Given a non-empty sequence, returns the sequence of all the elements but
-the first. If the sequence is empty, throws an exception.
-
-``(empty? ls)``
-~~~~~~~~~~~~~~~
-
-True if 'seq' is empty, false otherwise.
-
 ``cons``
 ~~~~~~~~
 
 Adds an element to the front of a list.
-
-``(reverse ls)``
-~~~~~~~~~~~~~~~~
-
-Returns the reversed 'ls'.
-
-``(length xs)``
-~~~~~~~~~~~~~~~
-
-Returns the length of 'list'.
-
-``(concat list1 list2)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Concatenates 'list1' and 'list2'.
-
-``(filter pred ls)``
-~~~~~~~~~~~~~~~~~~~~
-
-Returns 'list' with only the elements that satisfy 'filter-cond'.
-
-``(range from to)``
-~~~~~~~~~~~~~~~~~~~
-
-Returns a list with all integers from ``from`` to ``end``, inclusive.
-
-``(list-with-head x f g)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a value ``x``, and two functions ``f`` and ``g``, checks if ``x``
-is a list with a head. If so applies ``f`` to the head, otherwise calls
-``g`` with no args.
-
-Vectors
--------
-
-Functions for manipulating vectors.
-
-``<>``
-~~~~~~
-
-Merges two structures together. On vectors this performs concatenations.
-On dicts this performs the right-biased merge.
 
 ``add-left``
 ~~~~~~~~~~~~
@@ -281,23 +134,40 @@ Adds an element to the left side of a vector.
 
 Adds an element to the right side of a vector.
 
-Sequences
----------
+``<>``
+~~~~~~
 
-Functions for manipulating boths lists and vectors.
+Merges two structures together. On vectors this performs concatenations.
+On dicts this performs the right-biased merge.
 
-``(empty-seq? xs)``
-~~~~~~~~~~~~~~~~~~~
+``list``
+~~~~~~~~
 
-Returns true if the input is an empty sequence (either list or vector).
+Turns the arguments into a list.
 
-``nth``
+``list-to-vec``
+~~~~~~~~~~~~~~~
+
+Transforms lists into vectors.
+
+``vec-to-list``
+~~~~~~~~~~~~~~~
+
+Transforms vectors to lists.
+
+``zip``
 ~~~~~~~
 
-Given an integral number ``n`` and ``xs``, returns the ``n``\ th element
-(zero indexed) of ``xs`` when ``xs`` is a list or a vector. If ``xs``
-does not have an ``n``-th element, or if it is not a list or vector,
-then an exception is thrown.
+Takes two sequences and returns a sequence of corresponding pairs. In
+one sequence is shorter than the other, the excess elements of the
+longer sequence are discarded.
+
+``map``
+~~~~~~~
+
+Given a function ``f`` and a sequence (list or vector) ``xs``, returns a
+sequence of the same size and type as ``xs`` but with ``f`` applied to
+all the elements.
 
 ``foldl``
 ~~~~~~~~~
@@ -315,27 +185,6 @@ vector) ``xs``, reduces ``xs`` to a single value by starting with ``i``
 and repetitively combining values with ``f``, using elements of ``xs``
 from right to left.
 
-``map``
-~~~~~~~
-
-Given a function ``f`` and a sequence (list or vector) ``xs``, returns a
-sequence of the same size and type as ``xs`` but with ``f`` applied to
-all the elements.
-
-``seq``
-~~~~~~~
-
-Given a structure ``s``, returns a sequence. Lists and vectors are
-returned without modification while for dicts a vector of
-key-value-pairs is returned: these are vectors of length 2 whose first
-item is a key and whose second item is the associated value.
-
-``take``
-~~~~~~~~
-
-Returns the first ``n`` items of a sequence, unless the sequence is too
-short, in which case an exception is thrown.
-
 ``drop``
 ~~~~~~~~
 
@@ -348,17 +197,33 @@ is empty, in which case an exception is thrown.
 Given a sequence ``xs`` and a function ``f``, returns a sequence with
 the same elements ``x`` of ``xs`` but sorted according to ``(f x)``.
 
-``zip``
+``tail``
+~~~~~~~~
+
+Given a non-empty sequence, returns the sequence of all the elements but
+the first. If the sequence is empty, throws an exception.
+
+``take``
+~~~~~~~~
+
+Returns the first ``n`` items of a sequence, unless the sequence is too
+short, in which case an exception is thrown.
+
+``nth``
 ~~~~~~~
 
-Takes two sequences and returns a sequence of corresponding pairs. In
-one sequence is shorter than the other, the excess elements of the
-longer sequence are discarded.
+Given an integral number ``n`` and ``xs``, returns the ``n``\ th element
+(zero indexed) of ``xs`` when ``xs`` is a list or a vector. If ``xs``
+does not have an ``n``-th element, or if it is not a list or vector,
+then an exception is thrown.
 
-Dicts
------
+``seq``
+~~~~~~~
 
-Functions for manipulating dicts.
+Given a structure ``s``, returns a sequence. Lists and vectors are
+returned without modification while for dicts a vector of
+key-value-pairs is returned: these are vectors of length 2 whose first
+item is a key and whose second item is the associated value.
 
 ``dict``
 ~~~~~~~~
@@ -389,130 +254,6 @@ Given ``k`` and a dict ``d``, returns a dict with the same associations
 as ``d`` but without the key ``k``. If ``d`` isn't a dict then an
 exception is thrown.
 
-``(dict-from-list xs)``
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Creates a dictionary from a list of key-value pairs.
-
-``(keys d)``
-~~~~~~~~~~~~
-
-Given a ``dict``, returns a vector of its keys.
-
-``(values d)``
-~~~~~~~~~~~~~~
-
-Given a ``dict``, returns a vector of its values.
-
-``(rekey old-key new-key mp)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Change the key from 'old-key' to 'new-key' in 'dict'. If 'new-key'
-already exists, it is overwritten.
-
-``map-values``
-~~~~~~~~~~~~~~
-
-Given a function ``f`` and a dict ``d``, returns a dict with the same
-keys as ``d`` but ``f`` applied to all the associated values.
-
-``map-keys``
-~~~~~~~~~~~~
-
-Given a function ``f`` and a dict ``d``, returns a dict with the same
-values as ``d`` but ``f`` applied to all the keys. If ``f`` maps two
-keys to the same thing, the greatest key and value are kept.
-
-``(modify-map key f mp)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a key, a function and a dict, applies the function to the value
-associated to that key.
-
-``(delete-many ks d)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Delete several keys from a dict.
-
-``(exclusive-dict-merge m n)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Merges two dicts while checking for key conflicts. Returns
-``{:merge   m :conflicts c}`` where ``m`` is the merged dict for all
-non-conflicting keys and ``c`` is a dict with all the conflicting keys,
-mapping to pairs of values, one from each input dict.
-
-Sets
-----
-
-Functions for manipulating sets.
-
-``set/empty``
-~~~~~~~~~~~~~
-
-An empty set.
-
-``(set/insert x s)``
-~~~~~~~~~~~~~~~~~~~~
-
-Insert a value into a set.
-
-``(set/delete x s)``
-~~~~~~~~~~~~~~~~~~~~
-
-Delete a value from a set.
-
-``(set/member? x s)``
-~~~~~~~~~~~~~~~~~~~~~
-
-Query if an value is an element of a set.
-
-``(set/delete x s)``
-~~~~~~~~~~~~~~~~~~~~
-
-Delete a value from a set.
-
-``(set/from-seq xs)``
-~~~~~~~~~~~~~~~~~~~~~
-
-Create a set from a sequence.
-
-``(set/to-vec s)``
-~~~~~~~~~~~~~~~~~~
-
-Convert a set to a vector.
-
-Strings
--------
-
-Functions for manipulating strings.
-
-``(intercalate sep strs)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Intercalates a string in a list of strings
-
-``(unlines x)``
-~~~~~~~~~~~~~~~
-
-Concatenate a list of strings, with newlines in between.
-
-``string-replace``
-~~~~~~~~~~~~~~~~~~
-
-Replace all occurrences of the first argument with the second in the
-third.
-
-``(unwords x)``
-~~~~~~~~~~~~~~~
-
-Concatenate a list of strings, with spaces in between.
-
-Structures
-----------
-
-Functions for manipulating lists, vectors and dicts.
-
 ``member?``
 ~~~~~~~~~~~
 
@@ -521,8 +262,296 @@ structure ``s`` may be a list, vector or dict. If it is a list or a
 vector, it checks if ``v`` is one of the items. If ``s`` is a dict, it
 checks if ``v`` is one of the keys.
 
-Patterns
---------
+``map-keys``
+~~~~~~~~~~~~
+
+Given a function ``f`` and a dict ``d``, returns a dict with the same
+values as ``d`` but ``f`` applied to all the keys. If ``f`` maps two
+keys to the same thing, the greatest key and value are kept.
+
+``map-values``
+~~~~~~~~~~~~~~
+
+Given a function ``f`` and a dict ``d``, returns a dict with the same
+keys as ``d`` but ``f`` applied to all the associated values.
+
+``string-append``
+~~~~~~~~~~~~~~~~~
+
+Concatenates a variable number of string arguments. If one of the
+arguments isn't a string then an exception is thrown.
+
+``string-length``
+~~~~~~~~~~~~~~~~~
+
+Returns the length of a string.
+
+``string-replace``
+~~~~~~~~~~~~~~~~~~
+
+Replace all occurrences of the first argument with the second in the
+third.
+
+``type``
+~~~~~~~~
+
+Returns a keyword representing the type of the argument; one of:
+``:atom``, ``:keyword``, ``:string``, ``:number``, ``:boolean``,
+``:list``, ``:vector``, ``:function``, ``:dict``, ``:ref``,
+``:function``.
+
+``atom?``
+~~~~~~~~~
+
+Checks if the argument is a atom.
+
+``keyword?``
+~~~~~~~~~~~~
+
+Checks if the argument is a keyword.
+
+``boolean?``
+~~~~~~~~~~~~
+
+Checks if the argument is a boolean.
+
+``string?``
+~~~~~~~~~~~
+
+Checks if the argument is a string.
+
+``number?``
+~~~~~~~~~~~
+
+Checks if the argument is a number.
+
+``integral?``
+~~~~~~~~~~~~~
+
+Checks if a number is an integer.
+
+``vector?``
+~~~~~~~~~~~
+
+Checks if the argument is a vector.
+
+``list?``
+~~~~~~~~~
+
+Checks if the argument is a list.
+
+``dict?``
+~~~~~~~~~
+
+Checks if the argument is a dict.
+
+``file-module!``
+~~~~~~~~~~~~~~~~
+
+Given a file whose code starts with module metadata, creates the module.
+That is, the file is evaluated as if the code was wrapped in
+``(module ...)``.
+
+``import``
+~~~~~~~~~~
+
+Import a module, making all the definitions of that module available in
+the current scope. The first argument must be a module to import. Two
+optional arguments affect how and which symbols are imported.
+``(import m :as 'foo)`` will import all the symbols of ``m`` with the
+prefix ``foo/``. ``(import m '[f g])`` will only import ``f`` and ``g``
+from ``m``. ``(import m '[f g] :as 'foo')`` will import ``f`` and ``g``
+from ``m`` as ``foo/f`` and ``foo/g``. To import definitions with no
+qualification at all, use ``(import m :unqualified)``.
+
+``get-current-env``
+~~~~~~~~~~~~~~~~~~~
+
+Returns the current radicle state.
+
+``pure-env``
+~~~~~~~~~~~~
+
+Returns a pure initial radicle state. This is the state of a radicle
+chain before it has processed any inputs.
+
+``set-current-env``
+~~~~~~~~~~~~~~~~~~~
+
+Replaces the radicle state with the one provided.
+
+``set-env!``
+~~~~~~~~~~~~
+
+Given an atom ``x`` and a value ``v``, sets the value associated to
+``x`` in the current environemtn to be ``v``. Doesn't evaluate ``v``.
+
+``to-json``
+~~~~~~~~~~~
+
+Returns a JSON formatted string representing the input value.
+
+``uuid!``
+~~~~~~~~~
+
+Generates a random UUID.
+
+``uuid?``
+~~~~~~~~~
+
+Checks if a string has the format of a UUID.
+
+``default-ecc-curve``
+~~~~~~~~~~~~~~~~~~~~~
+
+Returns the default elliptic-curve used for generating cryptographic
+keys.
+
+``verify-signature``
+~~~~~~~~~~~~~~~~~~~~
+
+Given a public key ``pk``, a signature ``s`` and a message (string)
+``m``, checks that ``s`` is a signature of ``m`` for the public key
+``pk``.
+
+``public-key?``
+~~~~~~~~~~~~~~~
+
+Checks if a value represents a valid public key.
+
+``gen-key-pair!``
+~~~~~~~~~~~~~~~~~
+
+Given an elliptic curve, generates a cryptographic key-pair. Use
+``default-ecc-curve`` for a default value for the elliptic curve.
+
+``gen-signature!``
+~~~~~~~~~~~~~~~~~~
+
+Given a private key and a message (a string), generates a cryptographic
+signature for the message.
+
+``put-str!``
+~~~~~~~~~~~~
+
+Prints a string.
+
+``get-line!``
+~~~~~~~~~~~~~
+
+Reads a single line of input and returns it as a string.
+
+``load!``
+~~~~~~~~~
+
+Evaluates the contents of a file. Each seperate radicle expression is
+``eval``\ uated according to the current definition of ``eval``.
+
+``read-file!``
+~~~~~~~~~~~~~~
+
+Reads the contents of a file and returns it as a string.
+
+``read-line-handle!``
+~~~~~~~~~~~~~~~~~~~~~
+
+Read a single line from a handle.
+
+``now!``
+~~~~~~~~
+
+Returns a timestamp for the current Coordinated Universal Time (UTC),
+right now, formatted according to ISO 8601.
+
+``system!``
+~~~~~~~~~~~
+
+(system! proc) execute a system process. Returns the dict with the form
+``{ :stdin maybe-handle      :stdout maybe-handle      :stderr maybe-handle      :proc prochandle    }``
+Where ``maybe-handle`` is either ``[:just handle]`` or ``:nothing``.
+Note that this is quite a low-level function; higher-level ones are more
+convenient.
+
+``wait-for-process!``
+~~~~~~~~~~~~~~~~~~~~~
+
+Block until process terminates.
+
+``write-handle!``
+~~~~~~~~~~~~~~~~~
+
+Write a string to the provided handle.
+
+``subscribe-to!``
+~~~~~~~~~~~~~~~~~
+
+Expects a dict ``s`` (representing a subscription) and a function ``f``.
+The dict ``s`` should have a function ``getter`` at the key ``:getter``.
+This function is called repeatedly (with no arguments), its result is
+then evaluated and passed to ``f``.
+
+``doc``
+~~~~~~~
+
+Returns the documentation string for a variable. To print it instead,
+use ``doc!``.
+
+``doc!``
+~~~~~~~~
+
+Prints the documentation attached to a value and returns ``()``. To
+retrieve the docstring as a value use ``doc`` instead.
+
+``apropos!``
+~~~~~~~~~~~~
+
+Prints documentation for all documented variables in scope.
+
+Prelude modules
+---------------
+
+These are the modules included in the radicle prelude and the functions
+these modules expose.
+
+``prelude/basic``
+-----------------
+
+Basic function used for checking equality, determining the type of a
+value, etc.
+
+``(or x y)``
+~~~~~~~~~~~~
+
+Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'
+
+``(some xs)``
+~~~~~~~~~~~~~
+
+Checks that there is a least one truthy value in a list.
+
+``(empty-seq? xs)``
+~~~~~~~~~~~~~~~~~~~
+
+Returns true if the input is an empty sequence (either list or vector).
+
+``(length xs)``
+~~~~~~~~~~~~~~~
+
+Returns the length of 'list'.
+
+``(maybe->>= v f)``
+~~~~~~~~~~~~~~~~~~~
+
+Monadic bind for the maybe monad.
+
+``(maybe-foldlM f i xs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Monadic fold over the elements of a seq, associating to the left (i.e.
+from left to right) in the maybe monad.
+
+``prelude/patterns``
+--------------------
 
 Pattern matching is first-class in radicle so new patterns can easily be
 defined. These are the most essential.
@@ -548,16 +577,6 @@ The wildcard pattern.
 Predicate pattern. Takes a predicate function as argument. Values match
 against this pattern if the predicate returns a truthy value.
 
-``(/nil v)``
-~~~~~~~~~~~~
-
-Empty-list pattern.
-
-``(/cons x-pat xs-pat)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-A pattern for lists with a head and a tail.
-
 ``(/as var pat)``
 ~~~~~~~~~~~~~~~~~
 
@@ -565,173 +584,50 @@ As pattern. Takes a variable and a sub-pattern. If the subpattern
 matches then the whole pattern matches and furthermore the variable is
 bound to the matched value.
 
-``(non-linear-merge m n)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(/cons x-pat xs-pat)``
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-The bindings merge strategy for non-linear patterns. Use this function
-to merge bindings returned by sub-patterns if you want your pattern to
-be non-linear.
+A pattern for lists with a head and a tail.
 
-Refs
-----
-
-Functions for creating, querying and modifying refs.
-
-``ref``
-~~~~~~~
-
-Creates a ref with the argument as the initial value.
-
-``read-ref``
+``(/nil v)``
 ~~~~~~~~~~~~
 
-Returns the current value of a ref.
+Empty-list pattern.
 
-``write-ref``
-~~~~~~~~~~~~~
-
-Given a reference ``r`` and a value ``v``, updates the value stored in
-``r`` to be ``v`` and returns ``v``.
-
-``(modify-ref r f)``
-~~~~~~~~~~~~~~~~~~~~
-
-Modify 'ref' by applying the provided function. Returns the new value.
-
-Evaluation functions
---------------------
-
-Utilities for creating and extending evaluation functions.
-
-``base-eval``
-~~~~~~~~~~~~~
-
-The default evaluation function. Expects an expression and a radicle
-state. Return a list of length 2 consisting of the result of the
-evaluation and the new state.
-
-``(eval expr env)``
-~~~~~~~~~~~~~~~~~~~
-
-An eval in which one can use ``(:enter-chain url)`` to make the eval
-behave as that of a remote chain, and ``:send`` to send all enqueued
-expressions.
-
-``(updatable-eval sub-eval)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given an evaluation function ``f``, returns a new one which augments
-``f`` with a new command ``(update expr)`` which evaluates arbitrary
-expression using ``base-eval``.
-
-Documentation and testing
--------------------------
-
-Functions for creating and querying documentation of variables in scope,
-and testing functions.
-
-``(help)``
-~~~~~~~~~~
-
-Default help text.
-
-``doc``
-~~~~~~~
-
-Returns the documentation string for a variable. To print it instead,
-use ``doc!``.
-
-``doc!``
-~~~~~~~~
-
-Prints the documentation attached to a value and returns ``()``. To
-retrieve the docstring as a value use ``doc`` instead.
-
-``apropos!``
-~~~~~~~~~~~~
-
-Prints documentation for all documented variables in scope.
-
-``is-test-env``
+``(/just pat)``
 ~~~~~~~~~~~~~~~
 
-True iff file is being run as part of the Haskell suite
+Pattern which matches ``[:just x]``.
 
-Environment functions
----------------------
+``prelude/strings``
+-------------------
 
-Utilities for modifying the current environment.
+String manipulation functions.
 
-``pure-env``
-~~~~~~~~~~~~
+``(intercalate sep strs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Returns a pure initial radicle state. This is the state of a radicle
-chain before it has processed any inputs.
+Intercalates a string in a list of strings
 
-``get-current-env``
-~~~~~~~~~~~~~~~~~~~
+``(unlines x)``
+~~~~~~~~~~~~~~~
 
-Returns the current radicle state.
+Concatenate a list of strings, with newlines in between.
 
-``set-current-env``
-~~~~~~~~~~~~~~~~~~~
+``(unwords x)``
+~~~~~~~~~~~~~~~
 
-Replaces the radicle state with the one provided.
+Concatenate a list of strings, with spaces in between.
 
-``set-env!``
-~~~~~~~~~~~~
+``prelude/io``
+--------------
 
-Given an atom ``x`` and a value ``v``, sets the value associated to
-``x`` in the current environemtn to be ``v``. Doesn't evaluate ``v``.
-
-Input/Output
-------------
-
-Effectful functions. These functions are not available in 'pure' chains,
-but are available in the local REPL.
+Some basic I/O functions.
 
 ``(print! x)``
 ~~~~~~~~~~~~~~
 
 Print a value to the console or stdout.
-
-``get-line!``
-~~~~~~~~~~~~~
-
-Reads a single line of input and returns it as a string.
-
-``load!``
-~~~~~~~~~
-
-Evaluates the contents of a file. Each seperate radicle expression is
-``eval``\ uated according to the current definition of ``eval``.
-
-``read-file!``
-~~~~~~~~~~~~~~
-
-Reads the contents of a file and returns it as a string.
-
-``(read-code! filename)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Read code (as data) from a file. Returns a vector of expressions
-
-``(send-code! chain-id filename)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Send code from a file to a remote chain.
-
-``put-str!``
-~~~~~~~~~~~~
-
-Prints a string.
-
-``(process! command args to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Executes ``command`` using 'execvp'. with 'to-write' as input. Stdout
-and stderr are inherit. See 'man exec' for more information on 'execvp'.
-Example: ``(process! "ls" ["-Glah"] "")``.
 
 ``(shell! command to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -740,100 +636,174 @@ Executes ``command`` using the shell with ``to-write`` as input. Stdout
 and stderr are inherited. WARNING: using ``shell!`` with unsanitized
 user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
 
-``system!``
-~~~~~~~~~~~
+``(process! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-(system! proc) execute a system process. Returns the dict with the form
-``{ :stdin maybe-handle      :stdout maybe-handle      :stderr maybe-handle      :proc prochandle    }``
-Where ``maybe-handle`` is either ``[:just handle]`` or ``:nothing``.
-Note that this is quite a low-level function; higher-level ones are more
-convenient.
-
-``(send-prelude! chain-id)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Send the pure prelude to a chain.
-
-``subscribe-to!``
-~~~~~~~~~~~~~~~~~
-
-Expects a dict ``s`` (representing a subscription) and a function ``f``.
-The dict ``s`` should have a function ``getter`` at the key ``:getter``.
-This function is called repeatedly (with no arguments), its result is
-then evaluated and passed to ``f``.
-
-``uuid!``
-~~~~~~~~~
-
-Generates a random UUID.
+Executes ``command`` using 'execvp'. with 'to-write' as input. Stdout
+and stderr are inherit. See 'man exec' for more information on 'execvp'.
+Example: ``(process! "ls" ["-Glah"] "")``.
 
 ``(read-line!)``
 ~~~~~~~~~~~~~~~~
 
 Read a single line of input and interpret it as radicle data.
 
-``exit!``
-~~~~~~~~~
+``(send-code! chain-id filename)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Exit the interpreter immediately.
+Send code from a file to a remote chain.
 
-``read-line-handle!``
-~~~~~~~~~~~~~~~~~~~~~
-
-Read a single line from a handle.
-
-``wait-for-process!``
-~~~~~~~~~~~~~~~~~~~~~
-
-Block until process terminates.
-
-``write-handle!``
-~~~~~~~~~~~~~~~~~
-
-Write a string to the provided handle.
-
-``now!``
-~~~~~~~~
-
-Returns a timestamp for the current Coordinated Universal Time (UTC),
-right now, formatted according to ISO 8601.
-
-Maybe
------
-
-Optionality is represented using ``[:just x]`` for when the value
-exists, and ``:nothing`` when it doesn't.
-
-``(/Just pat)``
-~~~~~~~~~~~~~~~
-
-Pattern which matches ``[:just x]``.
-
-``(maybe->>= v f)``
-~~~~~~~~~~~~~~~~~~~
-
-Monadic bind for the maybe monad.
-
-``(maybe-foldlM f i xs)``
+``(read-code! filename)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Monadic fold over the elements of a seq, associating to the left (i.e.
-from left to right) in the maybe monad.
+Read code (as data) from a file. Returns a vector of expressions
 
-Lenses
-------
+``prelude/bool``
+----------------
 
-Functional references into radicle values.
+Functions for dealing with truthiness and #f.
 
-``(@ k)``
-~~~~~~~~~
+``(not x)``
+~~~~~~~~~~~
 
-Returns a lens targetting keys of dicts.
+True if ``x`` is ``#f``, false otherwise.
 
-``(@nth n)``
+``(and x y)``
+~~~~~~~~~~~~~
+
+Returns ``y`` if ``x`` is not ``#f``, otherwise returns ``x``
+
+``(all xs)``
 ~~~~~~~~~~~~
 
-Lenses into the nth element of a vector
+Checks that all the items of a list are truthy.
+
+``prelude/exception``
+---------------------
+
+Tests for exceptions.
+
+``prelude/list``
+----------------
+
+Functions for manipulating lists.
+
+``nil``
+~~~~~~~
+
+The empty list.
+
+``(empty? ls)``
+~~~~~~~~~~~~~~~
+
+True if 'seq' is empty, false otherwise.
+
+``(reverse ls)``
+~~~~~~~~~~~~~~~~
+
+Returns the reversed 'ls'.
+
+``(range from to)``
+~~~~~~~~~~~~~~~~~~~
+
+Returns a list with all integers from ``from`` to ``end``, inclusive.
+
+``(concat list1 list2)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Concatenates 'list1' and 'list2'.
+
+``(filter pred ls)``
+~~~~~~~~~~~~~~~~~~~~
+
+Returns 'list' with only the elements that satisfy 'filter-cond'.
+
+``prelude/dict``
+----------------
+
+Functions for manipualting dicts.
+
+``(dict-from-seq xs)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Creates a dictionary from a list of key-value pairs.
+
+``(keys d)``
+~~~~~~~~~~~~
+
+Given a ``dict``, returns a vector of its keys.
+
+``(values d)``
+~~~~~~~~~~~~~~
+
+Given a ``dict``, returns a vector of its values.
+
+``(rekey old-key new-key mp)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Change the key from 'old-key' to 'new-key' in 'dict'. If 'new-key'
+already exists, it is overwritten.
+
+``(modify-map key f mp)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Given a key, a function and a dict, applies the function to the value
+associated to that key.
+
+``(delete-many ks d)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Delete several keys from a dict.
+
+``prelude/set``
+---------------
+
+Sets, built using dicts.
+
+``empty``
+~~~~~~~~~
+
+An empty set.
+
+``(insert x s)``
+~~~~~~~~~~~~~~~~
+
+Insert a value into a set.
+
+``(delete x s)``
+~~~~~~~~~~~~~~~~
+
+Delete a value from a set.
+
+``(member? x s)``
+~~~~~~~~~~~~~~~~~
+
+Query if an value is an element of a set.
+
+``(to-vec s)``
+~~~~~~~~~~~~~~
+
+Convert a set to a vector.
+
+``(from-seq xs)``
+~~~~~~~~~~~~~~~~~
+
+Create a set from a sequence.
+
+``prelude/ref``
+---------------
+
+Functions for dealing with reference cells.
+
+``(modify-ref r f)``
+~~~~~~~~~~~~~~~~~~~~
+
+Modify 'ref' by applying the provided function. Returns the new value.
+
+``prelude/lens``
+----------------
+
+Functional references.
 
 ``(make-lens g s)``
 ~~~~~~~~~~~~~~~~~~~
@@ -845,30 +815,10 @@ Makes a lens out of a getter and a setter.
 
 View a value through a lens.
 
-``(view-ref r lens)``
-~~~~~~~~~~~~~~~~~~~~~
-
-Like 'view', but for refs.
-
 ``(set lens new-view target)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Set a value though a lens.
-
-``(set-ref r lens v)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Like 'set', but for refs.
-
-``(over lens f target)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Modify a value through a lens.
-
-``(over-ref r lens f)``
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Like 'over', but for refs.
 
 ``id-lens``
 ~~~~~~~~~~~
@@ -885,158 +835,45 @@ Compose two lenses.
 
 Compose multiple lenses.
 
-Validation
-----------
-
-Functions for creating or combining *validators*, which are functions
-which return the input unchanged or throw with an error message. These
-can be used for checking data before accepting it onto a chain.
-
-``(validator/= x)``
-~~~~~~~~~~~~~~~~~~~
-
-Given ``x``, returns a validator that checks for equality with ``x``.
-
-``(validator/member xs)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a structure, returns a validator which checks for membership in
-the structure.
-
-``(validator/type t)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Checks that a value has a type. Expects a keyword describing the type,
-as returned by the ``type`` function.
-
-``(validator/pred name p)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a description and a predicate, returns a validator that checks if
-the predicate is true.
-
-``(validator/every v)``
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a validator, creates a new validator which checks that all the
-items in a sequence conform to it.
-
-``(validator/and vs)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Given a sequence of validators ``vs``, returns a new validator which,
-given a value, checks if it conforms to all the validators in ``vs``.
-
-``(validator/or vs)``
-~~~~~~~~~~~~~~~~~~~~~
-
-Given a vector of validators ``vs``, returns a new validator which,
-given a value, checks if it conforms to at least one of the ``vs``.
-
-``(validator/key k v)``
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a key and a validator, returns a validator which checks for the
-existence of that key and that the associated value conforms to the
-validator.
-
-``(validator/keys ks)``
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a dict associating keys to validators, returns a validator which
-checks a dict for the existence of those keys, and that they conform to
-the associated validators.
-
-``(validator/uuid x)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Validates UUIDs.
-
-``(validator/signed x)``
+``(over lens f target)``
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Checks that a value is a dict with ``:signature`` and ``:author`` keys,
-and that the signature is valid for the rest of the dict for that
-author. The rest of the dict is turned into a string according to
-``show``.
+Modify a value through a lens.
 
-Cryptography
-------------
+``(@ k)``
+~~~~~~~~~
 
-Tools for creating and verifying cryptographic signatures, and
-generating private/public key pairs.
+Returns a lens targetting keys of dicts.
 
-``verify-signature``
-~~~~~~~~~~~~~~~~~~~~
+``(@nth n)``
+~~~~~~~~~~~~
 
-Given a public key ``pk``, a signature ``s`` and a message (string)
-``m``, checks that ``s`` is a signature of ``m`` for the public key
-``pk``.
+Lenses into the nth element of a vector
 
-``default-ecc-curve``
+``(view-ref r lens)``
 ~~~~~~~~~~~~~~~~~~~~~
 
-Returns the default elliptic-curve used for generating cryptographic
-keys.
+Like 'view', but for refs.
 
-``gen-key-pair!``
-~~~~~~~~~~~~~~~~~
+``(set-ref r lens v)``
+~~~~~~~~~~~~~~~~~~~~~~
 
-Given an elliptic curve, generates a cryptographic key-pair. Use
-``default-ecc-curve`` for a default value for the elliptic curve.
+Like 'set', but for refs.
 
-``gen-signature!``
-~~~~~~~~~~~~~~~~~~
+``(over-ref r lens f)``
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Given a private key and a message (a string), generates a cryptographic
-signature for the message.
+Like 'over', but for refs.
 
-Chain tools
------------
+``prelude/chain``
+-----------------
 
-These functions can be used to simulate remote chains in the local REPL.
-This is useful for experimenting with inputs or even new evaluation
-functions before sending these to a remote chain.
+Functions for simulating remote chains.
 
 ``(new-chain url)``
 ~~~~~~~~~~~~~~~~~~~
 
 Return an empty chain dictionary with the given url.
-
-``(@var ident)``
-~~~~~~~~~~~~~~~~
-
-A lens for variables in states of chains.
-
-``(eval-in-chain expr chain)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Evaluates 'expr' in the 'chain' and returns a dict with the ':result'
-and the resulting ':chain'.
-
-``(enter-remote-chain! url env)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Make the eval behave as that of a remote chain. The second param is the
-env to return to after :quit.
-
-``(update-chain! chain)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Takes a chain, and returns a new chain updated with the new expressions
-from the remote chain
-
-``(add-quit after-quit-state before-quit-eval)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Adds a ``:quit`` command to ``before-quit-eval``, which switches to
-``after-quit-state`` (and to the eval in that state)
-
-``(add-send! oeval)``
-~~~~~~~~~~~~~~~~~~~~~
-
-Add a ``:send`` special form that sends the contents of ``_input`` to
-the chain ``_cur-chain``
 
 ``(load-chain! url)``
 ~~~~~~~~~~~~~~~~~~~~~
@@ -1044,20 +881,37 @@ the chain ``_cur-chain``
 Takes a ``url``, and fetches the inputs of a remote chain and return a
 chain dictionary with the chain state.
 
-``pure-prelude-files``
-~~~~~~~~~~~~~~~~~~~~~~
+``(eval-in-chain expr chain)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-List of files which together define the pure prelude.
+Evaluates 'expr' in the 'chain' and returns a dict with the ':result'
+and the resulting ':chain'.
 
-``pure-prelude-code!``
-~~~~~~~~~~~~~~~~~~~~~~
+``(update-chain-ref! chain-ref)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The pure prelude.
+Update ``chain-ref`` containing a chain with the new expressions from
+the remote chain
 
-``(store-exprs evalfn)``
-~~~~~~~~~~~~~~~~~~~~~~~~
+``(eval expr env)``
+~~~~~~~~~~~~~~~~~~~
 
-Store each new evaluated expression in ``_inputs``
+An eval in which one can use ``(:enter-chain url)`` to make the eval
+behave as that of a remote chain, and ``:send`` to send all enqueued
+expressions.
+
+``(updatable-eval sub-eval)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Given an evaluation function ``f``, returns a new one which augments
+``f`` with a new command ``(update expr)`` which evaluates arbitrary
+expression using ``base-eval``.
+
+``(update-chain! chain)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Takes a chain, and returns a new chain updated with the new expressions
+from the remote chain
 
 ``(eval-fn-app state f arg cb)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1066,41 +920,101 @@ Given a state, a function, an argument and a callback, returns the
 result of evaluating the function call on the arg in the given state,
 while also calling the callback on the result.
 
-``(state-machine-eval voters init-state init-transition)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(send-prelude! chain-id)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Returns an eval which operates a state machine whose transition function
-may be updated. To update the transition function all voters must agree
-on it.
+Send the pure prelude to a chain.
 
-``(state-machine-input state i)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``prelude/state-machine``
+-------------------------
 
-Handle an input in the morphing state-machine.
+An eval for running a state-machine with an updatable transition
+function.
 
-``(state-machine-new-trans state func)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``prelude/validation``
+----------------------
 
-Trigger a new vote.
+Functions for creating or combining *validators*, which are functions
+which return the input unchanged or throw with an error message. These
+can be used for checking data before accepting it onto a chain.
 
-``(state-machine-agree state voters userid)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(= x)``
+~~~~~~~~~
 
-Vote to agree on a new transition function.
+Given ``x``, returns a validator that checks for equality with ``x``.
 
-``(state-machine-disagree state voters userid)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(member xs)``
+~~~~~~~~~~~~~~~
 
-Vote to disagree on a new transition function.
+Given a structure, returns a validator which checks for membership in
+the structure.
 
-``(simple-trans f)``
-~~~~~~~~~~~~~~~~~~~~
+``(and vs)``
+~~~~~~~~~~~~
 
-Given a function ``f``, makes a transition function who's output is also
-the next state.
+Given a sequence of validators ``vs``, returns a new validator which,
+given a value, checks if it conforms to all the validators in ``vs``.
 
-``(update-chain-ref! chain-ref)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(or vs)``
+~~~~~~~~~~~
 
-Update ``chain-ref`` containing a chain with the new expressions from
-the remote chain
+Given a vector of validators ``vs``, returns a new validator which,
+given a value, checks if it conforms to at least one of the ``vs``.
+
+``(type t)``
+~~~~~~~~~~~~
+
+Checks that a value has a type. Expects a keyword describing the type,
+as returned by the ``type`` function.
+
+``(pred name p)``
+~~~~~~~~~~~~~~~~~
+
+Given a description and a predicate, returns a validator that checks if
+the predicate is true.
+
+``(key k v)``
+~~~~~~~~~~~~~
+
+Given a key and a validator, returns a validator which checks for the
+existence of that key and that the associated value conforms to the
+validator.
+
+``(keys ks)``
+~~~~~~~~~~~~~
+
+Given a dict associating keys to validators, returns a validator which
+checks a dict for the existence of those keys, and that they conform to
+the associated validators.
+
+``(every v)``
+~~~~~~~~~~~~~
+
+Given a validator, creates a new validator which checks that all the
+items in a sequence conform to it.
+
+``(uuid x)``
+~~~~~~~~~~~~
+
+Validates UUIDs.
+
+``(signed x)``
+~~~~~~~~~~~~~~
+
+Checks that a value is a dict with ``:signature`` and ``:author`` keys,
+and that the signature is valid for the rest of the dict for that
+author. The rest of the dict is turned into a string according to
+``show``.
+
+``prelude/util``
+----------------
+
+Utility functions. For the moment just a counter.
+
+``(make-counter)``
+~~~~~~~~~~~~~~~~~~
+
+Creates a stateful counter. Returns a dict with two keys: the function
+at ``:next-will-be`` will return the next number (without incrementing
+it), while the function at ``:next`` increments the number and returns
+it.

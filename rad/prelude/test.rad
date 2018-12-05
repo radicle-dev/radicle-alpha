@@ -1,3 +1,7 @@
+{:module 'prelude/test
+ :doc "An eval used for testing."
+ :exports ['eval]}
+
 ;; testing functions
 
 (def is-test-env
