@@ -4,6 +4,7 @@
 
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/lens '[.. ... view over @] :unqualified)
+(import prelude/basic :unqualified)
 
 ;; Chains: Functions for dealing with chains.
 
@@ -22,8 +23,7 @@
   (fn [url]
     {:state (pure-env)
      :inputs []
-     :url url
-     :index 0}))
+     :url url}))
 
 ;; eval-in-chain
 
@@ -40,9 +40,7 @@
         new-state
         (over (@ :inputs)
               (fn [inputs] (add-right expr inputs))
-              (over (@ :index)
-                    (fn [index] (+ 1 index))
-                    chain))))
+               chain)))
     {:chain new-chain
      :result result }))
 
@@ -54,7 +52,6 @@
   ]
   [ (view (@ :result) res)                 ==> 5                   ]
   [ (view (.. (@ :chain) (@ :inputs)) res) ==> [(def x 3) (+ x 2)] ]
-  [ (view (.. (@ :chain) (@ :index)) res)  ==> 2                   ]
 )
 
 ;; update-chain!
@@ -62,8 +59,9 @@
 (def update-chain!
   "Takes a chain, and returns a new chain updated with the new expressions from the remote chain"
   (fn [chain]
+    (def index (length (lookup :inputs chain)))
     (def new-inputs
-      (receive! (lookup :url chain) (lookup :index chain)))
+      (receive! (lookup :url chain) index))
     (def upd-ch
       (fn [ch expr]
         (def x (eval-in-chain expr ch))
