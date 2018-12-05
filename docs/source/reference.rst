@@ -558,6 +558,11 @@ Monadic bind for the maybe monad.
 Monadic fold over the elements of a seq, associating to the left (i.e.
 from left to right) in the maybe monad.
 
+``(elem? x xs)``
+~~~~~~~~~~~~~~~~
+
+Returns true if ``x`` is an element of the sequence ``xs``
+
 ``prelude/patterns``
 --------------------
 
@@ -626,6 +631,22 @@ Concatenate a list of strings, with newlines in between.
 ~~~~~~~~~~~~~~~
 
 Concatenate a list of strings, with spaces in between.
+
+``(split-by splitter? xs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Splits a string ``xs`` into a list of strings whenever the function
+``splitter?`` returns true for a character.
+
+``(words xs)``
+~~~~~~~~~~~~~~
+
+Splits a string ``xs`` into a list of strings by whitespace characters.
+
+``(lines xs)``
+~~~~~~~~~~~~~~
+
+Splits a string ``xs`` into a list of strings by linebreaks.
 
 ``prelude/io``
 --------------
