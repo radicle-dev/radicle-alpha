@@ -12,7 +12,7 @@ import           Data.Time
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.Exit (ExitCode)
-import           System.IO (hGetLine, isEOF)
+import           System.IO (hGetLine, isEOF, hFlush)
 import           System.IO.Error (isEOFError)
 import           System.Process
                  (CreateProcess, ProcessHandle, createProcess, waitForProcess)
@@ -69,7 +69,7 @@ instance System m => System (Lang m) where
 instance System IO where
     systemS = createProcess
     waitForProcessS = waitForProcess
-    hPutStrS = hPutStr
+    hPutStrS h t = hPutStr h t >> hFlush h
     hGetLineS x =
         catchJust (\e -> if isEOFError e then Just () else Nothing)
                   (Just . toS <$> hGetLine x)
