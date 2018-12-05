@@ -87,11 +87,6 @@ The default evaluation function. Expects an expression and a radicle
 state. Return a list of length 2 consisting of the result of the
 evaluation and the new state.
 
-``(eval expr env)``
-~~~~~~~~~~~~~~~~~~~
-
-Evaluation function that adds :test macro to register tests.
-
 ``ref``
 ~~~~~~~
 

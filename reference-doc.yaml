@@ -30,7 +30,6 @@ primFns:
 - read-many
 # Eval
 - base-eval
-- eval
 # Refs
 - ref
 - read-ref
