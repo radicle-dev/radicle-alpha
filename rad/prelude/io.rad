@@ -106,8 +106,8 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
        :stderr [:just 'stdout]
        :proc   'ph
       } (do (write-handle! stdin to-write)
+            (close-handle! stdin)
             (def out (read-contents-handle! stdout))
-            (wait-for-process! ph)
             out)
       _ (throw 'io-error "expected only stdin and stdout to be open"))))
 
