@@ -51,13 +51,13 @@ main = do
   where
 
     doc content e =
-      [ Header 1 nullAttr (inlinePandoc "Radicle Reference")
-      , Para $ inlinePandoc (intro content)
-      , Header 2 nullAttr (inlinePandoc "Primitive functions")
-      , Para $ inlinePandoc $ primFnsDoc content
+      [ Header 1 nullAttr (parseInlineMarkdown "Radicle Reference")
+      , Para $ parseInlineMarkdown (intro content)
+      , Header 2 nullAttr (parseInlineMarkdown "Primitive functions")
+      , Para $ parseInlineMarkdown $ primFnsDoc content
       ] ++ foldMap (valueDoc e) (primFns content) ++
-      [ Header 2 nullAttr (inlinePandoc "Prelude modules")
-      , Para $ inlinePandoc $ preludeModulesDoc content
+      [ Header 2 nullAttr (parseInlineMarkdown "Prelude modules")
+      , Para $ parseInlineMarkdown $ preludeModulesDoc content
       ] ++ foldMap (module' e) (modules content)
 
     defs v = let env = envFromRad v `lPanic` "Couldn't convert radicle value to as environment"
@@ -67,7 +67,7 @@ main = do
       (docString, Dict d) -> case (lkp [kword|exports|] d "invalid module", lkp [kword|env|] d "invalid module") of
         (Vec es, e) ->
           [ Header 2 nullAttr [ Code nullAttr (toS name) ]
-          , Para (inlinePandoc docString)
+          , Para (parseInlineMarkdown docString)
           ] ++ foldMap (export (defs e)) es
         _ -> panic $ "Module " <> name <> " didn't have an exports vec."
       _ -> panic $ "Module " <> name <> " was not a dict."
@@ -79,11 +79,12 @@ main = do
         case lkp name env "couldn't find value" of
             (docString, Lambda args _ _) ->
                 let callExample = "(" <> T.intercalate " " (name : map fromIdent args) <> ")"
-                in [ Header 3 nullAttr [Code nullAttr (toS callExample) ]
-                   , Para (inlinePandoc docString) ]
+                in [ Header 3 nullAttr [Code nullAttr (toS callExample) ] ]
+                   <> parseMarkdownBlocks docString
             (docString, _) ->
-                [ Header 3 nullAttr [Code nullAttr (toS name) ]
-                , Para (inlinePandoc docString) ]
+                [ Header 3 nullAttr [Code nullAttr (toS name) ] ]
+                <> parseMarkdownBlocks docString
+
 
     checkAllDocumented = \case
       [] -> pure ()
@@ -102,7 +103,13 @@ main = do
       Just y  -> y
       Nothing -> panic $ e <> ": couldn't find " <> show x
 
-    inlinePandoc t = case runPure (readMarkdown Default.def t) of
-      Right (Pandoc _ [Para is]) -> is
-      Right _ -> panic $ "Expecting inline markdown but got blocks: " <> t
-      Left err -> panic $ "Invalid markdown: " <> show err
+
+parseInlineMarkdown :: Text -> [Inline]
+parseInlineMarkdown t = case parseMarkdownBlocks t of
+  [Para is] -> is
+  _         -> panic $ "Expecting inline markdown but got blocks: " <> t
+
+parseMarkdownBlocks :: Text -> [Block]
+parseMarkdownBlocks t = case runPure (readCommonMark Default.def t) of
+  Right (Pandoc _ block) -> block
+  Left err               -> panic $ "Invalid markdown: " <> show err
