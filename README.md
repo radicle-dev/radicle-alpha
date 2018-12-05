@@ -42,6 +42,18 @@ The lastest master build of this service is distributed as the Docker image
 
 You can run tests with `stack test`.
 
-The documentation is build with `make -C docs html`. Reference documentation for
-Radicle code must be regenerated with `stack run radicle-doc-ref` and checked
-into version control.
+### Documentation
+
+To build the documentation you will need to install the Python dependencies
+```
+pip install -r docs/requirements.txt
+```
+
+You can then build the documentation with
+```
+stack run radicle-ref-doc
+make -C docs html
+```
+
+The `radicle-ref-doc` command generates reference documentation from Radicle
+source files.

@@ -64,13 +64,7 @@ steps:
     - '-c'
     - |
       set -euxo pipefail
-
-      mv docs/source/reference.rst oldref
       stack exec radicle-ref-doc
-      if ! (diff oldref docs/source/reference.rst); then
-        echo "Reference docs are not checked in"
-        exit 1
-      fi
 
   - id: "Build radicle-server image"
     waitFor:
