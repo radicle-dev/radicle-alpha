@@ -58,6 +58,7 @@ how to allow for future changes to the chain.
 
   GettingStarted.md
   Basics.lrad
-  Modules.rst
+  Modules.lrad
+  PatternMatching.lrad
   Chains.lrad
   DataValidation.rst
