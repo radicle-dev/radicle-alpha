@@ -3,13 +3,14 @@
 FILE="$(mktemp)"
 cat << SRC > $FILE
 (load! "rad/prelude.rad")
+(load! "rad/prelude/io-utils.rad")
 (load! "rad/monadic/issues.rad")
 
 (def mk-key (fn [v]
   (def key (nth 0 v))
   (def val (nth 1 v))
   [(string-append (show key) " - " (lookup :title val)) val]))
-(def iss (dict-from-list (map mk-key (seq (list-issues)))))
+(def iss (dict-from-seq (map mk-key (seq (list-issues)))))
 (def selected (fzf-select-by-key! iss))
 (def pretty-comment (fn [c]
   (string-append
@@ -22,9 +23,8 @@ cat << SRC > $FILE
      "\nDescription: " (lookup :body i)
      "\nState: " (if (eq? (lookup :state i) :open) "open" "closed")
      "\nLabels: " (show (lookup :labels i))
-     "\nComments:\n\n\n" (lines (map pretty-comment (lookup :comments i)))
+     "\nComments:\n\n\n" (unlines (map pretty-comment (lookup :comments i)))
 )))
 (put-str! (pretty-issue selected))
 SRC
 stack exec radicle -- $FILE | less
-

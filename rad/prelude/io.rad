@@ -1,6 +1,10 @@
 {:module 'prelude/io
  :doc "Some basic I/O functions."
- :exports '[print! shell! process! read-line! send-code! read-code!]}
+ :exports '[print! shell! process! read-line! send-code! read-code!
+            shell-with-stdout! process-with-stdout!
+           ]}
+
+(import prelude/patterns :unqualified)
 
 ;; read-line
 (def read-line!

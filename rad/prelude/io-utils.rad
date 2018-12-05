@@ -1,3 +1,10 @@
+{:module 'prelude/io-utils
+ :doc "IO-related utilities"
+ :exports '[fzf-select-by-key!]}
+
+(import prelude/io '[shell-with-stdout!] :unqualified)
+(import prelude/strings '[unlines] :unqualified)
+
 (def fzf-select-by-key!
   "Select from keys in `dict` with `fzf`, returning the corresponding values"
   (fn [dict]
