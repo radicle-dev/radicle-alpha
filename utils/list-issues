@@ -2,6 +2,7 @@
 
 FILE="$(mktemp)"
 cat << SRC > $FILE
+(load! "rad/prelude.rad")
 (load! "rad/monadic/issues.rad")
 
 (def mk-key (fn [v]
@@ -25,5 +26,5 @@ cat << SRC > $FILE
 )))
 (put-str! (pretty-issue selected))
 SRC
-radicle -- $FILE | less
+stack exec radicle -- $FILE | less
 

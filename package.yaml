@@ -30,6 +30,7 @@ library:
   - generics-eot
   - haskeline
   - http-client
+  - monad-control
   - megaparsec
   - mtl
   - pointed
@@ -77,8 +78,6 @@ tests:
     source-dirs:
     - test/docs
     ghc-options: -threaded
-    other-modules:
-    - Paths_radicle
     dependencies:
     - doctest
     - Glob

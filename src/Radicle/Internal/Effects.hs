@@ -212,6 +212,14 @@ replPrimFns = fromList $ allDocs $
           [] -> String <$> UUID.uuid
           xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
       )
+    -- , ( "fork!"
+    --   , "Calls a function of zero arguments in a separate thread"
+    --   , \case
+    --       [fn] -> do
+    --           forkS (void (fn $$ []))
+    --           pure nil
+    --       xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
+    --   )
     , ( "system!"
       , "(system! proc) execute a system process. Returns the dict with the form\
         \ ```\
@@ -269,6 +277,14 @@ replPrimFns = fromList $ allDocs $
           ProcHandle h -> do
               h' <- lookupProcHandle h
               toRad <$> waitForProcessS h'
+          v -> throwErrorHere $ TypeError "wait-for-process!" 0 TProcHandle v
+      )
+    , ( "close-handle!"
+      , "Close a handle"
+      , oneArg "close-handle!" $ \case
+          Handle h -> do
+              h' <- lookupHandle h
+              toRad <$> hCloseS h'
           v -> throwErrorHere $ TypeError "wait-for-process!" 0 TProcHandle v
       )
     , ( "exit!"

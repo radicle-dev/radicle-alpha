@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE UndecidableInstances    #-}
 
 -- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
@@ -11,6 +12,7 @@ import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
                  (ExceptT(..), MonadError, runExceptT, throwError)
 import           Control.Monad.State
+import           Control.Monad.Trans.Control
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
 import           Data.Copointed (Copointed(..))
@@ -514,7 +516,13 @@ envToRadicle = Dict . Map.mapKeys Atom . Map.map toRad . fromEnv
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
     { fromLangT :: ExceptT (LangError Value) (StateT r m) a }
-    deriving (Functor, Applicative, Monad, MonadError (LangError Value), MonadIO, MonadState r)
+    deriving (Functor, Applicative, Monad, MonadError (LangError Value)
+             , MonadIO, MonadState r)
+
+-- instance MonadTransControl (LangT r) where
+--     type StT (LangT r) a = StT (ExceptT (LangError Value)) a
+--     liftWith = defaultLiftWith LangT fromLangT
+--     restoreT = defaultRestoreT LangT
 
 mapError :: (Functor m) => (LangError Value -> LangError Value) -> LangT r m a -> LangT r m a
 mapError f = LangT . withExceptT f . fromLangT

@@ -3,16 +3,19 @@
 -- The intent is that any set of primops may wear on their sleaves (i.e.
 -- constraints) what effects they do.
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Radicle.Internal.Effects.Capabilities where
 
 import           Protolude
 
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
+import Control.Concurrent
+import Control.Monad.Trans.Control
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.Exit (ExitCode)
-import           System.IO (hGetLine, isEOF, hFlush)
+import           System.IO (hGetLine, hClose, isEOF, hFlush, BufferMode(LineBuffering), hSetBuffering)
 import           System.IO.Error (isEOFError)
 import           System.Process
                  (CreateProcess, ProcessHandle, createProcess, waitForProcess)
@@ -60,25 +63,34 @@ class (Monad m) => System m where
     hPutStrS :: Handle -> Text -> m ()
     -- | hGetLine should return Nothing on EOF.
     hGetLineS :: Handle -> m (Maybe Text)
+    hCloseS :: Handle -> m ()
 
 instance System m => System (Lang m) where
     systemS proc = lift $ systemS proc
     waitForProcessS = lift . waitForProcessS
     hPutStrS a b = lift $ hPutStrS a b
     hGetLineS = lift . hGetLineS
+    hCloseS = lift . hCloseS
 instance System IO where
     systemS = createProcess
     waitForProcessS = waitForProcess
-    hPutStrS h t = hPutStr h t >> hFlush h
+    hPutStrS h t = hSetBuffering h LineBuffering >> hPutStr h t >> hFlush h
     hGetLineS x =
         catchJust (\e -> if isEOFError e then Just () else Nothing)
-                  (Just . toS <$> hGetLine x)
+                  (Just . toS <$> (hSetBuffering x LineBuffering >> hGetLine x))
                   (\() -> pure Nothing)
+    hCloseS = hClose
 instance System m => System (InputT m) where
     systemS proc = lift $ systemS proc
     waitForProcessS = lift . waitForProcessS
     hPutStrS a b = lift $ hPutStrS a b
     hGetLineS = lift . hGetLineS
+    hCloseS = lift . hCloseS
+
+class Monad m => Concurrent m where
+    forkS :: m () -> m ThreadId
+instance (Monad m, MonadBaseControl IO m) => Concurrent m where
+    forkS = liftBaseDiscard forkIO
 
 class (Monad m) => Exit m where
     exitS :: m ()
