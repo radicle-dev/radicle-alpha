@@ -68,6 +68,7 @@ primFns:
 - string-append
 - string-length
 - string-replace
+- foldl-string
 # Types
 - type
 - atom?

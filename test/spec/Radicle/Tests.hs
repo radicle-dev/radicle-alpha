@@ -180,6 +180,13 @@ test_eval =
         let prog = [s|(foldr (fn [x y] (- x y)) 0 (list 1 2 3))|]
         prog `succeedsWith` int 2
 
+    , testCase "'foldl-string' foldls a string" $ do
+        let prog = [s|(foldl-string (fn [x y] (if (eq? y "a") (+ x 1) x))
+                                    0
+                                    "blablabla")
+                   |]
+        prog `succeedsWith` int 3
+
     , testCase "'map' maps over the list" $ do
         let prog = [s|(map (fn [x] (+ x 1)) (list 1 2))|]
         prog `succeedsWith` List [int 2, int 3]

@@ -310,24 +310,23 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "string-replace"
       , "Replace all occurrences of the first argument with the second in the third."
-      , \case
-         [String old, String new, String str] -> pure $ String $ T.replace old new str
-         [String _, String _, v] -> throwErrorHere $ TypeError "string-replace" 2 TString v
-         [String _, v, _] -> throwErrorHere $ TypeError "string-replace" 1 TString v
-         [v, _, _] -> throwErrorHere $ TypeError "string-replace" 0 TString v
-         xs -> throwErrorHere $ WrongNumberOfArgs "string-replace" 3 (length xs)
+      , threeArg "string-replace" $ \case
+         (String old, String new, String str) -> pure $ String $ T.replace old new str
+         (String _, String _, v) -> throwErrorHere $ TypeError "string-replace" 2 TString v
+         (String _, v, _) -> throwErrorHere $ TypeError "string-replace" 1 TString v
+         (v, _, _) -> throwErrorHere $ TypeError "string-replace" 0 TString v
       )
     , ( "insert"
       , "Given `k`, `v` and a dict `d`, returns a dict with the same associations\
         \ as `d` but with `k` associated to `d`. If `d` isn't a dict or if `k` isn't\
         \ hashable then an exception is thrown."
-      , \case
-          [k, v, Dict m] ->
+      , threeArg "insert" $ \case
+          (k, v, Dict m) ->
             if hashable k
             then pure . Dict $ Map.insert k v m
             else throwErrorHere NonHashableKey
-          [_, _, v]                -> throwErrorHere $ TypeError "insert" 2 TDict v
-          xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
+          (_, _, v)      -> throwErrorHere $ TypeError "insert" 2 TDict v
+      )
     , ( "delete"
       , "Given `k` and a dict `d`, returns a dict with the same associations as `d` but\
         \ without the key `k`. If `d` isn't a dict then an exception is thrown."
@@ -376,24 +375,37 @@ purePrimFns = fromList $ allDocs $
             Right _ -> pure $ Boolean True
           v -> throwErrorHere $ TypeError "integral?" 0 TNumber v
       )
+    , ( "foldl-string"
+      , "A left fold on a string. That is, given a function `f`, an initial\
+        \ accumulator value `init`, and a string `s`, reduce `s` by applying `f`\
+        \ to the accumulator and the next character in the string repeatedly."
+      , threeArg "foldl-string" $ \case
+          (fn, ini, String v) -> do
+              let folder f = T.foldl g (pure ini) v
+                    where
+                      g x y = x >>= (`f` y)
+              folder (\b a -> callFn fn [b, String $ T.singleton a])
+          (_, _, x)           -> throwErrorHere
+                               $ TypeError "foldl-string" 2 TString x
+      )
     , ( "foldl"
       , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
         \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
         \ combining values with `f`, using elements of `xs` from left to right."
-      , \case
-          [fn, init', v] -> do
+      , threeArg "foldl" $ \case
+          (fn, init', v) -> do
             ls :: [Value] <- fromRadOtherErr v
             foldlM (\b a -> callFn fn [b, a]) init' ls
-          xs                   -> throwErrorHere $ WrongNumberOfArgs "foldl" 3 (length xs))
+      )
     , ( "foldr"
       , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
         \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
         \ combining values with `f`, using elements of `xs` from right to left."
-      , \case
-          [fn, init', v] -> do
+      , threeArg "foldr" $ \case
+          (fn, init', v) -> do
             ls :: [Value] <- fromRadOtherErr v
             foldrM (\b a -> callFn fn [b, a]) init' ls
-          xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
+      )
     , ( "map"
       , "Given a function `f` and a sequence (list or vector) `xs`, returns a sequence\
         \ of the same size and type as `xs` but with `f` applied to all the elements."
@@ -510,13 +522,13 @@ purePrimFns = fromList $ allDocs $
     , ( "verify-signature"
       , "Given a public key `pk`, a signature `s` and a message (string) `m`, checks\
         \ that `s` is a signature of `m` for the public key `pk`."
-      , \case
-          [keyv, sigv, String msg] -> do
+      , threeArg "verify-signature" $ \case
+          (keyv, sigv, String msg) -> do
             key <- fromRadOtherErr keyv
             sig <- fromRadOtherErr sigv
             pure . Boolean $ verifySignature key sig msg
-          [_, _, _] -> throwErrorHere $ OtherError "verify-signature: message must be a string"
-          xs -> throwErrorHere $ WrongNumberOfArgs "verify-signature" 3 (length xs)
+          (_, _, _) -> throwErrorHere
+                     $ OtherError "verify-signature: message must be a string"
       )
     , ( "public-key?"
       , "Checks if a value represents a valid public key."
@@ -630,6 +642,16 @@ twoArg :: Monad m => Text -> ((Value, Value) -> Lang m Value) -> [Value] -> Lang
 twoArg fname f = \case
   [x, y] -> f (x, y)
   xs -> throwErrorHere $ WrongNumberOfArgs fname 2 (length xs)
+
+threeArg
+    :: Monad m
+    => Text
+    -> ((Value, Value, Value) -> Lang m Value)
+    -> [Value]
+    -> Lang m Value
+threeArg fname f = \case
+  [x, y, z] -> f (x, y, z)
+  xs -> throwErrorHere $ WrongNumberOfArgs fname 3 (length xs)
 
 readValue
     :: (MonadError (LangError Value) m)
