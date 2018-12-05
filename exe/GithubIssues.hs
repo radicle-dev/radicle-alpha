@@ -14,6 +14,7 @@ import qualified GitHub.Endpoints.Issues.Comments as GH
 import           Options.Applicative
 
 import           Radicle
+import           Radicle.TH
 
 main :: IO ()
 main = do

@@ -25,6 +25,7 @@ import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Foo)
 import           Radicle.Internal.TestCapabilities
+import           Radicle.TH
 
 test_eval :: [TestTree]
 test_eval =
@@ -592,6 +593,8 @@ test_parser =
         assertBool "not for -93G" (isNothing (mkIdent "-93G"))
         assertBool "not for +0X, no sir" (isNothing (mkIdent "+0X"))
         assertBool "5 is right out" (isNothing (mkIdent "5"))
+    , testCase "mkIdent does not accept whitespaces" $ do
+        assertBool "not for -93G" (isNothing (mkIdent "a b"))
     ]
   where
     x ~~> y = parseTest x @?= Right y

@@ -168,3 +168,11 @@ parse file src = do
   case res of
     Left err -> throwError . toS $ M.parseErrorPretty' src err
     Right v  -> pure v
+
+-- | Smart constructor for Ident.
+mkIdent :: Text -> Maybe Ident
+mkIdent t = case runIdentity (M.runParserT (valueP <* M.eof) "" t) of
+    -- We use the 'valueP' parser instead of 'identP' so that we don’t
+    -- negative numbers  like @-4@.
+    Right (Atom i) -> pure i
+    _              -> Nothing
