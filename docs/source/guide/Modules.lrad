@@ -24,10 +24,12 @@ To import a module, use `import`:
 
     (import my-module)
 
-The definitions inside a module are evaluated in the current scope, so you can
-use whatever has already been defined. The form returns the module value, which
-can be passed around just like any other value. This means that we can write
-functions which create modules:
+The content of a module is evaluated in a new scope that is identical to the
+scope of the module definition site. This means you you can use whatever has
+already been defined before the module was, and that definitions in the module
+don't leak outside the module. The form returns the module value, which can be
+passed around just like any other value. This means that we can write functions
+which create modules:
 
     (def make-taxes
       (fn [VAT]
