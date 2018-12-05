@@ -39,6 +39,7 @@
                         :nothing))
                     merge
                     (seq cs)))))
+
 (def _
   "The wildcard pattern."
   (fn [v] [:just {}]))

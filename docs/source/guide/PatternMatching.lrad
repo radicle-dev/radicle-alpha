@@ -1,0 +1,183 @@
+# Pattern matching
+
+## Basics
+
+Radicle has first class patterns, which means you can use `match` expressions to
+bind values according to the shape of some value, and create new patterns to be
+used in `match` expressions.
+
+Pattern matching is invoked as follows:
+
+    ;; Just getting an import out of the way
+    (import (file-module! "rad/prelude/io.rad") :unqualified)
+
+    (match 42
+      'x (print! (string-append "x was: " (show x))))
+
+That's not very interesting, but it's all we can do before we import some more
+patterns:
+
+    (import (file-module! "rad/prelude/test.rad") :unqualified)
+    (file-module! "rad/prelude/basic.rad")
+    (import (file-module! "rad/prelude/patterns.rad") :unqualified)
+
+Now we can pattern match on vectors, numbers, dicts, etc. For example,
+evaluating:
+
+    (print!
+      (match [42 [:a 3] {:key "val" :key2 "don't care"}]
+        [43 [:a _] {:key 'v}]  :not-this
+        [42 "hello" {:key 'v}] :not-this
+        [42 [:a 'x] {:key 'v}] [:yes x v]
+        _                      :not-this))
+
+will print `[:yes 3 "val"]`.
+
+A valid match expression has the shape `(match v ...patterns...)` where
+`...patterns...` is an even number of expressions. The _patterns_ are the
+expressions at the even indices; the expressions at the odd indices are the
+_branches_. When evaluated, the value `v` is matched against the patterns, one
+at a time. For the first one that matches, the corresponding branch is then
+evaluated, and the result of that is the result of the expression. If none of
+the patterns matches `v`, then an exception is thrown.
+
+## Pre-defined patterns
+
+Patterns are expressions which describe shapes that values can have, and specify
+atoms to bind certain parts of the value to variables.
+
+These are the patterns that come included in the prelude:
+
+- `_` is the wildcard pattern. It will match any value. It's mostly useful for
+  ignoring sub-parts of structures, or as a catch all for the last pattern.
+- An atom will match against any value too, but it will then be bound to the
+  matched value in the corresponding branch.
+- Numbers, keywords and strings match against themselves by equality. E.g. `42`
+  as a pattern will only match the value `42`.
+- A vector of patterns `[p_0 ... p_n]` will match against vectors `[v_0 ...
+  v_n]` of the same size, as long as `p_i` matches `v_i`.
+- A dict `{k_0 p_0 ... k_n p_n}` of patterns will match against dicts `{k_0 v_0
+  ... k_n v_n ...}` that have _at least_ the keys `k_0`, ..., `k_n`, and such
+  that `p_i` matches `v_i`.
+- The pattern `(/just p)` will match values `[:just v]` as long as the pattern
+  `p` matches `v`.
+- The pattern `(/cons h t)` will match against non-empty lists whose head
+  matches `h`, and whose tail matches `t`.
+- `/nil` will only match the empty list.
+- The pattern `(/? p)`, where `p` is a predicate function, will match all values
+  `v` such that `(p v)` is truthy.
+- The pattern `(/as x p)`, where `x` is an atom and `p` is a pattern, matches
+  any values that `p` matches while also binding this value to `x` in the
+  branch.
+  
+## Binding variables
+
+Variables used in patterns must be quoted because patterns are themselves
+evaluated. This means that if `x` is already bound to a value then it can be
+used in a pattern. For example:
+
+    (def x 1)
+    
+    (print!
+      (match [2 2]
+        [x       'y] (+ y y)
+        [(+ x 1) 'y] (+ x y)))
+        
+will print the number `3`, that is, evaluate the second branch. This is because
+`(+ x 1)` evaluates to `2`, and so this matches the first `2` of the value `[2
+2]`.
+
+Quoting variables is also what allows custom patterns to be defined.
+
+## Non-linearity
+
+All of the patterns included in the prelude support non-linear matching, which
+means re-using a variable will result in testing for equality. For example the
+pattern `['x 'x]` will match vectors of length `2` with the same value repeated
+twice. And
+
+    (print!
+      (match [1 2 2]
+        ['x 'x 'x'] [:three x]
+        ['x 'y 'y]  [:one x :and-two y]
+        ['x 'y 'z]  [:all-different x y z]))
+
+will print `[:one 1 :and-two 2]` because `[1 2 2]` matches the second pattern
+but not the first, as `1` is not equal to `2`.
+
+## Custom patterns
+
+You can easily create you own patterns: they are just functions with return
+`[:just b]` where `b` is a dict of bindings in case of a match, and `:nothing`
+when the value does not match.
+
+For example let's assume that we have to deal
+with a lot of values of the following shape:
+
+    (def alice
+      {:user-id "123"
+       :first-name "Alice"
+       :last-name "Smith"
+       :char-attributes {:class "dwarf"
+                         :max-hp 132
+                         :current-hp 122
+                         :spell-radius 134
+                         :and-lots-more "stuff"}})
+
+    (def bob
+      {:user-id "345"
+       :first-name "Bob"
+       :last-name "Kane"
+       :char-attributes {:class "elf"
+                         :max-hp 96
+                         :current-hp 55
+                         :spell-radius 76
+                         :and-lots-more "stuff"}})
+
+And for some reason we keep having to extract the full name and spell radius if
+`:spell-radius` is over `100`, but otherwise we just want the character `:class`
+and the `:current-hp`. We can do this with two custom patterns:
+
+    (def danger
+      (fn [name spell-rad]
+        (fn [v]
+          (match v
+            {:first-name 'fn
+             :last-name  'ln
+             :char-attributes {:spell-radius 'sr}}
+              (if (> sr 100)
+                [:just {name (string-append fn " " ln)
+                        spell-rad sr}]
+                :nothing)
+                 _ :nothing))))
+
+    (def prey
+      (fn [class current-hp]
+        (fn [v]
+          (match v
+                 {:char-attributes {:class 'c
+                                    :current-hp 'hp}}
+                 [:just {class c
+                         current-hp hp}]
+                 _ :nothing))))
+
+And now we can make a function for alerting players to other nearby players:
+
+    (def nearby
+      (fn [p]
+        (match p
+          (danger 'n 'sr)
+            (print! (string-append "DANGER! powerful player " n " with spell radius " (show sr) " is approaching!"))
+          (prey 'c 'hp)
+            (print! (string-append "A weak " c " with only " (show hp) " health is nearby! Attack!")))))
+
+And calling
+
+    (nearby alice)
+
+Will print `"DANGER! powerful player Alice Smith with spell radius 134 is
+approaching!"`, but calling:
+
+    (nearby bob)
+    
+will print `"A weak elf with only 55 health is nearby! Attack!"`.
