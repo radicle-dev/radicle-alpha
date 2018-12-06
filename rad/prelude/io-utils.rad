@@ -6,8 +6,9 @@
 (import prelude/strings '[unlines] :unqualified)
 
 (def fzf-select-by-key!
-  "Select from keys in `dict` with `fzf`, returning the corresponding values"
+  "Select from keys in `dict` with `fzf`, returning the corresponding values.
+  The keys of the dict must be strings.
+  Requires that `fzf` be on the path."
   (fn [dict]
-    ;; This should be using process-with-stdout!, but fzf then breaks mysteriously.
-    (def result (shell-with-stdout! "fzf" (string-append (unlines (keys dict)) "\n")))
+    (def result (process-with-stdout! "fzf" [] (string-append (unlines (keys dict)) "\n")))
     (lookup (string-replace "\n" "" (nth 0 result)) dict)))

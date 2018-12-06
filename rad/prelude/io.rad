@@ -55,6 +55,12 @@ Example: `(shell! \"ls -Glah\" \"\")`. "
             (wait-for-process! ph))
       _ (throw 'io-error "expected only stdin to be open"))))
 
+(:test "shell!"
+  [ (shell! "true" "") ==> :ok ]
+  [ (shell! "false" "") ==> [:error 1] ]
+)
+
+
 (def shell-with-stdout!
   "Like `shell!`, but captures the stdout and returns it."
   (fn [command to-write]
@@ -101,6 +107,11 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
             (wait-for-process! ph))
       _ (throw 'io-error "expected only stdin to be open"))))
 
+(:test "process!"
+  [ (process! "true" [] "") ==> :ok ]
+  [ (process! "false" [] "") ==> [:error 1] ]
+)
+
 (def process-with-stdout!
   "Like `process!`, but captures stdout."
   (fn [command args to-write]
@@ -123,8 +134,8 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
       _ (throw 'io-error "expected only stdin and stdout to be open"))))
 
 (:test "process-with-stdout!"
-  [ (process-with-stdout! "echo" ["hi"] "") ==> "hi" ]
-  [ (process-with-stdout! "cat" [] "there") ==> "there" ]
+  [ (process-with-stdout! "echo" ["hi"] "") ==> ["hi"] ]
+  [ (process-with-stdout! "cat" [] "there") ==> ["there"] ]
 )
 
 ;; General utilities
