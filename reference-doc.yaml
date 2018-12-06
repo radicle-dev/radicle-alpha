@@ -105,6 +105,7 @@ primFns:
 - load!
 - read-file!
 - read-line-handle!
+- close-handle!
 - now!
 - system!
 - wait-for-process!
