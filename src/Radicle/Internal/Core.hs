@@ -1,6 +1,5 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns    #-}
-{-# LANGUAGE UndecidableInstances    #-}
 
 -- | The core radicle datatypes and functionality.
 module Radicle.Internal.Core where
