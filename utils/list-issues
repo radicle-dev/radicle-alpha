@@ -28,8 +28,8 @@ cat << SRC > $FILE
 (put-str! (pretty-issue selected))
 SRC
 
-if [ -z "$NIX_PATH" ]; then
-    stack exec --silent radicle -- $FILE
-else
+if [ "$IS_NIX_SHELL" = "true" ]; then
     stack exec --silent radicle --nix-packages fzf -- $FILE
+else
+    stack exec --silent radicle -- $FILE
 fi

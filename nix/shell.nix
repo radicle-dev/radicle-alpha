@@ -20,6 +20,7 @@ stdenv.mkDerivation {
     shellHook = ''
       export PATH=$PATH:`stack path --local-bin`
       export STACK_ARGS="--system-ghc --nix-packages 'zlib fzf moreutils'"
+      export IS_NIX_SHELL="true"
       eval $(grep export ${ghc}/bin/ghc)
       alias check="pushd $PWD && ./scripts/check-fmt.sh && hlint . && popd"
       alias mkdocs="pushd $PWD/docs && make html && popd"

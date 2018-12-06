@@ -17,10 +17,10 @@ import           System.IO
                  , hClose
                  , hFlush
                  , hGetLine
+                 , hIsEOF
                  , hSetBuffering
                  , isEOF
                  )
-import           System.IO.Error (isEOFError)
 import           System.Process
                  (CreateProcess, ProcessHandle, createProcess, waitForProcess)
 #ifdef ghcjs_HOST_OS
@@ -79,10 +79,13 @@ instance System IO where
     systemS = createProcess
     waitForProcessS = waitForProcess
     hPutStrS h t = hSetBuffering h LineBuffering >> hPutStr h t >> hFlush h
-    hGetLineS x =
-        catchJust (\e -> if isEOFError e then Just () else Nothing)
-                  (Just . toS <$> (hSetBuffering x LineBuffering >> hGetLine x))
-                  (\() -> pure Nothing)
+    hGetLineS h = do
+        eof <- hIsEOF h
+        if eof
+            then pure Nothing
+            else do
+                hSetBuffering h LineBuffering
+                Just . toS <$> hGetLine h
     hCloseS = hClose
 instance System m => System (InputT m) where
     systemS proc = lift $ systemS proc
