@@ -24,8 +24,10 @@ main = do
 run :: FilePath -> IO ()
 run f = do
     txt <- readFile f
-    pand <- runIOorExplode $ readMarkdown def txt
-    res <- runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ getCode pand
+    let extensions = def { readerExtensions = githubMarkdownExtensions }
+    pand <- runIOorExplode $ readMarkdown extensions txt
+    let code = T.append "(load! \"rad/prelude.rad\")" (getCode pand)
+    res <- runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ code
     case res of
         (Left err, _) -> die . toS $ "Error: " ++ show err
         _             -> pure ()

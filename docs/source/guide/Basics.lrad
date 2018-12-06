@@ -148,7 +148,7 @@ You can access the value associated with a key with the function `lookup`:
 And add new values with `insert`:
 
 ```radicle
-(insert :key2 2 { :key1 1 }) ==> { :key1 1 :key2 2 }
+(insert :key2 2 { :key1 1 }) ;; ==> { :key1 1 :key2 2 }
 ```
 
 ## Simple expressions
@@ -158,18 +158,20 @@ And add new values with `insert`:
 To dispatch on a boolean value use `if`:
 
 ```radicle
-(if (pr-accepted? pr)
-  (merge-pr master pr)
-  (close-pr pr))
+(def num-bugs 50)
+
+(if (> num-bugs 0)
+  "Oh no, so many bugs!"
+  "All done!")
 ```
 
 To test multiple booleans use `cond`:
 
 ```radicle
 (cond
-  (> num-issues 100) "Oh no, so many bugs!"
-  (= num-issues 0)   "All done!"
-  #t                 "A few bugs.")
+  (> num-bugs 100) "Oh no, so many bugs!"
+  (eq? num-bugs 0)   "All done!"
+  #t               "A few bugs.")
 ```
 
 In fact _all_ values which are not `#f` are treated as true, so one can also
@@ -177,8 +179,8 @@ write:
 
 ```radicle
 (cond
-  (> num-issues 100) "Oh no, so many bugs!"
-  (= num-issues 0)   "All done!"
+  (> num-bugs 100) "Oh no, so many bugs!"
+  (eq? num-bugs 0)   "All done!"
   :else              "A few bugs.")
 ```
 
