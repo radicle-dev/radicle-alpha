@@ -73,14 +73,14 @@ Add an element to the right using `add-right`:
 Lists are one of the fundamental data structures of functional programming. Just
 like vectors are enclosed in square brackets, lists are enclosed in parentheses.
 
-However, as you may have noticed, parentheses are also used for function 
+However, as you may have noticed, parentheses are also used for function
 application. This is because lists are the representation for *code* that
 evaluates to the result of applying the first element of the list to the
-other elements. 
+other elements.
 
 Don't worry if this is still a little unclear; we will discuss it at greater
 length when we talk about evaluation and quotation. For now, what this in
-practice means is that if you want to create a list, you can used the
+practice means is that if you want to create a list, you can use the
 function `list` on the elements you want in the list.  You can also use
 `list-from-vec` to make a vector into a list.
 
@@ -111,8 +111,8 @@ Or a specific index with `nth`:
 ### Lists or vectors?
 
 Vectors differ from lists in a couple of important ways. First, lists are
-implemented as linked lists, and therefore have accessing the `nth` element
-of a list has a linear on `n` (the function `nth` works for both vectors and
+implemented as linked lists, and accessing the `nth` element of a list has
+linear time complexity on `n` (the function `nth` works for both vectors and
 lists). Additionally, appending to the end of a list is also linear.  Vectors,
 on the other hand, allow for faster (logarithmic) indexed access and appending
 (constant time).
