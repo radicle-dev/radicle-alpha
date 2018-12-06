@@ -463,7 +463,13 @@ Reads the contents of a file and returns it as a string.
 ``read-line-handle!``
 ~~~~~~~~~~~~~~~~~~~~~
 
-Read a single line from a handle.
+Read a single line from a handle. Returns the string read, or the
+keyword ``:eof`` if an EOF is encountered.
+
+``close-handle!``
+~~~~~~~~~~~~~~~~~
+
+Close a handle
 
 ``now!``
 ~~~~~~~~
@@ -669,8 +675,8 @@ user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Executes ``command`` using 'execvp'. with 'to-write' as input. Stdout
-and stderr are inherit. See 'man exec' for more information on 'execvp'.
-Example: ``(process! "ls" ["-Glah"] "")``.
+and stderr are inherited. See 'man exec' for more information on
+'execvp'. Example: ``(process! "ls" ["-Glah"] "")``.
 
 ``(read-line!)``
 ~~~~~~~~~~~~~~~~
@@ -686,6 +692,16 @@ Send code from a file to a remote chain.
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Read code (as data) from a file. Returns a vector of expressions
+
+``(shell-with-stdout! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``shell!``, but captures the stdout and returns it.
+
+``(process-with-stdout! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``process!``, but captures stdout.
 
 ``prelude/bool``
 ----------------

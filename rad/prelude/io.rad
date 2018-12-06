@@ -1,6 +1,10 @@
 {:module 'prelude/io
  :doc "Some basic I/O functions."
- :exports '[print! shell! process! read-line! send-code! read-code!]}
+ :exports '[print! shell! process! read-line! send-code! read-code!
+            shell-with-stdout! process-with-stdout!
+           ]}
+
+(import prelude/patterns :unqualified)
 
 ;; read-line
 (def read-line!
@@ -22,6 +26,15 @@
   (fn [x]
     (put-str! (show x))))
 
+(def-rec read-contents-handle!
+  "Read all the contents of a handle. A *vector* of strings is returned, one
+   string for each line of output."
+  (fn [hdl]
+    (def this-line (read-line-handle! hdl))
+    (if (eq? this-line :eof)
+        []
+        (add-left this-line (read-contents-handle! hdl)))))
+
 (def shell!
   "Executes `command` using the shell with `to-write` as input. Stdout and stderr are inherited.
 WARNING: using `shell!` with unsanitized user input is a security hazard!
@@ -42,8 +55,40 @@ Example: `(shell! \"ls -Glah\" \"\")`. "
             (wait-for-process! ph))
       _ (throw 'io-error "expected only stdin to be open"))))
 
+(:test "shell!"
+  [ (shell! "true" "") ==> :ok ]
+  [ (shell! "false" "") ==> [:error 1] ]
+)
+
+
+(def shell-with-stdout!
+  "Like `shell!`, but captures the stdout and returns it."
+  (fn [command to-write]
+    (def cp
+      { :cmdspec [:shell command]
+        :stdin :create-pipe
+        :stdout :create-pipe
+        :stderr :inherit
+      })
+    (match (system! cp)
+      {:stdin  [:just 'stdin]
+       :stdout [:just 'stdout]
+       :stderr :nothing
+       :proc   'ph
+      } (do (write-handle! stdin to-write)
+            (close-handle! stdin)
+            (def out (read-contents-handle! stdout))
+            out)
+      _ (throw 'io-error "expected only stdin and stdout to be open"))))
+
+(:test "shell-with-stdout!"
+  [ (shell-with-stdout! "echo hi" "") ==> ["hi"] ]
+  [ (shell-with-stdout! "cat" "there") ==> ["there"] ]
+)
+
+
 (def process!
-  "Executes `command` using 'execvp'. with 'to-write' as input. Stdout and stderr are inherit.
+  "Executes `command` using 'execvp'. with 'to-write' as input. Stdout and stderr are inherited.
 See 'man exec' for more information on 'execvp'.
 Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   (fn [command args to-write]
@@ -61,3 +106,41 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
       } (do (write-handle! stdin to-write)
             (wait-for-process! ph))
       _ (throw 'io-error "expected only stdin to be open"))))
+
+(:test "process!"
+  [ (process! "true" [] "") ==> :ok ]
+  [ (process! "false" [] "") ==> [:error 1] ]
+)
+
+(def process-with-stdout!
+  "Like `process!`, but captures stdout."
+  (fn [command args to-write]
+    (def cp
+      { :cmdspec [:raw command args]
+        :stdin   :create-pipe
+        :stdout  :create-pipe
+        :stderr  :inherit
+      })
+    (match (system! cp)
+      {:stdin  [:just 'stdin]
+       :stdout [:just 'stdout]
+       :stderr :nothing
+       :proc   'ph
+      } (do (write-handle! stdin to-write)
+            (close-handle! stdin)
+            (def out (read-contents-handle! stdout))
+            (print! out)
+            out)
+      _ (throw 'io-error "expected only stdin and stdout to be open"))))
+
+(:test "process-with-stdout!"
+  [ (process-with-stdout! "echo" ["hi"] "") ==> ["hi"] ]
+  [ (process-with-stdout! "cat" [] "there") ==> ["there"] ]
+)
+
+;; General utilities
+(def ls!
+  "List the contents of the current working directory"
+  (fn []
+    ;; Some systems support the -1 option, but this is more portable
+    (shell-with-stdout! "ls -a | cat" "")))

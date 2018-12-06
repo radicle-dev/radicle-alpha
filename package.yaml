@@ -77,8 +77,6 @@ tests:
     source-dirs:
     - test/docs
     ghc-options: -threaded
-    other-modules:
-    - Paths_radicle
     dependencies:
     - doctest
     - Glob

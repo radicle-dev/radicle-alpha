@@ -514,7 +514,8 @@ envToRadicle = Dict . Map.mapKeys Atom . Map.map toRad . fromEnv
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
     { fromLangT :: ExceptT (LangError Value) (StateT r m) a }
-    deriving (Functor, Applicative, Monad, MonadError (LangError Value), MonadIO, MonadState r)
+    deriving (Functor, Applicative, Monad, MonadError (LangError Value)
+             , MonadIO, MonadState r)
 
 mapError :: (Functor m) => (LangError Value -> LangError Value) -> LangT r m a -> LangT r m a
 mapError f = LangT . withExceptT f . fromLangT
@@ -810,8 +811,10 @@ instance CPA t => FromRad t CmdSpec where
     fromRad x = case x of
         Vec (Keyword (Ident "shell") Seq.:<| arg Seq.:<| Seq.Empty) ->
             ShellCommand <$> fromRad arg
-        Vec (Keyword (Ident "raw") Seq.:<| comm Seq.:<| args Seq.:<| Seq.Empty) ->
-            RawCommand <$> fromRad comm <*> fromRad args
+        Vec (Keyword (Ident "raw") Seq.:<| comm Seq.:<| Vec args Seq.:<| Seq.Empty) -> do
+            args' <- traverse fromRad $ toList args
+            comm' <- fromRad comm
+            pure $ RawCommand comm' args'
         Vec (Keyword (Ident s) Seq.:<| _) ->
             throwError $ "Expecting either :raw or :shell, got: " <> s
         _ ->
