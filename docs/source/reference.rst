@@ -648,6 +648,13 @@ Splits a string ``xs`` into a list of strings by whitespace characters.
 
 Splits a string ``xs`` into a list of strings by linebreaks.
 
+``(map-string f xs)``
+~~~~~~~~~~~~~~~~~~~~~
+
+Returns a string consisting of the results of applying ``f`` to each
+character of ``xs``. Returns a type error if ``f`` returns something
+other than a string
+
 ``prelude/io``
 --------------
 
