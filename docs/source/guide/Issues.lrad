@@ -228,7 +228,7 @@ And we update our commands:
         (fn [cs] (insert 'create add-verified-issue cs))))
 
 Issues now have to be signed to be valid, here is some code one could run in
-another file to create such comments:
+another file to create such commands:
 
     ;; (def chain-id "some-unique-id")
 
@@ -260,11 +260,11 @@ To generate a signed issue we can call, after loading that code into a REPL:
 And submit the result to the chain:
 
     (create
-      {:author [:PublicKey
-       {:public_curve [:CurveFP
-        [:CurvePrime
+      {:author [:public-key
+       {:public_curve [:curve-fp
+        [:curve-prime
         1.15792089237316195423570985008687907853269984665640564039457584007908834671663e77
-        [:CurveCommon
+        [:curve-common
         {:ecc_a 0.0
          :ecc_b 7.0
          :ecc_g [:Point
