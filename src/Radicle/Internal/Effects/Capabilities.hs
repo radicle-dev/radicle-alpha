@@ -3,19 +3,23 @@
 -- The intent is that any set of primops may wear on their sleaves (i.e.
 -- constraints) what effects they do.
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE UndecidableInstances #-}
 module Radicle.Internal.Effects.Capabilities where
 
 import           Protolude
 
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
-import Control.Concurrent
-import Control.Monad.Trans.Control
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.Exit (ExitCode)
-import           System.IO (hGetLine, hClose, isEOF, hFlush, BufferMode(LineBuffering), hSetBuffering)
+import           System.IO
+                 ( BufferMode(LineBuffering)
+                 , hClose
+                 , hFlush
+                 , hGetLine
+                 , hSetBuffering
+                 , isEOF
+                 )
 import           System.IO.Error (isEOFError)
 import           System.Process
                  (CreateProcess, ProcessHandle, createProcess, waitForProcess)
@@ -86,11 +90,6 @@ instance System m => System (InputT m) where
     hPutStrS a b = lift $ hPutStrS a b
     hGetLineS = lift . hGetLineS
     hCloseS = lift . hCloseS
-
-class Monad m => Concurrent m where
-    forkS :: m () -> m ThreadId
-instance (Monad m, MonadBaseControl IO m) => Concurrent m where
-    forkS = liftBaseDiscard forkIO
 
 class (Monad m) => Exit m where
     exitS :: m ()

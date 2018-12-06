@@ -30,7 +30,6 @@ library:
   - generics-eot
   - haskeline
   - http-client
-  - monad-control
   - megaparsec
   - mtl
   - pointed

@@ -27,4 +27,9 @@ cat << SRC > $FILE
 )))
 (put-str! (pretty-issue selected))
 SRC
-stack exec radicle -- $FILE | less
+
+if [ -z "$NIX_PATH" ]; then
+    stack exec --silent radicle -- $FILE
+else
+    stack exec --silent radicle --nix-packages fzf -- $FILE
+fi

@@ -212,14 +212,6 @@ replPrimFns = fromList $ allDocs $
           [] -> String <$> UUID.uuid
           xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
       )
-    -- , ( "fork!"
-    --   , "Calls a function of zero arguments in a separate thread"
-    --   , \case
-    --       [fn] -> do
-    --           forkS (void (fn $$ []))
-    --           pure nil
-    --       xs -> throwErrorHere $ WrongNumberOfArgs "uuid!" 0 (length xs)
-    --   )
     , ( "system!"
       , "(system! proc) execute a system process. Returns the dict with the form\
         \ ```\
