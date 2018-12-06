@@ -64,6 +64,4 @@ interpretMany sourceName src = case parseValues sourceName src of
         case lastMay es of
             Just e -> pure e
             _ -> throwErrorHere
-               $ OtherError "InterpretMany should be called with at least one expression."
-
-
+               $ OtherError "interpretMany should be called with at least one expression."

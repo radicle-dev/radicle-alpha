@@ -1,0 +1,7 @@
+#!/usr/bin/env radicle
+
+(load! "rad/prelude.rad")
+(def args (get-args!))
+(print! args)
+(match args
+  ["list-issues"] (print! "here"))
