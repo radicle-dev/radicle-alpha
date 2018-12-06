@@ -73,14 +73,14 @@ Add an element to the right using `add-right`:
 Lists are one of the fundamental data structures of functional programming. Just
 like vectors are enclosed in square brackets, lists are enclosed in parentheses.
 
-However, as you may have noticed, parentheses are also used for function 
+However, as you may have noticed, parentheses are also used for function
 application. This is because lists are the representation for *code* that
 evaluates to the result of applying the first element of the list to the
-other elements. 
+other elements.
 
 Don't worry if this is still a little unclear; we will discuss it at greater
 length when we talk about evaluation and quotation. For now, what this in
-practice means is that if you want to create a list, you can used the
+practice means is that if you want to create a list, you can use the
 function `list` on the elements you want in the list.  You can also use
 `list-from-vec` to make a vector into a list.
 
@@ -111,8 +111,8 @@ Or a specific index with `nth`:
 ### Lists or vectors?
 
 Vectors differ from lists in a couple of important ways. First, lists are
-implemented as linked lists, and therefore have accessing the `nth` element
-of a list has a linear on `n` (the function `nth` works for both vectors and
+implemented as linked lists, and accessing the `nth` element of a list has
+linear time complexity on `n` (the function `nth` works for both vectors and
 lists). Additionally, appending to the end of a list is also linear.  Vectors,
 on the other hand, allow for faster (logarithmic) indexed access and appending
 (constant time).
@@ -148,7 +148,7 @@ You can access the value associated with a key with the function `lookup`:
 And add new values with `insert`:
 
 ```radicle
-(insert :key2 2 { :key1 1 }) ==> { :key1 1 :key2 2 }
+(insert :key2 2 { :key1 1 }) ;; ==> { :key1 1 :key2 2 }
 ```
 
 ## Simple expressions
@@ -158,18 +158,20 @@ And add new values with `insert`:
 To dispatch on a boolean value use `if`:
 
 ```radicle
-(if (pr-accepted? pr)
-  (merge-pr master pr)
-  (close-pr pr))
+(def num-bugs 50)
+
+(if (> num-bugs 0)
+  "Oh no, so many bugs!"
+  "All done!")
 ```
 
 To test multiple booleans use `cond`:
 
 ```radicle
 (cond
-  (> num-issues 100) "Oh no, so many bugs!"
-  (= num-issues 0)   "All done!"
-  #t                 "A few bugs.")
+  (> num-bugs 100) "Oh no, so many bugs!"
+  (eq? num-bugs 0)   "All done!"
+  #t               "A few bugs.")
 ```
 
 In fact _all_ values which are not `#f` are treated as true, so one can also
@@ -177,8 +179,8 @@ write:
 
 ```radicle
 (cond
-  (> num-issues 100) "Oh no, so many bugs!"
-  (= num-issues 0)   "All done!"
+  (> num-bugs 100) "Oh no, so many bugs!"
+  (eq? num-bugs 0)   "All done!"
   :else              "A few bugs.")
 ```
 

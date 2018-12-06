@@ -2,7 +2,7 @@
 -- Radicle.Internal.Subscriber.Capabilities that may be used for testing.
 module Radicle.Internal.TestCapabilities (
       runCode
-    , runCode'
+    , runCodeWithWorld
     , runPureCode
     , runCodeWithInput
     , runCodeWithFiles
@@ -63,7 +63,7 @@ type TestLang = Lang (StateT WorldState IO)
 
 -- | Run Radicle code in a REPL environment.
 runCode :: Text -> IO (Either (LangError Value) Value)
-runCode code = fst <$> runCode' defaultWorldState (pure ()) code
+runCode code = fst <$> runCodeWithWorld defaultWorldState code
 
 -- | Run Radicle code in a REPL environment, with all library files
 -- readable, and with the provided stdin lines.
@@ -73,14 +73,14 @@ runCodeWithInput :: [Text] -> Text -> IO (Either (LangError Value) Value, [Text]
 runCodeWithInput input code = do
     ws' <- worldStateWithSource
     let ws = ws' { worldStateStdin = input }
-    runCode' ws (pure ()) code
+    runCodeWithWorld ws code
 
 -- | Run Radicle code in a REPL environment with the given files
 -- readable.
 runCodeWithFiles :: Map Text Text -> Text -> IO (Either (LangError Value) Value)
 runCodeWithFiles files code =
     let ws = defaultWorldState { worldStateFiles = files }
-    in fst <$> runCode' ws (pure ()) code
+    in fst <$> runCodeWithWorld ws code
 
 -- | Run radicle code in a pure environment.
 runPureCode :: Text -> Either (LangError Value) Value
@@ -88,9 +88,9 @@ runPureCode code =
     let prog = interpretMany "[test]" code
     in evalState (fst <$> runLang pureEnv prog) defaultWorldState
 
-runCode' :: WorldState -> TestLang () -> Text -> IO (Either (LangError Value) Value, [Text])
-runCode' ws init code = do
-    let prog = init >> interpretMany "[test]" code
+runCodeWithWorld :: WorldState -> Text -> IO (Either (LangError Value) Value, [Text])
+runCodeWithWorld ws code = do
+    let prog = interpretMany "[test]" code
     (result, ws') <- runStateT (fst <$> runLang testBindings prog) ws
     pure $ (result, worldStateStdout ws')
 

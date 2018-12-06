@@ -8,6 +8,7 @@ import           Data.List (zip3)
 import qualified Data.Map as Map
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import           GHC.Exts (IsList(..), sortWith)
 import           Text.Megaparsec (parseErrorPretty)
@@ -16,6 +17,7 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import qualified Radicle.Internal.Doc as Doc
+import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
@@ -89,7 +91,7 @@ purePrimFns = fromList $ allDocs $
     , ( "read-many"
       , "Parses a string into a vector of radicle values. Does not evaluate the values."
       , oneArg "read-many" $ \case
-          String s -> readValues s
+          String s -> Vec . Seq.fromList <$> readValues "read-many" s
           v -> throwErrorHere $ TypeError "read-many" 0 TString v
       )
     , ("get-current-env"
@@ -165,7 +167,7 @@ purePrimFns = fromList $ allDocs $
           Vec Seq.Empty      -> throwErrorHere $ OtherError "tail: empty vector"
           v                  -> throwErrorHere $ TypeError "tail" 0 TSequence v)
 
-    -- Lists and Vecs
+    -- Sequences: Lists and Vecs
     , ( "drop"
       , "Returns all but the first `n` items of a sequence, unless the sequence is empty,\
         \ in which case an exception is thrown."
@@ -228,6 +230,18 @@ purePrimFns = fromList $ allDocs $
           (List _, v) -> throwErrorHere $ TypeError "zip" 1 TList v
           (Vec _, v) -> throwErrorHere $ TypeError "zip" 1 TList v
           (v, _) -> throwErrorHere $ TypeError "zip" 0 TSequence v
+      )
+    , ( "vec-to-list"
+      , "Transforms vectors to lists."
+      , oneArg "vec-to-list" $ \case
+          Vec xs -> pure (List (Protolude.toList xs))
+          v -> throwErrorHere $ TypeError "vec-to-list" 0 TVec v
+      )
+    , ( "list-to-vec"
+      , "Transforms lists into vectors."
+      , oneArg "list-to-vec" $ \case
+          List xs -> pure (Vec (Seq.fromList xs))
+          v -> throwErrorHere $ TypeError "list-to-vec" 0 TList v
       )
 
     -- Dicts
@@ -296,24 +310,23 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "string-replace"
       , "Replace all occurrences of the first argument with the second in the third."
-      , \case
-         [String old, String new, String str] -> pure $ String $ T.replace old new str
-         [String _, String _, v] -> throwErrorHere $ TypeError "string-replace" 2 TString v
-         [String _, v, _] -> throwErrorHere $ TypeError "string-replace" 1 TString v
-         [v, _, _] -> throwErrorHere $ TypeError "string-replace" 0 TString v
-         xs -> throwErrorHere $ WrongNumberOfArgs "string-replace" 3 (length xs)
+      , threeArg "string-replace" $ \case
+         (String old, String new, String str) -> pure $ String $ T.replace old new str
+         (String _, String _, v) -> throwErrorHere $ TypeError "string-replace" 2 TString v
+         (String _, v, _) -> throwErrorHere $ TypeError "string-replace" 1 TString v
+         (v, _, _) -> throwErrorHere $ TypeError "string-replace" 0 TString v
       )
     , ( "insert"
       , "Given `k`, `v` and a dict `d`, returns a dict with the same associations\
         \ as `d` but with `k` associated to `d`. If `d` isn't a dict or if `k` isn't\
         \ hashable then an exception is thrown."
-      , \case
-          [k, v, Dict m] ->
+      , threeArg "insert" $ \case
+          (k, v, Dict m) ->
             if hashable k
             then pure . Dict $ Map.insert k v m
             else throwErrorHere NonHashableKey
-          [_, _, v]                -> throwErrorHere $ TypeError "insert" 2 TDict v
-          xs -> throwErrorHere $ WrongNumberOfArgs "insert" 3 (length xs))
+          (_, _, v)      -> throwErrorHere $ TypeError "insert" 2 TDict v
+      )
     , ( "delete"
       , "Given `k` and a dict `d`, returns a dict with the same associations as `d` but\
         \ without the key `k`. If `d` isn't a dict then an exception is thrown."
@@ -362,24 +375,37 @@ purePrimFns = fromList $ allDocs $
             Right _ -> pure $ Boolean True
           v -> throwErrorHere $ TypeError "integral?" 0 TNumber v
       )
+    , ( "foldl-string"
+      , "A left fold on a string. That is, given a function `f`, an initial\
+        \ accumulator value `init`, and a string `s`, reduce `s` by applying `f`\
+        \ to the accumulator and the next character in the string repeatedly."
+      , threeArg "foldl-string" $ \case
+          (fn, ini, String v) -> do
+              let folder f = T.foldl g (pure ini) v
+                    where
+                      g x y = x >>= (`f` y)
+              folder (\b a -> callFn fn [b, String $ T.singleton a])
+          (_, _, x)           -> throwErrorHere
+                               $ TypeError "foldl-string" 2 TString x
+      )
     , ( "foldl"
       , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
         \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
         \ combining values with `f`, using elements of `xs` from left to right."
-      , \case
-          [fn, init', v] -> do
+      , threeArg "foldl" $ \case
+          (fn, init', v) -> do
             ls :: [Value] <- fromRadOtherErr v
             foldlM (\b a -> callFn fn [b, a]) init' ls
-          xs                   -> throwErrorHere $ WrongNumberOfArgs "foldl" 3 (length xs))
+      )
     , ( "foldr"
       , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
         \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
         \ combining values with `f`, using elements of `xs` from right to left."
-      , \case
-          [fn, init', v] -> do
+      , threeArg "foldr" $ \case
+          (fn, init', v) -> do
             ls :: [Value] <- fromRadOtherErr v
             foldrM (\b a -> callFn fn [b, a]) init' ls
-          xs                   -> throwErrorHere $ WrongNumberOfArgs "foldr" 3 (length xs))
+      )
     , ( "map"
       , "Given a function `f` and a sequence (list or vector) `xs`, returns a sequence\
         \ of the same size and type as `xs` but with `f` applied to all the elements."
@@ -496,13 +522,13 @@ purePrimFns = fromList $ allDocs $
     , ( "verify-signature"
       , "Given a public key `pk`, a signature `s` and a message (string) `m`, checks\
         \ that `s` is a signature of `m` for the public key `pk`."
-      , \case
-          [keyv, sigv, String msg] -> do
+      , threeArg "verify-signature" $ \case
+          (keyv, sigv, String msg) -> do
             key <- fromRadOtherErr keyv
             sig <- fromRadOtherErr sigv
             pure . Boolean $ verifySignature key sig msg
-          [_, _, _] -> throwErrorHere $ OtherError "verify-signature: message must be a string"
-          xs -> throwErrorHere $ WrongNumberOfArgs "verify-signature" 3 (length xs)
+          (_, _, _) -> throwErrorHere
+                     $ OtherError "verify-signature: message must be a string"
       )
     , ( "public-key?"
       , "Checks if a value represents a valid public key."
@@ -530,6 +556,24 @@ purePrimFns = fromList $ allDocs $
       , twoArg "match-pat" $ \case
           (x@(Atom _), v) -> pure $ toRad (Just (Dict (Map.singleton x v)))
           (pat, v) -> callFn pat [v]
+      )
+    , ( "import"
+      , "Import a module, making all the definitions of that module available\
+        \ in the current scope. The first argument must be a module to import.\
+        \ Two optional arguments affect how and which symbols are imported.\
+        \ `(import m :as 'foo)` will import all the symbols of `m` with the prefix\
+        \ `foo/`. `(import m '[f g])` will only import `f` and `g` from `m`.\
+        \ `(import m '[f g] :as 'foo')` will import `f` and `g` from `m` as `foo/f`\
+        \ and `foo/g`. To import definitions with no qualification at all, use\
+        \ `(import m :unqualified)`."
+      , \case
+          [v]                                           -> import' v Nothing FullyQualified
+          [v, Vec these]                                -> import' v (Just these) FullyQualified
+          [v, Keyword (Ident "as"), Atom q]             -> import' v Nothing (Qualified q)
+          [v, Vec these, Keyword (Ident "as"), Atom q]  -> import' v (Just these) (Qualified q)
+          [v, Keyword (Ident "unqualified")]            -> import' v Nothing Unqualified
+          [v, Vec these, Keyword (Ident "unqualified")] -> import' v (Just these) Unqualified
+          _ -> throwErrorHere $ OtherError "import: expects a module, an optional list of symbols to import, and an optional qualifier."
       )
     ]
   where
@@ -561,6 +605,31 @@ purePrimFns = fromList $ allDocs $
           (v, _) -> throwErrorHere $ TypeError name 0 TNumber v
       )
 
+    import' (Dict d) v_ qual = do
+      v <- kwLookup "env" d ?? toLangError (OtherError "Modules should have an `:env` key")
+      n <- kwLookup "module" d ?? toLangError (OtherError "Modules should have an `:module` key")
+      case n of
+        Atom name -> do
+          e <- hoistEither $ first (toLangError . OtherError) $ envFromRad v
+          let allMod = fromEnv e
+          toImport <- case v_ of
+                Just vs -> do
+                  is <- Protolude.toList <$> traverse isAtom vs ?? toLangError (OtherError "import: must be given a vector of symbols to import")
+                  pure $ Map.restrictKeys allMod (Set.fromList is)
+                Nothing -> pure allMod
+          let qualifier = case qual of
+                Qualified q    -> ((q <> Ident "/") <>)
+                Unqualified    -> identity
+                FullyQualified -> ((name <> Ident "/") <>)
+          let qualified = Env $ Map.mapKeysMonotonic qualifier toImport
+          s <- get
+          put $ s { bindingsEnv = qualified <> bindingsEnv s }
+          pure ok
+        _ -> throwErrorHere (OtherError "The `:module` key of a module should be an atom.")
+    import' _ _ _ = throwErrorHere (OtherError "Modules must be dicts")
+
+data ImportQual = Unqualified | FullyQualified | Qualified Ident
+
 -- * Helpers
 
 -- Many primFns have a single argument.
@@ -573,6 +642,16 @@ twoArg :: Monad m => Text -> ((Value, Value) -> Lang m Value) -> [Value] -> Lang
 twoArg fname f = \case
   [x, y] -> f (x, y)
   xs -> throwErrorHere $ WrongNumberOfArgs fname 2 (length xs)
+
+threeArg
+    :: Monad m
+    => Text
+    -> ((Value, Value, Value) -> Lang m Value)
+    -> [Value]
+    -> Lang m Value
+threeArg fname f = \case
+  [x, y, z] -> f (x, y, z)
+  xs -> throwErrorHere $ WrongNumberOfArgs fname 3 (length xs)
 
 readValue
     :: (MonadError (LangError Value) m)
@@ -587,11 +666,12 @@ readValue s = do
 readValues
     :: (MonadError (LangError Value) m)
     => Text
-    -> m Value
-readValues s = do
-    let p = parseValues "[read-many-primop]" s
+    -> Text
+    -> m [Value]
+readValues name s = do
+    let p = parseValues ("[" <> name <> "-primop]") s
     case p of
-      Right v -> pure . Vec $ Seq.fromList v
+      Right vs -> pure vs
       Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String . toS $ parseErrorPretty e)
 
 allDocs :: [(Text, Text, a)] -> [(Ident, Maybe Text, a)]

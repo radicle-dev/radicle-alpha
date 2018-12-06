@@ -22,6 +22,7 @@ import           System.Console.Haskeline
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
+import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.PrimFns
@@ -279,5 +280,16 @@ replPrimFns = fromList $ allDocs $
           [] -> do t <- currentTime
                    pure . String . toS . Time.formatTime Time.defaultTimeLocale (Time.iso8601DateFormat (Just "%H:%M:%SZ")) $ t
           xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)
+      )
+    , ( "file-module!"
+      , "Given a file whose code starts with module metadata, creates the module.\
+        \ That is, the file is evaluated as if the code was wrapped in `(module ...)`."
+      , oneArg "file-module!" $ \case
+          String filename -> do
+            t_ <- readFileS filename
+            t <- hoistEither . first (toLangError . OtherError) $ t_
+            vs <- readValues ("file-module!: " <> filename) t
+            createModule vs
+          v -> throwErrorHere $ TypeError "file-module!" 0 TString v
       )
     ]

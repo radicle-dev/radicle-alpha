@@ -1,3 +1,11 @@
+{:module 'prelude/chain
+ :doc "Functions for simulating remote chains."
+ :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval updatable-eval update-chain! eval-fn-app send-prelude!]}
+
+(import prelude/ref '[modify-ref] :unqualified)
+(import prelude/lens '[.. ... view over @] :unqualified)
+(import prelude/basic :unqualified)
+
 ;; Chains: Functions for dealing with chains.
 
 ;; A chain is conceptually:
@@ -15,8 +23,7 @@
   (fn [url]
     {:state (pure-env)
      :inputs []
-     :url url
-     :index 0}))
+     :url url}))
 
 ;; eval-in-chain
 
@@ -33,9 +40,7 @@
         new-state
         (over (@ :inputs)
               (fn [inputs] (add-right expr inputs))
-              (over (@ :index)
-                    (fn [index] (+ 1 index))
-                    chain))))
+               chain)))
     {:chain new-chain
      :result result }))
 
@@ -47,7 +52,6 @@
   ]
   [ (view (@ :result) res)                 ==> 5                   ]
   [ (view (.. (@ :chain) (@ :inputs)) res) ==> [(def x 3) (+ x 2)] ]
-  [ (view (.. (@ :chain) (@ :index)) res)  ==> 2                   ]
 )
 
 ;; update-chain!
@@ -55,8 +59,9 @@
 (def update-chain!
   "Takes a chain, and returns a new chain updated with the new expressions from the remote chain"
   (fn [chain]
+    (def index (length (lookup :inputs chain)))
     (def new-inputs
-      (receive! (lookup :url chain) (lookup :index chain)))
+      (receive! (lookup :url chain) index))
     (def upd-ch
       (fn [ch expr]
         (def x (eval-in-chain expr ch))
@@ -119,19 +124,6 @@
          (def env_ (over (@var '_inputs) (fn [x] (add-right expr x)) env))
          (evalfn expr env_ ))))
 
-;; add-send!
-(def add-send!
-  "Add a `:send` special form that sends the contents of `_input` to the chain `_cur-chain`"
-  (fn [oeval]
-      (fn [expr env]
-          (if (eq? expr :send)
-              (do (def inpl (@var '_inputs))
-                  (def chainl (@var '_cur-chain))
-                  (send! (view chainl env) map (view inpl env))
-                  (def env_ (set inpl [] env))
-                  (list :ok env_))
-              ((store-exprs oeval) expr env)))))
-
 ;; enter-remote-chain!
 (def enter-remote-chain!
   "Make the eval behave as that of a remote chain. The second param is the env to return to after `:quit`."
@@ -146,7 +138,7 @@
             mod-state1))
     (def mod-state3
       (over (@var 'eval)
-            (fn [x] (add-send! (add-quit env x)))
+            (fn [x] (add-quit env x))
             mod-state2))
     (list :ok mod-state3)))
 
@@ -178,10 +170,39 @@
   command `(update expr)` which evaluates arbitrary expression using `base-eval`."
   (fn [sub-eval]
     (fn [expr state]
-      (list-with-head
-       expr
-       (fn [cmd]
-         (if (eq? cmd 'update)
-           (base-eval (nth 1 expr) state)
-           (sub-eval expr state)))
-       (fn [] (sub-eval expr state))))))
+      (match expr
+             (/cons 'cmd _) (if (eq? cmd 'update)
+                              (base-eval (nth 1 expr) state)
+                              (sub-eval expr state))
+             _ (sub-eval expr state)))))
+
+(def pure-prelude-files
+  "List of files which together define the pure prelude."
+  ["rad/prelude/basic.rad"
+   "rad/prelude/patterns.rad"
+   "rad/prelude/strings.rad"
+   "rad/prelude/bool.rad"
+   "rad/prelude/list.rad"
+   "rad/prelude/dict.rad"
+   "rad/prelude/set.rad"
+   "rad/prelude/ref.rad"
+   "rad/prelude/lens.rad"
+   "rad/prelude/state-machine.rad"
+   "rad/prelude/validation.rad"
+   "rad/prelude/util.rad"])
+
+(def file-to-module
+  "Make the text of a file into code for a module."
+  (fn [file]
+    (cons 'module (vec-to-list (read-many (read-file! file))))))
+
+(def pure-prelude-code
+  "Code for the pure prelude. Useful as the first inputs to a new chain."
+  (<> [(file-to-module "rad/prelude/test-eval.rad")
+       '(import prelude/test-eval '[eval tests] :unqualified)]
+      (map file-to-module pure-prelude-files)))
+
+(def send-prelude!
+  "Send the pure prelude to a chain."
+  (fn [chain-id]
+    (send! chain-id pure-prelude-code)))

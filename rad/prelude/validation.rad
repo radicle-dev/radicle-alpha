@@ -1,4 +1,10 @@
-(def validator/=
+{:module 'prelude/validation
+ :doc "Functions for creating or combining *validators*, which are functions which return the input unchanged or throw with an error message. These can be used for checking data before accepting it onto a chain."
+ :exports ['= 'member 'and 'or 'type 'pred 'key 'keys 'every 'uuid 'signed]}
+
+(import prelude/dict :unqualified)
+
+(def =
   "Given `x`, returns a validator that checks for equality with `x`."
   (fn [x]
     (fn [y]
@@ -6,7 +12,7 @@
         x
         (throw 'validation-failure (string-append "Not equal to: " (show x)))))))
 
-(def validator/member
+(def member
   "Given a structure, returns a validator which checks for membership in the structure."
   (fn [xs]
     (fn [x]
@@ -14,7 +20,7 @@
         x
         (throw 'validation-failure (string-append "Not a member of: " (show xs)))))))
 
-(def validator/and
+(def and
   "Given a sequence of validators `vs`, returns a new validator which, given a
   value, checks if it conforms to all the validators in `vs`."
   (fn [vs]
@@ -22,7 +28,7 @@
       (map (fn [v] (v x)) vs)
       x)))
 
-(def-rec validator/or
+(def-rec or
   "Given a vector of validators `vs`, returns a new validator which, given a
   value, checks if it conforms to at least one of the `vs`."
   (fn [vs]
@@ -32,9 +38,9 @@
         (catch
           'validation-failure
           ((nth 0 vs) x)
-          (fn [y] ((validator/or (drop 1 vs)) x)))))))
+          (fn [y] ((or (drop 1 vs)) x)))))))
 
-(def validator/type
+(def type
   "Checks that a value has a type. Expects a keyword describing the type, as
   returned by the `type` function."
   (fn [t]
@@ -43,7 +49,7 @@
         x
         (throw 'validation-failure (string-append "Did not have type " (show t) ": " (show x)))))))
 
-(def validator/pred
+(def pred
   "Given a description and a predicate, returns a validator that checks if the
   predicate is true."
   (fn [name p]
@@ -52,7 +58,7 @@
         x
         (throw 'validation-failure (string-append "Did not satisfy predicate: " name))))))
 
-(def validator/key
+(def key
   "Given a key and a validator, returns a validator which checks for
   the existence of that key and that the associated value conforms to the validator."
   (fn [k v]
@@ -61,39 +67,39 @@
         (v (lookup k d))
         (throw 'validation-failure (string-append "Missing required key: " (show k)))))))
 
-(def validator/keys
+(def keys
   "Given a dict associating keys to validators, returns a validator which checks a dict
   for the existence of those keys, and that they conform to the associated validators."
   (fn [ks]
     (fn [d]
       (if (dict? d)
-        ((validator/and
-          (map (fn [kv] (validator/key (nth 0 kv) (nth 1 kv)))
+        ((and
+          (map (fn [kv] (key (nth 0 kv) (nth 1 kv)))
                (seq ks)))
          d)
         (throw 'validation-failure (string-append "Not a dict: " (show d)))))))
 
-(def validator/every
+(def every
   "Given a validator, creates a new validator which checks that all the items in
   a sequence conform to it."
   (fn [v]
     (fn [xs]
       (map v xs))))
 
-(def validator/uuid
+(def uuid
   "Validates UUIDs."
-  (validator/and
-   [(validator/type :string)
-    (validator/pred "valid UUID" uuid?)]))
+  (and
+   [(type :string)
+    (pred "valid UUID" uuid?)]))
 
-(def validator/signed
+(def signed
   "Checks that a value is a dict with `:signature` and `:author` keys, and that
   the signature is valid for the rest of the dict for that author. The rest of
   the dict is turned into a string according to `show`."
-  (validator/and
-   [(validator/keys
-     {:author (validator/pred "valid public key" public-key?)})
-    (validator/pred
+  (and
+   [(keys
+     {:author (pred "valid public key" public-key?)})
+    (pred
      "Valid signature"
      (fn [d]
        (verify-signature
@@ -101,7 +107,7 @@
         (lookup :signature d)
         (show (delete-many [:author :signature] d)))))]))
 
-(:test "validator/signed"
+(:test "signed"
   [:setup
    (do (def keys (gen-key-pair! (default-ecc-curve)))
        (def sk (lookup :private-key keys))
@@ -116,7 +122,7 @@
        (def full (<> payload seal))
        (def full_ (<> payload_ seal))
        (def ok
-         (catch 'any (do (validator/signed full) :ok) (fn [x] :not-ok)))
+         (catch 'any (do (signed full) :ok) (fn [x] :not-ok)))
        )
    ]
   [ ok ==> :ok ]

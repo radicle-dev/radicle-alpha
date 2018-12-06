@@ -14,7 +14,6 @@ import           Control.Monad.State
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
 import           Data.Copointed (Copointed(..))
-import           Data.Data (Data)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.IntMap as IntMap
 import           Data.List.NonEmpty (NonEmpty)
@@ -24,6 +23,7 @@ import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
+import qualified Data.Set as Set
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
@@ -34,6 +34,7 @@ import qualified Text.Megaparsec.Error as Par
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
 import qualified Radicle.Internal.Doc as Doc
+import           Radicle.Internal.Identifier (Ident(..))
 import qualified Radicle.Internal.Identifier as Identifier
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Orphans ()
@@ -70,6 +71,8 @@ data LangErrorData r =
     -- args
     | WrongNumberOfArgs Text Int Int
     | NonHashableKey
+    | MissingModuleDeclaration
+    | InvalidModuleDeclaration Text Value
     | OtherError Text
     | ParseError (Par.ParseError Char Void)
     -- | Raised if @(throw ident value)@ is evaluated. Arguments are
@@ -133,6 +136,8 @@ errorDataToValue e = case e of
           , ("actual", Number $ fromIntegral actual)]
         )
     NonHashableKey -> makeVal ( "non-hashable-key", [])
+    MissingModuleDeclaration -> makeVal ( "missing-module-declaration", [])
+    InvalidModuleDeclaration t v -> makeVal ( "invalid-module-declaration", [("info", String t), ("declaration", v)])
     OtherError i -> makeVal
         ( "other-error"
         , [("info", String i)]
@@ -407,23 +412,6 @@ maybeJson = \case
     isStr (String s) = pure s
     isStr _          = Nothing
 
--- | An identifier in the language.
---
--- Not all `Text`s are valid identifiers, so use 'Ident' at your own risk.
--- `mkIdent` is the safe version.
-newtype Ident = Ident { fromIdent :: Text }
-    deriving (Eq, Show, Read, Ord, Generic, Data, Serialise)
-
-pattern Identifier :: Text -> Ident
-pattern Identifier t <- Ident t
-
--- | Convert a text to an identifier.
---
--- Unsafe! Only use this if you know the string at compile-time and know it's a
--- valid identifier. Otherwise, use 'mkIdent'.
-unsafeToIdent :: Text -> Ident
-unsafeToIdent = Ident
-
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }
     deriving (Eq, Ord, Semigroup, Monoid, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
@@ -478,28 +466,32 @@ setBindings value = do
                 , bindingsProcHandles = bindingsProcHandles bnds
                 , bindingsNextProcHandle = bindingsNextProcHandle bnds
                 }
+
+bindingsFromRadicle :: Value -> Either Text (Bindings (PrimFns m))
+bindingsFromRadicle x = case x of
+    Dict d -> do
+        env' <- kwLookup "env" d ?? "Expecting 'env' key"
+        refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
+        refs <- makeRefs refs'
+        env <- envFromRad env'
+        pure $ emptyBindings
+            { bindingsEnv = env
+            , bindingsRefs = refs
+            , bindingsNextRef = length refs
+            }
+    _ -> throwError "Expecting dict"
   where
-    bindingsFromRadicle x = case x of
-        Dict d -> do
-            env' <- kwLookup "env" d ?? "Expecting 'env' key"
-            refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
-            refs <- makeRefs refs'
-            env <- envFromRad env'
-            pure $ emptyBindings
-                { bindingsEnv = env
-                , bindingsRefs = refs
-                , bindingsNextRef = length refs
-                }
-        _ -> throwError "Expecting dict"
     makeRefs refs = case refs of
         List ls -> pure (IntMap.fromList $ zip [0..] ls)
         _       -> throwError $ "Expecting dict"
-    envFromRad env = case env of
-        Dict d -> fmap (Env . Map.fromList)
-                $ forM (Map.toList d) $ \(k, v) -> case k of
-            Atom i -> (i, ) <$> fromRad v
-            k'     -> Left $ "Expecting atom keys. Got: " <> show k'
-        _ -> Left "Expecting dict"
+
+envFromRad :: Value -> Either Text (Env Value)
+envFromRad env = case env of
+    Dict d -> fmap (Env . Map.fromList)
+            $ forM (Map.toList d) $ \(k, v) -> case k of
+        Atom i -> (i, ) <$> fromRad v
+        k'     -> Left $ "Expecting atom keys. Got: " <> show k'
+    _ -> Left "Expecting dict"
 
 -- | Serializes the environment and references into a Radicle value.
 --
@@ -513,8 +505,11 @@ bindingsToRadicle x =
         , (Keyword $ Ident "refs", refs)
         ]
   where
-    env = Dict . Map.mapKeys Atom . Map.map toRad . fromEnv $ bindingsEnv x
+    env = envToRadicle (bindingsEnv x)
     refs = List $ IntMap.elems (bindingsRefs x)
+
+envToRadicle :: Env Value -> Value
+envToRadicle = Dict . Map.mapKeys Atom . Map.map toRad . fromEnv
 
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
@@ -629,6 +624,7 @@ specialForms = Map.fromList $ first Ident <$>
               _ -> throwErrorHere $ SpecialForm "fn" "First argument must be a vector of argument atoms"
           _ -> throwErrorHere $ SpecialForm "fn" "Need an argument vector and a body"
       )
+  , ( "module", createModule )
   , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -720,7 +716,43 @@ specialForms = Map.fromList $ first Ident <$>
           pure nil
         _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
 
--- * From/ToRadicle
+data ModuleMeta = ModuleMeta
+  { name    :: Ident
+  , exports :: [Ident]
+  , doc     :: Text
+  }
+
+-- | Given a list of forms, the first of which should be module declaration,
+-- runs the rest of the forms in a new scope, and then defs the module value
+-- according to the name in the declaration.
+createModule :: forall m. Monad m => [Value] -> Lang m Value
+createModule = \case
+    (m : forms) -> do
+      m' <- baseEval m >>= meta
+      e <- withEnv identity $ traverse_ eval forms *> gets bindingsEnv
+      let env = envToRadicle $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (exports m'))
+      let modu = Dict $ Map.fromList
+                  [ (Keyword (Ident "module"), Atom (name m'))
+                  , (Keyword (Ident "env"), env)
+                  , (Keyword (Ident "exports"), Vec (Seq.fromList (Atom <$> exports m')))
+                  ]
+      defineAtom (name m') (Just (doc m')) modu
+      pure modu
+    _ ->  throwErrorHere MissingModuleDeclaration
+  where
+    meta v@(Dict d) = do
+      name <- modLookup v "module" d "missing `:module` key"
+      doc  <- modLookup v "doc" d "missing `:doc` key"
+      exports <- modLookup v "exports" d "Missing `:exports` key"
+      case (name, doc, exports) of
+        (Atom n, String ds, Vec es) -> do
+          is <- traverse isAtom es ?? toLangError (InvalidModuleDeclaration "`:exports` must be a vector of atoms" v)
+          pure $ ModuleMeta n (toList is) ds
+        _ -> throwErrorHere (InvalidModuleDeclaration "`:module` must be an atom, `:doc` must be a string and `:exports` must be a vector" v)
+    meta v = throwErrorHere (InvalidModuleDeclaration "must be dict" v)
+    modLookup v k d e = kwLookup k d ?? toLangError (InvalidModuleDeclaration e v)
+
+-- * From/ ToRadicle
 
 type CPA t = (Ann.Annotation t, Copointed t)
 

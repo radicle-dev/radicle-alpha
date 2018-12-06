@@ -1,3 +1,7 @@
+{:module  'prelude/basic
+ :doc     "Basic function used for checking equality, determining the type of a value, etc."
+ :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem?]}
+
 ;; or
 
 (def or
@@ -44,3 +48,35 @@
   [ (length (list)) ==> 0]
   [ (length (list 2)) ==> 1]
 )
+
+(def maybe->>=
+  "Monadic bind for the maybe monad."
+  (fn [v f]
+    (if (vector? v)
+      (if (eq? (length v) 2)
+        (if (eq? (nth 0 v) :just)
+          (f (nth 1 v))
+          :nothing)
+        :nothing)
+      :nothing)))
+
+(def-rec maybe-foldlM
+  "Monadic fold over the elements of a sequence `xs`, associating to the left (i.e. from
+  left to right) in the maybe monad."
+  (fn [f i xs]
+    (if (empty-seq? xs)
+      [:just i]
+      (maybe->>= (f i (nth 0 xs))
+                 (fn [b] (maybe-foldlM f b (drop 1 xs)))))))
+
+;; elem?
+
+(def elem?
+ "Returns true if `x` is an element of the sequence `xs`"
+ (fn [x xs]
+   (some (map (fn [c] (eq? c x)) xs))))
+
+(:test "elem?"
+ [ (elem? "f" (list "f" "g" "h")) ==> #t]
+ [ (elem? "h" ["f" "g" "h"]) ==> #t]
+ [ (elem? "a" (list "f" "g" "h")) ==> #f])

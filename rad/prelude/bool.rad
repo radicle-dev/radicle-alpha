@@ -1,3 +1,7 @@
+{:module 'prelude/bool
+ :doc "Functions for dealing with truthiness and #f."
+ :exports '[not and all]}
+
 ;; boolean functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; not

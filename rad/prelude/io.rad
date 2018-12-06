@@ -1,3 +1,7 @@
+{:module 'prelude/io
+ :doc "Some basic I/O functions."
+ :exports '[print! shell! process! read-line! send-code! read-code!]}
+
 ;; read-line
 (def read-line!
   "Read a single line of input and interpret it as radicle data."

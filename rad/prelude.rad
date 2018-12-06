@@ -1,47 +1,35 @@
-(load! "rad/prelude/test.rad")
-(load! "rad/prelude/basic.rad")
-(load! "rad/prelude/patterns.rad")
-(load! "rad/prelude/strings.rad")
-(load! "rad/prelude/io.rad")
-(load! "rad/prelude/bool.rad")
-(load! "rad/prelude/exception.rad")
-(load! "rad/prelude/list.rad")
-(load! "rad/prelude/dict.rad")
-(load! "rad/prelude/set.rad")
-(load! "rad/prelude/ref.rad")
-(load! "rad/prelude/lens.rad")
-(load! "rad/chain.rad")
-(load! "rad/state-machine.rad")
-(load! "rad/prelude/validation.rad")
-(load! "rad/prelude/util.rad")
+(file-module! "rad/prelude/test-eval.rad")
+(import prelude/test-eval '[eval tests] :unqualified)
 
-(def pure-prelude-files
-  "List of files which together define the pure prelude."
-  (list
-   "rad/prelude/test.rad" ;; pure unless test env
-   "rad/prelude/basic.rad"
-   "rad/prelude/patterns.rad"
-   "rad/prelude/bool.rad"
-   "rad/prelude/list.rad"
-   "rad/prelude/dict.rad"
-   "rad/prelude/set.rad"
-   "rad/prelude/ref.rad"
-   "rad/prelude/lens.rad"
-   "rad/state-machine.rad"
-   "rad/prelude/validation.rad"
-   "rad/prelude/util.rad"
-   ))
+(file-module! "rad/prelude/basic.rad")
+(file-module! "rad/prelude/patterns.rad")
+(file-module! "rad/prelude/strings.rad")
+(file-module! "rad/prelude/io.rad")
+(file-module! "rad/prelude/bool.rad")
+(file-module! "rad/prelude/exception.rad")
+(file-module! "rad/prelude/list.rad")
+(file-module! "rad/prelude/dict.rad")
+(file-module! "rad/prelude/set.rad")
+(file-module! "rad/prelude/ref.rad")
+(file-module! "rad/prelude/lens.rad")
+(file-module! "rad/prelude/chain.rad")
+(file-module! "rad/prelude/state-machine.rad")
+(file-module! "rad/prelude/validation.rad")
+(file-module! "rad/prelude/util.rad")
+(file-module! "rad/prelude/test.rad")
 
-(def pure-prelude-code!
-  "The pure prelude."
-  (read-many
-    (apply string-append
-           (map (fn [f] (read-file! f)) pure-prelude-files))))
-
-(def send-prelude!
-  "Send the pure prelude to a chain."
-  (fn [chain-id]
-    (send! chain-id pure-prelude-code!)))
+(import prelude/basic :unqualified)
+(import prelude/patterns :unqualified)
+(import prelude/strings :as 'string)
+(import prelude/io :unqualified)
+(import prelude/bool :unqualified)
+(import prelude/list :unqualified)
+(import prelude/dict :unqualified)
+(import prelude/ref :unqualified)
+(import prelude/validation :as 'validator)
+(import prelude/util :unqualified)
+(import prelude/chain :as 'chain)
+(import prelude/chain '[eval] :unqualified)
 
 (def _initial-prompt-text
   "Text used for greeting in the repl."

@@ -5,7 +5,7 @@ set -eo pipefail
 image_root=$(dirname $0)
 
 echo "Building radicle-server in container"
-stack build --docker
+stack build --docker :radicle-server
 
 bin_path=$(stack exec --docker -- which radicle-server)
 

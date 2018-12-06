@@ -1,3 +1,7 @@
+{:module 'prelude/exception
+ :doc "Tests for exceptions."
+ :exports []}
+
 (:test "catch handles scope correctly"
   ;; Issue #191, catch used to accidentally use the lexical environment of
   ;; the `throw` that generated the exception.

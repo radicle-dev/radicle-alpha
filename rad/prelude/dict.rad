@@ -1,14 +1,14 @@
-;; dict functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+{:module  'prelude/dict
+ :doc     "Functions for manipualting dicts."
+ :exports '[dict-from-seq keys values rekey modify-map delete-many]}
 
-;; dict-from-list
-
-(def dict-from-list
+(def dict-from-seq
   "Creates a dictionary from a list of key-value pairs."
   (fn [xs]
     (foldr (fn [kv acc] (insert (head kv) (head (tail kv)) acc)) (dict) xs)))
 
-(:test "dict-from-list"
-  [ (dict-from-list (list (list :one 1) (list :two 2)))
+(:test "dict-from-seq"
+  [ (dict-from-seq (list (list :one 1) (list :two 2)))
     ==> { :one 1 :two 2 } ])
 
 ;; keys

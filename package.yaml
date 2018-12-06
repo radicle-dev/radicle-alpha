@@ -155,7 +155,6 @@ executables:
         buildable: false
     dependencies:
     - radicle
-    - haskeline
     - optparse-applicative
     - pandoc
     - text
@@ -175,6 +174,7 @@ executables:
     - containers
     - haskeline
     - text
+    - yaml
     ghc-options: -main-is ReferenceDoc
 
   radicle-github-issues:

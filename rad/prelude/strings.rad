@@ -1,3 +1,11 @@
+{:module 'prelude/strings
+ :doc    "String manipulation functions."
+ :exports '[intercalate unlines unwords split-by words lines]
+ }
+
+(import prelude/basic :unqualified)
+(import prelude/patterns :unqualified)
+
 (def intercalate
   "Intercalates a string in a list of strings"
   (fn [sep strs]
@@ -29,3 +37,71 @@
 (:test "unwords"
   [ (unwords ["hi" "there"]) ==> "hi there" ]
 )
+
+(def space-chars
+  "A list of all white space character."
+  [" " "\t" "\n"])
+
+(def is-space-char?
+  "Returns true if the character `x` is a space character `space-chars`."
+  (fn [x]
+    (elem? x space-chars)))
+
+(:test "is-space-char?"
+  [ (is-space-char? "s") ==> #f]
+  [ (is-space-char? "s ") ==> #f]
+  [ (is-space-char? " ") ==> #t]
+  [ (is-space-char? "\t") ==> #t]
+  [ (is-space-char? "\n") ==> #t])
+
+;; split-by
+
+(def split-by
+  "Splits a string `xs` into a list of strings whenever the function `splitter?`
+  returns true for a character."
+  (fn [splitter? xs]
+    (def f (fn [acc new-char]
+      (def ls (nth 0 acc))
+      (def current (nth 1 acc))
+      (if (splitter? new-char)
+          (if (eq? current "")
+              [ls ""]
+              [(add-right current ls) ""])
+          [ls (string-append current new-char)])))
+    (match (foldl-string f [[] ""] xs)
+      ['ls ""] ls
+      ['ls 'x] (add-right x ls))))
+
+(:test "split-by"
+  [ (split-by (fn [x] (eq? "b" x)) "foobar") ==> ["foo" "ar"]]
+  [ (split-by is-space-char? "foo bar") ==> ["foo" "bar"]])
+
+;; words
+
+(def words
+  "Splits a string `xs` into a list of strings by whitespace characters."
+  (fn [xs]
+    (split-by is-space-char? xs)))
+
+(:test "words"
+  [ (words "foo bar") ==> ["foo" "bar"]]
+  [ (words "foo bar\nfoo ") ==> ["foo" "bar" "foo"]]
+  [ (words "foo   bar") ==> ["foo" "bar"]]
+  [ (words "foo") ==> ["foo"]]
+  [ (words " \n \t") ==> []]
+  [ (words "") ==> []])
+
+
+;; lines
+
+(def lines
+  "Splits a string `xs` into a list of strings by linebreaks."
+  (fn [xs]
+    (split-by (fn [x] (eq? "\n" x)) xs)))
+
+(:test "lines"
+  [ (lines "foo bar") ==> ["foo bar"]]
+  [ (lines "foo bar\nfoo ") ==> ["foo bar" "foo "]]
+  [ (lines "foo bar\n\n\nfoo") ==> ["foo bar" "foo"]]
+  [ (lines " \n \t") ==> [" " " \t"]]
+  [ (lines "") ==> []])

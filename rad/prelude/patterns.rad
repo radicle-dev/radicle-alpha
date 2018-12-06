@@ -1,25 +1,8 @@
-;; Because pattern matching uses the Maybe-monad, it's helpful to define some
-;; essential Maybe-monad function now.
+{:module  'prelude/patterns
+ :doc     "Pattern matching is first-class in radicle so new patterns can easily be defined. These are the most essential."
+ :exports '[match-pat _ /? /as /cons /nil /just]}
 
-(def maybe->>=
-  "Monadic bind for the maybe monad."
-  (fn [v f]
-    (if (vector? v)
-      (if (eq? (length v) 2)
-        (if (eq? (nth 0 v) :just)
-          (f (nth 1 v))
-          :nothing)
-        :nothing)
-      :nothing)))
-
-(def-rec maybe-foldlM
-  "Monadic fold over the elements of a sequence `xs`, associating to the left (i.e. from
-  left to right) in the maybe monad."
-  (fn [f i xs]
-    (if (empty-seq? xs)
-      [:just i]
-      (maybe->>= (f i (nth 0 xs))
-                 (fn [b] (maybe-foldlM f b (drop 1 xs)))))))
+(import prelude/basic :unqualified)
 
 (def exclusive-dict-merge
   "Merges two dicts while checking for key conflicts. Returns
@@ -120,7 +103,7 @@
                 ['x 'x] :yes
                 ['x 'y] :no) ==> :yes])
 
-(def /Just
+(def /just
   "Pattern which matches `[:just x]`."
   (fn [pat]
     (fn [v]
@@ -128,8 +111,8 @@
                  (fn [x] (match-pat pat x))))))
 
 (:test "Just patterns"
-       [ (match [:just 42] (/Just 'x) x _ :no) ==> 42 ]
-       [ (match :nothing   (/Just 'x) x _ :yes) ==> :yes ])
+       [ (match [:just 42] (/just 'x) x _ :no) ==> 42 ]
+       [ (match :nothing   (/just 'x) x _ :yes) ==> :yes ])
 
 (def /cons
   "A pattern for lists with a head and a tail."

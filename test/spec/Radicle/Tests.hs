@@ -22,7 +22,7 @@ import qualified Text.Megaparsec.Pos as Par
 import           Radicle
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary ()
-import           Radicle.Internal.Core (addBinding, asValue, noStack)
+import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Foo)
 import           Radicle.Internal.TestCapabilities
 
@@ -179,6 +179,13 @@ test_eval =
     , testCase "'foldr' foldrs the list" $ do
         let prog = [s|(foldr (fn [x y] (- x y)) 0 (list 1 2 3))|]
         prog `succeedsWith` int 2
+
+    , testCase "'foldl-string' foldls a string" $ do
+        let prog = [s|(foldl-string (fn [x y] (if (eq? y "a") (+ x 1) x))
+                                    0
+                                    "blablabla")
+                   |]
+        prog `succeedsWith` int 3
 
     , testCase "'map' maps over the list" $ do
         let prog = [s|(map (fn [x] (+ x 1)) (list 1 2))|]
@@ -504,6 +511,28 @@ test_eval =
             Left (LangError stack (UnknownIdentifier (Identifier "notdefined"))) ->
                 assertEqual "correct line numbers" [3,1,2,2] (stackTraceLines stack)
             r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
+
+    , testCase "Modules work" $ do
+        let prog = [s|(module
+                        {:module 'foo :doc "" :exports '[z]}
+                        (def x 1)
+                        (def y 2)
+                        (def z (+ x y)))
+                      (import foo)
+                      (import foo :as 'bar)
+                      (import foo ['z] :as 'baz)
+                      (import foo :unqualified)
+                      (list foo/z bar/z baz/z z)|]
+        prog `succeedsWith` List (replicate 4 (Number 3))
+    , testCase "Modules don't leak non-exported defs" $ do
+        let prog = [s|(module
+                        {:module 'foo :doc "" :exports '[z]}
+                        (def x 1)
+                        (def y 2)
+                        (def z (+ x y)))
+                      (import foo :unqualified)
+                      x|]
+        prog `failsWith` UnknownIdentifier [ident|x|]
     ]
   where
     failsWith src err    = noStack (runPureCode src) @?= Left err
@@ -658,7 +687,7 @@ test_repl_primops =
   where
     run stdin' prog =
         let ws = defaultWorldState { worldStateStdin = stdin' }
-        in fst <$> runCode' ws (pure ()) prog
+        in fst <$> runCodeWithWorld ws prog
 
 test_repl :: [TestTree]
 test_repl =
@@ -777,21 +806,13 @@ test_cbor =
             counterexample info $ got == expected
 
 
--- Tests radicle files. These should use the ':test' macro to ensure
--- they are in the proper format.
--- Note that loaded files will also be tested, so there's no need to test files
--- loaded by the prelude individually.
+-- | Call @(run-all-tests)@ which runs all tests defined in the
+-- Radicle source with the @:test@ macro.
 test_source_files :: IO TestTree
 test_source_files = do
     tests <- join <$> traverse testOne ["rad/prelude.rad", "rad/monadic/issues.rad"]
     pure $ testGroup "Radicle source file tests" tests
   where
-    -- If the @test-env__@ is defined and true in the radicle
-    -- environment then the @:test@ macro will execute some code.
-    -- enableSelfTest :: Bindings a -> Bindings a
-    enableSelfTest :: Monad m => Lang m ()
-    enableSelfTest = modify $ addBinding (unsafeToIdent "test-env__") Nothing (Boolean True)
-
     testOne :: FilePath -> IO [TestTree]
     testOne file = do
         ws' <- worldStateWithSource
@@ -799,7 +820,10 @@ test_source_files = do
             Right kp -> pure $ renderCompactPretty kp
             Left _   -> panic "Couldn't generate keypair file."
         let ws = addFileToWorld "my-keys.rad" keyPair ws'
-        (r, out) <- runCode' ws enableSelfTest $ toS $ "(load! \"" <> file <> "\")"
+        let code = "(load! \"" <> file <> "\")"
+                <> "(import prelude/test)"
+                <> "(prelude/test/run-all (read-ref tests))"
+        (r, out) <- runCodeWithWorld ws $ toS code
         let doesntThrow = if isRight r
                 then pure ()
                 else assertFailure $ "Expected Right, got: " <> toS (prettyEither r)
