@@ -7,7 +7,6 @@ import           Protolude
 import qualified Data.Text as T
 import           Options.Applicative
 import           Radicle
-import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
 
 main :: IO ()
@@ -27,7 +26,7 @@ run f = do
     let extensions = def { readerExtensions = githubMarkdownExtensions }
     pand <- runIOorExplode $ readMarkdown extensions txt
     let code = T.append "(load! \"rad/prelude.rad\")" (getCode pand)
-    res <- runInputT defaultSettings $ runLang replBindings $ interpretMany (toS f) $ code
+    res <- runLang replBindings $ interpretMany (toS f) $ code
     case res of
         (Left err, _) -> die . toS $ "Error: " ++ show err
         _             -> pure ()
