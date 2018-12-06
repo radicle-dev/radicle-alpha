@@ -652,7 +652,7 @@ Splits a string ``xs`` into a list of strings by linebreaks.
 ~~~~~~~~~~~~~~~~~~~~~
 
 Returns a string consisting of the results of applying ``f`` to each
-character of ``xs``. Returns a type error if ``f`` returns something
+character of ``xs``. Throws a type error if ``f`` returns something
 other than a string
 
 ``prelude/io``
