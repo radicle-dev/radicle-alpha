@@ -46,7 +46,6 @@ steps:
 
       apt-get -qq update
       apt-get -yqq install libpq-dev
-      stack build --fast
       stack build --fast --test --no-terminal --pedantic
 
       ./images/radicle-server/ci-copy-bin.sh
@@ -81,6 +80,7 @@ steps:
     name: 'gcr.io/cloud-builders/docker'
     entrypoint: bash
     env:
+    - COMMIT_SHA=$COMMIT_SHA
     - BRANCH_NAME=$BRANCH_NAME
     args:
     - "-c"
@@ -89,11 +89,16 @@ steps:
 
       if [ "$BRANCH_NAME" == "master" ]; then
         image_name="eu.gcr.io/opensourcecoin/radicle-server"
+        short_sha=$(echo "$COMMIT_SHA" | head --bytes=7)
+        # Looks like this: b2018.12.06-a76a52f
+        tag="b$(date +%Y.%m.%d)-${short_sha}"
         docker build \
           --tag "$image_name" \
+          --tag "$image_name:$tag" \
           --cache-from "$image_name" \
           ./images/radicle-server
         docker push "$image_name"
+        docker push "$image_name:$tag"
       fi
 
   - id: "Save cache"
