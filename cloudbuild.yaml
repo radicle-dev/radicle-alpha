@@ -75,6 +75,19 @@ steps:
         exit 1
       fi
 
+  - id: "Check tutorial"
+    waitFor:
+    - "Build & Test"
+    name: 'haskell:8.4.3'
+    env: ['STACK_ROOT=/workspace/.stack']
+    entrypoint: bash
+    args:
+    - '-c'
+    - |
+      set -euxo pipefail
+
+      stack exec radicle-doc docs/source/guide/Basics.lrad
+
   - id: "Build radicle-server image"
     waitFor:
     - "Build & Test"
