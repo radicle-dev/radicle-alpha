@@ -12,7 +12,15 @@ import           Data.Time
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.Exit (ExitCode)
-import           System.IO (hGetLine, isEOF)
+import           System.IO
+                 ( BufferMode(LineBuffering)
+                 , hClose
+                 , hFlush
+                 , hGetLine
+                 , hIsEOF
+                 , hSetBuffering
+                 , isEOF
+                 )
 import           System.Process
                  (CreateProcess, ProcessHandle, createProcess, waitForProcess)
 #ifdef ghcjs_HOST_OS
@@ -57,23 +65,34 @@ class (Monad m) => System m where
       -> m (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
     waitForProcessS :: ProcessHandle -> m ExitCode
     hPutStrS :: Handle -> Text -> m ()
-    hGetLineS :: Handle -> m Text
+    -- | hGetLine should return Nothing on EOF.
+    hGetLineS :: Handle -> m (Maybe Text)
+    hCloseS :: Handle -> m ()
 
 instance System m => System (Lang m) where
     systemS proc = lift $ systemS proc
     waitForProcessS = lift . waitForProcessS
     hPutStrS a b = lift $ hPutStrS a b
     hGetLineS = lift . hGetLineS
+    hCloseS = lift . hCloseS
 instance System IO where
     systemS = createProcess
     waitForProcessS = waitForProcess
-    hPutStrS = hPutStr
-    hGetLineS x = toS <$> hGetLine x
+    hPutStrS h t = hSetBuffering h LineBuffering >> hPutStr h t >> hFlush h
+    hGetLineS h = do
+        eof <- hIsEOF h
+        if eof
+            then pure Nothing
+            else do
+                hSetBuffering h LineBuffering
+                Just . toS <$> hGetLine h
+    hCloseS = hClose
 instance System m => System (InputT m) where
     systemS proc = lift $ systemS proc
     waitForProcessS = lift . waitForProcessS
     hPutStrS a b = lift $ hPutStrS a b
     hGetLineS = lift . hGetLineS
+    hCloseS = lift . hCloseS
 
 class (Monad m) => Exit m where
     exitS :: m ()

@@ -1,6 +1,14 @@
+{:module 'prelude/io-utils
+ :doc "IO-related utilities"
+ :exports '[fzf-select-by-key!]}
+
+(import prelude/io '[shell-with-stdout!] :unqualified)
+(import prelude/strings '[unlines] :unqualified)
+
 (def fzf-select-by-key!
-  "Select from keys in `dict` with `fzf`, returning the corresponding values"
+  "Select from keys in `dict` with `fzf`, returning the corresponding values.
+  The keys of the dict must be strings.
+  Requires that `fzf` be on the path."
   (fn [dict]
-    (def result (process! "/usr/bin/env" ["fzf"] (lines (keys dict))))
-    ;; TODO: pattern match on exit code when pattern matching is merged
-    (lookup (string-replace "\n" "" (nth 1 result)) dict)))
+    (def result (process-with-stdout! "fzf" [] (string-append (unlines (keys dict)) "\n")))
+    (lookup (string-replace "\n" "" (nth 0 result)) dict)))

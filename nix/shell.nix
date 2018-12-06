@@ -19,16 +19,18 @@ stdenv.mkDerivation {
     libraryPkgconfigDepends = [ zlib ];
     shellHook = ''
       export PATH=$PATH:`stack path --local-bin`
+      export STACK_ARGS="--system-ghc --nix-packages 'zlib fzf moreutils'"
+      export IS_NIX_SHELL="true"
       eval $(grep export ${ghc}/bin/ghc)
       alias check="pushd $PWD && ./scripts/check-fmt.sh && hlint . && popd"
       alias mkdocs="pushd $PWD/docs && make html && popd"
-      alias sb="stack build --fast --system-ghc --nix-packages zlib"
-      alias sbs="stack build --fast --system-ghc --nix-packages zlib radicle:exe:radicle-server"
-      alias sbrad="stack build --fast --system-ghc --nix-packages zlib radicle:exe:radicle"
-      alias st="stack test --fast --system-ghc --nix-packages zlib"
-      alias sts="stack test --fast --system-ghc --nix-packages zlib radicle:spec"
-      alias str="stack test --fast --system-ghc --nix-packages zlib radicle:spec --ta '--pattern \"Radicle source file tests\"'"
-      alias server="stack exec radicle-server -- "
-      alias rad="stack exec radicle -- rad/repl.rad"
+      alias sb="stack build --fast $STACK_ARGS"
+      alias sbs="stack build --fast $STACK_ARGS radicle:exe:radicle-server"
+      alias sbrad="stack build --fast $STACK_ARGS radicle:exe:radicle"
+      alias st="stack test --fast $STACK_ARGS"
+      alias sts="stack test --fast $STACK_ARGS radicle:spec"
+      alias str="stack test --fast $STACK_ARGS radicle:spec --ta '--pattern \"Radicle source file tests\"'"
+      alias server="stack exec $STACK_ARGS radicle-server -- "
+      alias rad="stack exec --silent $STACK_ARGS radicle -- rad/repl.rad"
     '';
 }
