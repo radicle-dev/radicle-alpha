@@ -75,8 +75,14 @@ Example: `(shell! \"ls -Glah\" \"\")`. "
             out)
       _ (throw 'io-error "expected only stdin and stdout to be open"))))
 
+(:test "shell-with-stdout!"
+  [ (shell-with-stdout! "echo hi" "") ==> ["hi"] ]
+  [ (shell-with-stdout! "cat" "there") ==> ["there"] ]
+)
+
+
 (def process!
-  "Executes `command` using 'execvp'. with 'to-write' as input. Stdout and stderr are inherit.
+  "Executes `command` using 'execvp'. with 'to-write' as input. Stdout and stderr are inherited.
 See 'man exec' for more information on 'execvp'.
 Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   (fn [command args to-write]
@@ -106,15 +112,20 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
       })
     (match (system! cp)
       {:stdin  [:just 'stdin]
-       :stdout  :nothing
-       :stderr [:just 'stdout]
+       :stdout [:just 'stdout]
+       :stderr :nothing
        :proc   'ph
       } (do (write-handle! stdin to-write)
             (close-handle! stdin)
             (def out (read-contents-handle! stdout))
+            (print! out)
             out)
       _ (throw 'io-error "expected only stdin and stdout to be open"))))
 
+(:test "process-with-stdout!"
+  [ (process-with-stdout! "echo" ["hi"] "") ==> "hi" ]
+  [ (process-with-stdout! "cat" [] "there") ==> "there" ]
+)
 
 ;; General utilities
 (def ls!

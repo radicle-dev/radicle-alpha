@@ -179,3 +179,4 @@ instance System (StateT WorldState IO) where
     waitForProcessS = lift . waitForProcessS
     hPutStrS a b = lift $ hPutStrS a b
     hGetLineS = lift . hGetLineS
+    hCloseS = lift . hCloseS

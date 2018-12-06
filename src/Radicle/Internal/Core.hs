@@ -812,8 +812,10 @@ instance CPA t => FromRad t CmdSpec where
     fromRad x = case x of
         Vec (Keyword (Ident "shell") Seq.:<| arg Seq.:<| Seq.Empty) ->
             ShellCommand <$> fromRad arg
-        Vec (Keyword (Ident "raw") Seq.:<| comm Seq.:<| args Seq.:<| Seq.Empty) ->
-            RawCommand <$> fromRad comm <*> fromRad args
+        Vec (Keyword (Ident "raw") Seq.:<| comm Seq.:<| Vec args Seq.:<| Seq.Empty) -> do
+            args' <- traverse fromRad $ toList args
+            comm' <- fromRad comm
+            pure $ RawCommand comm' args'
         Vec (Keyword (Ident s) Seq.:<| _) ->
             throwError $ "Expecting either :raw or :shell, got: " <> s
         _ ->
