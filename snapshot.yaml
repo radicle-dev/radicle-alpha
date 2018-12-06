@@ -1,0 +1,14 @@
+# Custom snapshot based on stackage LTS with additional dependencies required
+# by radicle.
+#
+# Add entries to `packages` instead of `extra-deps` in `stack.yaml`
+#
+# See https://docs.haskellstack.org/en/stable/custom_snapshot/
+#
+name: radicle-deps-12.9
+resolver: lts-12.9
+
+packages:
+- acid-state-0.14.3
+- cborg-0.2.0.0
+- serialise-0.2.0.0
