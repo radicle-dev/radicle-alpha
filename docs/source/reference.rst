@@ -1130,6 +1130,13 @@ last input in ``inputs``. The ``index`` argument is either ``:nothing``
 in which case all inputs are fetched or ``[:just i]`` in which case all
 inputs following after the index ``i`` are fetched.
 
+``(install-remote-chain-fake)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Install test doubles for the ``send!`` and ``receive!`` primitives that
+use a mutable dictionary to store RSMs. Requires
+``rad/test/stub-primitives`` to be loaded
+
 ``prelude/state-machine``
 -------------------------
 

@@ -48,6 +48,8 @@ steps:
       apt-get -yqq install libpq-dev
       stack build --fast --test --no-terminal --pedantic
 
+      stack exec -- radicle test/prelude.rad
+
       ./images/radicle-server/ci-copy-bin.sh
 
   - id: "Lint (weeder)"
