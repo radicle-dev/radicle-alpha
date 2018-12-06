@@ -155,7 +155,6 @@ executables:
         buildable: false
     dependencies:
     - radicle
-    - haskeline
     - optparse-applicative
     - pandoc
     - text
