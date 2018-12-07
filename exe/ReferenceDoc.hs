@@ -12,12 +12,11 @@ import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import           Data.Yaml hiding (Value)
-import qualified GHC.Exts as GhcExts
 import           Radicle
 import           Radicle.Internal.Core
+import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
 import           Radicle.TH
-import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
 
 data Content = Content
@@ -33,8 +32,7 @@ instance FromJSON Content
 main :: IO ()
 main = do
     content <- decodeFileThrow "reference-doc.yaml"
-    res_ <- runInputT defaultSettings $
-             interpret
+    res_ <- interpret
                "reference-doc"
                (   "(do"
                 <> "(file-module! \"rad/prelude/test-eval.rad\") (import prelude/test-eval '[eval tests] :unqualified)"
@@ -42,68 +40,96 @@ main = do
                 <> "(get-current-env))")
                replBindings
     let res = res_ `lPanic` "Error running the prelude."
-    let s = bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
-    let vars = GhcExts.toList (bindingsEnv s)
-    checkAllDocumented [ fromIdent iden | (iden, Nothing, _) <- vars ]
-    let e = Map.fromList [ (fromIdent iden, (docString, val)) | (iden, Just docString, val) <- vars ]
-    checkAllInReference content e
-    let rst = runPure (writeRST Default.def $ Pandoc nullMeta (doc content e)) `lPanic` "Couldn't generate RST"
+    let env = bindingsEnv $ bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
+    let rst = runPure (writeRST Default.def $ Pandoc nullMeta (doc content env)) `lPanic` "Couldn't generate RST"
     writeFile "docs/source/reference.rst" rst
   where
 
-    doc content e =
+    doc :: Content -> Env Value -> [Block]
+    doc content env =
       [ Header 1 nullAttr (parseInlineMarkdown "Radicle Reference")
       , Para $ parseInlineMarkdown (intro content)
-      , Header 2 nullAttr (parseInlineMarkdown "Primitive functions")
-      , Para $ parseInlineMarkdown $ primFnsDoc content
-      ] ++ foldMap (valueDoc e) (primFns content) ++
+      ] ++ docForPrimFns content ++
       [ Header 2 nullAttr (parseInlineMarkdown "Prelude modules")
       , Para $ parseInlineMarkdown $ preludeModulesDoc content
-      ] ++ foldMap (module' e) (modules content)
+      ] ++ foldMap (moduleDoc env) (modules content)
 
-    defs v = let env = envFromRad v `lPanic` "Couldn't convert radicle value to as environment"
-             in Map.fromList [ (fromIdent iden, (docString, val)) | (iden, Just docString, val) <- GhcExts.toList env ]
+moduleDoc :: Env Value -> Text -> [Block]
+moduleDoc (Env env) name =
+    case Map.lookup (Ident name) env of
+        Nothing -> panic $ "Couldn’t find module " <> name
+        Just (Doc.Docd Nothing _) -> panic $ "Module " <> name <> " is not documented"
+        Just (Doc.Docd (Just docString) (Dict module')) ->
+            header docString <> concatMap (exportsDoc name (getModuleEnv module')) (getExports module')
+        _ -> panic $ "Module " <> name <> " was not a dict."
+  where
+    header :: Text -> [Block]
+    header docString =
+        [ Header 2 nullAttr [ Code nullAttr (toS name) ]
+        , Para (parseInlineMarkdown docString) ]
 
-    module' env name = case lkp name env "Couldn't find module in the env" of
-      (docString, Dict d) -> case (lkp [kword|exports|] d "invalid module", lkp [kword|env|] d "invalid module") of
-        (Vec es, e) ->
-          [ Header 2 nullAttr [ Code nullAttr (toS name) ]
-          , Para (parseInlineMarkdown docString)
-          ] ++ foldMap (export (defs e)) es
-        _ -> panic $ "Module " <> name <> " didn't have an exports vec."
-      _ -> panic $ "Module " <> name <> " was not a dict."
+    getExports :: Map Value Value -> Seq Text
+    getExports module' =
+        case lkp [kword|exports|] module' of
+            (Vec exports) -> flip map exports $ \case Atom (Ident n) -> n
+                                                      _ -> panic $ "Export in module " <> name <> " is not an atom"
+            _ -> panic $ "Exports of module " <> name <> " are not a vector"
 
-    export env (Atom (Ident name)) = valueDoc env name
-    export _ _                     = panic "Export was not an atom."
+    getModuleEnv :: Map Value Value -> Env Value
+    getModuleEnv module' =
+        envFromRad (lkp [kword|env|] module')
+        `lPanic` ("Cannot parse environment for module " <> name)
 
-    valueDoc env name =
-        case lkp name env "couldn't find value" of
-            (docString, Lambda args _ _) ->
-                let callExample = "(" <> T.intercalate " " (name : map fromIdent args) <> ")"
-                in [ Header 3 nullAttr [Code nullAttr (toS callExample) ] ]
-                   <> parseMarkdownBlocks docString
-            (docString, _) ->
-                [ Header 3 nullAttr [Code nullAttr (toS name) ] ]
-                <> parseMarkdownBlocks docString
-
-
-    checkAllDocumented = \case
-      [] -> pure ()
-      vs -> panic $ "The following functions have no documentation strings: " <> T.intercalate ", " vs
-
-    checkAllInReference content e =
-      let notDocumented = Map.keys e \\ (primFns content ++ modules content ++ ["prelude/test-eval", "tests"]) in
-      if null notDocumented
-        then pure ()
-      else panic $ "The following functions need to be added to the reference doc: " <> T.intercalate ", " notDocumented
-
-    lPanic (Left e)  m = panic $ m <> ": " <> show e
-    lPanic (Right r) _ = r
-
-    lkp x m e = case Map.lookup x m of
+    lkp :: Value -> Map Value Value -> Value
+    lkp x m = case Map.lookup x m of
       Just y  -> y
-      Nothing -> panic $ e <> ": couldn't find " <> show x
+      Nothing -> panic $ "Invalid module " <> name <> ": couldn't find key " <> show x
 
+
+exportsDoc :: Text -> Env Value -> Text -> [Block]
+exportsDoc moduleName_ env name =
+    case Map.lookup (Ident name) (fromEnv env) of
+        Nothing -> panic $ "Unknown export " <> name <> "in module " <> moduleName_
+        Just (Doc.Docd Nothing _) -> panic $ "Missing documentation for " <> name <> " in " <> moduleName_
+        Just (Doc.Docd (Just docString) value) -> valueDoc name docString value
+
+lPanic :: Show a => Either a p -> Text -> p
+lPanic (Left e)  m = panic $ m <> ": " <> show e
+lPanic (Right r) _ = r
+
+valueDoc :: Text -> Text -> Value -> [Block]
+valueDoc name docString value = case value of
+    Lambda args _ _ ->
+        let callExample = "(" <> T.intercalate " " (name : map fromIdent args) <> ")"
+        in [ Header 3 nullAttr [Code nullAttr (toS callExample) ] ]
+           <> parseMarkdownBlocks docString
+    _ ->
+        [ Header 3 nullAttr [Code nullAttr (toS name) ] ]
+        <> parseMarkdownBlocks docString
+
+-- | Generate documentation for primitive functions defined by 'replBindings'
+docForPrimFns :: Content -> [Block]
+docForPrimFns content =
+    if null notListed
+    then header ++ concatMap doc (primFns content)
+    else panic $ "The following primitive functions need to be added to the reference doc: " <> T.intercalate ", " notListed
+  where
+    header :: [Block]
+    header = [ Header 2 nullAttr (parseInlineMarkdown "Primitive functions")
+             , Para $ parseInlineMarkdown $ primFnsDoc content
+             ]
+
+    notListed :: [Text]
+    notListed = Map.keys primFnsMap \\ primFns content
+
+    doc :: Text -> [Block]
+    doc primName = case Map.lookup primName primFnsMap of
+        Nothing -> panic $ "Unknown primitive function " <> primName
+        Just (Doc.Docd Nothing _) -> panic $ "Missing documentation for primitive function " <> primName
+        Just (Doc.Docd (Just docString) _) -> valueDoc primName docString (PrimFn $ Ident primName)
+
+    primFnsMap :: Map Text (Doc.Docd ([Value] -> Lang IO Value))
+    primFnsMap = Map.mapKeys fromIdent $ getPrimFns $ bindingsPrimFns replBindings
 
 parseInlineMarkdown :: Text -> [Inline]
 parseInlineMarkdown t = case parseMarkdownBlocks t of

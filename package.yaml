@@ -170,7 +170,6 @@ executables:
     - pandoc
     - data-default
     - containers
-    - haskeline
     - text
     - yaml
     ghc-options: -main-is ReferenceDoc
