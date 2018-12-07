@@ -1,6 +1,6 @@
 {:module 'prelude/io-utils
  :doc "IO-related utilities"
- :exports '[fzf-select-by-key!]}
+ :exports '[fzf-select-by-key!, edit-in-editor!]}
 
 (import prelude/io '[shell-with-stdout! write-file!] :unqualified)
 (import prelude/strings '[unlines] :unqualified)
@@ -14,6 +14,7 @@
     (lookup (string-replace "\n" "" (nth 0 result)) dict)))
 
 (def edit-in-editor!
+  "Open `$EDITOR` prepopulated with `orig`. Returns the file saved."
   (fn [orig]
     (def file (unlines (shell-with-stdout! "mktemp" "")))
     (put-str! file)
