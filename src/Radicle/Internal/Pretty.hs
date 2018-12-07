@@ -102,11 +102,16 @@ instance PrettyV r => PrettyV (LangErrorData r) where
                                  <+> "Expected:" <+> pretty x
                                  <+> "Got:" <+> pretty y
         NonHashableKey -> "Non-hashable key in dict."
-        MissingModuleDeclaration -> "Modules must start with a metadata declaration"
-        InvalidModuleDeclaration t decl -> vsep
-          [ "Invalid module declaration:" <+> pretty t <> ":"
-          , indent 2 $ prettyV decl
-          ]
+        ModuleError me -> case me of
+          MissingDeclaration -> "Modules must start with a metadata declaration"
+          InvalidDeclaration t decl -> vsep
+            [ "Invalid module declaration:" <+> pretty t <> ":"
+            , indent 2 $ prettyV decl
+            ]
+          UndefinedExports n is ->
+            "Module" <+> prettyV (asValue (Atom n))
+            <+> "has exports which are not defined:"
+            <+> sep (prettyV . asValue . Atom <$> is)
         OtherError t -> "Error:" <+> pretty t
         SpecialForm f t -> "Error using special form" <+> pretty f <> ":" <+> pretty t <> "."
         ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)

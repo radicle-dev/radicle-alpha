@@ -533,6 +533,10 @@ test_eval =
                       (import foo :unqualified)
                       x|]
         prog `failsWith` UnknownIdentifier [ident|x|]
+
+    , testCase "Modules complain if exports are undefined" $ do
+        let prog = [s|(module {:module 'foo :doc "" :exports '[x y]} (def x 0))|]
+        prog `failsWith` ModuleError (UndefinedExports [ident|foo|] [[ident|y|]])
     ]
   where
     failsWith src err    = noStack (runPureCode src) @?= Left err

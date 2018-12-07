@@ -57,6 +57,14 @@ data PatternMatchError
 
 instance Serialise PatternMatchError
 
+data ModuleError
+  = MissingDeclaration
+  | InvalidDeclaration Text Value
+  | UndefinedExports Ident [Ident]
+  deriving (Eq, Show, Read, Generic)
+
+instance Serialise ModuleError
+
 -- | An error thrown during parsing or evaluating expressions in the language.
 data LangErrorData r =
       UnknownIdentifier Ident
@@ -71,8 +79,7 @@ data LangErrorData r =
     -- args
     | WrongNumberOfArgs Text Int Int
     | NonHashableKey
-    | MissingModuleDeclaration
-    | InvalidModuleDeclaration Text Value
+    | ModuleError ModuleError
     | OtherError Text
     | ParseError (Par.ParseError Char Void)
     -- | Raised if @(throw ident value)@ is evaluated. Arguments are
@@ -136,8 +143,13 @@ errorDataToValue e = case e of
           , ("actual", Number $ fromIntegral actual)]
         )
     NonHashableKey -> makeVal ( "non-hashable-key", [])
-    MissingModuleDeclaration -> makeVal ( "missing-module-declaration", [])
-    InvalidModuleDeclaration t v -> makeVal ( "invalid-module-declaration", [("info", String t), ("declaration", v)])
+    ModuleError me -> case me of
+      MissingDeclaration -> makeVal ( "missing-module-declaration", [])
+      InvalidDeclaration t v -> makeVal ( "invalid-module-declaration", [("info", String t), ("declaration", v)])
+      UndefinedExports n is -> makeVal ( "undefined-module-exports"
+                                       , [ ("undefined-exports", Vec (Seq.fromList (Atom <$> is)))
+                                         , ("module", Atom n) ]
+                                       )
     OtherError i -> makeVal
         ( "other-error"
         , [("info", String i)]
@@ -731,7 +743,11 @@ createModule = \case
     (m : forms) -> do
       m' <- baseEval m >>= meta
       e <- withEnv identity $ traverse_ eval forms *> gets bindingsEnv
-      let env = envToRadicle $ Env $ Map.restrictKeys (fromEnv e) (Set.fromList (exports m'))
+      let exportsSet = Set.fromList (exports m')
+      let undefinedExports = Set.difference exportsSet (Map.keysSet (fromEnv e))
+      env <- if null undefinedExports
+               then pure . envToRadicle . Env $ Map.restrictKeys (fromEnv e) exportsSet
+               else throwErrorHere (ModuleError (UndefinedExports (name m') (Set.toList undefinedExports)))
       let modu = Dict $ Map.fromList
                   [ (Keyword (Ident "module"), Atom (name m'))
                   , (Keyword (Ident "env"), env)
@@ -739,7 +755,7 @@ createModule = \case
                   ]
       defineAtom (name m') (Just (doc m')) modu
       pure modu
-    _ ->  throwErrorHere MissingModuleDeclaration
+    _ ->  throwErrorHere (ModuleError MissingDeclaration)
   where
     meta v@(Dict d) = do
       name <- modLookup v "module" d "missing `:module` key"
@@ -747,11 +763,11 @@ createModule = \case
       exports <- modLookup v "exports" d "Missing `:exports` key"
       case (name, doc, exports) of
         (Atom n, String ds, Vec es) -> do
-          is <- traverse isAtom es ?? toLangError (InvalidModuleDeclaration "`:exports` must be a vector of atoms" v)
+          is <- traverse isAtom es ?? toLangError (ModuleError (InvalidDeclaration "`:exports` must be a vector of atoms" v))
           pure $ ModuleMeta n (toList is) ds
-        _ -> throwErrorHere (InvalidModuleDeclaration "`:module` must be an atom, `:doc` must be a string and `:exports` must be a vector" v)
-    meta v = throwErrorHere (InvalidModuleDeclaration "must be dict" v)
-    modLookup v k d e = kwLookup k d ?? toLangError (InvalidModuleDeclaration e v)
+        _ -> throwErrorHere (ModuleError (InvalidDeclaration "`:module` must be an atom, `:doc` must be a string and `:exports` must be a vector" v))
+    meta v = throwErrorHere (ModuleError (InvalidDeclaration "must be dict" v))
+    modLookup v k d e = kwLookup k d ?? toLangError (ModuleError (InvalidDeclaration e v))
 
 -- * From/ ToRadicle
 
