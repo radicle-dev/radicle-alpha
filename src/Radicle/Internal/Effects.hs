@@ -177,7 +177,7 @@ replPrimFns = fromList $ allDocs $
     , ( "open-file!"
       , "Open file in the specified mode (`:read`, `:write`, `:append`, `:read-write`)."
       , twoArg "open-file!" $ \case
-          (String file, (Keyword (Ident mode))) -> do
+          (String file, Keyword (Ident mode)) -> do
               mode' <- case mode of
                   "read" -> pure ReadMode
                   "write" -> pure WriteMode
