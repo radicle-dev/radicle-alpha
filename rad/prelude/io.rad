@@ -2,6 +2,7 @@
  :doc "Some basic I/O functions."
  :exports '[print! shell! process! read-line! send-code! read-code!
             shell-with-stdout! shell-no-stdin! process-with-stdout! write-file!
+            new-temp-file!
            ]}
 
 (import prelude/patterns :unqualified)
@@ -32,6 +33,10 @@
     (def hdl (open-file! filename :write))
     (write-handle! hdl contents)
     (close-handle! hdl)))
+
+(def new-temp-file!
+  (fn []
+    (unlines (process-with-stdout! "mktemp" [] ""))))
 
 (def-rec read-contents-handle!
   "Read all the contents of a handle. A *vector* of strings is returned, one

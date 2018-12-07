@@ -1,0 +1,28 @@
+{:module 'prelude/git
+ :doc "Git-related functionality"
+ :exports '[]
+}
+
+(import prelude/patterns :unqualified)
+(import prelude/io :unqualified)
+(import prelude/io-utils :unqualified)
+(import prelude/chains :as chain)
+
+(def format-patch!
+  (fn [range-str]
+    (process-with-stdout!  "git" ["format-patch" "--stdout" ranger-str]) ""))
+
+(def apply-patch!
+  (fn [patch]
+    (def file (new-temp-file!))
+    (write-file! file patch)
+    (process!  "git" ["apply" file])))
+
+(def metadata!
+  (fn []
+    (read (read-file! ".git.rad"))))
+
+(def pull!
+  (fn []
+    (def m (metadata!))
+    (chain/update-chain-ref!
