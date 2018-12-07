@@ -44,9 +44,12 @@
     {:chain new-chain
      :result result }))
 
+(def local-test-chain-name
+  (fn [] (string-append "http://localhost:8000/chains/" (uuid!))))
+
 (:test "eval-in-chain"
   [:setup
-    (do (def empty-chain (new-chain ""))
+    (do (def empty-chain (new-chain (local-test-chain-name)))
         (def res1 (eval-in-chain '(def x 3) empty-chain))
         (def res (eval-in-chain '(+ x 2) (lookup :chain res1))))
   ]
@@ -71,7 +74,7 @@
 (:test "update-chain!"
   [:setup
     (do
-       (def chain-name (uuid!))
+       (def chain-name (local-test-chain-name))
        (def chain (new-chain chain-name))
        (send! chain-name ['(+ 3 2)])
        (send! chain-name ['(+ 3 3)])
@@ -96,7 +99,7 @@
 (:test "update-chain-ref!"
   [:setup
     (do
-       (def chain-name (uuid!))
+       (def chain-name (local-test-chain-name))
        (def chain (ref (new-chain chain-name)))
        (send! chain-name ['(+ 3 2)])
        (send! chain-name ['(+ 3 3)])
