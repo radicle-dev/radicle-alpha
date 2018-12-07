@@ -16,6 +16,7 @@ import qualified GHC.Exts as GhcExts
 import           Radicle
 import           Radicle.Internal.Core
 import           Radicle.Internal.Identifier
+import           Radicle.TH
 import           System.Console.Haskeline (defaultSettings, runInputT)
 import           Text.Pandoc
 

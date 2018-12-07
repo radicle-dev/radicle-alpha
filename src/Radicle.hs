@@ -47,8 +47,6 @@ module Radicle
     , throwErrorHere
     , Reference(..)
     , Ident
-    , ident
-    , kword
     , mkIdent
     , unsafeToIdent
     , fromIdent
