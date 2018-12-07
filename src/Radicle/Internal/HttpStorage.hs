@@ -94,9 +94,7 @@ httpStoragePrimFns' mgr =
               \ chain located at the URL for evaluation."
             , \url values -> do
                 res <- liftIO $ runClientM' url mgr (submit $ toList values)
-                pure $ case res of
-                    Left servantError -> Left $ show servantError
-                    Right _           -> Right ()
+                pure (fmap (const ()) res)
             )
         , storageReceive =
             ( "receive!"

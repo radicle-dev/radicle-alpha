@@ -27,6 +27,7 @@ import qualified Data.Set as Set
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
+import           Servant.Client
 import           System.Process
                  (CmdSpec(..), CreateProcess(..), ProcessHandle, StdStream(..))
 import qualified Text.Megaparsec.Error as Par
@@ -45,9 +46,9 @@ import qualified Radicle.Internal.Type as Type
 -- * Value
 
 data LangError r = LangError [Ann.SrcPos] (LangErrorData r)
-    deriving (Eq, Show, Read, Generic, Functor)
+    deriving (Eq, Show, Generic, Functor)
 
-instance Serialise r => Serialise (LangError r)
+-- instance Serialise r => Serialise (LangError r)
 
 data PatternMatchError
   = NoMatch
@@ -85,12 +86,13 @@ data LangErrorData r =
     -- | Raised if @(throw ident value)@ is evaluated. Arguments are
     -- provided by the call to @throw@.
     | ThrownError Ident r
+    | SendError ServantError
     | PatternMatchError PatternMatchError
     -- | Raised if the effectful @exit!@ primitive is evaluated.
     | Exit
-    deriving (Eq, Show, Read, Generic, Functor)
+    deriving (Eq, Show, Generic, Functor)
 
-instance Serialise r => Serialise (LangErrorData r)
+-- instance Serialise r => Serialise (LangErrorData r)
 
 throwErrorHere :: (MonadError (LangError Value) m, HasCallStack) => LangErrorData Value -> m a
 throwErrorHere = withFrozenCallStack (throwError . LangError [Ann.thisPos])
