@@ -17,7 +17,7 @@ services:
     - --host=postgres
     - --db=postgres
     ports:
-    - "8024:8000"
+    - "8000:8000"
 
 volumes:
   pg-data: {}

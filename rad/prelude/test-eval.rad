@@ -34,16 +34,10 @@
        (do
           (def x 3)
           (def y (ref 0))
-          (write-ref y 1)
-          ;; Test the mocked send!/receive!
-          (def chain-name (uuid!))
-          (send! chain-name [0])
-          (def received (receive! chain-name 0)))
+          (write-ref y 1))
     ]
     [(+ 3 2) ==> 5]
     [x       ==> 3]
-    [(read-ref y) ==> 1]
-    [received ==> (0)]
 )
 
 (:test "'test' handles exceptions properly"
