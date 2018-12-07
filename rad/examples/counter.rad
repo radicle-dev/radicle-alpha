@@ -1,0 +1,64 @@
+;; A “counter” chain that exposes an `increment` mutator and a `get-value`
+;; accessor.
+;;
+;; This file provides functions to interact with a counter chain.
+;;
+;;     (counter/init-chain! "my-chain-id") ;; => :ok
+;;     (counter/get-value "my-chain-id") ;; => 0
+;;     (counter/increment! "my-chain-id") ;; => 1
+;;     (counter/get-value "my-chain-id") ;; => 1
+;;
+
+(load! "rad/prelude.rad")
+
+(import prelude/test '[assert-equal] :unqualified)
+
+(def counter/prelude
+  '[
+    (def counter (ref 0))
+    (def increment
+      "Increments the counter by one and returns the new counter."
+      (fn []
+        (def x (read-ref counter))
+        (write-ref counter (+ x 1))))
+    (def get-value
+      "Return the current value of the counter"
+      (fn []
+        (read-ref counter)))
+  ]
+)
+
+(def counter/init-chain!
+  "Send the counter application prelude to a chain."
+  (fn [chain-id]
+    (send! chain-id counter/prelude)
+    :done
+))
+
+(def counter/increment!
+  "Increment the counter of a chain and return the new counter value."
+  (fn [chain-id]
+    (def chain (chain/load-chain! chain-id))
+    (def expr '(increment))
+    (def result (lookup :result (chain/eval-in-chain expr chain)))
+    (send! chain-id [expr])
+    result
+))
+
+(def counter/get-value
+  "Get the current counter value of a chain."
+  (fn [chain-id]
+    (def chain (chain/load-chain! chain-id))
+    (lookup :result (chain/eval-in-chain '(get-value) chain))
+))
+
+(def counter/run-test
+  (fn []
+    (def chain-id (uuid!))
+    (assert-equal (counter/init-chain! chain-id) :done)
+    (assert-equal (counter/get-value chain-id) 0)
+    (assert-equal (counter/increment! chain-id) 1)
+    (assert-equal (counter/increment! chain-id) 2)
+    (assert-equal (counter/get-value chain-id) 2)
+    :test-ok
+) )

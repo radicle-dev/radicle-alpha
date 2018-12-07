@@ -6,6 +6,7 @@ module Radicle.Internal.TestCapabilities (
     , runPureCode
     , runCodeWithInput
     , runCodeWithFiles
+    , runCodeWithSourceFiles
 
     , WorldState(..)
     , defaultWorldState
@@ -81,6 +82,13 @@ runCodeWithFiles :: Map Text Text -> Text -> IO (Either (LangError Value) Value)
 runCodeWithFiles files code =
     let ws = defaultWorldState { worldStateFiles = files }
     in fst <$> runCodeWithWorld ws code
+
+-- | Run Radicle code in a REPL environment with all Radicle source files
+-- readable.
+runCodeWithSourceFiles :: Text -> IO (Either (LangError Value) Value)
+runCodeWithSourceFiles code = do
+    ws <- worldStateWithSource
+    fst <$> runCodeWithWorld ws code
 
 -- | Run radicle code in a pure environment.
 runPureCode :: Text -> Either (LangError Value) Value

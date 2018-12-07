@@ -60,35 +60,20 @@ fi
 case "$cmd" in
   init )
     radicle - <<-SCRIPT
-      (load! "rad/prelude.rad")
-      (send! "${chain}" '[
-        (def counter (ref 0))
-        (def increment
-          (fn []
-            (def x (read-ref counter))
-            (write-ref counter (+ x 1))))
-        (def get-value
-          (fn []
-            (read-ref counter)))
-      ])
-      :done
+      (load! "rad/examples/counter.rad")
+      (counter/init-chain! "${chain}")
 SCRIPT
     ;;
   get-value )
     radicle - <<-SCRIPT
-      (load! "rad/prelude.rad")
-      (def chain (load-chain! "${chain}"))
-      (lookup :result (eval-in-chain '(get-value) chain))
+      (load! "rad/examples/counter.rad")
+      (counter/get-value "${chain}")
 SCRIPT
     ;;
   increment )
     radicle - <<-SCRIPT
-      (load! "rad/prelude.rad")
-      (def chain (load-chain! "${chain}"))
-      (def expr '(increment))
-      (def result (lookup :result (eval-in-chain expr chain)))
-      (send! "${chain}" [expr])
-      result
+      (load! "rad/examples/counter.rad")
+      (counter/increment! "${chain}")
 SCRIPT
     ;;
   * )
