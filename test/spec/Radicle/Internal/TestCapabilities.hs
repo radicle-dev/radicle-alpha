@@ -180,3 +180,4 @@ instance System (StateT WorldState IO) where
     hPutStrS a b = lift $ hPutStrS a b
     hGetLineS = lift . hGetLineS
     hCloseS = lift . hCloseS
+    openFileS a b = lift $ openFileS a b
