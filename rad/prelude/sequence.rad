@@ -1,0 +1,12 @@
+{:module  'prelude/sequence
+ :doc     "Functions which work on both lists and vectors."
+ :exports '[concat]}
+
+(import prelude/basic :unqualified)
+
+(def concat
+  "Concatenate a sequence of sequences."
+  (fn [xss]
+    (if (empty-seq? xss)
+      []
+      (foldr <> [] xss))))

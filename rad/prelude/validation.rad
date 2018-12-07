@@ -1,8 +1,10 @@
 {:module 'prelude/validation
  :doc "Functions for creating or combining *validators*, which are functions which return the input unchanged or throw with an error message. These can be used for checking data before accepting it onto a chain."
- :exports ['= 'member 'and 'or 'type 'pred 'key 'keys 'every 'uuid 'signed]}
+ :exports '[= member and or type pred key contains contains-many contains-only has-key keys has-keys every uuid signed]}
 
 (import prelude/dict :unqualified)
+(import prelude/dict :as 'dict)
+(import prelude/set :as 'set)
 
 (def =
   "Given `x`, returns a validator that checks for equality with `x`."
@@ -59,17 +61,34 @@
         (throw 'validation-failure (string-append "Did not satisfy predicate: " name))))))
 
 (def key
-  "Given a key and a validator, returns a validator which checks for
-  the existence of that key and that the associated value conforms to the validator."
+  "Given a key `k` and a validator `v`, returns a validator which checks that the
+  value associated to `k` in a dict conforms to `v`. If the key is absent, the
+  validator passes."
   (fn [k v]
     (fn [d]
       (if (member? k d)
         (v (lookup k d))
-        (throw 'validation-failure (string-append "Missing required key: " (show k)))))))
+        d))))
+
+(def contains
+  "Given a value, returns a validator which checks for membership of that value."
+  (fn [k]
+    (fn [x]
+      (if (member? k x)
+        x
+        (throw 'validation-failure {:info "Did not contain key."
+                                    :element k
+                                    :container x})))))
+
+(def has-key
+  "Combines existence and validity of a key in a dict."
+  (fn [k v]
+    (and [(contains k) (key k v)])))
 
 (def keys
-  "Given a dict associating keys to validators, returns a validator which checks a dict
-  for the existence of those keys, and that they conform to the associated validators."
+  "Given a dict associating keys to validators, returns a validator which checks
+  that the values associated to those keys in a dict conform to the
+  corresponding validators."
   (fn [ks]
     (fn [d]
       (if (dict? d)
@@ -78,6 +97,27 @@
                (seq ks)))
          d)
         (throw 'validation-failure (string-append "Not a dict: " (show d)))))))
+
+(def contains-many
+  "Given a vector of keys, returns a validator which checks that a structure
+  contains all of them."
+  (fn [ks]
+    (and (map contains ks))))
+
+(def contains-only
+  "Validator which checks that a dict only contains a subset of a vector of keys."
+  (fn [ks]
+    (fn [d]
+      (if (set/subset? (set/key-set d) (set/from-seq ks))
+        d
+        (throw 'validation-failure {:info "Dict contained illegal keys."
+                                    :dict d
+                                    :allowed-keys ks})))))
+
+(def has-keys
+  "Checks for the existence and validity of keys."
+  (fn [ks]
+    (and [(contains-many (dict/keys ks)) (keys ks)])))
 
 (def every
   "Given a validator, creates a new validator which checks that all the items in
