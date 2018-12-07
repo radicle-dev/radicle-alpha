@@ -127,7 +127,7 @@ instance PrettyV r => PrettyV (LangErrorData r) where
         SendError se -> vsep
           [ "send!: Server responded with an error:"
           , indent 2 $ case se of
-            Servant.FailureResponse (Servant.Response {..}) -> vsep
+            Servant.FailureResponse Servant.Response{..} -> vsep
               [ "status code:" <+> pretty (fromEnum responseStatusCode)
               , pretty (toS responseBody :: Text)
               ]

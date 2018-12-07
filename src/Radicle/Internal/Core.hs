@@ -27,7 +27,7 @@ import qualified Data.Set as Set
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
-import           Servant.Client
+import qualified Servant.Client as Servant
 import           System.Process
                  (CmdSpec(..), CreateProcess(..), ProcessHandle, StdStream(..))
 import qualified Text.Megaparsec.Error as Par
@@ -47,8 +47,6 @@ import qualified Radicle.Internal.Type as Type
 
 data LangError r = LangError [Ann.SrcPos] (LangErrorData r)
     deriving (Eq, Show, Generic, Functor)
-
--- instance Serialise r => Serialise (LangError r)
 
 data PatternMatchError
   = NoMatch
@@ -86,13 +84,11 @@ data LangErrorData r =
     -- | Raised if @(throw ident value)@ is evaluated. Arguments are
     -- provided by the call to @throw@.
     | ThrownError Ident r
-    | SendError ServantError
+    | SendError Servant.ServantError
     | PatternMatchError PatternMatchError
     -- | Raised if the effectful @exit!@ primitive is evaluated.
     | Exit
     deriving (Eq, Show, Generic, Functor)
-
--- instance Serialise r => Serialise (LangErrorData r)
 
 throwErrorHere :: (MonadError (LangError Value) m, HasCallStack) => LangErrorData Value -> m a
 throwErrorHere = withFrozenCallStack (throwError . LangError [Ann.thisPos])
@@ -162,6 +158,16 @@ errorDataToValue e = case e of
       NoValue       -> makeVal ( "no-value-to-match", [])
       NoMatch       -> makeVal ( "non-exhaustive-pattern-matches", [])
       BadBindings p -> makeVal ( "bad-pattern", [("bad-pattern", p)])
+    SendError se -> makeVal
+      ( "send-error"
+      , case se of
+          Servant.FailureResponse Servant.Response{..} ->
+            [ ("error-response", String (toS responseBody))
+            , ("status-code", Number $ fromIntegral $ fromEnum responseStatusCode)
+            ]
+          Servant.ConnectionError ce -> [("connection-error", String ce)]
+          _ -> [("info", String (show se))]
+      )
     Exit -> makeVal ("exit", [])
   where
     makeA = quote . Atom
