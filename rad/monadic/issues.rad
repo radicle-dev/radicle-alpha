@@ -55,17 +55,26 @@
      :issue-number issue-number
      :created-at (now!)}))
 
+(def send-signed-command!
+  "Send a command signed by the keys in `my-keys.rad`."
+  (fn [cmd payload]
+    (send! (lookup :url (read-ref issues-chain))
+           [(list cmd (sign-entity! payload))])))
+
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."
   (fn [i]
-    (send! (lookup :url (read-ref issues-chain))
-           [(list 'create-issue (sign-entity! i))])))
+    (send-signed-command! 'create-issue! i)))
 
 (def add-comment!
   "Create a remote comment with the keys in `my-keys.rad`."
   (fn [c]
-    (send! (lookup :url (read-ref issues-chain))
-           [(list 'add-comment (sign-entity! c))])))
+    (send-signed-command! 'add-comment c)))
+
+(def edit-issue!
+  "Edit a remote issue with the keys in `my-keys.rad`."
+  (fn [i]
+    (send-signed-command! 'edit-issue i)))
 
 (def simple-create-issue!
   "Create a remote issue with sensible defaults."

@@ -3,6 +3,7 @@
 
 (import prelude/bool :unqualified)
 (import prelude/dict :unqualified)
+(import prelude/sequence :unqualified)
 (import prelude/set :as 'set)
 (import prelude/ref :unqualified)
 (import prelude/validation :as 'validator)
@@ -64,44 +65,71 @@
 (def validator/timestamp
   (validator/type :string))
 
+(def input-keys
+  {:nonce      validator/nonce
+   :chain-id   (validator/= chain-id)
+   ;; NOTE that the timestamp is claimed by the author, is not verified, and
+   ;; may be incorrect.
+   :created-at validator/timestamp})
+
 (def validator/input
   "Checks that the input as a valid new *chain input*, that is, it has an unused
   nonce, is marked with this chain name, and is signed."
   (validator/and
-   [(validator/keys
-     {:nonce      validator/nonce
-      :chain-id   (validator/= chain-id)
-      ;; NOTE that the timestamp is claimed by the author, is not verified, and
-      ;; may be incorrect.
-      :created-at validator/timestamp})
+   [(validator/has-keys input-keys)
     validator/signed]))
 
 (def validator/issue-number
   "A validator for numbers which refer to existing issues."
   (validator/pred "Existing issue number" (fn [n] (member? n (read-ref issues)))))
 
-(def validator/comment
-  "A comment should have a body."
-  (validator/keys
-   {:body (validator/text 4000)}))
+(def comment-keys
+  "A comment's body should be test that isn't too long."
+  {:body (validator/text 4000)})
+
+(def validator/sub-comment
+  (validator/keys comment-keys))
+
+(def validator/full-comment
+  (validator/has-keys comment-keys))
+
+(def validator/issue-reference
+  "Refers to an existing issue."
+  (validator/keys {:issue-number validator/issue-number}))
 
 (def validator/comment-input
   "A comment input should refer to an existing issue."
   (validator/and
    [validator/input
-    validator/comment
-    (validator/keys {:issue-number validator/issue-number})]))
+    validator/full-comment
+    validator/issue-reference]))
+
+(def issue-keys
+  {:title    (validator/text 100)
+   :body     (validator/text 4000)
+   :labels   (validator/every (validator/text 80))
+   :state    (validator/member [:open :closed])
+   :comments (validator/every validator/full-comment)})
+
+(def validator/full-issue (validator/has-keys issue-keys))
+
+(def validator/sub-issue (validator/keys issue-keys))
 
 (def validator/issue-input
   "An issue should have all the required fields, be a signed input, etc."
   (validator/and
    [validator/input
-    (validator/keys
-     {:title    (validator/text 100)
-      :body     (validator/text 4000)
-      :labels   (validator/every (validator/text 80))
-      :state    (validator/member [:open :closed])
-      :comments (validator/every validator/comment)})]))
+    validator/full-issue]))
+
+(def validator/issue-edit-input
+  "An input to edit an issue."
+  (validator/and
+   [validator/input
+    validator/sub-issue
+    validator/issue-reference
+    validator/contains-only (concat (keys issue-keys)
+                                    (keys input-keys)
+                                    [:issue-number :author :signature])]))
 
 (def strip-input
   "After an entity input has been processed/verified, we no longer need some of
@@ -122,12 +150,6 @@
     (set-issues (@ n) i_)
     (mark-used-nonce (lookup :nonce i))))
 
-(def close-issue
-  "Given an issue number, sets the state of the issue to `:closed`."
-  (fn [n]
-    (validator/issue-number n)
-    (set-issues (.. (@ n) (@ :state)) :closed)))
-
 (def add-comment
   "Add a comment to an issue."
   (fn [c]
@@ -137,6 +159,13 @@
      (.. (@ (lookup :issue-number c)) (@ :comments))
      (fn [cs] (add-right c_ cs)))
     (mark-used-nonce (lookup :nonce c))))
+
+(def edit-issue
+  "Modify some of the attributes of an issue."
+  (fn [i]
+    (validator/issue-edit-input i)
+    (def i_ (delete :author (strip-input i)))
+    (modify-issues (@ (lookup :issue-number i)) (fn [x] (<> x i_)))))
 
 ;; These are intended for clients to run locally with eval-in-chain
 
