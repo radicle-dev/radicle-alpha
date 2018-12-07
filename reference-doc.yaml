@@ -105,6 +105,7 @@ primFns:
 - load!
 - read-file!
 - read-line-handle!
+- open-file!
 - close-handle!
 - now!
 - system!
