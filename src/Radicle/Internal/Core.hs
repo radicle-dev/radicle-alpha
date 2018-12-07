@@ -27,7 +27,7 @@ import qualified Data.Set as Set
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
-import           Servant.Client
+import qualified Servant.Client as Servant
 import           System.Process
                  (CmdSpec(..), CreateProcess(..), ProcessHandle, StdStream(..))
 import qualified Text.Megaparsec.Error as Par
