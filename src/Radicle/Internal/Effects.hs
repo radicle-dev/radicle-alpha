@@ -174,6 +174,26 @@ replPrimFns = fromList $ allDocs $
               Right text -> pure $ String text
           v -> throwErrorHere $ TypeError "read-file!" 0 TString v
       )
+    , ( "open-file!"
+      , "Open file in the specified mode (`:read`, `:write`, `:append`, `:read-write`)."
+      , twoArg "open-file!" $ \case
+          (String file, (Keyword (Ident mode))) -> do
+              mode' <- case mode of
+                  "read" -> pure ReadMode
+                  "write" -> pure WriteMode
+                  "append" -> pure AppendMode
+                  "read-write" -> pure ReadWriteMode
+                  x -> throwErrorHere
+                     . OtherError
+                     $ "Expected one of :read, :write, :append, or :read-write."
+                    <> "Got: " <> x
+              res <- openFileS file mode'
+              case res of
+                  Left e -> throwErrorHere . OtherError $ "open-file!:" <> e
+                  Right v -> newHandle v
+          (v, Keyword _) -> throwErrorHere $ TypeError "open-file!" 0 TString v
+          (_, v) -> throwErrorHere $ TypeError "open-file!" 1 TKeyword v
+      )
     , ( "load!"
       , "Evaluates the contents of a file. Each seperate radicle expression is\
         \ `eval`uated according to the current definition of `eval`."

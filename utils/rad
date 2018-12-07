@@ -1,7 +1,69 @@
 #!/usr/bin/env radicle
 
 (load! "rad/prelude.rad")
+
+(def help
+  "rad - Radicle CLI utils
+
+   Usage: rad [list-issues|new-issue|help]
+
+     list-issues - Select from all issues to view or comment on
+     new-issue   - Create a new issue in $EDITOR
+     help        - Print this help and exit")
+
+
+(def list-issues
+  (fn []
+    (load! "rad/prelude/io-utils.rad")
+    (load! "rad/monadic/issues.rad")
+
+    (def mk-key (fn [v]
+      (def key (nth 0 v))
+      (def val (nth 1 v))
+      [(string-append (show key) " - " (lookup :title val)) val]))
+    (def iss (dict-from-seq (map mk-key (seq (list-issues)))))
+    (def selected (fzf-select-by-key! iss))
+    (def pretty-comment (fn [c]
+      (string-append
+        (lookup :github-username c) "[" (lookup :created-at c) "]: "
+        (lookup :body c)
+        "\n\n")))
+    (def pretty-issue (fn [i]
+      (string-append
+         "Issue " (show (lookup :number i)) " : " (lookup :title i)
+         "\nDescription: " (lookup :body i)
+         "\nState: " (if (eq? (lookup :state i) :open) "open" "closed")
+         "\nLabels: " (show (lookup :labels i))
+         "\nComments:\n\n\n" (unlines (map pretty-comment (lookup :comments i)))
+    )))
+    (put-str! (pretty-issue selected))))
+
+(def new-issue
+  (fn []
+    (load! "rad/prelude/io-utils.rad")
+    (load! "rad/monadic/issues.rad")
+    (def template
+";; Issue template. An empty or invalid value will abort.
+{:title      \"Pick a title\"
+ :body       \"Pick a body\"
+ :labels     []
+}
+")
+    (def iss (read (edit-in-editor! template)))
+    (create-issue!
+         (insert
+           :state :open
+           (insert
+              :comments []
+              (insert
+                :created-at (now!)
+                  iss))))))
+
 (def args (get-args!))
-(print! args)
 (match args
-  ["list-issues"] (print! "here"))
+  ["list-issues"] (list-issues)
+  ["new-issue"]   (new-issue)
+  ["help"]        (put-str! help)
+  _               (do
+                    (put-str! (string-append "Unrecognized command" (show args)))
+                    (put-str! help)))

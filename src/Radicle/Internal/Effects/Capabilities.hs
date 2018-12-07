@@ -68,6 +68,7 @@ class (Monad m) => System m where
     -- | hGetLine should return Nothing on EOF.
     hGetLineS :: Handle -> m (Maybe Text)
     hCloseS :: Handle -> m ()
+    openFileS :: Text -> IOMode -> m (Either Text Handle)
 
 instance System m => System (Lang m) where
     systemS proc = lift $ systemS proc
@@ -75,6 +76,8 @@ instance System m => System (Lang m) where
     hPutStrS a b = lift $ hPutStrS a b
     hGetLineS = lift . hGetLineS
     hCloseS = lift . hCloseS
+    openFileS f mode = lift $ openFileS f mode
+
 instance System IO where
     systemS = createProcess
     waitForProcessS = waitForProcess
@@ -87,12 +90,16 @@ instance System IO where
                 hSetBuffering h LineBuffering
                 Just . toS <$> hGetLine h
     hCloseS = hClose
+    openFileS f mode = catch (Right <$> openFile (toS f) mode)
+                             (\e -> pure . Left $ show (e :: IOException))
+
 instance System m => System (InputT m) where
     systemS proc = lift $ systemS proc
     waitForProcessS = lift . waitForProcessS
     hPutStrS a b = lift $ hPutStrS a b
     hGetLineS = lift . hGetLineS
     hCloseS = lift . hCloseS
+    openFileS f mode = lift $ openFileS f mode
 
 class (Monad m) => Exit m where
     exitS :: m ()
