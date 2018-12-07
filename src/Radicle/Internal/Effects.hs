@@ -189,7 +189,7 @@ replPrimFns = fromList $ allDocs $
                     <> "Got: " <> x
               res <- openFileS file mode'
               case res of
-                  Left e -> throwErrorHere . OtherError $ "open-file!:" <> e
+                  Left e  -> throwErrorHere . OtherError $ "open-file!:" <> e
                   Right v -> newHandle v
           (v, Keyword _) -> throwErrorHere $ TypeError "open-file!" 0 TString v
           (_, v) -> throwErrorHere $ TypeError "open-file!" 1 TKeyword v
