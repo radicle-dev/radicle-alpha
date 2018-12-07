@@ -18,7 +18,7 @@ main = do
         if sourceFile opts' == "-"
         then do
             src <- getContents
-            let prog = interpretMany (toS $ sourceFile opts') src
+            let prog = interpretMany "[stdin]" src
             bindings <- createBindings (toS <$> scriptArgs opts')
             (result, _state) <- runLang bindings prog
             case result of

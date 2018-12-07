@@ -212,9 +212,7 @@ replPrimFns sysArgs = fromList $ allDocs $
       , oneArg "load!" $ \case
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
-              Right text -> interpretMany
-                  ("[load! " <> filename <> "]")
-                  (ignoreShebang text)
+              Right text -> interpretMany filename (ignoreShebang text)
           v -> throwErrorHere $ TypeError "load!" 0 TString v
       )
     , ( "gen-key-pair!"
@@ -335,7 +333,7 @@ replPrimFns sysArgs = fromList $ allDocs $
           String filename -> do
             t_ <- fmap ignoreShebang <$> readFileS filename
             t <- hoistEither . first (toLangError . OtherError) $ t_
-            vs <- readValues ("file-module!: " <> filename) t
+            vs <- readValues filename t
             createModule vs
           v -> throwErrorHere $ TypeError "file-module!" 0 TString v
       )

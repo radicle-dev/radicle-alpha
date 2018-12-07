@@ -85,13 +85,13 @@ purePrimFns = fromList $ allDocs $
     , ( "read"
       , "Parses a string into a radicle value. Does not evaluate the value."
       , oneArg "read" $ \case
-          String s -> readValue s
+          String s -> readValue "[read]" s
           v -> throwErrorHere $ TypeError "read" 0 TString v
       )
     , ( "read-many"
       , "Parses a string into a vector of radicle values. Does not evaluate the values."
       , oneArg "read-many" $ \case
-          String s -> Vec . Seq.fromList <$> readValues "read-many" s
+          String s -> Vec . Seq.fromList <$> readValues "[read-many]" s
           v -> throwErrorHere $ TypeError "read-many" 0 TString v
       )
     , ("get-current-env"
@@ -651,10 +651,10 @@ threeArg fname f = \case
 readValue
     :: (MonadError (LangError Value) m)
     => Text
+    -> Text
     -> m Value
-readValue s = do
-    let p = parse "[read-primop]" s
-    case p of
+readValue sourceFile code = do
+    case parse sourceFile code of
       Right v -> pure v
       Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String e)
 
@@ -663,9 +663,8 @@ readValues
     => Text
     -> Text
     -> m [Value]
-readValues name s = do
-    let p = parseValues ("[" <> name <> "-primop]") s
-    case p of
+readValues sourceFile code = do
+    case parseValues sourceFile code  of
       Right vs -> pure vs
       Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String . toS $ parseErrorPretty e)
 
