@@ -81,6 +81,7 @@
     (send-signed-command! 'edit-issue i)))
 
 (def edit-comment!
+  "Edit a remote comment with the keys in `my-keys.rad`."
   (fn [c]
     (send-signed-command! 'edit-comment c)))
 

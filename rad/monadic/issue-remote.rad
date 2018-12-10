@@ -228,7 +228,7 @@
       {:issue-number 'n
        :comment-index 'i}
       (do (validator/comment-edit-input c)
-          (def c_ (delete :author (strip-input c)))
+          (def c_ (strip-input c))
           (over-issues (... [(@ n) (@ :comments) (@nth i)]) (merge-new c_))))))
 
 ;; These are intended for clients to run locally with eval-in-chain

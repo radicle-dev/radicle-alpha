@@ -1,6 +1,6 @@
 {:module 'prelude/validation
  :doc "Functions for creating or combining *validators*, which are functions which return the input unchanged or throw with an error message. These can be used for checking data before accepting it onto a chain."
- :exports '[= member and or type pred integral key contains contains-many contains-only has-key keys has-keys every uuid signed]}
+ :exports '[= member and or type pred integral key contains contains-all contains-only has-key keys has-keys every uuid signed]}
 
 (import prelude/dict :unqualified)
 (import prelude/dict :as 'dict)
@@ -106,7 +106,7 @@
          d)
         (throw 'validation-failure (string-append "Not a dict: " (show d)))))))
 
-(def contains-many
+(def contains-all
   "Given a vector of keys, returns a validator which checks that a structure
   contains all of them."
   (fn [ks]
@@ -125,7 +125,7 @@
 (def has-keys
   "Checks for the existence and validity of keys."
   (fn [ks]
-    (and [(contains-many (dict/keys ks)) (keys ks)])))
+    (and [(contains-all (dict/keys ks)) (keys ks)])))
 
 (def every
   "Given a validator, creates a new validator which checks that all the items in
