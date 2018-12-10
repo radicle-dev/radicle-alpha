@@ -17,8 +17,8 @@
 
 (def create-issues-chain!
   "Create a remote issue chain with the given url."
-  (fn []
-    (def url (lookup :url (read-ref issues-chain)))
+  (fn [chain]
+    (def url (lookup :url (read-ref chain)))
     (chain/send-prelude! url)
     (send-code! url "rad/monadic/issue-remote.rad")))
 
@@ -57,41 +57,41 @@
 
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."
-  (fn [i]
-    (send! (lookup :url (read-ref issues-chain))
+  (fn [chain i]
+    (send! (lookup :url (read-ref chain))
            [(list 'create-issue (sign-entity! i))])))
 
 (def add-comment!
   "Create a remote comment with the keys in `my-keys.rad`."
-  (fn [c]
-    (send! (lookup :url (read-ref issues-chain))
+  (fn [chain c]
+    (send! (lookup :url (read-ref chain))
            [(list 'add-comment (sign-entity! c))])))
 
 (def simple-create-issue!
   "Create a remote issue with sensible defaults."
-  (fn [tit bod]
-    (create-issue! (simple-issue tit bod))))
+  (fn [chain tit bod]
+    (create-issue! chain (simple-issue tit bod))))
 
 (def simple-add-comment!
   "Create a remote comment."
-  (fn [in b]
-    (add-comment! (simple-comment in b))))
+  (fn [chain in b]
+    (add-comment! chain (simple-comment in b))))
 
 (def list-issues
   "Return the full map of issues."
-  (fn []
-    (lookup :result (chain/eval-in-chain '(list-issues) (read-ref issues-chain)))))
+  (fn [chain]
+    (lookup :result (chain/eval-in-chain '(list-issues) (read-ref chain)))))
 
 (def fetch!
   "Update the locally cached state of the chain."
-  (fn []
-    (chain/update-chain-ref! issues-chain)))
+  (fn [chain]
+    (chain/update-chain-ref! chain)))
 
 (def import-github
   "Imports the github issues stored in file `githubissues.rad`. To create this
   file use the `radicle-github-issues` executable. Will add a note to all
   `:body`s that this is an imported entity."
-  (fn []
+  (fn [chain]
     (def note-imported
       (fn [x]
         (insert
@@ -109,7 +109,7 @@
       (map
        (fn [i] (note-imported (note-comments i)))
        issues))
-    (map create-issue! imported)))
+    (map (fn [i] (create-issue! chain i) imported))))
 
 (def short
   "Short render of an issue."
@@ -121,25 +121,25 @@
 
 (def list-last
   "Get the last `n` issues."
-  (fn [n]
-    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues))))
+  (fn [chain n]
+    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues chain))))
     (take n is)))
 
 (def get-by-id
   (fn [id]
-    (lookup id (list-issues))))
+    (lookup id (list-issues chain))))
 
 (:test
  "The monadic issues chain works."
  [:setup
-  (do (write-ref issues-chain (chain/new-chain "http://localhost:8024/chains/fxoo"))
-      (create-issues-chain!)
-      (simple-create-issue! "title0" "body0")
-      (simple-create-issue! "title1" "body1")
-      (simple-add-comment! 0 "comment0")
-      (simple-add-comment! 1 "comment1")
-      (fetch!)
-      (def is (list-issues)))]
+  (do (def chain (ref (chain/new-chain "http://localhost:8024/chains/fxoo")))
+      (create-issues-chain! chain)
+      (simple-create-issue! chain "title0" "body0")
+      (simple-create-issue! chain "title1" "body1")
+      (simple-add-comment! chain 0 "comment0")
+      (simple-add-comment! chain 1 "comment1")
+      (fetch! chain)
+      (def is (list-issues chain)))]
  [ (length (seq is)) ==> 2 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]

@@ -2,7 +2,10 @@
 
 (load! "rad/prelude.rad")
 
+(def base-name "http://machine.radicle.xyz/chains")
+
 (def help
+  (string-append
   "rad-issues - Radicle issue CLI
 
    Usage:
@@ -11,12 +14,22 @@
 
      list - Select from all issues to view or comment on
      new  - Create a new issue in $EDITOR
-     help - Print this help and exit")
+     help - Print this help and exit
 
-(def base-name "http://machine.radicle.xyz/chains")
+   If <chain-name> begins with 'http://', that URL will be used. Otherwise,
+  " base-name " will be prepended to <chain-name>." ))
+
+(def make-chain-ref
+  (fn [chain]
+    (def name
+      (if (eq? (take 7 chain) "http://")
+          chain
+          (string-append base-name chain)))
+    (ref (chain/load-chain! name))))
 
 (def list-issues
-  (fn []
+  (fn [chain]
+    (def chain-ref (make-chain-ref chain))
     (load! "rad/prelude/io-utils.rad")
     (load! "rad/monadic/issues.rad")
 
@@ -24,7 +37,7 @@
       (def key (nth 0 v))
       (def val (nth 1 v))
       [(string-append (show key) " - " (lookup :title val)) val]))
-    (def iss (dict-from-seq (map mk-key (seq (list-issues)))))
+    (def iss (dict-from-seq (map mk-key (seq (list-issues chain-ref)))))
     (def selected (fzf-select-by-key! iss))
     (def pretty-comment (fn [c]
       (string-append
@@ -42,7 +55,8 @@
     (put-str! (pretty-issue selected))))
 
 (def new-issue
-  (fn []
+  (fn [chain]
+    (def chain-ref (make-chain-ref chain))
     (load! "rad/prelude/io-utils.rad")
     (load! "rad/monadic/issues.rad")
     (def template
@@ -54,19 +68,20 @@
 ")
     (def iss (read (edit-in-editor! template)))
     (create-issue!
-         (insert
-           :state :open
+      chain-ref
+      (insert
+        :state :open
+        (insert
+           :comments []
            (insert
-              :comments []
-              (insert
-                :created-at (now!)
-                  iss))))))
+             :created-at (now!)
+               iss))))))
 
 (def args (get-args!))
 (match args
-  ["list"] (list-issues)
-  ["new" ] (new-issue)
-  ["help"] (put-str! help)
-  _        (do
-             (put-str! (string-append "Unrecognized command" (show args)))
-             (put-str! help)))
+  ["list" 'chain] (list-issues chain)
+  ["new"  'chain] (new-issue chain)
+  ["help"]        (put-str! help)
+  _               (do
+                    (put-str! (string-append "Unrecognized command" (show args)))
+                    (put-str! help)))
