@@ -128,9 +128,7 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
        :proc   'ph
       } (do (write-handle! stdin to-write)
             (close-handle! stdin)
-            (def out (read-contents-handle! stdout))
-            (print! out)
-            out)
+            (read-contents-handle! stdout))
       _ (throw 'io-error "expected only stdin and stdout to be open"))))
 
 (:test "process-with-stdout!"
