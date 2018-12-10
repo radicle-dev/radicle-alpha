@@ -115,7 +115,7 @@ instance PrettyV r => PrettyV (LangErrorData r) where
         OtherError t -> "Error:" <+> pretty t
         SpecialForm f t -> "Error using special form" <+> pretty f <> ":" <+> pretty t <> "."
         ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)
-        Exit -> "Exit"
+        Exit code -> "Exit with code " <+> pretty code
         ThrownError i val -> "Exception" <+> pretty i <+> prettyV val
         PatternMatchError e -> case e of
           NoMatch -> "Pattern match(es) are non-exhaustive."

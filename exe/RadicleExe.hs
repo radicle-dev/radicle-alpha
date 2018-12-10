@@ -7,30 +7,34 @@ import           Options.Applicative
 import           System.Directory (doesFileExist)
 
 import           Radicle
+import           Radicle.Internal.Effects (exitCode)
 import           Radicle.Internal.HttpStorage
 import           Radicle.Internal.Pretty (putPrettyAnsi)
 
 main :: IO ()
 main = do
     opts' <- execParser allOpts
-    if sourceFile opts' == "-"
-    then do
-        src <- getContents
-        let prog = interpretMany (toS $ sourceFile opts') src
-        bindings <- createBindings (toS <$> scriptArgs opts')
-        (result, _state) <- runLang bindings prog
-        case result of
-            Left (LangError _ Exit) -> pure ()
-            Left e                  -> do putPrettyAnsi e
-                                          exitWith (ExitFailure 1)
-            Right v                 -> putPrettyAnsi v
-    else do
-        src <- ignoreShebang <$> readSource (sourceFile opts')
-        hist <- case histFile opts' of
-            Nothing -> getHistoryFile
-            Just h  -> pure h
-        bindings <- createBindings (toS <$> scriptArgs opts')
-        repl (Just hist) (toS $ sourceFile opts') src bindings
+    code <-
+        if sourceFile opts' == "-"
+        then do
+            src <- getContents
+            let prog = interpretMany (toS $ sourceFile opts') src
+            bindings <- createBindings (toS <$> scriptArgs opts')
+            (result, _state) <- runLang bindings prog
+            case result of
+                Left (LangError _ (Exit n)) -> pure (exitCode n)
+                Left e -> do putPrettyAnsi e
+                             pure $ ExitFailure 1
+                Right v -> do putPrettyAnsi v
+                              pure ExitSuccess
+        else do
+            src <- ignoreShebang <$> readSource (sourceFile opts')
+            hist <- case histFile opts' of
+                Nothing -> getHistoryFile
+                Just h  -> pure h
+            bindings <- createBindings (toS <$> scriptArgs opts')
+            repl (Just hist) (toS $ sourceFile opts') src bindings
+    exitWith code
   where
     allOpts = info (opts <**> helper)
         ( fullDesc

@@ -24,6 +24,7 @@ import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
 import           Radicle.Internal.Interpret
+import           Radicle.Internal.Number (isInt)
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.PrimFns
 import           Radicle.Internal.Type (Type(..))
@@ -48,7 +49,7 @@ instance UUID.MonadUUID (InputT IO) where
 instance UUID.MonadUUID m => UUID.MonadUUID (LangT (Bindings (PrimFns m)) m) where
     uuid = lift UUID.uuid
 
-repl :: Maybe FilePath -> Text -> Text -> Bindings (PrimFns (InputT IO)) -> IO ()
+repl :: Maybe FilePath -> Text -> Text -> Bindings (PrimFns (InputT IO)) -> IO ExitCode
 repl histFile preFileName preCode bindings = do
     let settings = setComplete completion
                  $ defaultSettings { historyFile = histFile }
@@ -56,9 +57,14 @@ repl histFile preFileName preCode bindings = do
         $ fmap fst $ runLang bindings
         $ void $ interpretMany preFileName preCode
     case r of
-        Left (LangError _ Exit) -> pure ()
-        Left e                  -> putPrettyAnsi e
-        Right ()                -> pure ()
+        Left (LangError _ (Exit n)) -> pure (exitCode n)
+        Left e -> do putPrettyAnsi e
+                     pure $ ExitFailure 1
+        Right () -> pure ExitSuccess
+
+exitCode :: Int -> ExitCode
+exitCode 0 = ExitSuccess
+exitCode n = ExitFailure n
 
 completion :: Monad m => CompletionFunc m
 completion = completeWord Nothing ['(', ')', ' ', '\n'] go
@@ -148,7 +154,7 @@ replPrimFns sysArgs = fromList $ allDocs $
                             st <- get
                             join $ (action >> pure (loop action)) `catchError`
                                 (\err -> case err of
-                                   LangError _ Exit -> pure (pure nil)
+                                   LangError _ (Exit _) -> pure (pure nil)
                                    LangError _ (Impossible _) -> do
                                        putPrettyAnsi err
                                        throwError err
@@ -308,10 +314,12 @@ replPrimFns sysArgs = fromList $ allDocs $
           v -> throwErrorHere $ TypeError "wait-for-process!" 0 TProcHandle v
       )
     , ( "exit!"
-      , "Exit the interpreter immediately."
-      , \case
-          [] -> throwErrorHere Exit
-          xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)
+      , "Exit the interpreter immediately with the given exit code."
+      , oneArg "exit!" $ \case
+          Number q -> case isInt q of
+            Left _ -> throwErrorHere $ OtherError $ "exit!: number is not an integer"
+            Right n -> throwErrorHere $ Exit n
+          v -> throwErrorHere $ TypeError "exit!" 0 TNumber v
       )
     , ( "now!"
       , "Returns a timestamp for the current Coordinated Universal Time (UTC), right now, formatted according to ISO 8601."

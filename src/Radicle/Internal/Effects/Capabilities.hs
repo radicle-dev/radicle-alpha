@@ -101,11 +101,6 @@ instance System m => System (InputT m) where
     hCloseS = lift . hCloseS
     openFileS f mode = lift $ openFileS f mode
 
-class (Monad m) => Exit m where
-    exitS :: m ()
-instance Exit m => Exit (Lang m) where
-    exitS = lift exitS
-
 class Monad m => CurrentTime m where
   currentTime :: m UTCTime
 
