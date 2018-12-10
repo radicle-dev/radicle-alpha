@@ -49,13 +49,6 @@ readSource file = do
        then readFile file
        else die $ "Could not find file: " <> toS file
 
--- | Since `#` is not a comment in radicle, we need to explictly remove shebang
--- lines.
-ignoreShebang :: Text -> Text
-ignoreShebang src = case T.lines src of
-    f:rest -> T.unlines $ if "#!" `T.isPrefixOf` f then rest else f:rest
-    _      -> src
-
 radDesc :: String
 radDesc
     = "Interprets a radicle program.\n"

@@ -200,7 +200,9 @@ replPrimFns = fromList $ allDocs $
       , oneArg "load!" $ \case
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
-              Right text -> interpretMany ("[load! " <> filename <> "]") text
+              Right text -> interpretMany
+                  ("[load! " <> filename <> "]")
+                  (ignoreShebang text)
           v -> throwErrorHere $ TypeError "load!" 0 TString v
       )
     , ( "gen-key-pair!"
@@ -317,10 +319,17 @@ replPrimFns = fromList $ allDocs $
         \ That is, the file is evaluated as if the code was wrapped in `(module ...)`."
       , oneArg "file-module!" $ \case
           String filename -> do
-            t_ <- readFileS filename
+            t_ <- fmap ignoreShebang <$> readFileS filename
             t <- hoistEither . first (toLangError . OtherError) $ t_
             vs <- readValues ("file-module!: " <> filename) t
             createModule vs
           v -> throwErrorHere $ TypeError "file-module!" 0 TString v
       )
     ]
+
+-- | Since `#` is not a comment in radicle, we need to explictly remove shebang
+-- lines.
+ignoreShebang :: Text -> Text
+ignoreShebang src = case T.lines src of
+    f:rest -> T.unlines $ if "#!" `T.isPrefixOf` f then rest else f:rest
+    _      -> src

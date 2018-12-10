@@ -3,14 +3,17 @@
 (load! "rad/prelude.rad")
 
 (def help
-  "rad - Radicle CLI utils
+  "rad-issues - Radicle issue CLI
 
-   Usage: rad [list-issues|new-issue|help]
+   Usage:
+        rad [list|new] <chain-name>
+        rad help
 
-     list-issues - Select from all issues to view or comment on
-     new-issue   - Create a new issue in $EDITOR
-     help        - Print this help and exit")
+     list - Select from all issues to view or comment on
+     new  - Create a new issue in $EDITOR
+     help - Print this help and exit")
 
+(def base-name "http://machine.radicle.xyz/chains")
 
 (def list-issues
   (fn []
@@ -61,9 +64,9 @@
 
 (def args (get-args!))
 (match args
-  ["list-issues"] (list-issues)
-  ["new-issue"]   (new-issue)
-  ["help"]        (put-str! help)
-  _               (do
-                    (put-str! (string-append "Unrecognized command" (show args)))
-                    (put-str! help)))
+  ["list" chain] (list-issues chain)
+  ["new" chain]  (new-issue chain)
+  ["help"]       (put-str! help)
+  _              (do
+                   (put-str! (string-append "Unrecognized command" (show args)))
+                   (put-str! help)))
