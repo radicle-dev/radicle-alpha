@@ -13,14 +13,16 @@ in
 
 stdenv.mkDerivation {
     name = "radicle-dev";
-    buildInputs = [ ghc zlib python3 wget stack postgresql glibcLocales moreutils fzf]
+    buildInputs = [ ghc zlib glibcLocales python3 wget stack postgresql moreutils fzf]
       ++ (if doc then [docstuffs postgresql] else [])
       ++ (if extras then [ vimPlugins.stylish-haskell haskellPackages.apply-refact hlint ] else []);
+    LANG = "en_US.UTF-8";
     libraryPkgconfigDepends = [ zlib ];
     shellHook = ''
       export PATH=$PATH:`stack path --local-bin`
-      export STACK_ARGS="--system-ghc --nix-packages 'zlib fzf moreutils'"
+      export STACK_ARGS="--system-ghc --no-nix-pure --nix-packages 'zlib fzf moreutils'"
       export IS_NIX_SHELL="true"
+      export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
       eval $(grep export ${ghc}/bin/ghc)
       alias check="pushd $PWD && ./scripts/check-fmt.sh && hlint . && popd"
       alias mkdocs="pushd $PWD/docs && make html && popd"
