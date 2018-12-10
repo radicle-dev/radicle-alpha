@@ -197,7 +197,7 @@
 (def file-to-module
   "Make the text of a file into code for a module."
   (fn [file]
-    (cons 'module (vec-to-list (read-many (read-file! file))))))
+    (cons 'module (vec-to-list (read-file-code! file)))))
 
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new chain."

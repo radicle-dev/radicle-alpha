@@ -75,7 +75,7 @@ purePrimFns = fromList $ allDocs $
           [] -> pure $ bindingsToRadicle (pureEnv :: Bindings (PrimFns m))
           xs -> throwErrorHere $ WrongNumberOfArgs "pure-env" 0 (length xs)
       )
-    , ("apply"
+    , ( "apply"
       , "Calls the first argument (a function) using as arguments the\
         \ elements of the the second argument (a list)."
       , \case

@@ -5,6 +5,7 @@ module Radicle.Internal.Effects where
 import           Protolude hiding (TypeError, toList)
 
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import qualified Data.Time as Time
 import           GHC.Exts (IsList(..))
@@ -184,6 +185,16 @@ replPrimFns sysArgs = fromList $ allDocs $
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
               Right text -> pure $ String text
+          v -> throwErrorHere $ TypeError "read-file!" 0 TString v
+      )
+    , ( "read-file-code!"
+      , "Reads many radicle expressions contained in a file. The advantage of\
+        \ this function over `(read-many (read-file f))` is that the values are\
+        \ annotated with `f`'s line numbers."
+      , oneArg "rad-file-code" $ \case
+          String filename -> readFileS filename >>= \case
+              Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
+              Right text -> Vec . Seq.fromList <$> readValues filename text
           v -> throwErrorHere $ TypeError "read-file!" 0 TString v
       )
     , ( "open-file!"

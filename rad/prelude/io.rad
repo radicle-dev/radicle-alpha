@@ -1,6 +1,6 @@
 {:module 'prelude/io
  :doc "Some basic I/O functions."
- :exports '[print! shell! process! read-line! send-code! read-code!
+ :exports '[print! shell! process! read-line! send-code!
             shell-with-stdout! shell-no-stdin! process-with-stdout! write-file!
            ]}
 
@@ -11,15 +11,10 @@
   "Read a single line of input and interpret it as radicle data."
   (fn [] (read (get-line!))))
 
-(def read-code!
-  "Read code (as data) from a file. Returns a vector of expressions"
-  (fn [filename]
-    (read-many (read-file! filename))))
-
 (def send-code!
   "Send code from a file to a remote chain."
   (fn [chain-id filename]
-    (send! chain-id (read-code! filename))))
+    (send! chain-id (read-file-code! filename))))
 
 (def print!
   "Print a value to the console or stdout."
