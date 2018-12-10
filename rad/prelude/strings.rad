@@ -1,6 +1,6 @@
 {:module 'prelude/strings
  :doc    "String manipulation functions."
- :exports '[intercalate unlines unwords split-by words lines]
+ :exports '[intercalate unlines unwords split-by words lines map-string]
  }
 
 (import prelude/basic :unqualified)
@@ -105,3 +105,21 @@
   [ (lines "foo bar\n\n\nfoo") ==> ["foo bar" "foo"]]
   [ (lines " \n \t") ==> [" " " \t"]]
   [ (lines "") ==> []])
+
+;; map-string
+
+(def map-string
+  "Returns a string consisting of the results of applying `f` to each character
+  of `xs`. Throws a type error if `f` returns something other than a string"
+  (fn [f xs]
+    (def g
+      (fn [acc new-char]
+        (string-append acc (f new-char))))
+    (foldl-string g "" xs)))
+
+(:test "map-string"
+  [ (map-string (fn [x] "A") "foo") ==> "AAA"]
+  [ (map-string (fn [x] "Ah") "foo") ==> "AhAhAh"]
+  [ (map-string (fn [x] "A") "") ==> ""]
+  [ (map-string (fn [x] "") "foo") ==> ""]
+  [ (catch 'type-error (map-string (fn [x] 2) "foo") (fn [x] :caught)) ==> :caught])
