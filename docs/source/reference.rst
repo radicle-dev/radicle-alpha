@@ -439,6 +439,12 @@ Given an elliptic curve, generates a cryptographic key-pair. Use
 Given a private key and a message (a string), generates a cryptographic
 signature for the message.
 
+``get-args!``
+~~~~~~~~~~~~~
+
+Returns the list of the command-line arguments the script was called
+with
+
 ``put-str!``
 ~~~~~~~~~~~~
 
