@@ -1,6 +1,7 @@
 ;; Issue chain
 ;; Meant to be sent to a chain with send-code!
 
+(import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
 (import prelude/dict :unqualified)
 (import prelude/sequence :unqualified)
@@ -136,6 +137,12 @@
     validator/time-created
     validator/full-issue]))
 
+(def edit-keys
+  (fn [ks]
+    (concat [ks
+             (keys input-keys)
+             [:issue-number :modified-at :author :signature]])))
+
 (def validator/issue-edit-input
   "An input to edit an issue."
   (validator/and
@@ -143,9 +150,35 @@
     validator/time-modified
     validator/sub-issue
     validator/issue-reference
-    (validator/contains-only (concat [(keys issue-keys)
-                                      (keys input-keys)
-                                      [:issue-number :modified-at :author :signature]]))]))
+    (validator/contains-only (edit-keys (keys issue-keys)))]))
+
+(def validator/comment-edit-input
+  "An input which edits a comment. In particular it should refer to an existing
+  issue, to a valid comment-index in that issue, and the author of the edit
+  should be the same as the original author of the comment."
+  (validator/and
+   [validator/input
+    validator/time-modified
+    validator/sub-comment
+    validator/issue-reference
+    (validator/contains-only (<> (edit-keys (keys comment-keys))
+                                 [:comment-index]))
+    (validator/has-keys
+     {:comment-index validator/integral})
+    (validator/pred "comment index exists"
+                    (fn [c]
+                      (match c
+                             {:comment-index 'i
+                              :issue-number 'n}
+                             (< i (length (view-ref issues (.. (@ n) (@ :comments))))))))
+    (validator/pred "edit author == original author"
+                    (fn [c]
+                      (match c
+                             {:issue-number 'n
+                              :comment-index 'i
+                              :author 'a}
+                             (eq? (view-ref issues (... [(@ n) (@ :comments) (@nth i) (@ :author)]))
+                                  a))))]))
 
 (def strip-input
   "After an entity input has been processed/verified, we no longer need some of
@@ -176,12 +209,27 @@
      (fn [cs] (add-right c_ cs)))
     (mark-used-nonce (lookup :nonce c))))
 
+(def merge-new
+  (fn [new]
+    (fn [old]
+      (<> old new))))
+
 (def edit-issue
   "Modify some of the attributes of an issue."
   (fn [i]
     (validator/issue-edit-input i)
     (def i_ (delete :author (strip-input i)))
-    (over-issues (@ (lookup :issue-number i)) (fn [x] (<> x i_)))))
+    (over-issues (@ (lookup :issue-number i)) (merge-new i_))))
+
+(def edit-comment
+  "Modify a comment of an issue."
+  (fn [c]
+    (match c
+      {:issue-number 'n
+       :comment-index 'i}
+      (do (validator/comment-edit-input c)
+          (def c_ (delete :author (strip-input c)))
+          (over-issues (... [(@ n) (@ :comments) (@nth i)]) (merge-new c_))))))
 
 ;; These are intended for clients to run locally with eval-in-chain
 
@@ -197,6 +245,7 @@
    {'create-issue create-issue
     'edit-issue   edit-issue
     'add-comment  add-comment
+    'edit-comment edit-comment
     'list-issues  list-issues}))
 
 (def process-command

@@ -1049,6 +1049,11 @@ as returned by the ``type`` function.
 Given a description and a predicate, returns a validator that checks if
 the predicate is true.
 
+``(integral n)``
+~~~~~~~~~~~~~~~~
+
+Validator for whole numbers.
+
 ``(key k v)``
 ~~~~~~~~~~~~~
 
