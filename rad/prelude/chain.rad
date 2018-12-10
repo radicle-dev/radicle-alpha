@@ -28,7 +28,7 @@
 ;; eval-in-chain
 
 (def eval-in-chain
-  "Evaluates 'expr' in the 'chain' and returns a dict with the ':result' and the resulting ':chain'."
+  "Evaluates `expr` in the `chain` and returns a dict with the `:result` and the resulting `:chain`."
   (fn [expr chain]
     (def chain-eval (view (.. (@ :state) (@var 'eval)) chain))
     (def x (chain-eval expr (lookup :state chain)))
@@ -129,7 +129,7 @@
 
 ;; enter-remote-chain!
 (def enter-remote-chain!
-  "Make the eval behave as that of a remote chain. The second param is the env to return to after :quit."
+  "Make the eval behave as that of a remote chain. The second param is the env to return to after `:quit`."
   (fn [url env]
     (def chain (load-chain! url))
     (def chain-state (lookup :state chain))

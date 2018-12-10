@@ -3,6 +3,6 @@
  :exports ['modify-ref]}
 
 (def modify-ref
-  "Modify 'ref' by applying the provided function. Returns the new value."
+  "Modify `r` by applying the function `f`. Returns the new value."
   (fn [r f]
     (write-ref r (f (read-ref r)))))

@@ -106,7 +106,7 @@
 
 ;; view-ref
 (def view-ref
-  "Like 'view', but for refs."
+  "Like `view`, but for refs."
   (fn [r lens]
     (view lens (read-ref r))))
 
@@ -116,7 +116,7 @@
 ;; set-ref
 
 (def set-ref
-  "Like 'set', but for refs."
+  "Like `set`, but for refs."
   (fn [r lens v]
     (modify-ref r (fn [x] (set lens v x)))))
 
@@ -130,7 +130,7 @@
 ;; over-ref
 
 (def over-ref
-  "Like 'over', but for refs."
+  "Like `over`, but for refs."
   (fn [r lens f]
     (modify-ref r (fn [x] (over lens f x)))))
 

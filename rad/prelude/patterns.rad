@@ -5,10 +5,10 @@
 (import prelude/basic :unqualified)
 
 (def exclusive-dict-merge
-  "Merges two dicts while checking for key conflicts. Returns `{:merge
-  m :conflicts c}` where `m` is the merged dict for all non-conflicting keys and
-  `c` is a dict with all the conflicting keys, mapping to pairs of values, one
-  from each input dict."
+  "Merges two dicts while checking for key conflicts. Returns
+  `{:merge m :conflicts c}` where `m` is the merged dict for all non-conflicting
+  keys and `c` is a dict with all the conflicting keys, mapping to pairs of
+  values, one from each input dict."
   (fn [m n]
     (foldr (fn [kv acc]
              (def k (nth 0 kv))

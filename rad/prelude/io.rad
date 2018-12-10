@@ -88,8 +88,8 @@ Example: `(shell! \"ls -Glah\" \"\")`. "
 
 
 (def process!
-  "Executes `command` using 'execvp'. with 'to-write' as input. Stdout and stderr are inherited.
-See 'man exec' for more information on 'execvp'.
+  "Executes `command` using `execvp` with `to-write` as input. Stdout and stderr are inherited.
+See `man exec` for more information on `execvp`.
 Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   (fn [command args to-write]
     (def cp

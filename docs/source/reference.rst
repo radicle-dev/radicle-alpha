@@ -387,7 +387,7 @@ Replaces the radicle state with the one provided.
 ~~~~~~~~~~~~
 
 Given an atom ``x`` and a value ``v``, sets the value associated to
-``x`` in the current environemtn to be ``v``. Doesn't evaluate ``v``.
+``x`` in the current environment to be ``v``. Doesn't evaluate ``v``.
 
 ``to-json``
 ~~~~~~~~~~~
@@ -531,7 +531,7 @@ value, etc.
 ``(or x y)``
 ~~~~~~~~~~~~
 
-Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'
+Returns ``x`` if ``x`` is not ``#f``, otherwise returns ``y``
 
 ``(some xs)``
 ~~~~~~~~~~~~~
@@ -541,12 +541,12 @@ Checks that there is a least one truthy value in a list.
 ``(empty-seq? xs)``
 ~~~~~~~~~~~~~~~~~~~
 
-Returns true if the input is an empty sequence (either list or vector).
+Returns true if ``xs`` is an empty sequence (either list or vector).
 
 ``(length xs)``
 ~~~~~~~~~~~~~~~
 
-Returns the length of 'list'.
+Returns the length of ``xs``.
 
 ``(maybe->>= v f)``
 ~~~~~~~~~~~~~~~~~~~
@@ -556,8 +556,8 @@ Monadic bind for the maybe monad.
 ``(maybe-foldlM f i xs)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Monadic fold over the elements of a seq, associating to the left (i.e.
-from left to right) in the maybe monad.
+Monadic fold over the elements of a sequence ``xs``, associating to the
+left (i.e. from left to right) in the maybe monad.
 
 ``(elem? x xs)``
 ~~~~~~~~~~~~~~~~
@@ -669,9 +669,9 @@ user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
 ``(process! command args to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Executes ``command`` using 'execvp'. with 'to-write' as input. Stdout
-and stderr are inherited. See 'man exec' for more information on
-'execvp'. Example: ``(process! "ls" ["-Glah"] "")``.
+Executes ``command`` using ``execvp`` with ``to-write`` as input. Stdout
+and stderr are inherited. See ``man exec`` for more information on
+``execvp``. Example: ``(process! "ls" ["-Glah"] "")``.
 
 ``(read-line!)``
 ~~~~~~~~~~~~~~~~
@@ -733,30 +733,30 @@ Functions for manipulating lists.
 
 The empty list.
 
-``(empty? ls)``
-~~~~~~~~~~~~~~~
+``(empty? seq)``
+~~~~~~~~~~~~~~~~
 
-True if 'seq' is empty, false otherwise.
+True if ``seq`` is empty, false otherwise.
 
 ``(reverse ls)``
 ~~~~~~~~~~~~~~~~
 
-Returns the reversed 'ls'.
+Returns the reversed list ``ls``.
 
 ``(range from to)``
 ~~~~~~~~~~~~~~~~~~~
 
-Returns a list with all integers from ``from`` to ``end``, inclusive.
+Returns a list with all integers from ``from`` to ``to``, inclusive.
 
 ``(concat list1 list2)``
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Concatenates 'list1' and 'list2'.
+Concatenates ``list1`` and ``list2``.
 
 ``(filter pred ls)``
 ~~~~~~~~~~~~~~~~~~~~
 
-Returns 'list' with only the elements that satisfy 'filter-cond'.
+Returns ``ls`` with only the elements that satisfy ``pred``.
 
 ``prelude/dict``
 ----------------
@@ -771,29 +771,29 @@ Creates a dictionary from a list of key-value pairs.
 ``(keys d)``
 ~~~~~~~~~~~~
 
-Given a ``dict``, returns a vector of its keys.
+Given a dict ``d``, returns a vector of its keys.
 
 ``(values d)``
 ~~~~~~~~~~~~~~
 
-Given a ``dict``, returns a vector of its values.
+Given a dict ``d``, returns a vector of its values.
 
-``(rekey old-key new-key mp)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(rekey old-key new-key d)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Change the key from 'old-key' to 'new-key' in 'dict'. If 'new-key'
-already exists, it is overwritten.
+Change the key from ``old-key`` to ``new-key`` in a dict ``d``. If
+``new-key`` already exists, it is overwritten.
 
-``(modify-map key f mp)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
+``(modify-map k f d)``
+~~~~~~~~~~~~~~~~~~~~~~
 
-Given a key, a function and a dict, applies the function to the value
-associated to that key.
+Given a key ``k``, a function ``f`` and a dict ``d``, applies the
+function to the value associated to that key.
 
 ``(delete-many ks d)``
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Delete several keys from a dict.
+Delete several keys ``ks`` from a dict ``d``.
 
 ``prelude/set``
 ---------------
@@ -838,7 +838,7 @@ Functions for dealing with reference cells.
 ``(modify-ref r f)``
 ~~~~~~~~~~~~~~~~~~~~
 
-Modify 'ref' by applying the provided function. Returns the new value.
+Modify ``r`` by applying the function ``f``. Returns the new value.
 
 ``prelude/lens``
 ----------------
@@ -893,17 +893,17 @@ Lenses into the nth element of a vector
 ``(view-ref r lens)``
 ~~~~~~~~~~~~~~~~~~~~~
 
-Like 'view', but for refs.
+Like ``view``, but for refs.
 
 ``(set-ref r lens v)``
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Like 'set', but for refs.
+Like ``set``, but for refs.
 
 ``(over-ref r lens f)``
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Like 'over', but for refs.
+Like ``over``, but for refs.
 
 ``prelude/chain``
 -----------------
@@ -924,8 +924,8 @@ chain dictionary with the chain state.
 ``(eval-in-chain expr chain)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Evaluates 'expr' in the 'chain' and returns a dict with the ':result'
-and the resulting ':chain'.
+Evaluates ``expr`` in the ``chain`` and returns a dict with the
+``:result`` and the resulting ``:chain``.
 
 ``(update-chain-ref! chain-ref)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

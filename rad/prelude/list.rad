@@ -11,8 +11,8 @@
 ;; empty?
 
 (def empty?
-  "True if 'seq' is empty, false otherwise."
-  (fn [ls] (or (eq? ls nil) (eq? ls []))))
+  "True if `seq` is empty, false otherwise."
+  (fn [seq] (or (eq? seq nil) (eq? seq []))))
 
 (:test "empty"
   [ (empty? (list 2)) ==> #f ]
@@ -23,7 +23,7 @@
 ;; reverse
 
 (def reverse
-  "Returns the reversed 'ls'."
+  "Returns the reversed list `ls`."
   (fn [ls]
     (def-rec go
       (fn [acc new]
@@ -39,7 +39,7 @@
 ;; range
 
 (def-rec range
-  "Returns a list with all integers from `from` to `end`, inclusive."
+  "Returns a list with all integers from `from` to `to`, inclusive."
   (fn [from to]
     (if (eq? from to)
         (list to)
@@ -52,7 +52,7 @@
 ;; concat
 
 (def concat
-  "Concatenates 'list1' and 'list2'."
+  "Concatenates `list1` and `list2`."
   (fn [list1 list2]
     (foldr (fn [a b] (cons a b)) list2 list1)))
 
@@ -63,7 +63,7 @@
 ;; filter
 
 (def-rec filter
-  "Returns 'list' with only the elements that satisfy 'filter-cond'."
+  "Returns `ls` with only the elements that satisfy `pred`."
     (fn [pred ls]
       (cond
         (empty? ls)      ls

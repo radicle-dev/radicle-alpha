@@ -5,7 +5,7 @@
 ;; or
 
 (def or
-  "Returns 'arg1' if 'arg1' is not #f, otherwise returns 'arg2'"
+  "Returns `x` if `x` is not `#f`, otherwise returns `y`"
   (fn [x y]
     (if x x y)))
 
@@ -32,7 +32,7 @@
        )
 
 (def empty-seq?
-  "Returns true if the input is an empty sequence (either list or vector)."
+  "Returns true if `xs` is an empty sequence (either list or vector)."
   (fn [xs]
     (or (eq? xs (list))
         (eq? xs []))))
@@ -40,7 +40,7 @@
 ;; length
 
 (def length
-  "Returns the length of 'list'."
+  "Returns the length of `xs`."
   (fn [xs]
     (foldr (fn [x acc] (+ acc 1)) 0 xs)))
 
@@ -61,7 +61,7 @@
       :nothing)))
 
 (def-rec maybe-foldlM
-  "Monadic fold over the elements of a seq, associating to the left (i.e. from
+  "Monadic fold over the elements of a sequence `xs`, associating to the left (i.e. from
   left to right) in the maybe monad."
   (fn [f i xs]
     (if (empty-seq? xs)
