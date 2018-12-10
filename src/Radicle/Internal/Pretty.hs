@@ -13,7 +13,6 @@ import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Terminal (Color(..), color)
 import qualified Data.Text.Prettyprint.Doc.Render.Terminal as Term
 import           Data.Text.Prettyprint.Doc.Render.Text
-import qualified Servant.Client as Servant
 import           Text.Megaparsec.Error (parseErrorPretty)
 import           Text.Megaparsec.Pos (sourcePosPretty)
 
