@@ -14,7 +14,7 @@
     (lookup (string-replace "\n" "" (nth 0 result)) dict)))
 
 (def edit-in-editor!
-  "Open `$EDITOR` prepopulated with `orig`. Returns the file saved."
+  "Open `$EDITOR` on a file prepopulated with `orig`. Returns the contents of the edited file when the editor exits."
   (fn [orig]
     (def file (unlines (shell-with-stdout! "mktemp" "")))
     (put-str! file)
