@@ -129,7 +129,7 @@ docForPrimFns content =
         Just (Doc.Docd (Just docString) _) -> valueDoc primName docString (PrimFn $ Ident primName)
 
     primFnsMap :: Map Text (Doc.Docd ([Value] -> Lang IO Value))
-    primFnsMap = Map.mapKeys fromIdent $ getPrimFns $ bindingsPrimFns replBindings
+    primFnsMap = Map.mapKeys fromIdent $ getPrimFns $ bindingsPrimFns (replBindings [])
 
 parseInlineMarkdown :: Text -> [Inline]
 parseInlineMarkdown t = case parseMarkdownBlocks t of
