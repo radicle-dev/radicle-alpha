@@ -698,6 +698,11 @@ test_repl_primops =
         let prog = [s| (uuid? (uuid!)) |]
         res <- run [] prog
         res @?= Right (Boolean True)
+
+    , testCase "'exit!' throws an Exit error with the provided code" $ do
+        let prog = [s|(exit! 5)|]
+        Left (LangError _ errorData) <- run [] prog
+        errorData @?= Exit 5
     ]
   where
     run stdin' prog =

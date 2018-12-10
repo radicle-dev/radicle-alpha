@@ -67,7 +67,7 @@ label for the exception, the second can be any value.
 ``exit!``
 ~~~~~~~~~
 
-Exit the interpreter immediately.
+Exit the interpreter immediately with the given exit code.
 
 ``read``
 ~~~~~~~~

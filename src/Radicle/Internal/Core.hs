@@ -86,7 +86,7 @@ data LangErrorData r =
     | SendError Text
     | PatternMatchError PatternMatchError
     -- | Raised if the effectful @exit!@ primitive is evaluated.
-    | Exit
+    | Exit Int
     deriving (Eq, Show, Generic, Functor)
 
 throwErrorHere :: (MonadError (LangError Value) m, HasCallStack) => LangErrorData Value -> m a
@@ -158,7 +158,7 @@ errorDataToValue e = case e of
       NoMatch       -> makeVal ( "non-exhaustive-pattern-matches", [])
       BadBindings p -> makeVal ( "bad-pattern", [("bad-pattern", p)])
     SendError se -> makeVal ( "send-error", [("info", String se)] )
-    Exit -> makeVal ("exit", [])
+    Exit code -> makeVal ("exit", [("code", toRad code)])
   where
     makeA = quote . Atom
     makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Keyword . Ident) . GhcExts.fromList $ v)
