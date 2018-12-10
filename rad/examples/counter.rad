@@ -1,4 +1,4 @@
-;; A “counter” chain that exposes an `increment` mutator and a `get-value`
+;; A "counter" chain that exposes an `increment` mutator and a `get-value`
 ;; accessor.
 ;;
 ;; This file provides functions to interact with a counter chain.
