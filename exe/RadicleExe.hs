@@ -17,7 +17,7 @@ main = do
     then do
         src <- getContents
         let prog = interpretMany (toS $ sourceFile opts') src
-        bindings <- createBindings
+        bindings <- createBindings (toS <$> scriptArgs opts')
         (result, _state) <- runLang bindings prog
         case result of
             Left (LangError _ Exit) -> pure ()
@@ -25,17 +25,18 @@ main = do
                                           exitWith (ExitFailure 1)
             Right v                 -> putPrettyAnsi v
     else do
-        src <- readSource (sourceFile opts')
+        src <- ignoreShebang <$> readSource (sourceFile opts')
         hist <- case histFile opts' of
             Nothing -> getHistoryFile
             Just h  -> pure h
-        bindings <- createBindings
+        bindings <- createBindings (toS <$> scriptArgs opts')
         repl (Just hist) (toS $ sourceFile opts') src bindings
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
        <> progDesc radDesc
        <> header "The radicle intepreter"
+       <> noIntersperse
         )
 
 readSource :: String -> IO Text
@@ -58,6 +59,7 @@ radDesc
 data Opts = Opts
     { sourceFile :: FilePath
     , histFile   :: Maybe FilePath
+    , scriptArgs :: [String]
     }
 
 opts :: Parser Opts
@@ -76,9 +78,10 @@ opts = Opts
           <> "where $DIR is $XDG_DATA_HOME (%APPDATA% on Windows "
           <> "if that is set, or else ~/.local/share."
            )
-        ))
+       ))
+    <*> many (strArgument mempty)
 
-createBindings :: (MonadIO m, ReplM m) => IO (Bindings (PrimFns m))
-createBindings = do
+createBindings :: (MonadIO m, ReplM m) => [Text] -> IO (Bindings (PrimFns m))
+createBindings scriptArgs' = do
     storage <- createHttpStoragePrimFns
-    pure $ addPrimFns (replPrimFns <> storage) pureEnv
+    pure $ addPrimFns (replPrimFns scriptArgs' <> storage) pureEnv

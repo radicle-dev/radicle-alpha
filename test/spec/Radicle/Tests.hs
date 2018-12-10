@@ -675,6 +675,14 @@ test_repl_primops =
             files = Map.singleton "foo.rad" "(def foo 42) (def bar 8)"
         res <- runCodeWithFiles files prog
         res @?= Right (int 50)
+    , testCase "load! ignores shebangs" $ do
+        let prog = [s|
+                   (load! "foo.rad")
+                   taxi
+                   |]
+            files = Map.singleton "foo.rad" "#!/blah\n(def taxi 1797)"
+        res <- runCodeWithFiles files prog
+        res @?= Right (int 1797)
     , testCase "generating and verifying cryptographic signatures works" $ do
         let prog = [s|
                    (def my-keys (gen-key-pair! (default-ecc-curve)))

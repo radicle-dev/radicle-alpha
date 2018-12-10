@@ -116,7 +116,7 @@ sourceFiles = do
 
 -- | Bindings with REPL and client stuff mocked.
 testBindings :: Bindings (PrimFns (StateT WorldState IO))
-testBindings = addPrimFns storagePrimFns replBindings
+testBindings = addPrimFns storagePrimFns (replBindings [])
 
 -- | Provides @send!@ and @receive!@ functions that store chains in a
 -- 'Map' in the 'WorldState'.
@@ -188,3 +188,4 @@ instance System (StateT WorldState IO) where
     hPutStrS a b = lift $ hPutStrS a b
     hGetLineS = lift . hGetLineS
     hCloseS = lift . hCloseS
+    openFileS a b = lift $ openFileS a b

@@ -434,6 +434,12 @@ Given an elliptic curve, generates a cryptographic key-pair. Use
 Given a private key and a message (a string), generates a cryptographic
 signature for the message.
 
+``get-args!``
+~~~~~~~~~~~~~
+
+Returns the list of the command-line arguments the script was called
+with
+
 ``put-str!``
 ~~~~~~~~~~~~
 
@@ -460,6 +466,12 @@ Reads the contents of a file and returns it as a string.
 
 Read a single line from a handle. Returns the string read, or the
 keyword ``:eof`` if an EOF is encountered.
+
+``open-file!``
+~~~~~~~~~~~~~~
+
+Open file in the specified mode (``:read``, ``:write``, ``:append``,
+``:read-write``).
 
 ``close-handle!``
 ~~~~~~~~~~~~~~~~~
@@ -700,10 +712,22 @@ Read code (as data) from a file. Returns a vector of expressions
 
 Like ``shell!``, but captures the stdout and returns it.
 
+``(shell-no-stdin! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``shell!``, but inherits stdin. WARNING: using ``shell!`` with
+unsanitized user input is a security hazard! Example:
+``(shell-no-stdin! "ls -Glah")``.
+
 ``(process-with-stdout! command args to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Like ``process!``, but captures stdout.
+
+``(write-file! filename contents)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Write ``contents`` to file ``filename``.
 
 ``prelude/bool``
 ----------------

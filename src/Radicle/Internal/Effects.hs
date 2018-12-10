@@ -65,7 +65,7 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
   where
     -- Any type for first param will do
     bnds :: Bindings (PrimFns (InputT IO))
-    bnds = replBindings
+    bnds = replBindings []
 
     go s = pure $ fmap simpleCompletion
          $ filter (s `isPrefixOf`)
@@ -73,12 +73,18 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
          $ (Map.keys . fromEnv $ bindingsEnv bnds)
         <> Map.keys (getPrimFns $ bindingsPrimFns bnds)
 
-replBindings :: ReplM m => Bindings (PrimFns m)
-replBindings = addPrimFns replPrimFns pureEnv
+replBindings :: ReplM m => [Text] -> Bindings (PrimFns m)
+replBindings sysArgs = addPrimFns (replPrimFns sysArgs) pureEnv
 
-replPrimFns :: ReplM m => PrimFns m
-replPrimFns = fromList $ allDocs $
-    [ ("put-str!"
+replPrimFns :: ReplM m => [Text] -> PrimFns m
+replPrimFns sysArgs = fromList $ allDocs $
+    [ ( "get-args!"
+      , "Returns the list of the command-line arguments the script was called with"
+      , \case
+          [] -> pure . Vec $ fromList (String <$> sysArgs)
+          xs -> throwErrorHere $ WrongNumberOfArgs "get-args!" 0 (length xs)
+      )
+    , ("put-str!"
       , "Prints a string."
       , oneArg "put-str!" $ \case
         (String x) -> do
@@ -174,13 +180,35 @@ replPrimFns = fromList $ allDocs $
               Right text -> pure $ String text
           v -> throwErrorHere $ TypeError "read-file!" 0 TString v
       )
+    , ( "open-file!"
+      , "Open file in the specified mode (`:read`, `:write`, `:append`, `:read-write`)."
+      , twoArg "open-file!" $ \case
+          (String file, Keyword (Ident mode)) -> do
+              mode' <- case mode of
+                  "read" -> pure ReadMode
+                  "write" -> pure WriteMode
+                  "append" -> pure AppendMode
+                  "read-write" -> pure ReadWriteMode
+                  x -> throwErrorHere
+                     . OtherError
+                     $ "Expected one of :read, :write, :append, or :read-write."
+                    <> "Got: " <> x
+              res <- openFileS file mode'
+              case res of
+                  Left e  -> throwErrorHere . OtherError $ "open-file!:" <> e
+                  Right v -> newHandle v
+          (v, Keyword _) -> throwErrorHere $ TypeError "open-file!" 0 TString v
+          (_, v) -> throwErrorHere $ TypeError "open-file!" 1 TKeyword v
+      )
     , ( "load!"
       , "Evaluates the contents of a file. Each seperate radicle expression is\
         \ `eval`uated according to the current definition of `eval`."
       , oneArg "load!" $ \case
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
-              Right text -> interpretMany ("[load! " <> filename <> "]") text
+              Right text -> interpretMany
+                  ("[load! " <> filename <> "]")
+                  (ignoreShebang text)
           v -> throwErrorHere $ TypeError "load!" 0 TString v
       )
     , ( "gen-key-pair!"
@@ -297,10 +325,17 @@ replPrimFns = fromList $ allDocs $
         \ That is, the file is evaluated as if the code was wrapped in `(module ...)`."
       , oneArg "file-module!" $ \case
           String filename -> do
-            t_ <- readFileS filename
+            t_ <- fmap ignoreShebang <$> readFileS filename
             t <- hoistEither . first (toLangError . OtherError) $ t_
             vs <- readValues ("file-module!: " <> filename) t
             createModule vs
           v -> throwErrorHere $ TypeError "file-module!" 0 TString v
       )
     ]
+
+-- | Since `#` is not a comment in radicle, we need to explictly remove shebang
+-- lines.
+ignoreShebang :: Text -> Text
+ignoreShebang src = case T.lines src of
+    f:rest -> T.unlines $ if "#!" `T.isPrefixOf` f then rest else f:rest
+    _      -> src

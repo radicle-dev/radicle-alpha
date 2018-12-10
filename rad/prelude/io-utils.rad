@@ -1,8 +1,8 @@
 {:module 'prelude/io-utils
  :doc "IO-related utilities"
- :exports '[fzf-select-by-key!]}
+ :exports '[fzf-select-by-key! edit-in-editor!]}
 
-(import prelude/io '[shell-with-stdout!] :unqualified)
+(import prelude/io '[shell-with-stdout! write-file!] :unqualified)
 (import prelude/strings '[unlines] :unqualified)
 
 (def fzf-select-by-key!
@@ -12,3 +12,12 @@
   (fn [dict]
     (def result (process-with-stdout! "fzf" [] (string-append (unlines (keys dict)) "\n")))
     (lookup (string-replace "\n" "" (nth 0 result)) dict)))
+
+(def edit-in-editor!
+  "Open `$EDITOR` on a file prepopulated with `orig`. Returns the contents of the edited file when the editor exits."
+  (fn [orig]
+    (def file (unlines (shell-with-stdout! "mktemp" "")))
+    (put-str! file)
+    (write-file! file orig)
+    (shell-no-stdin! (string-append "$EDITOR " file) "")
+    (read-file! file)))

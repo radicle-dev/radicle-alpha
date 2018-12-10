@@ -93,6 +93,7 @@ module Radicle
     , ($$)
     , kwLookup
     , (??)
+    , ignoreShebang
 
     ) where
 

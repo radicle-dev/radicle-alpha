@@ -1,7 +1,7 @@
 {:module 'prelude/io
  :doc "Some basic I/O functions."
  :exports '[print! shell! process! read-line! send-code! read-code!
-            shell-with-stdout! process-with-stdout!
+            shell-with-stdout! shell-no-stdin! process-with-stdout! write-file!
            ]}
 
 (import prelude/patterns :unqualified)
@@ -25,6 +25,13 @@
   "Print a value to the console or stdout."
   (fn [x]
     (put-str! (show x))))
+
+(def write-file!
+  "Write `contents` to file `filename`."
+  (fn [filename contents]
+    (def hdl (open-file! filename :write))
+    (write-handle! hdl contents)
+    (close-handle! hdl)))
 
 (def-rec read-contents-handle!
   "Read all the contents of a handle. A *vector* of strings is returned, one
@@ -60,6 +67,24 @@ Example: `(shell! \"ls -Glah\" \"\")`. "
   [ (shell! "false" "") ==> [:error 1] ]
 )
 
+(def shell-no-stdin!
+  "Like `shell!`, but inherits stdin.
+WARNING: using `shell!` with unsanitized user input is a security hazard!
+Example: `(shell-no-stdin! \"ls -Glah\")`. "
+  (fn [command to-write]
+    (def cp
+      { :cmdspec [:shell command]
+        :stdin :inherit
+        :stdout :inherit
+        :stderr :inherit
+      })
+    (match (system! cp)
+      {:stdin  :nothing
+       :stdout :nothing
+       :stderr :nothing
+       :proc   'ph
+      } (wait-for-process! ph)
+      _ (throw 'io-error "expected no handles to be open"))))
 
 (def shell-with-stdout!
   "Like `shell!`, but captures the stdout and returns it."

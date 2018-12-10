@@ -99,11 +99,13 @@ primFns:
 - gen-key-pair!
 - gen-signature!
 # I/O
+- get-args!
 - put-str!
 - get-line!
 - load!
 - read-file!
 - read-line-handle!
+- open-file!
 - close-handle!
 - now!
 - system!
