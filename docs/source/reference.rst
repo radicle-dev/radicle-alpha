@@ -779,11 +779,6 @@ Returns the reversed list ``ls``.
 
 Returns a list with all integers from ``from`` to ``to``, inclusive.
 
-``(concat list1 list2)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Concatenates ``list1`` and ``list2``.
-
 ``(filter pred ls)``
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -846,10 +841,10 @@ Insert a value into a set.
 
 Delete a value from a set.
 
-``(member? x s)``
-~~~~~~~~~~~~~~~~~
+``member?``
+~~~~~~~~~~~
 
-Query if an value is an element of a set.
+Query if a value is an element of a set.
 
 ``(to-vec s)``
 ~~~~~~~~~~~~~~
@@ -860,6 +855,16 @@ Convert a set to a vector.
 ~~~~~~~~~~~~~~~~~
 
 Create a set from a sequence.
+
+``(key-set d)``
+~~~~~~~~~~~~~~~
+
+The set of keys of a dict.
+
+``(subset? xs ys)``
+~~~~~~~~~~~~~~~~~~~
+
+Checks if xs is a subset of ys.
 
 ``prelude/ref``
 ---------------
@@ -1047,16 +1052,44 @@ the predicate is true.
 ``(key k v)``
 ~~~~~~~~~~~~~
 
-Given a key and a validator, returns a validator which checks for the
-existence of that key and that the associated value conforms to the
-validator.
+Given a key ``k`` and a validator ``v``, returns a validator which
+checks that the value associated to ``k`` in a dict conforms to ``v``.
+If the key is absent, the validator passes.
+
+``(contains k)``
+~~~~~~~~~~~~~~~~
+
+Given a value, returns a validator which checks for membership of that
+value.
+
+``(contains-many ks)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Given a vector of keys, returns a validator which checks that a
+structure contains all of them.
+
+``(contains-only ks)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Validator which checks that a dict only contains a subset of a vector of
+keys.
+
+``(has-key k v)``
+~~~~~~~~~~~~~~~~~
+
+Combines existence and validity of a key in a dict.
 
 ``(keys ks)``
 ~~~~~~~~~~~~~
 
 Given a dict associating keys to validators, returns a validator which
-checks a dict for the existence of those keys, and that they conform to
-the associated validators.
+checks that the values associated to those keys in a dict conform to the
+corresponding validators.
+
+``(has-keys ks)``
+~~~~~~~~~~~~~~~~~
+
+Checks for the existence and validity of keys.
 
 ``(every v)``
 ~~~~~~~~~~~~~

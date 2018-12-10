@@ -41,19 +41,23 @@
 (def simple-issue
   "Create an open issue with no comments or labels."
   (fn [tit bod]
-    {:title      tit
-     :body       bod
-     :labels     []
-     :state      :open
-     :comments   []
-     :created-at (now!)}))
+    (def t (now!))
+    {:title       tit
+     :body        bod
+     :labels      []
+     :state       :open
+     :comments    []
+     :created-at  t
+     :modified-at t}))
 
 (def simple-comment
   "Create a comment for an issue."
   (fn [issue-number bod]
-    {:body bod
+    (def t (now!))
+    {:body         bod
      :issue-number issue-number
-     :created-at (now!)}))
+     :created-at   t
+     :modified-at  t}))
 
 (def send-signed-command!
   "Send a command signed by the keys in `my-keys.rad`."
@@ -64,7 +68,7 @@
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."
   (fn [i]
-    (send-signed-command! 'create-issue! i)))
+    (send-signed-command! 'create-issue i)))
 
 (def add-comment!
   "Create a remote comment with the keys in `my-keys.rad`."
@@ -147,6 +151,7 @@
       (simple-create-issue! "title1" "body1")
       (simple-add-comment! 0 "comment0")
       (simple-add-comment! 1 "comment1")
+      (edit-issue! {:issue-number 0 :state :closed :modified-at (now!)})
       (fetch!)
       (def is (list-issues)))]
  [ (length (seq is)) ==> 2 ]
@@ -155,4 +160,5 @@
  [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment1" ]
  [ (short (head (values is))) ==> "0: title0" ]
  [ (short (head (list-last 1))) ==> "1: title1" ]
+ [ (view (.. (@ 0) (@ :state)) is) ==> :closed ]
 )

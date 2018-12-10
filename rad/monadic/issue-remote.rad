@@ -67,10 +67,23 @@
 
 (def input-keys
   {:nonce      validator/nonce
-   :chain-id   (validator/= chain-id)
-   ;; NOTE that the timestamp is claimed by the author, is not verified, and
-   ;; may be incorrect.
-   :created-at validator/timestamp})
+   :chain-id   (validator/= chain-id)})
+
+(def validator/time-created
+  (validator/and
+   [(validator/has-keys
+     {;; NOTE that timestamps are claimed by authors, are not verified, and may
+      ;; be incorrect.
+      :created-at validator/timestamp
+      :modified-at validator/timestamp})
+    (validator/pred "`:modified-at` and `:create-at` are equal"
+                    (fn [t]
+                      (eq? (lookup :created-at t)
+                           (lookup :modified-at t))))]))
+
+(def validator/time-modified
+  (validator/has-keys
+   {:modified-at validator/timestamp}))
 
 (def validator/input
   "Checks that the input as a valid new *chain input*, that is, it has an unused
@@ -101,6 +114,7 @@
   "A comment input should refer to an existing issue."
   (validator/and
    [validator/input
+    validator/time-created
     validator/full-comment
     validator/issue-reference]))
 
@@ -119,17 +133,19 @@
   "An issue should have all the required fields, be a signed input, etc."
   (validator/and
    [validator/input
+    validator/time-created
     validator/full-issue]))
 
 (def validator/issue-edit-input
   "An input to edit an issue."
   (validator/and
    [validator/input
+    validator/time-modified
     validator/sub-issue
     validator/issue-reference
-    validator/contains-only (concat (keys issue-keys)
-                                    (keys input-keys)
-                                    [:issue-number :author :signature])]))
+    (validator/contains-only (concat [(keys issue-keys)
+                                      (keys input-keys)
+                                      [:issue-number :modified-at :author :signature]]))]))
 
 (def strip-input
   "After an entity input has been processed/verified, we no longer need some of
@@ -165,7 +181,7 @@
   (fn [i]
     (validator/issue-edit-input i)
     (def i_ (delete :author (strip-input i)))
-    (modify-issues (@ (lookup :issue-number i)) (fn [x] (<> x i_)))))
+    (over-issues (@ (lookup :issue-number i)) (fn [x] (<> x i_)))))
 
 ;; These are intended for clients to run locally with eval-in-chain
 
@@ -179,7 +195,7 @@
   "The set of allowed chain commands."
   (ref
    {'create-issue create-issue
-    'close-issue  close-issue
+    'edit-issue   edit-issue
     'add-comment  add-comment
     'list-issues  list-issues}))
 
