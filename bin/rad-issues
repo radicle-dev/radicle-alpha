@@ -28,18 +28,17 @@
     (def selected (fzf-select-by-key! iss))
     (def pretty-comment (fn [c]
       (string-append
-        (lookup :github-username c) "[" (lookup :created-at c) "]: "
-        (lookup :body c)
-        "\n\n")))
+        "* **" (lookup :github-username c) "** [" (lookup :created-at c) "]:\n\n"
+        (string/unlines (map (fn [xs] (string-append "   " xs)) (string/lines (lookup :body c)))))))
     (def pretty-issue (fn [i]
-      (string-append
-         "Issue " (show (lookup :number i)) " : " (lookup :title i)
-         "\nDescription: " (lookup :body i)
-         "\nState: " (if (eq? (lookup :state i) :open) "open" "closed")
-         "\nLabels: " (show (lookup :labels i))
-         "\nComments:\n\n\n" (unlines (map pretty-comment (lookup :comments i)))
-    )))
-    (put-str! (pretty-issue selected))))
+      (string-replace "\r" "" (string-append
+         "# Issue " (show (lookup :number i)) " : " (lookup :title i)
+         "\n**State:** " (if (eq? (lookup :state i) :open) "open" "closed")
+         "\n**Labels:** " (show (lookup :labels i))
+         "\n## Description\n" (lookup :body i)
+         "\n## Comments\n\n\n" (unlines (map pretty-comment (lookup :comments i)))
+    ))))
+    (print! (edit-in-editor! (pretty-issue selected)))))
 
 (def new-issue
   (fn []
