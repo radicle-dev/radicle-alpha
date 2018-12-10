@@ -1,6 +1,6 @@
 {:module 'prelude/io-utils
  :doc "IO-related utilities"
- :exports '[fzf-select-by-key!, edit-in-editor!]}
+ :exports '[fzf-select-by-key! edit-in-editor!]}
 
 (import prelude/io '[shell-with-stdout! write-file!] :unqualified)
 (import prelude/strings '[unlines] :unqualified)

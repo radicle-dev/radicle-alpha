@@ -64,9 +64,9 @@
 
 (def args (get-args!))
 (match args
-  ["list" chain] (list-issues chain)
-  ["new" chain]  (new-issue chain)
-  ["help"]       (put-str! help)
-  _              (do
-                   (put-str! (string-append "Unrecognized command" (show args)))
-                   (put-str! help)))
+  ["list"] (list-issues)
+  ["new" ] (new-issue)
+  ["help"] (put-str! help)
+  _        (do
+             (put-str! (string-append "Unrecognized command" (show args)))
+             (put-str! help)))
