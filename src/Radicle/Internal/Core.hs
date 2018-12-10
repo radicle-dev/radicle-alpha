@@ -45,9 +45,7 @@ import qualified Radicle.Internal.Type as Type
 -- * Value
 
 data LangError r = LangError [Ann.SrcPos] (LangErrorData r)
-    deriving (Eq, Show, Read, Generic, Functor)
-
-instance Serialise r => Serialise (LangError r)
+    deriving (Eq, Show, Generic, Functor)
 
 data PatternMatchError
   = NoMatch
@@ -85,12 +83,11 @@ data LangErrorData r =
     -- | Raised if @(throw ident value)@ is evaluated. Arguments are
     -- provided by the call to @throw@.
     | ThrownError Ident r
+    | SendError Text
     | PatternMatchError PatternMatchError
     -- | Raised if the effectful @exit!@ primitive is evaluated.
     | Exit
-    deriving (Eq, Show, Read, Generic, Functor)
-
-instance Serialise r => Serialise (LangErrorData r)
+    deriving (Eq, Show, Generic, Functor)
 
 throwErrorHere :: (MonadError (LangError Value) m, HasCallStack) => LangErrorData Value -> m a
 throwErrorHere = withFrozenCallStack (throwError . LangError [Ann.thisPos])
@@ -160,6 +157,7 @@ errorDataToValue e = case e of
       NoValue       -> makeVal ( "no-value-to-match", [])
       NoMatch       -> makeVal ( "non-exhaustive-pattern-matches", [])
       BadBindings p -> makeVal ( "bad-pattern", [("bad-pattern", p)])
+    SendError se -> makeVal ( "send-error", [("info", String se)] )
     Exit -> makeVal ("exit", [])
   where
     makeA = quote . Atom

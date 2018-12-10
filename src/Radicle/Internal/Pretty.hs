@@ -123,6 +123,9 @@ instance PrettyV r => PrettyV (LangErrorData r) where
           BadBindings p -> "Faulty pattern function. Pattern functions must return\
                            \ `[:just b]` where `b` is a dict of new bindings (from\
                            \ atoms to values), or `:nothing`:" <+> prettyV p
+        SendError se -> vsep
+          [ "send!: There was en error sending expressions to a remote:"
+          , indent 2 (pretty se) ]
       where
         pos :: Int -> Text
         pos 1 = "1st"

@@ -94,9 +94,7 @@ httpStoragePrimFns' mgr =
               \ chain located at the URL for evaluation."
             , \url values -> do
                 res <- liftIO $ runClientM' url mgr (submit $ toList values)
-                pure $ case res of
-                    Left servantError -> Left $ show servantError
-                    Right _           -> Right ()
+                pure $ bimap fmtError (const ()) res
             )
         , storageReceive =
             ( "receive!"
@@ -107,6 +105,11 @@ httpStoragePrimFns' mgr =
                 pure $ first show res
             )
         }
+  where
+    fmtError = \case
+      FailureResponse Response{..} ->
+        "status code: " <> show (fromEnum responseStatusCode) <> "\n" <> toS responseBody
+      se -> show se
 
 submit :: [Value] -> ClientM Value
 submit = client chainSubmitEndpoint . Values

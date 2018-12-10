@@ -53,9 +53,8 @@ buildStoragePrimFns backend =
          (String id, Vec v) -> do
              res <- lift $ send id v
              case res of
-                 Left e   -> throwErrorHere . OtherError
-                           $ sendName <> ": failed:" <> show e
-                 Right _  -> pure $ Keyword $ unsafeToIdent "ok"
+                 Left e  -> throwErrorHere (SendError e)
+                 Right _ -> pure $ Keyword $ unsafeToIdent "ok"
          (String _, v) -> throwErrorHere $ TypeError sendName 1 TVec v
          (v, _) -> throwErrorHere $ TypeError sendName 0 TString v
       )
