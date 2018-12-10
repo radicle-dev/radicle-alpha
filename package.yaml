@@ -91,7 +91,6 @@ executables:
     - radicle
     - directory
     - optparse-applicative
-    - text
     when:
       - condition: impl(ghcjs)
         buildable: false

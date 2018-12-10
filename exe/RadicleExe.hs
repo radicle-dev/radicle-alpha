@@ -1,7 +1,5 @@
 module RadicleExe (main) where
 
-import qualified Data.Text as T
-import           GHC.Exts (fromList)
 import           Prelude (String)
 import           Protolude hiding (TypeError, option, sourceFile)
 
@@ -11,7 +9,6 @@ import           System.Directory (doesFileExist)
 import           Radicle
 import           Radicle.Internal.HttpStorage
 import           Radicle.Internal.Pretty (putPrettyAnsi)
-import           Radicle.Internal.PrimFns (allDocs)
 
 main :: IO ()
 main = do
@@ -84,17 +81,7 @@ opts = Opts
        ))
     <*> many (strArgument mempty)
 
-argsPrimFn :: forall m . Monad m => [Text] -> PrimFns m
-argsPrimFn args = fromList $ allDocs
-    [ ( "get-args!"
-      , "Returns the list of the command-line arguments the script was called with"
-      , \case
-          [] -> pure . Vec $ fromList (String <$> args)
-          xs -> throwErrorHere $ WrongNumberOfArgs "get-args!" 0 (length xs)
-      )
-    ]
-
 createBindings :: (MonadIO m, ReplM m) => [Text] -> IO (Bindings (PrimFns m))
 createBindings scriptArgs' = do
     storage <- createHttpStoragePrimFns
-    pure $ addPrimFns (argsPrimFn scriptArgs' <> replPrimFns <> storage) pureEnv
+    pure $ addPrimFns (replPrimFns scriptArgs' <> storage) pureEnv

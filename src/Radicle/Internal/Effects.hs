@@ -65,7 +65,7 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
   where
     -- Any type for first param will do
     bnds :: Bindings (PrimFns (InputT IO))
-    bnds = replBindings
+    bnds = replBindings []
 
     go s = pure $ fmap simpleCompletion
          $ filter (s `isPrefixOf`)
@@ -73,12 +73,18 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
          $ (Map.keys . fromEnv $ bindingsEnv bnds)
         <> Map.keys (getPrimFns $ bindingsPrimFns bnds)
 
-replBindings :: ReplM m => Bindings (PrimFns m)
-replBindings = addPrimFns replPrimFns pureEnv
+replBindings :: ReplM m => [Text] -> Bindings (PrimFns m)
+replBindings sysArgs = addPrimFns (replPrimFns sysArgs) pureEnv
 
-replPrimFns :: ReplM m => PrimFns m
-replPrimFns = fromList $ allDocs $
-    [ ("put-str!"
+replPrimFns :: ReplM m => [Text] -> PrimFns m
+replPrimFns sysArgs = fromList $ allDocs $
+    [ ( "get-args!"
+      , "Returns the list of the command-line arguments the script was called with"
+      , \case
+          [] -> pure . Vec $ fromList (String <$> sysArgs)
+          xs -> throwErrorHere $ WrongNumberOfArgs "get-args!" 0 (length xs)
+      )
+    , ("put-str!"
       , "Prints a string."
       , oneArg "put-str!" $ \case
         (String x) -> do

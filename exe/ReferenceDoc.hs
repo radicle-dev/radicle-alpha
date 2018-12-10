@@ -39,7 +39,7 @@ main = do
                 <> "(file-module! \"rad/prelude/test-eval.rad\") (import prelude/test-eval '[eval tests] :unqualified)"
                 <> foldMap (\m -> "(file-module! \"rad/" <> m <> ".rad\")") (modules content)
                 <> "(get-current-env))")
-               replBindings
+               (replBindings [])
     let res = res_ `lPanic` "Error running the prelude."
     let s = bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
     let vars = GhcExts.toList (bindingsEnv s)
