@@ -27,7 +27,6 @@ import qualified Data.Set as Set
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
-import qualified Servant.Client as Servant
 import           System.Process
                  (CmdSpec(..), CreateProcess(..), ProcessHandle, StdStream(..))
 import qualified Text.Megaparsec.Error as Par
@@ -84,7 +83,7 @@ data LangErrorData r =
     -- | Raised if @(throw ident value)@ is evaluated. Arguments are
     -- provided by the call to @throw@.
     | ThrownError Ident r
-    | SendError Servant.ServantError
+    | SendError Text
     | PatternMatchError PatternMatchError
     -- | Raised if the effectful @exit!@ primitive is evaluated.
     | Exit
@@ -158,16 +157,7 @@ errorDataToValue e = case e of
       NoValue       -> makeVal ( "no-value-to-match", [])
       NoMatch       -> makeVal ( "non-exhaustive-pattern-matches", [])
       BadBindings p -> makeVal ( "bad-pattern", [("bad-pattern", p)])
-    SendError se -> makeVal
-      ( "send-error"
-      , case se of
-          Servant.FailureResponse Servant.Response{..} ->
-            [ ("error-response", String (toS responseBody))
-            , ("status-code", Number $ fromIntegral $ fromEnum responseStatusCode)
-            ]
-          Servant.ConnectionError ce -> [("connection-error", String ce)]
-          _ -> [("info", String (show se))]
-      )
+    SendError se -> makeVal ( "send-error", [("info", String se)] )
     Exit -> makeVal ("exit", [])
   where
     makeA = quote . Atom

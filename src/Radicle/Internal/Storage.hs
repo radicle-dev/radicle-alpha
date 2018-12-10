@@ -15,7 +15,6 @@ module Radicle.Internal.Storage
 import           Protolude hiding (TypeError)
 
 import           GHC.Exts (fromList)
-import           Servant.Client
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Identifier
@@ -35,7 +34,7 @@ data StorageBackend m = StorageBackend
 
 -- | Send a list of expressions to a chain identified by the first
 -- argument.
-type StorageSend m = Text -> Seq Value -> m (Either ServantError ())
+type StorageSend m = Text -> Seq Value -> m (Either Text ())
 
 -- | Receive a list of expressions from a chain. The chain is identified by the first
 -- argument. The second argument is the index from which to start.

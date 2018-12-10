@@ -13,7 +13,6 @@ import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Terminal (Color(..), color)
 import qualified Data.Text.Prettyprint.Doc.Render.Terminal as Term
 import           Data.Text.Prettyprint.Doc.Render.Text
-import qualified Servant.Client as Servant
 import           Text.Megaparsec.Error (parseErrorPretty)
 import           Text.Megaparsec.Pos (sourcePosPretty)
 
@@ -125,13 +124,8 @@ instance PrettyV r => PrettyV (LangErrorData r) where
                            \ `[:just b]` where `b` is a dict of new bindings (from\
                            \ atoms to values), or `:nothing`:" <+> prettyV p
         SendError se -> vsep
-          [ "send!: Server responded with an error:"
-          , indent 2 $ case se of
-            Servant.FailureResponse Servant.Response{..} -> vsep
-              [ "status code:" <+> pretty (fromEnum responseStatusCode)
-              , pretty (toS responseBody :: Text)
-              ]
-            _ -> pretty (show se :: Text)]
+          [ "send!: There was en error sending expressions to a remote:"
+          , indent 2 (pretty se) ]
       where
         pos :: Int -> Text
         pos 1 = "1st"
