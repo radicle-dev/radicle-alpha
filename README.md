@@ -45,9 +45,18 @@ example `eu.gcr.io/opensourcecoin/radicle-server:b2018.12.06-a76a52f`.
 To build the image locally run `images/radicle-server/build.sh`. You can also
 use `images/radicle-server/docker-compose.yaml`.
 
+## Issues
+
+We are currently using `radicle` itself to manage issues, and have therefore
+disabled issues on Github. You can create and see issues with the
+`bin/rad-issues` script. You can also reach us on the `radicle` IRC channel on
+`#freenode`.
+
 ## Development
 
-You can run tests with `stack test`.
+The script `./scripts/ci-tests.sh` runs all tests that are run on CI. The script
+requires [`docker`][docker] and [`docker-compose`][docker-compose] to be
+installed for end-to-end tests.
 
 The end-to-end test suite is run with `stack test :e2e`. It requires you to
 start up an IPFS test network with
@@ -58,9 +67,15 @@ The documentation is build with `make -C docs html`. Reference documentation for
 Radicle code must be regenerated with `stack run radicle-doc-ref` and checked
 into version control.
 
-## Issues
+### Troubleshooting
 
-We are currently using `radicle` itself to manage issues, and have therefore
-disabled issues on Github. You can create and see issues with the
-`bin/rad-issues` script. You can also reach us on the `radicle` IRC channel on
-`#freenode`.
+Your local machine might build binaries that are incompatible with the
+`debian:stretch` container image. In that case building the docker images fails.
+You can build compatible binaries using stack’s [docker
+integration][stack-docker-integration]. This is enabled by passing the
+`STACK_DOCKER=1` environment to `./scripts/ci-tests.sh`.
+
+
+[stack-docker-integration]: https://docs.haskellstack.org/en/stable/docker_integration/
+[docker]: https://www.docker.com/get-started
+[docker-compose]: https://docs.docker.com/compose/install

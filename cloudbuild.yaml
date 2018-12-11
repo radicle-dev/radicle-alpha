@@ -170,9 +170,11 @@ steps:
     - "-c"
     - |
       set -euxo pipefail
-      docker-compose -f test/docker-compose.yaml up -d postgres
+
+      export COMPOSE_FILE=test/docker-compose.yaml
+      docker-compose up -d postgres
       sleep 5 # Wait for the DB to be ready
-      docker-compose -f test/docker-compose.yaml up -d
+      docker-compose up -d
       sleep 3 # Wait for service to be booted
 
       # Connect services to 'cloudbuild' network so they can be
