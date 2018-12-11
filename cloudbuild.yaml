@@ -100,19 +100,50 @@ steps:
     - |
       set -euxo pipefail
 
+      image_name="eu.gcr.io/opensourcecoin/radicle-server"
+      short_sha=$(echo "$COMMIT_SHA" | head --bytes=7)
+      # Looks like this: b2018.12.06-a76a52f
+      tag="b$(date +%Y.%m.%d)-${short_sha}"
+      docker build \
+        --tag "$image_name" \
+        --cache-from "$image_name" \
+        ./images/radicle-server
+
       if [ "$BRANCH_NAME" == "master" ]; then
         image_name="eu.gcr.io/opensourcecoin/radicle-server"
         short_sha=$(echo "$COMMIT_SHA" | head --bytes=7)
         # Looks like this: b2018.12.06-a76a52f
         tag="b$(date +%Y.%m.%d)-${short_sha}"
-        docker build \
-          --tag "$image_name" \
-          --tag "$image_name:$tag" \
-          --cache-from "$image_name" \
-          ./images/radicle-server
+        docker tag "$image_name" "$image_name:$tag"
         docker push "$image_name"
         docker push "$image_name:$tag"
       fi
+
+  - id: "Start and expose radicle-server"
+    name: 'docker/compose:1.23.2'
+    waitFor:
+    - "Build radicle-server image"
+    entrypoint: sh
+    args:
+    - "-c"
+    - |
+      cd images/radicle-server
+      docker-compose up -d postgres
+      sleep 5 # Wait for the DB to be ready
+      docker-compose up -d
+      docker network connect cloudbuild radicle-server_radicle-server_1 --alias radicle-server
+
+  - id: "radicle-server integration test"
+    waitFor:
+    - "Start and expose radicle-server"
+    name: 'haskell:8.4.3'
+    env: ['STACK_ROOT=/workspace/.stack']
+    entrypoint: 'bash'
+    args:
+    - "-c"
+    - |
+      set -euxo pipefail
+      stack exec radicle - <<<'(load! "rad/examples/counter.rad") (counter/run-test)'
 
   - id: "Save cache"
     waitFor:
