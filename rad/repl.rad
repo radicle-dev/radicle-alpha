@@ -6,7 +6,7 @@
   (def line (get-line!))
   (if (eq? line nil)
     (exit! 0)
-    (read-many line))))
+    (read-many-annotated "[read-line-or-exit!]" line))))
 
 (def repl
   {:name "repl"

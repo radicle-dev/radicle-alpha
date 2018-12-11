@@ -469,8 +469,8 @@ test_eval =
         runPureCode "(show (dict 'a 1))" @?= Right (String "{a 1}")
         runPureCode "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
-    , testCase "'read' works" $
-        runPureCode "(read \"(:hello 42)\")" @?= Right (List [Keyword [ident|hello|], int 42])
+    , testCase "'read-anotated' works" $
+        runPureCode "(read-annotated \"foo\" \"(:hello 42)\")" @?= Right (List [Keyword [ident|hello|], int 42])
 
     , testCase "'to-json' works" $ do
         runPureCode "(to-json (dict \"foo\" #t))" @?= Right (String "{\"foo\":true}")
@@ -649,8 +649,8 @@ test_env =
 
 test_repl_primops :: [TestTree]
 test_repl_primops =
-    [ testProperty "(read (get-line!)) returns the input line" $ \(v :: Value) ->
-        let prog = [i|(eq? (read (get-line!)) (quote #{renderPrettyDef v}))|]
+    [ testProperty "(read-annotated \"get-line!\" (get-line!)) returns the input line" $ \(v :: Value) ->
+        let prog = [i|(eq? (read-annotated \"get-line!\" (get-line!)) (quote #{renderPrettyDef v}))|]
             -- We're not actually using IO
             res = unsafePerformIO $ run [renderPrettyDef v] $ toS prog
         in counterexample prog $ res == Right (Boolean True)

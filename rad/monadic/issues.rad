@@ -30,7 +30,7 @@
     (def nonce (uuid!))
     (def e_ (<> e {:chain-id radicle-issues-chain-id
                    :nonce    nonce}))
-    (def ks (read (read-file! "my-keys.rad")))
+    (def ks (read-file-value! "my-keys.rad"))
     (def sig
       (gen-signature! (lookup :private-key ks)
                       (show e_)))
@@ -104,7 +104,7 @@
          x)))
     (def note-comments
       (fn [i] (over (@ :comments) (fn [cs] (map note-imported cs)) i)))
-    (def issues (read (read-file! "githubissues.rad")))
+    (def issues (read-file-value! "githubissues.rad"))
     (def imported
       (map
        (fn [i] (note-imported (note-comments i)))

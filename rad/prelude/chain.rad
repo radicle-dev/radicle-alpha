@@ -2,6 +2,7 @@
  :doc "Functions for simulating remote chains."
  :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval updatable-eval update-chain! eval-fn-app send-prelude!]}
 
+(import prelude/io '[read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/lens '[.. ... view over @] :unqualified)
 (import prelude/basic :unqualified)
@@ -197,7 +198,7 @@
 (def file-to-module
   "Make the text of a file into code for a module."
   (fn [file]
-    (cons 'module (vec-to-list (read-many (read-file! file))))))
+    (cons 'module (vec-to-list (io/read-file-values! file)))))
 
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new chain."
