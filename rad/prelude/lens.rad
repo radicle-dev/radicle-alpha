@@ -96,7 +96,7 @@
     (make-lens
       (fn [s] (nth n s))
       (fn [val s]
-         (<> (take n s) (add-left val (drop (+ n 1) s)))))))
+         (<> (take n s) (cons val (drop (+ n 1) s)))))))
 
 (:test "@nth"
   [ (view (@nth 1) [0 1]) ==> 1 ]

@@ -116,30 +116,32 @@
        [ (match :nothing   (/just 'x) x _ :yes) ==> :yes ])
 
 (def /cons
-  "A pattern for lists with a head and a tail."
+  "A pattern for sequences with a head and a tail."
   (fn [x-pat xs-pat]
     (fn [v]
-      (if (list? v)
+      (if (or (list? v) (vector? v))
         (if (> (length v) 0)
           (maybe->>=
-           (match-pat x-pat (head v))
+           (match-pat x-pat (first v))
            (fn [b1]
              (maybe->>=
-              (match-pat xs-pat (tail v))
+              (match-pat xs-pat (rest v))
               (fn [b2] (non-linear-merge b1 b2)))))
           :nothing)
         :nothing))))
 
 (def /nil
-  "Empty-list pattern."
+  "Empty-sequence pattern. Matches `[]` and `(list)`"
   (fn [v]
-    (if (eq? v (list))
+    (if (empty-seq? v)
       [:just {}]
       :nothing)))
 
-(:test "List pattern matching"
+(:test "Sequence pattern matching"
        [ (match (list) /nil :yes _ :no) ==> :yes ]
-       [ (match (list 1 2 3) /nil :no (/cons 'x 'xs) [x xs]) ==> [1 (2 3)]])
+       [ (match (list 1 2 3) /nil :no (/cons 'x 'xs) [x xs]) ==> [1 (2 3)]]
+       [ (match [] /nil :yes _ :no) ==> :yes ]
+       [ (match [1 2 3] /nil :no (/cons 'x 'xs) [x xs]) ==> [1 [2 3]] ])
 
 (def /?
   "Predicate pattern. Takes a predicate function as argument. Values match against

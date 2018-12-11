@@ -157,8 +157,8 @@
 (def process-command
   "Function that maps post-eval commands to existing functions"
   (fn [expr]
-    (def command (head expr))
-    (def args    (tail expr))
+    (def command (first expr))
+    (def args    (rest expr))
     (def do-this (lookup command (read-ref commands)))
     (apply do-this args)))
 
@@ -171,7 +171,7 @@
   state, while also calling the callback on the result."
   (fn [state f arg cb]
     (def exec (base-eval (list f (list 'quote arg)) state))
-    (cb (head exec))
+    (cb (first exec))
     exec))
 
 (def updatable-eval

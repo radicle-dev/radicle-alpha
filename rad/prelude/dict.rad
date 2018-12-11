@@ -5,7 +5,7 @@
 (def dict-from-seq
   "Creates a dictionary from a list of key-value pairs."
   (fn [xs]
-    (foldr (fn [kv acc] (insert (head kv) (head (tail kv)) acc)) (dict) xs)))
+    (foldr (fn [kv acc] (insert (first kv) (first (rest kv)) acc)) (dict) xs)))
 
 (:test "dict-from-seq"
   [ (dict-from-seq (list (list :one 1) (list :two 2)))
@@ -16,7 +16,7 @@
 (def keys
   "Given a dict `d`, returns a vector of its keys."
   (fn [d]
-    (map head (seq d))))
+    (map first (seq d))))
 
 (:test "keys"
   [ (keys {:one 1 :two 2}) ==> [:one :two] ]

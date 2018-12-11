@@ -13,7 +13,7 @@
         ""
         (foldl
           string-append
-          (head strs)
+          (first strs)
           (map (fn [ln] (string-append sep ln)) (tail strs))))))
 
 (:test "intercalate"

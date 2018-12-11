@@ -56,10 +56,10 @@ Concatenate vectors using `<>`:
 (<> [1 2 3] [4 5 6]) ;; ==> [1 2 3 4 5 6]
 ```
 
-Add an element to the left using `add-left`:
+Add an element to the left using `cons`:
 
 ```radicle
-(add-left 0 [1 2 3]) ;; ==> [0 1 2 3]
+(cons 0 [1 2 3]) ;; ==> [0 1 2 3]
 ```
 
 Add an element to the right using `add-right`:

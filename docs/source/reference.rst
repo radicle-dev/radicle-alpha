@@ -108,21 +108,22 @@ Given a reference ``r`` and a value ``v``, updates the value stored in
 
 The most basic built-in pattern-matching dispatch function.
 
-``head``
+``cons``
 ~~~~~~~~
+
+Adds an element to the front of a sequence.
+
+``first``
+~~~~~~~~~
 
 Retrieves the first element of a sequence if it exists. Otherwise throws
 an exception.
 
-``cons``
+``rest``
 ~~~~~~~~
 
-Adds an element to the front of a list.
-
-``add-left``
-~~~~~~~~~~~~
-
-Adds an element to the left side of a vector.
+Given a non-empty sequence, returns the sequence of all the elements but
+the first. If the sequence is empty, throws an exception.
 
 ``add-right``
 ~~~~~~~~~~~~~
@@ -191,12 +192,6 @@ is empty, in which case an exception is thrown.
 
 Given a sequence ``xs`` and a function ``f``, returns a sequence with
 the same elements ``x`` of ``xs`` but sorted according to ``(f x)``.
-
-``tail``
-~~~~~~~~
-
-Given a non-empty sequence, returns the sequence of all the elements but
-the first. If the sequence is empty, throws an exception.
 
 ``take``
 ~~~~~~~~
@@ -576,6 +571,16 @@ left (i.e. from left to right) in the maybe monad.
 
 Returns true if ``x`` is an element of the sequence ``xs``
 
+``head``
+~~~~~~~~
+
+Backwards compatible alias for ``first``.
+
+``tail``
+~~~~~~~~
+
+Backwards compatible alias for ``rest``.
+
 ``prelude/patterns``
 --------------------
 
@@ -613,12 +618,12 @@ bound to the matched value.
 ``(/cons x-pat xs-pat)``
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-A pattern for lists with a head and a tail.
+A pattern for sequences with a head and a tail.
 
 ``(/nil v)``
 ~~~~~~~~~~~~
 
-Empty-list pattern.
+Empty-sequence pattern. Matches ``[]`` and ``(list)``
 
 ``(/just pat)``
 ~~~~~~~~~~~~~~~

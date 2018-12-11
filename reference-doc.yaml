@@ -37,9 +37,9 @@ primFns:
 # Pattern matching
 - match-pat
 # Sequences
-- head
 - cons
-- add-left
+- first
+- rest
 - add-right
 - <>
 - list
@@ -51,7 +51,6 @@ primFns:
 - foldr
 - drop
 - sort-by
-- tail
 - take
 - nth
 - seq

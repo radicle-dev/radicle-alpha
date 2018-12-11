@@ -128,12 +128,6 @@ purePrimFns = fromList $ allDocs $
           xs     -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
 
     -- Vectors
-    , ( "add-left"
-      , "Adds an element to the left side of a vector."
-      , twoArg "add-left" $ \case
-          (x, Vec xs) -> pure $ Vec (x :<| xs)
-          (_, v) -> throwErrorHere $ TypeError "add-left" 1 TVec v
-      )
     , ( "add-right"
       , "Adds an element to the right side of a vector."
       , twoArg "add-right" $ \case
@@ -143,29 +137,30 @@ purePrimFns = fromList $ allDocs $
 
     -- Lists
     , ("cons"
-      , "Adds an element to the front of a list."
-      , \case
-          [x, List xs] -> pure $ List (x:xs)
-          [_, v]       -> throwErrorHere $ TypeError "cons" 1 TList v
-          xs           -> throwErrorHere $ WrongNumberOfArgs "cons" 2 (length xs))
-    , ("head"
+      , "Adds an element to the front of a sequence."
+      , twoArg "cons" $ \case
+          (x, List xs) -> pure $ List (x:xs)
+          (x, Vec xs) -> pure $ Vec (x Seq.:<| xs)
+          (_, _)       -> throwErrorHere $ OtherError "cons: second argument not a list or vector"
+      )
+    , ("first"
       , "Retrieves the first element of a sequence if it exists. Otherwise throws an\
         \ exception."
-      , oneArg "head" $ \case
+      , oneArg "first" $ \case
           List (x:_)        -> pure x
-          List []           -> throwErrorHere $ OtherError "head: empty list"
+          List []           -> throwErrorHere $ OtherError "first: empty list"
           Vec (x Seq.:<| _) -> pure x
-          Vec Seq.Empty     -> throwErrorHere $ OtherError "head: empty vector"
-          v                 -> throwErrorHere $ TypeError "head" 0 TSequence v)
-    , ("tail"
+          Vec Seq.Empty     -> throwErrorHere $ OtherError "first: empty vector"
+          v                 -> throwErrorHere $ TypeError "first" 0 TSequence v)
+    , ("rest"
       , "Given a non-empty sequence, returns the sequence of all the elements but the\
         \ first. If the sequence is empty, throws an exception."
       , oneArg "tail" $ \case
           List (_:xs)        -> pure $ List xs
-          List []            -> throwErrorHere $ OtherError "tail: empty list"
+          List []            -> throwErrorHere $ OtherError "rest: empty list"
           Vec (_ Seq.:<| xs) -> pure $ Vec xs
-          Vec Seq.Empty      -> throwErrorHere $ OtherError "tail: empty vector"
-          v                  -> throwErrorHere $ TypeError "tail" 0 TSequence v)
+          Vec Seq.Empty      -> throwErrorHere $ OtherError "rest: empty vector"
+          v                  -> throwErrorHere $ TypeError "rest" 0 TSequence v)
 
     -- Sequences: Lists and Vecs
     , ( "drop"

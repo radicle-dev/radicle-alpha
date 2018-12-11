@@ -71,6 +71,8 @@
         :else            (filter pred (tail ls)))))
 
 (:test "filter"
-  [ (filter (fn [x] (< x 10)) (list 3 10 11))
-     ==> (3) ]
+  [ (filter (fn [x] (< x 10)) (list 3 10 11 5))
+     ==> (3 5) ]
+  [ (filter (fn [x] (< x 10)) [3 10 11 5])
+     ==> [3 5] ]
 )

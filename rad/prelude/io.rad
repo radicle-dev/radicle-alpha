@@ -40,7 +40,7 @@
     (def this-line (read-line-handle! hdl))
     (if (eq? this-line :eof)
         []
-        (add-left this-line (read-contents-handle! hdl)))))
+        (cons this-line (read-contents-handle! hdl)))))
 
 (def shell!
   "Executes `command` using the shell with `to-write` as input. Stdout and stderr are inherited.

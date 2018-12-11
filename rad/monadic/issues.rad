@@ -144,6 +144,6 @@
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
  [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment1" ]
- [ (short (head (values is))) ==> "0: title0" ]
- [ (short (head (list-last 1))) ==> "1: title1" ]
+ [ (short (first (values is))) ==> "0: title0" ]
+ [ (short (first (list-last 1))) ==> "1: title1" ]
 )
