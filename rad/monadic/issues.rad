@@ -17,8 +17,7 @@
 
 (def create-issues-chain!
   "Create a remote issue chain with the given url."
-  (fn [chain]
-    (def url (lookup :url (read-ref chain)))
+  (fn [url]
     (chain/send-prelude! url)
     (send-code! url "rad/monadic/issue-remote.rad")))
 

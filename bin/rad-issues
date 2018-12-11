@@ -1,6 +1,8 @@
 #!/usr/bin/env radicle
 
 (load! "rad/prelude.rad")
+(load! "rad/monadic/issues.rad")
+(load! "rad/prelude/io-utils.rad")
 
 (def base-name "http://machine.radicle.xyz/chains")
 
@@ -9,29 +11,30 @@
   "rad-issues - Radicle issue CLI
 
    Usage:
-        rad [list|new] <chain-name>
-        rad help
+        rad-issues [list|new|create-chain] <chain-name>
+        rad-issues help
 
-     list - Select from all issues to view or comment on
-     new  - Create a new issue in $EDITOR
-     help - Print this help and exit
+     list         - Select from all issues to view or comment on
+     new          - Create a new issue in $EDITOR
+     create-chain - Create a new issues chain
+     help         - Print this help and exit
 
    If <chain-name> begins with 'http://', that URL will be used. Otherwise,
   " base-name " will be prepended to <chain-name>." ))
 
+(def make-name
+  (fn [chain]
+    (if (eq? (take 7 chain) "http://")
+        chain
+        (string-append base-name chain))))
+
 (def make-chain-ref
   (fn [chain]
-    (def name
-      (if (eq? (take 7 chain) "http://")
-          chain
-          (string-append base-name chain)))
-    (ref (chain/load-chain! name))))
+    (ref (chain/load-chain! (make-name chain)))))
 
 (def list-issues
   (fn [chain]
     (def chain-ref (make-chain-ref chain))
-    (load! "rad/prelude/io-utils.rad")
-    (load! "rad/monadic/issues.rad")
 
     (def mk-key (fn [v]
       (match v
@@ -88,11 +91,16 @@
          chain-ref
          (<> iss {:state :open :comments [] :created-at (now!)}))))
 
+(def create-chain
+  (fn [chain]
+    (create-issues-chain! (make-name chain))))
+
 (def args (get-args!))
 (match args
-  ["list" 'chain] (list-issues chain)
-  ["new"  'chain] (new-issue chain)
-  ["help"]        (put-str! help)
-  _               (do
-                    (put-str! (string-append "Unrecognized command" (show args)))
-                    (put-str! help)))
+  ["list" 'chain]         (list-issues chain)
+  ["new"  'chain]         (new-issue chain)
+  ["create-chain" 'chain] (create-chain chain)
+  ["help"]                (put-str! help)
+  _                       (do
+                            (put-str! (string-append "Unrecognized command" (show args)))
+                            (put-str! help)))
