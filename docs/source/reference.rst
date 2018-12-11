@@ -802,6 +802,12 @@ Concatenates ``list1`` and ``list2``.
 
 Returns ``ls`` with only the elements that satisfy ``pred``.
 
+``(take-while pred ls)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns all elements of a sequence ``ls`` until one does not satisfy
+``pred``
+
 ``prelude/dict``
 ----------------
 

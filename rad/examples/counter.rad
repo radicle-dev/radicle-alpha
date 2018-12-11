@@ -54,7 +54,7 @@
 
 (def counter/run-test
   (fn []
-    (def chain-id (uuid!))
+    (def chain-id (string-append "http://radicle-server:8000/chains/" (uuid!)))
     (assert-equal (counter/init-chain! chain-id) :done)
     (assert-equal (counter/get-value chain-id) 0)
     (assert-equal (counter/increment! chain-id) 1)
