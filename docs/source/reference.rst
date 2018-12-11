@@ -1078,8 +1078,8 @@ the predicate is true.
 
 Validator for whole numbers.
 
-``(key k v)``
-~~~~~~~~~~~~~
+``(optional-key k v)``
+~~~~~~~~~~~~~~~~~~~~~~
 
 Given a key ``k`` and a validator ``v``, returns a validator which
 checks that the value associated to ``k`` in a dict conforms to ``v``.
@@ -1103,22 +1103,24 @@ structure contains all of them.
 Validator which checks that a dict only contains a subset of a vector of
 keys.
 
-``(has-key k v)``
-~~~~~~~~~~~~~~~~~
+``(key k v)``
+~~~~~~~~~~~~~
 
 Combines existence and validity of a key in a dict.
 
-``(keys ks)``
-~~~~~~~~~~~~~
+``(optional-keys ks)``
+~~~~~~~~~~~~~~~~~~~~~~
 
 Given a dict associating keys to validators, returns a validator which
 checks that the values associated to those keys in a dict conform to the
 corresponding validators.
 
-``(has-keys ks)``
-~~~~~~~~~~~~~~~~~
+``(keys d)``
+~~~~~~~~~~~~
 
-Checks for the existence and validity of keys.
+Given a dict ``d``, returns a validator which checks that a dict
+contains all the keys that ``d`` does, and that the associated values a
+valid according to the associated validators.
 
 ``(every v)``
 ~~~~~~~~~~~~~

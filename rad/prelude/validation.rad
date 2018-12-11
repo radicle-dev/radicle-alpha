@@ -1,6 +1,6 @@
 {:module 'prelude/validation
  :doc "Functions for creating or combining *validators*, which are functions which return the input unchanged or throw with an error message. These can be used for checking data before accepting it onto a chain."
- :exports '[= member and or type pred integral key contains contains-all contains-only has-key keys has-keys every uuid signed]}
+ :exports '[= member and or type pred integral optional-key contains contains-all contains-only key optional-keys keys every uuid signed]}
 
 (import prelude/dict :unqualified)
 (import prelude/dict :as 'dict)
@@ -12,7 +12,9 @@
     (fn [y]
       (if (eq? x y)
         x
-        (throw 'validation-failure (string-append "Not equal to: " (show x)))))))
+        (throw 'validation-failure {:info "Was not equal to expected value."
+                                    :expected x
+                                    :actual y})))))
 
 (def member
   "Given a structure, returns a validator which checks for membership in the structure."
@@ -20,7 +22,9 @@
     (fn [x]
       (if (member? x xs)
         x
-        (throw 'validation-failure (string-append "Not a member of: " (show xs)))))))
+        (throw 'validation-failure {:info "Element was not a member of container."
+                                    :container xs
+                                    :element x})))))
 
 (def and
   "Given a sequence of validators `vs`, returns a new validator which, given a
@@ -49,7 +53,9 @@
     (fn [x]
       (if (eq? (type x) t)
         x
-        (throw 'validation-failure (string-append "Did not have type " (show t) ": " (show x)))))))
+        (throw 'validation-failure {:info "Value was not of the correct type."
+                                    :value x
+                                    :expected-type t})))))
 
 (def pred
   "Given a description and a predicate, returns a validator that checks if the
@@ -58,7 +64,8 @@
     (fn [x]
       (if (p x)
         x
-        (throw 'validation-failure (string-append "Did not satisfy predicate: " name))))))
+        (throw 'validation-failure {:info "Did not satisfy predicate."
+                                    :name name})))))
 
 (def integral
   "Validator for whole numbers."
@@ -68,15 +75,30 @@
       (throw 'validation-failure {:info "Number was not an integer."
                                   :number n}))))
 
-(def key
+(:test "integral"
+       [ (integral 0) ==> 0 ]
+       [ (catch 'validation-failure
+             (integral 1/3)
+             (fn [e] (lookup :number e))) ==> 1/3 ])
+
+(def optional-key
   "Given a key `k` and a validator `v`, returns a validator which checks that the
   value associated to `k` in a dict conforms to `v`. If the key is absent, the
   validator passes."
   (fn [k v]
     (fn [d]
       (if (member? k d)
-        (v (lookup k d))
+        (do (v (lookup k d))
+            d)
         d))))
+
+(:test "optional-key"
+       [ ((optional-key :a (= 0)) {}) ==> {} ]
+       [ ((optional-key :a (= 0)) {:a 0}) ==> {:a 0} ]
+       [ (catch 'validation-failure
+             ((optional-key :a (= 0)) {:a 1})
+           (fn [_] :ok))
+         ==> :ok ])
 
 (def contains
   "Given a value, returns a validator which checks for membership of that value."
@@ -88,12 +110,27 @@
                                     :element k
                                     :container x})))))
 
-(def has-key
+(:test "contains"
+       [ ((contains 42) {42 #t}) ==> {42 #t}]
+       [ (catch 'validation-failure
+             ((contains 42) {})
+             (fn [e] (lookup :element e))) ==> 42])
+
+(def key
   "Combines existence and validity of a key in a dict."
   (fn [k v]
-    (and [(contains k) (key k v)])))
+    (and [(contains k) (optional-key k v)])))
 
-(def keys
+(:test "key"
+       [ ((key :a (= 0)) {:a 0}) ==> {:a 0} ]
+       [ (catch 'validation-failure
+             ((key :a (= 0)) {})
+           (fn [e] (lookup :element e))) ==> :a ]
+       [ (catch 'validation-failure
+             ((key :a (= 0)) {:a 1})
+           (fn [e] (lookup :expected e))) ==> 0])
+
+(def optional-keys
   "Given a dict associating keys to validators, returns a validator which checks
   that the values associated to those keys in a dict conform to the
   corresponding validators."
@@ -101,16 +138,28 @@
     (fn [d]
       (if (dict? d)
         ((and
-          (map (fn [kv] (key (nth 0 kv) (nth 1 kv)))
+          (map (fn [kv] (optional-key (nth 0 kv) (nth 1 kv)))
                (seq ks)))
          d)
         (throw 'validation-failure (string-append "Not a dict: " (show d)))))))
+
+(:test "optional-keys"
+       [ ((optional-keys {0 (= 0) 1 (= 1)}) {0 0 1 1}) ==> {0 0 1 1}]
+       [ (catch 'validation-failure
+             ((optional-keys {0 (= 0) 1 (= 1)}) {0 0 1 2})
+           (fn [e] (lookup :expected e))) ==> 1])
 
 (def contains-all
   "Given a vector of keys, returns a validator which checks that a structure
   contains all of them."
   (fn [ks]
     (and (map contains ks))))
+
+(:test "contains-all"
+       [ ((contains-all [0 1]) {0 0 1 1}) ==> {0 0 1 1}]
+       [ (catch 'validation-failure
+             ((contains-all [0 1]) {0 0 2 2})
+           (fn [e] (lookup :element e))) ==> 1 ])
 
 (def contains-only
   "Validator which checks that a dict only contains a subset of a vector of keys."
@@ -122,10 +171,27 @@
                                     :dict d
                                     :allowed-keys ks})))))
 
-(def has-keys
-  "Checks for the existence and validity of keys."
-  (fn [ks]
-    (and [(contains-all (dict/keys ks)) (keys ks)])))
+(:test "contains-only"
+       [ ((contains-only [0 1]) {0 0}) ==> {0 0}]
+       [ (catch 'validation-failure
+             ((contains-only [0 1]) {0 0 2 2})
+           (fn [e] (lookup :allowed-keys e))) ==> [0 1]])
+
+(def keys
+  "Given a dict `d`, returns a validator which checks that a dict contains all the
+  keys that `d` does, and that the associated values a valid according to the
+  associated validators."
+  (fn [d]
+    (and [(contains-all (dict/keys d)) (optional-keys d)])))
+
+(:test "keys"
+       [ ((keys {0 (= 0) 1 (= 1)}) {0 0 1 1}) ==> {0 0 1 1}]
+       [ (catch 'validation-failure
+             ((keys {0 (= 0) 1 (= 1)}) {0 0})
+           (fn [e] (lookup :element e))) ==> 1]
+       [ (catch 'validation-failure
+             ((keys {0 (= 0) 1 (= 1)}) {0 0 1 2})
+           (fn [e] (lookup :expected e))) ==> 1])
 
 (def every
   "Given a validator, creates a new validator which checks that all the items in
@@ -134,11 +200,24 @@
     (fn [xs]
       (map v xs))))
 
+(:test "every"
+       [ ((every (= 0)) [0 0 0]) ==> [0 0 0]]
+       [ ((every (= 0)) []) ==> []]
+       [ (catch 'validation-failure
+             ((every (= 0)) [0 1])
+           (fn [e] (lookup :actual e))) ==> 1])
+
 (def uuid
   "Validates UUIDs."
   (and
    [(type :string)
     (pred "valid UUID" uuid?)]))
+
+(:test "uuid"
+       [ (uuid "3c038e2f-0f0c-4d49-8f10-6a44e75fbf40") ==> "3c038e2f-0f0c-4d49-8f10-6a44e75fbf40"]
+       [ (catch 'validation-failure
+             (uuid "nope")
+           (fn [_] :not-uuid)) ==> :not-uuid ])
 
 (def signed
   "Checks that a value is a dict with `:signature` and `:author` keys, and that
@@ -170,7 +249,7 @@
        (def full (<> payload seal))
        (def full_ (<> payload_ seal))
        (def ok
-         (catch 'any (do (signed full) :ok) (fn [x] :not-ok)))
+         (catch 'validation-failure (do (signed full) :ok) (fn [_] :not-ok)))
        )
    ]
   [ ok ==> :ok ]
