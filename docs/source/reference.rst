@@ -865,10 +865,10 @@ Insert a value into a set.
 
 Delete a value from a set.
 
-``(member? x s)``
-~~~~~~~~~~~~~~~~~
+``member?``
+~~~~~~~~~~~
 
-Query if an value is an element of a set.
+Query if a value is an element of a set.
 
 ``(to-vec s)``
 ~~~~~~~~~~~~~~
@@ -879,6 +879,16 @@ Convert a set to a vector.
 ~~~~~~~~~~~~~~~~~
 
 Create a set from a sequence.
+
+``(key-set d)``
+~~~~~~~~~~~~~~~
+
+The set of keys of a dict.
+
+``(subset? xs ys)``
+~~~~~~~~~~~~~~~~~~~
+
+Checks if ``xs`` is a subset of ``ys``.
 
 ``prelude/ref``
 ---------------
