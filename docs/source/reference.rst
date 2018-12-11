@@ -845,6 +845,11 @@ function to the value associated to that key.
 
 Delete several keys ``ks`` from a dict ``d``.
 
+``(lookup-default key default dict)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``lookup`` but returns ``default`` if the key is not in the map.
+
 ``prelude/set``
 ---------------
 
@@ -944,6 +949,12 @@ Modify a value through a lens.
 ~~~~~~~~~
 
 Returns a lens targetting keys of dicts.
+
+``(@def k default)``
+~~~~~~~~~~~~~~~~~~~~
+
+Returns a lens targetting keys of dicts with a default value for getting
+if the key does not exist in the target.
 
 ``(@nth n)``
 ~~~~~~~~~~~~

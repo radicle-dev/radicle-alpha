@@ -1,8 +1,9 @@
 {:module 'prelude/lens
  :doc "Functional references."
- :exports ['make-lens 'view 'set 'id-lens '.. '... 'over '@ '@nth 'view-ref 'set-ref 'over-ref]}
+ :exports ['make-lens 'view 'set 'id-lens '.. '... 'over '@ '@def '@nth 'view-ref 'set-ref 'over-ref]}
 
 (import prelude/ref :unqualified)
+(import prelude/dict '[lookup-default ]:unqualified)
 
 ;; Lenses ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -87,6 +88,20 @@
           (fn [x] (+ x 1))
           {:a {:b {:c 0}}})
      ==> {:a {:b {:c 1}}} ])
+
+
+
+(def @def
+  "Returns a lens targetting keys of dicts with a default value for getting if
+  the key does not exist in the target."
+  (fn [k default]
+    (make-lens (fn [mp] (lookup-default k default mp))
+               (fn [v mp] (insert k v mp)))))
+
+(:test "@def"
+  [ (view (@def :one :default) {:one 1}) ==> 1 ]
+  [ (view (@def :one :default) {:two 2}) ==> :default ]
+  [ (set (@ :two) 42 {:one 1 :two 2}) ==> {:one 1 :two 42} ])
 
 ;; @nth
 
