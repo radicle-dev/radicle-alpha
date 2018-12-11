@@ -45,7 +45,7 @@
   [ (key-set {:a 1 :b 2}) ==> {:a #t :b #t} ])
 
 (def subset?
-  "Checks if xs is a subset of ys."
+  "Checks if `xs` is a subset of `ys`."
   (fn [xs ys]
     (all (map (fn [x] (member? x ys))
               (dict/keys xs)))))

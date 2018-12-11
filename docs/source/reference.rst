@@ -888,7 +888,7 @@ The set of keys of a dict.
 ``(subset? xs ys)``
 ~~~~~~~~~~~~~~~~~~~
 
-Checks if xs is a subset of ys.
+Checks if ``xs`` is a subset of ``ys``.
 
 ``prelude/ref``
 ---------------
