@@ -69,16 +69,19 @@ label for the exception, the second can be any value.
 
 Exit the interpreter immediately with the given exit code.
 
-``read``
-~~~~~~~~
+``read-annotated``
+~~~~~~~~~~~~~~~~~~
 
-Parses a string into a radicle value. Does not evaluate the value.
+``(read-anotated label s)`` parses the string ``s`` into a radicle
+value. The resulting value is not evaluated. The ``label`` argument is a
+string which is used to annotate the value with line numbers.
 
-``read-many``
-~~~~~~~~~~~~~
+``read-many-annotated``
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Parses a string into a vector of radicle values. Does not evaluate the
-values.
+(read-many-annotated label s) parses a string into a vector of radicle
+values. The resulting values are not evaluated. The ``label`` argument
+is a string which is used to annotate the values with line numbers.
 
 ``base-eval``
 ~~~~~~~~~~~~~
@@ -702,15 +705,20 @@ and stderr are inherited. See ``man exec`` for more information on
 
 Read a single line of input and interpret it as radicle data.
 
+``(read-file-value! file)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read a single radicle value from a file.
+
+``(read-file-values! file)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read many radicle values from a file.
+
 ``(send-code! chain-id filename)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Send code from a file to a remote chain.
-
-``(read-code! filename)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Read code (as data) from a file. Returns a vector of expressions
 
 ``(shell-with-stdout! command to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
