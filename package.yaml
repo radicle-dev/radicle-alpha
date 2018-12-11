@@ -112,6 +112,7 @@ executables:
     - postgresql-simple
     - servant
     - servant-server
+    - text
     - warp
     - wai-extra
     - wai-cors
