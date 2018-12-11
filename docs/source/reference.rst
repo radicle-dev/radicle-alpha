@@ -72,13 +72,16 @@ Exit the interpreter immediately with the given exit code.
 ``read-annotated``
 ~~~~~~~~~~~~~~~~~~
 
-Parses a string into a radicle value. Does not evaluate the value.
+``(read-anotated label s)`` parses the string ``s`` into a radicle
+value. The resulting value is not evaluated. The ``label`` argument is a
+string which is used to annotate the value with line numbers.
 
 ``read-many-annotated``
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Parses a string into a vector of radicle values. Does not evaluate the
-values.
+(read-many-annotated label s) parses a string into a vector of radicle
+values. The resulting values are not evaluated. The ``label`` argument
+is a string which is used to annotate the values with line numbers.
 
 ``base-eval``
 ~~~~~~~~~~~~~

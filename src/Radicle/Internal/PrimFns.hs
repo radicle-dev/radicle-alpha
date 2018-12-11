@@ -83,14 +83,18 @@ purePrimFns = fromList $ allDocs $
           [_, v]          -> throwErrorHere $ TypeError "apply" 1 TList v
           xs -> throwErrorHere $ WrongNumberOfArgs "apply" 2 (length xs))
     , ( "read-annotated"
-      , "Parses a string into a radicle value. Does not evaluate the value."
+      , "`(read-anotated label s)` parses the string `s` into a radicle value.\
+        \ The resulting value is not evaluated. The `label` argument is a string\
+        \ which is used to annotate the value with line numbers."
       , twoArg "read-annotated" $ \case
           (String label, String s) -> readValue label s
           (String _, v) -> throwErrorHere $ TypeError "read" 1 TString v
           (v, _) -> throwErrorHere $ TypeError "read" 0 TString v
       )
     , ( "read-many-annotated"
-      , "Parses a string into a vector of radicle values. Does not evaluate the values."
+      , "(read-many-annotated label s) parses a string into a vector of radicle\
+        \ values. The resulting values are not evaluated. The `label` argument \
+        \is a string which is used to annotate the values with line numbers."
       , twoArg "read-many" $ \case
           (String label, String s) -> Vec . Seq.fromList <$> readValues label s
           (String _, v) -> throwErrorHere $ TypeError "read-many" 1 TString v
