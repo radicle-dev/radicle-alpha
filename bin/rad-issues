@@ -4,7 +4,7 @@
 (load! "rad/monadic/issues.rad")
 (load! "rad/prelude/io-utils.rad")
 
-(def base-name "http://machine.radicle.xyz/chains")
+(def base-name "http://machines.radicle.xyz/chains/")
 
 (def help
   (string-append
