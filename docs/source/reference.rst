@@ -797,7 +797,7 @@ Returns ``ls`` with only the elements that satisfy ``pred``.
 ``(take-while pred ls)``
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Returns all elements of a list ``ls`` until one does not satisfy
+Returns all elements of a sequence ``ls`` until one does not satisfy
 ``pred``
 
 ``prelude/dict``

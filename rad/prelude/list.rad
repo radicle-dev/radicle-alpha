@@ -81,14 +81,16 @@
 ;; take-while
 
 (def-rec take-while
-  "Returns all elements of a list `ls` until one does not satisfy `pred`"
+  "Returns all elements of a sequence `ls` until one does not satisfy `pred`"
   (fn [pred ls]
     (cond
       (empty? ls)       ls
       (pred (head ls))  (cons (head ls) (take-while pred (tail ls)))
-      :else             nil)))
+      :else             (if (list? ls)
+                          (list)
+                          []))))
 
-(:test "takeWhile"
+(:test "take-while"
   [ (take-while (fn [x] (eq? x "bar")) (list "foo" "bar") ) ==> () ]
   [ (take-while (fn [x] (not (eq? x "bar"))) (list "foo" "bar") ) ==> ("foo") ]
-  [ (take-while (fn [x] (< x 10)) (list 3 9 10 11) ) ==> (3 9) ])
+  [ (take-while (fn [x] (< x 10)) [3 9 10 11] ) ==> [3 9] ])
