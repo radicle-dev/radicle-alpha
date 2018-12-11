@@ -88,3 +88,19 @@
  [ (elem? "f" (list "f" "g" "h")) ==> #t]
  [ (elem? "h" ["f" "g" "h"]) ==> #t]
  [ (elem? "a" (list "f" "g" "h")) ==> #f])
+
+(def read
+  "Reads a radicle value from a string."
+  (fn [s]
+    (read-annotated "[read]" s)))
+
+(:test "read"
+  [ (read "[:a 42 \"foo\" {:key (1 2 3)}]") ==> [:a 42 "foo" {:key (1 2 3)}] ])
+
+(def read-many
+  "Reads many radicle values from a string."
+  (fn [s]
+    (read-many-annotated "[read-many]" s)))
+
+(:test "read-many"
+  [ (read-many "([:one] {:two 3}) (four \"five\" 6)") ==> [([:one] {:two 3}) (four "five" 6)]])
