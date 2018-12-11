@@ -1,20 +1,29 @@
 {:module 'prelude/io
  :doc "Some basic I/O functions."
- :exports '[print! shell! process! read-line! send-code!
+ :exports '[print! shell! process! read-line! read-file-value! read-file-values! send-code!
             shell-with-stdout! shell-no-stdin! process-with-stdout! write-file!
            ]}
 
 (import prelude/patterns :unqualified)
 
-;; read-line
 (def read-line!
   "Read a single line of input and interpret it as radicle data."
-  (fn [] (read (get-line!))))
+  (fn [] (read-annotated "[read-line!]" (get-line!))))
+
+(def read-file-value!
+  "Read a single radicle value from a file."
+  (fn [file]
+    (read-annotated file (read-file! file))))
+
+(def read-file-values!
+  "Read many radicle values from a file."
+  (fn [file]
+    (read-many-annotated file (read-file! file))))
 
 (def send-code!
   "Send code from a file to a remote chain."
   (fn [chain-id filename]
-    (send! chain-id (read-file-code! filename))))
+    (send! chain-id (read-file-values! filename))))
 
 (def print!
   "Print a value to the console or stdout."

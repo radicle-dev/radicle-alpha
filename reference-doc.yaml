@@ -26,8 +26,8 @@ primFns:
 - show
 - throw
 - exit!
-- read
-- read-many
+- read-annotated
+- read-many-annotated
 # Eval
 - base-eval
 # Refs

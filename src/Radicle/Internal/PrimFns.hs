@@ -82,17 +82,19 @@ purePrimFns = fromList $ allDocs $
           [fn, List args] -> callFn fn args
           [_, v]          -> throwErrorHere $ TypeError "apply" 1 TList v
           xs -> throwErrorHere $ WrongNumberOfArgs "apply" 2 (length xs))
-    , ( "read"
+    , ( "read-annotated"
       , "Parses a string into a radicle value. Does not evaluate the value."
-      , oneArg "read" $ \case
-          String s -> readValue "[read]" s
-          v -> throwErrorHere $ TypeError "read" 0 TString v
+      , twoArg "read-annotated" $ \case
+          (String label, String s) -> readValue label s
+          (String _, v) -> throwErrorHere $ TypeError "read" 1 TString v
+          (v, _) -> throwErrorHere $ TypeError "read" 0 TString v
       )
-    , ( "read-many"
+    , ( "read-many-annotated"
       , "Parses a string into a vector of radicle values. Does not evaluate the values."
-      , oneArg "read-many" $ \case
-          String s -> Vec . Seq.fromList <$> readValues "[read-many]" s
-          v -> throwErrorHere $ TypeError "read-many" 0 TString v
+      , twoArg "read-many" $ \case
+          (String label, String s) -> Vec . Seq.fromList <$> readValues label s
+          (String _, v) -> throwErrorHere $ TypeError "read-many" 1 TString v
+          (v, _) -> throwErrorHere $ TypeError "read-many" 0 TString v
       )
     , ("get-current-env"
       , "Returns the current radicle state."
