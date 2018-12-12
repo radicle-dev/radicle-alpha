@@ -72,7 +72,7 @@ buildStoragePrimFns backend =
                       res <- lift $ receive id n
                       case res of
                           Left err -> throwErrorHere . OtherError
-                                    $ receiveName <> ": request failed: " <> show err
+                                    $ receiveName <> ": request failed: " <> err
                           Right v' -> pure $ List v'
           (String _, v) -> throwErrorHere $ TypeError receiveName 1 TNumber v
           (v, _)        -> throwErrorHere $ TypeError receiveName 0 TString v
