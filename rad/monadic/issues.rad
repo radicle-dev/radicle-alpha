@@ -131,8 +131,9 @@
 (:test
  "The monadic issues chain works."
  [:setup
-  (do (def chain (ref (chain/new-chain "http://localhost:8024/chains/fxoo")))
-      (create-issues-chain! chain)
+  (do (def chain-name "http://localhost:8024/chains/fxoo")
+      (def chain (ref (chain/new-chain chain-name)))
+      (create-issues-chain! chain-name)
       (simple-create-issue! chain "title0" "body0")
       (simple-create-issue! chain "title1" "body1")
       (simple-add-comment! chain 0 "comment0")
@@ -144,5 +145,5 @@
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
  [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment1" ]
  [ (short (first (values is))) ==> "0: title0" ]
- [ (short (first (list-last 1))) ==> "1: title1" ]
+ [ (short (first (list-last chain 1))) ==> "1: title1" ]
 )
