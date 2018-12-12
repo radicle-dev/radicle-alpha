@@ -6,7 +6,6 @@ import           Protolude hiding (TypeError, toList)
 
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import qualified Data.Time as Time
 import           GHC.Exts (IsList(..))
 import           System.Console.Haskeline
                  ( CompletionFunc
@@ -27,6 +26,7 @@ import           Radicle.Internal.Interpret
 import           Radicle.Internal.Number (isInt)
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.PrimFns
+import           Radicle.Internal.Time as Time
 import           Radicle.Internal.Type (Type(..))
 import qualified Radicle.Internal.UUID as UUID
 
@@ -323,7 +323,7 @@ replPrimFns sysArgs = fromList $ allDocs $
       , "Returns a timestamp for the current Coordinated Universal Time (UTC), right now, formatted according to ISO 8601."
       , \case
           [] -> do t <- currentTime
-                   pure . String . toS . Time.formatTime Time.defaultTimeLocale (Time.iso8601DateFormat (Just "%H:%M:%SZ")) $ t
+                   pure . String . Time.formatTime $ t
           xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)
       )
     , ( "file-module!"

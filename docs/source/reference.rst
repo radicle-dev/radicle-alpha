@@ -387,6 +387,26 @@ Replaces the radicle state with the one provided.
 Given an atom ``x`` and a value ``v``, sets the value associated to
 ``x`` in the current environment to be ``v``. Doesn't evaluate ``v``.
 
+``timestamp?``
+~~~~~~~~~~~~~~
+
+Returns true if the input is an ISO 8601 formatted CoordinatedUniversal
+Time (UTC) timestamp string. If the input isn't a string, an exception
+is thrown.
+
+``unix-epoch``
+~~~~~~~~~~~~~~
+
+Given an ISO 8601 formatted Coordinated Universal Time (UTC) timestamp,
+returns the corresponding Unix epoch time, i.e., the number of seconds
+since Jan 01 1970 (UTC).
+
+``now!``
+~~~~~~~~
+
+Returns a timestamp for the current Coordinated Universal Time (UTC),
+right now, formatted according to ISO 8601.
+
 ``to-json``
 ~~~~~~~~~~~
 
@@ -475,12 +495,6 @@ Open file in the specified mode (``:read``, ``:write``, ``:append``,
 ~~~~~~~~~~~~~~~~~
 
 Close a handle
-
-``now!``
-~~~~~~~~
-
-Returns a timestamp for the current Coordinated Universal Time (UTC),
-right now, formatted according to ISO 8601.
 
 ``system!``
 ~~~~~~~~~~~
@@ -1161,6 +1175,12 @@ Checks that a value is a dict with ``:signature`` and ``:author`` keys,
 and that the signature is valid for the rest of the dict for that
 author. The rest of the dict is turned into a string according to
 ``show``.
+
+``(timestamp x)``
+~~~~~~~~~~~~~~~~~
+
+A validator which checks if a string is an ISO 8601 formatted
+Coordinated Universal Time (UTC) timestamp.
 
 ``prelude/util``
 ----------------

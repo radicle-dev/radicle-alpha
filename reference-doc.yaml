@@ -86,6 +86,10 @@ primFns:
 - pure-env
 - set-current-env
 - set-env!
+# Time
+- timestamp?
+- unix-epoch
+- now!
 # JSON
 - to-json
 # UUIDs
@@ -106,7 +110,6 @@ primFns:
 - read-line-handle!
 - open-file!
 - close-handle!
-- now!
 - system!
 - wait-for-process!
 - write-handle!

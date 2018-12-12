@@ -61,10 +61,6 @@
       (validator/pred (string-append "< " (show max-len) " chars in length")
                       (fn [s] (< (string-length s) max-len)))])))
 
-;; TODO correctly formatted date string
-(def validator/timestamp
-  (validator/type :string))
-
 (def input-keys
   {:nonce      validator/nonce
    :chain-id   (validator/= chain-id)})
