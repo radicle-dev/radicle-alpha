@@ -6,17 +6,23 @@
 
 (def base-name "http://machines.radicle.xyz/chains/")
 
+(def name-base "http://machines.radicle.xyz/chains/names")
+
 (def help
   (string-append
   "rad-issues - Radicle issue CLI
 
    Usage:
         rad-issues [list|new|create-chain] <chain-name>
+        rad-issues make-key <nick>
+        rad-issues names
         rad-issues help
 
      list         - Select from all issues to view or comment on
      new          - Create a new issue in $EDITOR
      create-chain - Create a new issues chain
+     make-key     - Create a key-pair and register the name
+     names        - See all registered names
      help         - Print this help and exit
 
    If <chain-name> begins with 'http://', that URL will be used. Otherwise,
@@ -77,8 +83,6 @@
 (def new-issue
   (fn [chain]
     (def chain-ref (make-chain-ref chain))
-    (load! "rad/prelude/io-utils.rad")
-    (load! "rad/monadic/issues.rad")
     (def template
 ";; Issue template. An empty or invalid value will abort.
 {:title      \"Pick a title\"
@@ -95,9 +99,23 @@
   (fn [chain]
     (create-issues-chain! (make-name chain))))
 
+(def make-key
+  (fn [name]
+    (def kp (gen-key-pair! (default-ecc-curve)))
+    (write-file! "my-keys.rad" (show kp))
+    (load! "rad/monadic/names.rad")
+    (add-name! name-base name (lookup :public-key kp))))
+
+(def names
+  (fn []
+    (load! "rad/monadic/names.rad")
+    (print! (list-names name-base))))
+
 (def args (get-args!))
 (match args
   ["list" 'chain]         (list-issues chain)
+  ["names"]               (names)
+  ["make-key" 'name]      (make-key name)
   ["new"  'chain]         (new-issue chain)
   ["create-chain" 'chain] (create-chain chain)
   ["help"]                (put-str! help)

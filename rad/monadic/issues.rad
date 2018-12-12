@@ -164,7 +164,7 @@
 (:test
  "The monadic issues chain works."
  [:setup
-  (do (def chain-name "http://localhost:8024/chains/fxoo")
+  (do (def chain-name "http://localhost:8000/chains/fxoo")
       (def chain (ref (chain/new-chain chain-name)))
       (create-issues-chain! chain-name)
       (simple-create-issue! chain "title0" "body0")
