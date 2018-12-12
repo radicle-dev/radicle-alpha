@@ -1,0 +1,40 @@
+(load! "rad/prelude.rad")
+
+(def create-name-chain!
+  (fn [url]
+    (chain/send-prelude! url)
+    (send-code! url "rad/monadic/names-remote.rad")))
+
+(def lookup-key
+  (fn [chain-ref key]
+    (def chain (read-ref chain-ref))
+    (def names (chain/eval-in-chain '(list-names) chain))
+    (match (filter (fn [v] (eq? (nth 1 v) key)) names)
+      [['name _]]  name
+      _            :nothing)))
+
+(def add-name!
+  (fn [name-chain-url name key]
+    (send!
+       name-chain-url
+       [(list 'add-name name key)])))
+
+(def fetch!
+  "Update the locally cached state of the chain."
+  (fn [chain]
+    (chain/update-chain-ref! chain)))
+
+(:test
+  "The monadic name chain works."
+  [:setup
+    (do (def chain-name "http://localhost:8000/chains/shkjksa")
+        (def chain (ref (chain/new-chain chain-name)))
+        (create-name-chain! chain-name)
+        (fetch! chain)
+        (add-name! chain-name "alice" "a")
+        (add-name! chain-name "bob" "b"))]
+  [ (lookup-key chain "a") ==> "alice" ]
+  [ (lookup-key chain "b") ==> "bob" ]
+  [ (lookup-key chain "c") ==> :nothing ]
+  [ (catch 'any (add-name! chain-name "alice" "d") (fn [x] :caught)) ==> :caught ]
+)

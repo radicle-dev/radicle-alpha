@@ -830,7 +830,10 @@ test_cbor =
 -- Radicle source with the @:test@ macro.
 test_source_files :: IO TestTree
 test_source_files = do
-    tests <- join <$> traverse testOne ["rad/prelude.rad", "rad/monadic/issues.rad"]
+    tests <- join <$> traverse testOne [ "rad/prelude.rad"
+                                       , "rad/monadic/issues.rad"
+                                       , "rad/monadic/names.rad"
+                                       ]
     pure $ testGroup "Radicle source file tests" tests
   where
     testOne :: FilePath -> IO [TestTree]

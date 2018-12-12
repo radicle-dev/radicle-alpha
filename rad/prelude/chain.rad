@@ -2,7 +2,7 @@
  :doc "Functions for simulating remote chains."
  :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval updatable-eval update-chain! eval-fn-app send-prelude!]}
 
-(import prelude/io '[read-file-values!] :as 'io)
+(import prelude/io '[read-file-values! print!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/lens '[.. ... view over @] :unqualified)
 (import prelude/basic :unqualified)
@@ -68,6 +68,7 @@
       (receive! (lookup :url chain) index))
     (def upd-ch
       (fn [ch expr]
+        ;; (io/print! expr)
         (def x (eval-in-chain expr ch))
         (view (@ :chain) x)))
     (foldl upd-ch chain new-inputs)))
