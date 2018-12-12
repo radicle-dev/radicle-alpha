@@ -40,31 +40,49 @@
 (def simple-issue
   "Create an open issue with no comments or labels."
   (fn [tit bod]
-    {:title      tit
-     :body       bod
-     :labels     []
-     :state      :open
-     :comments   []
-     :created-at (now!)}))
+    (def t (now!))
+    {:title       tit
+     :body        bod
+     :labels      []
+     :state       :open
+     :comments    []
+     :created-at  t
+     :modified-at t}))
 
 (def simple-comment
   "Create a comment for an issue."
   (fn [issue-number bod]
-    {:body bod
+    (def t (now!))
+    {:body         bod
      :issue-number issue-number
-     :created-at (now!)}))
+     :created-at   t
+     :modified-at  t}))
+
+(def send-signed-command!
+  "Send a command signed by the keys in `my-keys.rad`."
+  (fn [chain cmd payload]
+    (send! (lookup :url (read-ref chain))
+           [(list cmd (sign-entity! payload))])))
 
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."
   (fn [chain i]
-    (send! (lookup :url (read-ref chain))
-           [(list 'create-issue (sign-entity! i))])))
+    (send-signed-command! chain 'create-issue i)))
 
 (def add-comment!
   "Create a remote comment with the keys in `my-keys.rad`."
   (fn [chain c]
-    (send! (lookup :url (read-ref chain))
-           [(list 'add-comment (sign-entity! c))])))
+    (send-signed-command! chain 'add-comment c)))
+
+(def edit-issue!
+  "Edit a remote issue with the keys in `my-keys.rad`."
+  (fn [chain i]
+    (send-signed-command! chain 'edit-issue i)))
+
+(def edit-comment!
+  "Edit a remote comment with the keys in `my-keys.rad`."
+  (fn [chain c]
+    (send-signed-command! chain 'edit-comment c)))
 
 (def simple-create-issue!
   "Create a remote issue with sensible defaults."
@@ -75,6 +93,21 @@
   "Create a remote comment."
   (fn [chain in b]
     (add-comment! chain (simple-comment in b))))
+
+(def simple-edit-issue!
+  (fn [chain n i]
+    (edit-issue! chain
+                 (<> {:issue-number n
+                      :modified-at (now!)}
+                     i))))
+
+(def simple-edit-comment!
+  (fn [chain n i c]
+    (edit-comment! chain
+                   (<> {:issue-number n
+                        :comment-index i
+                        :modified-at (now!)}
+                       c))))
 
 (def list-issues
   "Return the full map of issues."
@@ -108,7 +141,7 @@
       (map
        (fn [i] (note-imported (note-comments i)))
        issues))
-    (map (fn [i] (create-issue! chain i) imported))))
+    (map (fn [i] (create-issue! chain i)) imported)))
 
 (def short
   "Short render of an issue."
@@ -125,7 +158,7 @@
     (take n is)))
 
 (def get-by-id
-  (fn [id]
+  (fn [chain id]
     (lookup id (list-issues chain))))
 
 (:test
@@ -138,12 +171,16 @@
       (simple-create-issue! chain "title1" "body1")
       (simple-add-comment! chain 0 "comment0")
       (simple-add-comment! chain 1 "comment1")
+      (simple-edit-issue! chain 0 {:state :closed})
+      (simple-edit-comment! chain 0 0 {:body "comment0-edit"})
       (fetch! chain)
       (def is (list-issues chain)))]
  [ (length (seq is)) ==> 2 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
  [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment1" ]
+ [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment0-edit" ]
  [ (short (first (values is))) ==> "0: title0" ]
  [ (short (first (list-last chain 1))) ==> "1: title1" ]
+ [ (view (.. (@ 0) (@ :state)) is) ==> :closed ]
 )
