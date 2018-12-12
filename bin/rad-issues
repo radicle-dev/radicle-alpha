@@ -21,24 +21,42 @@
     (load! "rad/monadic/issues.rad")
 
     (def mk-key (fn [v]
-      (def key (nth 0 v))
-      (def val (nth 1 v))
-      [(string-append (show key) " - " (lookup :title val)) val]))
+      (match v
+        ['key 'val] [(string-append (show key) " - " (lookup :title val)) val])))
     (def iss (dict-from-seq (map mk-key (seq (list-issues)))))
     (def selected (fzf-select-by-key! iss))
+    (def comment-divider "---")
+    (def username
+      (fn [d]
+        (catch 'any (lookup :github-username d) (fn [x] "???"))))
+    (def issue-number (fn [d] (lookup :number d)))
+    (def body (fn [d] (lookup :body d)))
     (def pretty-comment (fn [c]
       (string-append
-        "* **" (lookup :github-username c) "** [" (lookup :created-at c) "]:\n\n"
-        (string/unlines (map (fn [xs] (string-append "   " xs)) (string/lines (lookup :body c)))))))
+        "* **" (username c) "** [" (lookup :created-at c) "]:\n\n"
+        (string/intercalate "\n\n" (map (fn [xs] (string-append "   " xs)) (string/lines (body c)))))))
     (def pretty-issue (fn [i]
       (string-replace "\r" "" (string-append
-         "# Issue " (show (lookup :number i)) " : " (lookup :title i)
+         "\n" comment-divider "\n"
+         "---Add comment above the line.\n"
+         "# Issue " (show (issue-number i)) " : " (lookup :title i)
          "\n**State:** " (if (eq? (lookup :state i) :open) "open" "closed")
          "\n**Labels:** " (show (lookup :labels i))
-         "\n## Description\n" (lookup :body i)
-         "\n## Comments\n\n\n" (unlines (map pretty-comment (lookup :comments i)))
+         "\n## Description\n" (body i)
+         "\n## Comments\n\n\n" (string/unlines (map pretty-comment (lookup :comments i)))
     ))))
-    (print! (edit-in-editor! (pretty-issue selected)))))
+    (def edited-issue (edit-in-editor! (pretty-issue selected)))
+    (def extract-comment
+      (fn [xs]
+        (string/unlines (take-while (fn [x] (not (eq? x comment-divider))) (string/lines xs)))))
+    (def send-comment
+      (fn [xs]
+        (def comment (extract-comment edited-issue))
+        (if (eq? comment "")
+          "Issue was not updated."
+          (do (simple-add-comment! (issue-number selected) comment)
+            (string-append "Sent comment: " comment)))))
+    (print! (send-comment edited-issue))))
 
 (def new-issue
   (fn []
@@ -53,13 +71,7 @@
 ")
     (def iss (read (edit-in-editor! template)))
     (create-issue!
-         (insert
-           :state :open
-           (insert
-              :comments []
-              (insert
-                :created-at (now!)
-                  iss))))))
+         (<> iss {:state :open :comments [] :created-at (now!)}))))
 
 (def args (get-args!))
 (match args
