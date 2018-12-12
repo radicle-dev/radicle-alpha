@@ -1,29 +1,45 @@
 #!/usr/bin/env radicle
 
 (load! "rad/prelude.rad")
+(load! "rad/monadic/issues.rad")
+(load! "rad/prelude/io-utils.rad")
+
+(def base-name "http://machines.radicle.xyz/chains/")
 
 (def help
+  (string-append
   "rad-issues - Radicle issue CLI
 
    Usage:
-        rad [list|new] <chain-name>
-        rad help
+        rad-issues [list|new|create-chain] <chain-name>
+        rad-issues help
 
-     list - Select from all issues to view or comment on
-     new  - Create a new issue in $EDITOR
-     help - Print this help and exit")
+     list         - Select from all issues to view or comment on
+     new          - Create a new issue in $EDITOR
+     create-chain - Create a new issues chain
+     help         - Print this help and exit
 
-(def base-name "http://machine.radicle.xyz/chains")
+   If <chain-name> begins with 'http://', that URL will be used. Otherwise,
+  " base-name " will be prepended to <chain-name>." ))
+
+(def make-name
+  (fn [chain]
+    (if (eq? (take 7 chain) "http://")
+        chain
+        (string-append base-name chain))))
+
+(def make-chain-ref
+  (fn [chain]
+    (ref (chain/load-chain! (make-name chain)))))
 
 (def list-issues
-  (fn []
-    (load! "rad/prelude/io-utils.rad")
-    (load! "rad/monadic/issues.rad")
+  (fn [chain]
+    (def chain-ref (make-chain-ref chain))
 
     (def mk-key (fn [v]
       (match v
         ['key 'val] [(string-append (show key) " - " (lookup :title val)) val])))
-    (def iss (dict-from-seq (map mk-key (seq (list-issues)))))
+    (def iss (dict-from-seq (map mk-key (seq (list-issues chain-ref)))))
     (def selected (fzf-select-by-key! iss))
     (def comment-divider "---")
     (def username
@@ -54,12 +70,13 @@
         (def comment (extract-comment edited-issue))
         (if (eq? comment "")
           "Issue was not updated."
-          (do (simple-add-comment! (issue-number selected) comment)
+          (do (simple-add-comment! chain-ref (issue-number selected) comment)
             (string-append "Sent comment: " comment)))))
-    (print! (send-comment edited-issue))))
+    (put-str! (send-comment edited-issue))))
 
 (def new-issue
-  (fn []
+  (fn [chain]
+    (def chain-ref (make-chain-ref chain))
     (load! "rad/prelude/io-utils.rad")
     (load! "rad/monadic/issues.rad")
     (def template
@@ -71,13 +88,19 @@
 ")
     (def iss (read (edit-in-editor! template)))
     (create-issue!
+         chain-ref
          (<> iss {:state :open :comments [] :created-at (now!)}))))
+
+(def create-chain
+  (fn [chain]
+    (create-issues-chain! (make-name chain))))
 
 (def args (get-args!))
 (match args
-  ["list"] (list-issues)
-  ["new" ] (new-issue)
-  ["help"] (put-str! help)
-  _        (do
-             (put-str! (string-append "Unrecognized command" (show args)))
-             (put-str! help)))
+  ["list" 'chain]         (list-issues chain)
+  ["new"  'chain]         (new-issue chain)
+  ["create-chain" 'chain] (create-chain chain)
+  ["help"]                (put-str! help)
+  _                       (do
+                            (put-str! (string-append "Unrecognized command" (show args)))
+                            (put-str! help)))
