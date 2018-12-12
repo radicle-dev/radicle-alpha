@@ -72,12 +72,12 @@
 ")
     (def iss (read (edit-in-editor! template)))
     (create-issue!
-         (insert
-           :state :open
-           (insert
-              :comments []
-              (insert
-                :created-at (now!)
+         (<>
+           {:state :open}
+           (<>
+              {:comments []}
+              (<>
+                {:created-at (now!)}
                   iss))))))
 
 (def args (get-args!))

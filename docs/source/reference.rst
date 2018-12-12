@@ -584,6 +584,11 @@ Backwards compatible alias for ``first``.
 
 Backwards compatible alias for ``rest``.
 
+``(read s)``
+~~~~~~~~~~~~
+
+Reads a radicle value from a string.
+
 ``prelude/patterns``
 --------------------
 

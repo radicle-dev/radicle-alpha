@@ -1,6 +1,6 @@
 {:module  'prelude/basic
  :doc     "Basic function used for checking equality, determining the type of a value, etc."
- :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem? head tail]}
+ :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem? head tail read]}
 
 ;; or
 
