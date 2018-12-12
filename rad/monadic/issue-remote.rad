@@ -1,6 +1,7 @@
 ;; Issue chain
 ;; Meant to be sent to a chain with send-code!
 
+(import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
 (import prelude/dict :unqualified)
 (import prelude/set :as 'set)
@@ -64,44 +65,119 @@
 (def validator/timestamp
   (validator/type :string))
 
+(def input-keys
+  {:nonce      validator/nonce
+   :chain-id   (validator/= chain-id)})
+
+(def validator/time-created
+  (validator/and
+   [(validator/keys
+     {;; NOTE that timestamps are claimed by authors, are not verified, and may
+      ;; be incorrect.
+      :created-at validator/timestamp
+      :modified-at validator/timestamp})
+    (validator/pred "`:modified-at` and `:create-at` are equal"
+                    (fn [t]
+                      (eq? (lookup :created-at t)
+                           (lookup :modified-at t))))]))
+
+(def validator/time-modified
+  (validator/keys
+   {:modified-at validator/timestamp}))
+
 (def validator/input
   "Checks that the input as a valid new *chain input*, that is, it has an unused
   nonce, is marked with this chain name, and is signed."
   (validator/and
-   [(validator/keys
-     {:nonce      validator/nonce
-      :chain-id   (validator/= chain-id)
-      ;; NOTE that the timestamp is claimed by the author, is not verified, and
-      ;; may be incorrect.
-      :created-at validator/timestamp})
+   [(validator/keys input-keys)
     validator/signed]))
 
 (def validator/issue-number
   "A validator for numbers which refer to existing issues."
   (validator/pred "Existing issue number" (fn [n] (member? n (read-ref issues)))))
 
-(def validator/comment
-  "A comment should have a body."
-  (validator/keys
-   {:body (validator/text 4000)}))
+(def comment-keys
+  "A comment's body should be text that isn't too long."
+  {:body (validator/text 4000)})
+
+(def validator/sub-comment
+  (validator/optional-keys comment-keys))
+
+(def validator/full-comment
+  (validator/keys comment-keys))
+
+(def validator/issue-reference
+  "Refers to an existing issue."
+  (validator/optional-keys {:issue-number validator/issue-number}))
 
 (def validator/comment-input
   "A comment input should refer to an existing issue."
   (validator/and
    [validator/input
-    validator/comment
-    (validator/keys {:issue-number validator/issue-number})]))
+    validator/time-created
+    validator/full-comment
+    validator/issue-reference]))
+
+(def issue-keys
+  {:title    (validator/text 100)
+   :body     (validator/text 4000)
+   :labels   (validator/every (validator/text 80))
+   :state    (validator/member [:open :closed])
+   :comments (validator/every validator/full-comment)})
+
+(def validator/full-issue (validator/keys issue-keys))
+
+(def validator/sub-issue (validator/optional-keys issue-keys))
 
 (def validator/issue-input
   "An issue should have all the required fields, be a signed input, etc."
   (validator/and
    [validator/input
+    validator/time-created
+    validator/full-issue]))
+
+(def edit-keys
+  (fn [ks]
+    (<> ks
+        (<> (keys input-keys)
+            [:issue-number :modified-at :author :signature]))))
+
+(def validator/issue-edit-input
+  "An input to edit an issue."
+  (validator/and
+   [validator/input
+    validator/time-modified
+    validator/sub-issue
+    validator/issue-reference
+    (validator/contains-only (edit-keys (keys issue-keys)))]))
+
+(def validator/comment-edit-input
+  "An input which edits a comment. In particular it should refer to an existing
+  issue, to a valid comment-index in that issue, and the author of the edit
+  should be the same as the original author of the comment."
+  (validator/and
+   [validator/input
+    validator/time-modified
+    validator/sub-comment
+    validator/issue-reference
+    (validator/contains-only (<> (edit-keys (keys comment-keys))
+                                 [:comment-index]))
     (validator/keys
-     {:title    (validator/text 100)
-      :body     (validator/text 4000)
-      :labels   (validator/every (validator/text 80))
-      :state    (validator/member [:open :closed])
-      :comments (validator/every validator/comment)})]))
+     {:comment-index validator/integral})
+    (validator/pred "comment index exists"
+                    (fn [c]
+                      (match c
+                             {:comment-index 'i
+                              :issue-number 'n}
+                             (< i (length (view-ref issues (.. (@ n) (@ :comments))))))))
+    (validator/pred "edit author == original author"
+                    (fn [c]
+                      (match c
+                             {:issue-number 'n
+                              :comment-index 'i
+                              :author 'a}
+                             (eq? (view-ref issues (... [(@ n) (@ :comments) (@nth i) (@ :author)]))
+                                  a))))]))
 
 (def strip-input
   "After an entity input has been processed/verified, we no longer need some of
@@ -122,12 +198,6 @@
     (set-issues (@ n) i_)
     (mark-used-nonce (lookup :nonce i))))
 
-(def close-issue
-  "Given an issue number, sets the state of the issue to `:closed`."
-  (fn [n]
-    (validator/issue-number n)
-    (set-issues (.. (@ n) (@ :state)) :closed)))
-
 (def add-comment
   "Add a comment to an issue."
   (fn [c]
@@ -137,6 +207,28 @@
      (.. (@ (lookup :issue-number c)) (@ :comments))
      (fn [cs] (add-right c_ cs)))
     (mark-used-nonce (lookup :nonce c))))
+
+(def merge-new
+  (fn [new]
+    (fn [old]
+      (<> old new))))
+
+(def edit-issue
+  "Modify some of the attributes of an issue."
+  (fn [i]
+    (validator/issue-edit-input i)
+    (def i_ (delete :author (strip-input i)))
+    (over-issues (@ (lookup :issue-number i)) (merge-new i_))))
+
+(def edit-comment
+  "Modify a comment of an issue."
+  (fn [c]
+    (match c
+      {:issue-number 'n
+       :comment-index 'i}
+      (do (validator/comment-edit-input c)
+          (def c_ (strip-input c))
+          (over-issues (... [(@ n) (@ :comments) (@nth i)]) (merge-new c_))))))
 
 ;; These are intended for clients to run locally with eval-in-chain
 
@@ -150,8 +242,9 @@
   "The set of allowed chain commands."
   (ref
    {'create-issue create-issue
-    'close-issue  close-issue
+    'edit-issue   edit-issue
     'add-comment  add-comment
+    'edit-comment edit-comment
     'list-issues  list-issues}))
 
 (def process-command
