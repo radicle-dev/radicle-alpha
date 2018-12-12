@@ -33,7 +33,6 @@
   (fn []
     (read-ref names)))
 
-(def t (fn [] "hi"))
 
 ;; Commands
 
@@ -41,8 +40,7 @@
   "The set of allowed chain commands."
   (ref
    {'add-name     add-name
-    'list-names   list-names
-    't            t}))
+    'list-names   list-names}))
 
 (def process-command
   "Function that maps post-eval commands to existing functions"
