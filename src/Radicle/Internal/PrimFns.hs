@@ -21,6 +21,7 @@ import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
+import qualified Radicle.Internal.Time as Time
 import           Radicle.Internal.Type (Type(..))
 import qualified Radicle.Internal.UUID as UUID
 
@@ -576,6 +577,27 @@ purePrimFns = fromList $ allDocs $
           [v, Keyword (Ident "unqualified")]            -> import' v Nothing Unqualified
           [v, Vec these, Keyword (Ident "unqualified")] -> import' v (Just these) Unqualified
           _ -> throwErrorHere $ OtherError "import: expects a module, an optional list of symbols to import, and an optional qualifier."
+      )
+    , ( "timestamp?"
+      , "Returns true if the input is an ISO 8601 formatted Coordinated\
+        \Universal Time (UTC) timestamp string. If the input isn't a string, an\
+        \ exception is thrown."
+      , oneArg "timestamp?" $ \case
+          String s -> case Time.parseTime s of
+            Just _  -> pure tt
+            Nothing -> pure ff
+          v -> throwErrorHere $ TypeError "timestamp?" 0 TString v
+      )
+    , ( "unix-epoch"
+      , "Given an ISO 8601 formatted Coordinated Universal Time (UTC) timestamp\
+        \, returns the corresponding Unix epoch time, i.e., the number of\
+        \ seconds since Jan 01 1970 (UTC)."
+      , oneArg "unix-epoch" $ \case
+          String s -> do
+            utc <- Time.parseTime s ?? toLangError (OtherError "Invalid UTC timestamp.")
+            ss <- Time.unixSeconds utc ?? toLangError (OtherError "Could not convert UTC time to Unix epoch.")
+            pure (Number (fromIntegral ss))
+          v -> throwErrorHere $ TypeError "unix-epoch" 0 TString v
       )
     ]
   where
