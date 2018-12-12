@@ -1,6 +1,6 @@
 {:module  'prelude/dict
  :doc     "Functions for manipualting dicts."
- :exports '[dict-from-seq keys values rekey modify-map delete-many]}
+ :exports '[dict-from-seq keys values rekey modify-map delete-many lookup-default]}
 
 (def dict-from-seq
   "Creates a dictionary from a list of key-value pairs."
@@ -55,3 +55,14 @@
   "Delete several keys `ks` from a dict `d`."
   (fn [ks d]
     (foldr (fn [k d] (delete k d)) d ks)))
+
+(def lookup-default
+  "Like `lookup` but returns `default` if the key is not in the map."
+  (fn [key default dict]
+    (if (member? key dict)
+      (lookup key dict)
+      default)))
+
+(:test "lookup-default"
+  [ (lookup-default :one 2 {:one 1}) ==> 1 ]
+  [ (lookup-default :two 2 {:one 1}) ==> 2 ])
