@@ -14,11 +14,15 @@
 
    Usage:
         rad-issues [list|new|create-chain] <chain-name>
+        rad-issues make-key <nick>
+        rad-issues names
         rad-issues help
 
      list         - Select from all issues to view or comment on
      new          - Create a new issue in $EDITOR
      create-chain - Create a new issues chain
+     make-key     - Create a key-pair and register the name
+     names        - See all registered names
      help         - Print this help and exit
 
    If <chain-name> begins with 'http://', that URL will be used. Otherwise,
