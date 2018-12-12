@@ -180,7 +180,11 @@ instance Monad m => UUID.MonadUUID (StateT WorldState m) where
         pad i = toS $ prefix <> replicate (12 - length i) '0' <> i
 
 instance CurrentTime (StateT WorldState IO) where
-    currentTime = gets worldStateCurrentTime
+    -- 10 seconds go by every time the current time is queried.
+    currentTime = do
+      t <- gets worldStateCurrentTime
+      modify $ \ws -> ws { worldStateCurrentTime = Time.addUTCTime 10 t }
+      pure t
 
 instance System (StateT WorldState IO) where
     systemS proc = lift $ systemS proc
