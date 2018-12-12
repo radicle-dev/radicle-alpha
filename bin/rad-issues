@@ -71,13 +71,7 @@
 ")
     (def iss (read (edit-in-editor! template)))
     (create-issue!
-         (<>
-           {:state :open}
-           (<>
-              {:comments []}
-              (<>
-                {:created-at (now!)}
-                  iss))))))
+         (<> iss {:state :open :comments [] :created-at (now!)}))))
 
 (def args (get-args!))
 (match args

@@ -589,6 +589,11 @@ Backwards compatible alias for ``rest``.
 
 Reads a radicle value from a string.
 
+``(read-many s)``
+~~~~~~~~~~~~~~~~~
+
+Reads many radicle values from a string.
+
 ``prelude/patterns``
 --------------------
 
