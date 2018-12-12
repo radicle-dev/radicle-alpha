@@ -6,7 +6,7 @@
 
 (def base-name "http://machines.radicle.xyz/chains/")
 
-(def name-base "http://localhost:8000/chains/names")
+(def name-base "http://machines.radicle.xyz/chains/names")
 
 (def help
   (string-append
@@ -114,8 +114,8 @@
 (def args (get-args!))
 (match args
   ["list" 'chain]         (list-issues chain)
-  ["names"]         (names)
-  ["make-key" 'name]         (make-key name)
+  ["names"]               (names)
+  ["make-key" 'name]      (make-key name)
   ["new"  'chain]         (new-issue chain)
   ["create-chain" 'chain] (create-chain chain)
   ["help"]                (put-str! help)
