@@ -70,9 +70,9 @@
         (def comment (extract-comment edited-issue))
         (if (eq? comment "")
           "Issue was not updated."
-          (do (simple-add-comment! (issue-number selected) comment)
+          (do (simple-add-comment! chain-ref (issue-number selected) comment)
             (string-append "Sent comment: " comment)))))
-    (print! (send-comment edited-issue))))
+    (put-str! (send-comment edited-issue))))
 
 (def new-issue
   (fn [chain]
