@@ -1176,6 +1176,12 @@ and that the signature is valid for the rest of the dict for that
 author. The rest of the dict is turned into a string according to
 ``show``.
 
+``(timestamp x)``
+~~~~~~~~~~~~~~~~~
+
+A validator which checks if a string is an ISO 8601 formatted
+Coordinated Universal Time (UTC) timestamp.
+
 ``prelude/util``
 ----------------
 
