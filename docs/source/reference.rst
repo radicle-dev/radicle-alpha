@@ -1094,19 +1094,54 @@ as returned by the ``type`` function.
 Given a description and a predicate, returns a validator that checks if
 the predicate is true.
 
+``(integral n)``
+~~~~~~~~~~~~~~~~
+
+Validator for whole numbers.
+
+``(optional-key k v)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Given a key ``k`` and a validator ``v``, returns a validator which
+checks that the value associated to ``k`` in a dict conforms to ``v``.
+If the key is absent, the validator passes.
+
+``(contains k)``
+~~~~~~~~~~~~~~~~
+
+Given a value, returns a validator which checks for membership of that
+value.
+
+``(contains-all ks)``
+~~~~~~~~~~~~~~~~~~~~~
+
+Given a vector of keys, returns a validator which checks that a
+structure contains all of them.
+
+``(contains-only ks)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Validator which checks that a dict only contains a subset of a vector of
+keys.
+
 ``(key k v)``
 ~~~~~~~~~~~~~
 
-Given a key and a validator, returns a validator which checks for the
-existence of that key and that the associated value conforms to the
-validator.
+Combines existence and validity of a key in a dict.
 
-``(keys ks)``
-~~~~~~~~~~~~~
+``(optional-keys ks)``
+~~~~~~~~~~~~~~~~~~~~~~
 
 Given a dict associating keys to validators, returns a validator which
-checks a dict for the existence of those keys, and that they conform to
-the associated validators.
+checks that the values associated to those keys in a dict conform to the
+corresponding validators.
+
+``(keys d)``
+~~~~~~~~~~~~
+
+Given a dict ``d``, returns a validator which checks that a dict
+contains all the keys that ``d`` does, and that the associated values a
+valid according to the associated validators.
 
 ``(every v)``
 ~~~~~~~~~~~~~
