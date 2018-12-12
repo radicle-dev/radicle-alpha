@@ -97,7 +97,7 @@
   (validator/pred "Existing issue number" (fn [n] (member? n (read-ref issues)))))
 
 (def comment-keys
-  "A comment's body should be test that isn't too long."
+  "A comment's body should be text that isn't too long."
   {:body (validator/text 4000)})
 
 (def validator/sub-comment
