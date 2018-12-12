@@ -21,9 +21,8 @@
     (load! "rad/monadic/issues.rad")
 
     (def mk-key (fn [v]
-      (def key (nth 0 v))
-      (def val (nth 1 v))
-      [(string-append (show key) " - " (lookup :title val)) val]))
+      (match v
+        ['key 'val] [(string-append (show key) " - " (lookup :title val)) val])))
     (def iss (dict-from-seq (map mk-key (seq (list-issues)))))
     (def selected (fzf-select-by-key! iss))
     (def comment-divider "---")
@@ -49,10 +48,10 @@
     (def edited-issue (edit-in-editor! (pretty-issue selected)))
     (def extract-comment
       (fn [xs]
-        (string/unlines (take-while (fn [x] (not (eq? x comment-divider))) xs))))
+        (string/unlines (take-while (fn [x] (not (eq? x comment-divider))) (string/lines xs)))))
     (def send-comment
       (fn [xs]
-        (def comment (extract-comment (string/lines edited-issue)))
+        (def comment (extract-comment edited-issue))
         (if (eq? comment "")
           "Issue was not updated."
           (do (simple-add-comment! (issue-number selected) comment)
