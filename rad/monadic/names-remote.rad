@@ -21,17 +21,19 @@
   (validator/and
     [(validator/type :string)
      (validator/pred "Name has been taken" name-unused?)
-     (validator/pred "Key has been taken" key-unused?)
     ]))
 
 (def add-name
   (fn [name pubkey]
     (validator/name name)
+    ((validator/pred "Key has been taken" key-unused?) pubkey)
     (modify-ref names (fn [n] (cons [name pubkey] n)))))
 
 (def list-names
   (fn []
     (read-ref names)))
+
+(def t (fn [] "hi"))
 
 ;; Commands
 
@@ -39,7 +41,8 @@
   "The set of allowed chain commands."
   (ref
    {'add-name     add-name
-    'list-names   list-names}))
+    'list-names   list-names
+    't            t}))
 
 (def process-command
   "Function that maps post-eval commands to existing functions"
