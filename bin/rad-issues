@@ -41,7 +41,8 @@
 (def list-issues
   (fn [chain]
     (def chain-ref (make-chain-ref chain))
-
+    (load! "rad/monadic/names.rad")
+    (def names (ref (chain/load-chain! name-base)))
     (def mk-key (fn [v]
       (match v
         ['key 'val] [(string-append (show key) " - " (lookup :title val)) val])))
@@ -50,7 +51,13 @@
     (def comment-divider "---")
     (def username
       (fn [d]
-        (catch 'any (lookup :github-username d) (fn [x] "???"))))
+        (catch
+          'any
+          (lookup :github-username d)
+          (fn [x]
+            (match (lookup-key names (lookup :author d))
+              :nothing "???"
+              'name    name)))))
     (def issue-number (fn [d] (lookup :number d)))
     (def body (fn [d] (lookup :body d)))
     (def pretty-comment (fn [c]
