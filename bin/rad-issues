@@ -98,9 +98,10 @@
 }
 ")
     (def iss (read (edit-in-editor! template)))
+    (def t (now!))
     (create-issue!
          chain-ref
-         (<> iss {:state :open :comments [] :created-at (now!)}))))
+         (<> iss {:state :open :comments [] :created-at t :modified-at t}))))
 
 (def create-chain
   (fn [chain]
