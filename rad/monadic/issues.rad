@@ -136,7 +136,7 @@
     (def issues (read-file-value! "githubissues.rad"))
     (def imported
       (map
-       (fn [i] (note-imported (note-comments i)))
+       (fn [i] (insert :modified-at (lookup :created-at i) (note-imported (note-comments i))))
        issues))
     (map (fn [i] (create-issue! chain i)) imported)))
 
