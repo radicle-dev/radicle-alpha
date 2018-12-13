@@ -3,6 +3,7 @@ module RadicleExe (main) where
 import           Prelude (String)
 import           Protolude hiding (TypeError, option, sourceFile)
 
+import qualified Data.ByteString as BS
 import           Options.Applicative
 import           System.Directory (doesFileExist)
 
@@ -17,7 +18,7 @@ main = do
     code <-
         if sourceFile opts' == "-"
         then do
-            src <- getContents
+            src <- decodeUtf8With lenientDecode <$> BS.getContents
             let prog = interpretMany "[stdin]" src
             bindings <- createBindings (toS <$> scriptArgs opts')
             (result, _state) <- runLang bindings prog
@@ -45,10 +46,10 @@ main = do
 
 readSource :: String -> IO Text
 readSource file = do
-   exists <- doesFileExist file
-   if exists
-       then readFile file
-       else die $ "Could not find file: " <> toS file
+    exists <- doesFileExist file
+    if exists
+    then decodeUtf8With lenientDecode <$> BS.readFile file
+    else die $ "Could not find file: " <> toS file
 
 radDesc :: String
 radDesc

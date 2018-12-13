@@ -89,6 +89,7 @@ executables:
     other-modules: []
     dependencies:
     - radicle
+    - bytestring
     - directory
     - optparse-applicative
     when:
