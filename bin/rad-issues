@@ -4,6 +4,8 @@
 (load! "rad/monadic/issues.rad")
 (load! "rad/prelude/io-utils.rad")
 
+(import prelude/validation :as 'validation)
+
 (def base-name "http://machines.radicle.xyz/chains/")
 
 (def name-base "http://machines.radicle.xyz/chains/names")
@@ -183,18 +185,49 @@
     (load! "rad/monadic/names.rad")
     (print! (list-names name-base))))
 
+<<<<<<< HEAD
 (init-file-dict! ".radicle-issues")
+
+(def cmd-parse-failure
+  (fn [error]
+    (put-str! error)
+    (put-str! help)
+    (exit! 1)
+  ))
+
+(def /cmd-1
+  (fn [cmd cmd-args-pat]
+    ((validation/type :string) cmd)
+    ((validation/type :atom) cmd-args-pat)
+    (fn [value]
+      (match value
+        [cmd 'cmd-args] (match-pat cmd-args-pat cmd-args)
+        [cmd] (cmd-parse-failure (string-append "Missing argument \"" (show cmd-args-pat) "\" for command \"" cmd "\""))
+        (/cons cmd _) (cmd-parse-failure (string-append "Too many arguments for command \"" cmd "\""))
+        _ :nothing)
+    )))
+
+(def /cmd-0
+  (fn [cmd]
+    ((validation/type :string) cmd)
+    (fn [value]
+      (match value
+        [cmd] [:just {}]
+        (/cons cmd _) (cmd-parse-failure (string-append "Too many arguments for command \"" cmd "\""))
+        _ :nothing)
+    )))
 
 (def args (get-args!))
 (match args
-  ["list-new" 'chain]     (list-items chain (read-file-key! ".radicle-issues" :last-mark-done))
-  ["list" 'chain]         (list-items chain :nothing)
-  ["names"]               (names)
-  ["make-key" 'name]      (make-key name)
-  ["new"  'chain]         (new-issue chain)
-  ["create-chain" 'chain] (create-chain chain)
-  ["done"]                (mark-last-seen)
-  ["help"]                (put-str! help)
-  _                       (do
-                            (put-str! (string-append "Unrecognized command" (show args)))
-                            (put-str! help)))
+  (/cmd-1 "list" 'chain-name) (list-issues chain-name)
+  (/cmd-1 "list-new" 'chain-name) (list-items chain (read-file-key! ".radicle-issues" :last-mark-done))
+  (/cmd-0 "names") (names)
+  (/cmd-1 "make-key" 'nick) (make-key nick)
+  (/cmd-1 "new" 'chain-name) (new-issue 'chain-name)
+  (/cmd-1 "create-chain" 'chain-name) (create-chain 'chain-name)
+  (/cmd-0 "done") (mark-last-seen)
+  ["help"] (put-str! help)
+  ["-h"] (put-str! help)
+  ["--help"] (put-str! help)
+  (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
+  [] (put-str! help))
