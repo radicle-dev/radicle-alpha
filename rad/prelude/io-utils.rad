@@ -19,5 +19,5 @@
     (def file (unlines (shell-with-stdout! "mktemp" "")))
     (put-str! file)
     (write-file! file orig)
-    (shell-no-stdin! (string-append "$EDITOR " file) "")
+    (shell-no-stdin! (string-append "${EDITOR:-nano} " file) "")
     (read-file! file)))
