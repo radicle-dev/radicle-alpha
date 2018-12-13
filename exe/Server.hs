@@ -8,6 +8,7 @@ import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Text as T
 import           Database.PostgreSQL.Simple
                  (ConnectInfo(..), Connection, connect)
 import           Network.Wai.Handler.Warp (run)
@@ -78,13 +79,19 @@ serverApi = Proxy
 
 insertExpr :: Connection -> Chains -> Text -> [Value] -> IO (Either Text ())
 insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
-    let x = Map.lookup name c
-    let chain = fromMaybe (Chain name pureEnv mempty) x
+    let maybeChain = Map.lookup name c
+    chain <- case maybeChain of
+        Nothing -> do
+            logInfo "Creating new machine" [("machine", name)]
+            pure $ Chain name pureEnv mempty
+        Just chain' -> pure chain'
     let (r :: Either (LangError Value) [Value], newSt) = runIdentity
                    $ runLang (chainState chain)
                    $ traverse eval vals
     case r of
-        Left e  -> pure . (c ,) . Left $ renderPrettyDef e
+        Left e  -> do
+            logInfo "Submitted expressions failed to evaluate" [("machine", name)]
+            pure . (c ,) . Left $ renderPrettyDef e
         Right valsRes -> do
              traverse_ (insertExprDB conn name) vals
              let news = Seq.fromList $ zip vals valsRes
@@ -112,6 +119,7 @@ loadState conn = do
                               }
                 pure (name, c)
     chains' <- newMVar $ Map.fromList chainPairs
+    logInfo "Loaded machines into memory" [("machine-count", show $ length chainPairs)]
     pure $ Chains chains'
 
 
@@ -124,6 +132,7 @@ loadState conn = do
 -- guarantee).
 submit :: Connection -> Chains -> Text -> Values -> Handler Value
 submit conn chains name (Values vals) = do
+    logInfo "Submitted expressions" [("machine", name), ("expression-count", show $ length vals)]
     res <- liftIO $ insertExpr conn chains name vals
     case res of
         Left err -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 err }
@@ -132,7 +141,9 @@ submit conn chains name (Values vals) = do
 
 -- | Get all expressions submitted to a chain since 'index'.
 since :: Connection -> Text -> Int -> Handler Values
-since conn name index = liftIO $ Values <$> getSinceDB conn name index
+since conn name index = do
+    logInfo "Requested expressions" [("machine", name), ("from-index", show index)]
+    liftIO $ Values <$> getSinceDB conn name index
 
 jsonOutputs :: Chains -> Text -> Handler [Maybe A.Value]
 jsonOutputs st name = do
@@ -143,6 +154,21 @@ jsonOutputs st name = do
 
 static :: Server Raw
 static = serveDirectoryFileServer "static/"
+
+-- | Log a message to @stdout@.
+--
+-- The second argument is a list of key-value pairs that will be joined with "="
+-- and appended to the message.
+--
+-- @
+--      logInfo "the message" [("foo", "5)]
+--      -- prints "INFO   the message foo=5"
+-- @
+logInfo :: MonadIO m => Text -> [(Text, Text)] -> m ()
+logInfo msg dat = do
+    putStrLn $ "INFO   " <> msg <> datString
+  where
+    datString = T.intercalate "" $ map (\(key, val) -> " " <> key <> "=" <> val) dat
 
 -- * Opts
 
@@ -208,6 +234,7 @@ main = do
     st <- loadState conn
     let gzipSettings = def { gzipFiles = GzipPreCompressed GzipIgnore }
         app = simpleCors $ gzip gzipSettings (serve serverApi (server conn st))
+    logInfo "Start listening" [("port", show $ serverPort opts')]
     run (serverPort opts') app
   where
     allOpts = info (opts <**> helper)
