@@ -157,10 +157,6 @@
     (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues chain))))
     (take n is)))
 
-(def get-by-id
-  (fn [chain id]
-    (lookup id (list-issues chain))))
-
 (:test
  "The monadic issues chain works."
  [:setup
