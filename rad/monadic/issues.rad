@@ -36,15 +36,14 @@
 
 (def simple-issue
   "Create an open issue with no comments or labels."
-  (fn [tit bod]
+  (fn [i]
     (def t (now!))
-    {:title       tit
-     :body        bod
-     :labels      []
-     :state       :open
-     :comments    []
-     :created-at  t
-     :modified-at t}))
+    (<> {:labels      []
+         :state       :open
+         :comments    []
+         :created-at  t
+         :modified-at t}
+        i)))
 
 (def simple-comment
   "Create a comment for an issue."
@@ -84,7 +83,7 @@
 (def simple-create-issue!
   "Create a remote issue with sensible defaults."
   (fn [chain tit bod]
-    (create-issue! chain (simple-issue tit bod))))
+    (create-issue! chain (simple-issue {:title tit :body bod}))))
 
 (def simple-add-comment!
   "Create a remote comment."
@@ -154,30 +153,43 @@
     (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues chain))))
     (take n is)))
 
-(def get-recent
-  "Returns the activity on the chain since a timestamp. This is a dict with two
-  keys: `:new-issues` and `:new-comments`. The comments are annotated with issue
-  numbers."
+(def recent-activity
+  "Returns the activity on the chain since `[:just timestamp]`. If the input is
+  `:nothing` then all activity is returned."
   (fn [chain from]
-    (def u (unix-epoch from))
-    (def mod-at (fn [x] (unix-epoch (lookup :modified-at x))))
+    (def mod-at
+      (fn [x]
+        (unix-epoch
+         (lookup-default :modified-at "1970-01-01T00:00:00Z" x))))
     (def since
+      (match from
+             (/just 't) (do
+                          (def u (unix-epoch t))
+                          (fn [xs]
+                            (filter (fn [x] (< u (mod-at x))) xs)))
+             _         (fn [xs] xs)))
+    (def most-recent-first
       (fn [xs]
         (sort-by (fn [x] (- 0 (mod-at x)))
-                 (filter (fn [x] (< u (mod-at x))) xs))))
-    (def is (values (list-issues chain)))
+                 xs)))
+    (def new-issues (since (values (list-issues chain))))
+    (def is (map (fn [i]
+                   {:activity    :new-issue
+                    :modified-at (lookup :modified-at i)
+                    :issue       i})
+                 new-issues))
     (def cs
-      (foldr (fn [i acc]
-               (<> (map (fn [c]
-                          (insert :issue-number
-                                  (lookup :number i)
-                                  c))
-                        (lookup :comments i))
-                   acc))
-             []
-             is))
-    {:new-issues (since is)
-     :new-comments (since cs)}))
+      (cat-maybes
+       (map (fn [i]
+              (def xs (most-recent-first (since (lookup :comments i))))
+              (if (eq? xs [])
+                :nothing
+                [:just
+                 {:activity    :new-comments
+                  :modified-at (lookup :modified-at (first xs))
+                  :issue       i}]))
+            new-issues)))
+    (most-recent-first (<> is cs))))
 
 (:test
  "The monadic issues chain works."
@@ -197,10 +209,7 @@
       (simple-add-comment! chain 0 "new")
       (fetch! chain)
       (def is (list-issues chain))
-      (def new (get-recent chain t))
-      (def new-issues (map (fn [i] (lookup :title i)) (lookup :new-issues new)))
-      (def new-comments (map (fn [c] (lookup :body c)) (lookup :new-comments new)))
-      )]
+      (def new (get-recent chain t)))]
  [ (length (seq is)) ==> 4 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
