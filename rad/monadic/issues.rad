@@ -154,6 +154,31 @@
     (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues chain))))
     (take n is)))
 
+(def get-recent
+  "Returns the activity on the chain since a timestamp. This is a dict with two
+  keys: `:new-issues` and `:new-comments`. The comments are annotated with issue
+  numbers."
+  (fn [chain from]
+    (def u (unix-epoch from))
+    (def mod-at (fn [x] (unix-epoch (lookup :modified-at x))))
+    (def since
+      (fn [xs]
+        (sort-by (fn [x] (- 0 (mod-at x)))
+                 (filter (fn [x] (< u (mod-at x))) xs))))
+    (def is (values (list-issues chain)))
+    (def cs
+      (foldr (fn [i acc]
+               (<> (map (fn [c]
+                          (insert :issue-number
+                                  (lookup :number i)
+                                  c))
+                        (lookup :comments i))
+                   acc))
+             []
+             is))
+    {:new-issues (since is)
+     :new-comments (since cs)}))
+
 (:test
  "The monadic issues chain works."
  [:setup
@@ -166,14 +191,24 @@
       (simple-add-comment! chain 1 "comment1")
       (simple-edit-issue! chain 0 {:state :closed})
       (simple-edit-comment! chain 0 0 {:body "comment0-edit"})
+      (def t (now!))
+      (simple-create-issue! chain "new" "new")
+      (simple-create-issue! chain "newer" "newer")
+      (simple-add-comment! chain 0 "new")
       (fetch! chain)
-      (def is (list-issues chain)))]
- [ (length (seq is)) ==> 2 ]
+      (def is (list-issues chain))
+      (def new (get-recent chain t))
+      (def new-issues (map (fn [i] (lookup :title i)) (lookup :new-issues new)))
+      (def new-comments (map (fn [c] (lookup :body c)) (lookup :new-comments new)))
+      )]
+ [ (length (seq is)) ==> 4 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
  [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment1" ]
  [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment0-edit" ]
  [ (short (first (values is))) ==> "0: title0" ]
- [ (short (first (list-last chain 1))) ==> "1: title1" ]
+ [ (short (first (list-last chain 1))) ==> "3: newer" ]
  [ (view (.. (@ 0) (@ :state)) is) ==> :closed ]
+ [ new-issues ==> ["newer" "new"] ]
+ [ new-comments ==> ["new"]]
 )
