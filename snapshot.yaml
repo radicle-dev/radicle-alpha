@@ -9,6 +9,19 @@ name: radicle-deps-13.2
 resolver: lts-13.2
 
 packages:
+- base58-bytestring-0.1.0@sha256:a1da72ee89d5450bac1c792d9fcbe95ed7154ab7246f2172b57bd4fd9b5eab79
 - cborg-0.2.1.0
-- serialise-0.2.1.0
 - github-0.20
+- sandi-0.4.3@sha256:2ada9c759424f243095ab28b55687cdec4e9d16bac3589f9d200280207c50216
+- serialise-0.2.1.0
+- git: https://github.com/oscoin/ipfs.git
+  commit: 19b25fa4d0003b5c2027c8cc1b8a3c36ac2f9f60
+  subdirs:
+  - ipld-cid
+  - binary-varint
+  - multibase
+  - multihash-cryptonite
+
+flags:
+  sandi:
+    with-conduit: false

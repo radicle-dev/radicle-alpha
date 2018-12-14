@@ -1,0 +1,87 @@
+#!/usr/bin/env radicle
+;;
+;; Test correctness of the IPFS and eval-server machine backends.
+;;
+;; This script tests that the HTTP server and IPFS implement the
+;; machine backend protocol with `machine/eval-server/update!` and
+;; `machine/eval-server/get-log!` properly.
+;;
+;; The script accepts the hostname of the server as an optional argument. The
+;; hostname defaults to `localhost`. We always use port 8000.
+;;
+
+
+(load! "rad/prelude.rad")
+
+(import prelude/patterns '[/cons] :unqualified)
+(import prelude/test '[assert-equal] :unqualified)
+(import prelude/test :as 'test)
+
+(def host
+  (match (get-args!)
+    (/cons 'h _) h
+    /nil         "localhost"
+  ))
+
+(def exprs-1 [ :e1 :e2 ])
+(def exprs-2 [ :f1 :f2 :f3 ])
+
+(def server-backend {
+  :update! machine/eval-server/update!
+  :get-log! machine/eval-server/get-log!
+  :create! (fn [] (string-append "http://" host ":8000/chains/" (uuid!)))
+  })
+
+(def ipfs-backend {
+  :update! machine/ipfs/update!
+  :get-log! machine/ipfs/get-log!
+  :create! (fn [] (machine/ipfs/create! (uuid!)))
+  })
+
+(def tests
+  (fn [name backend]
+    (def update! (lookup :update! backend))
+    (def create! (lookup :create! backend))
+    (def get-log! (lookup :get-log! backend))
+    (test/make-suite name {
+      "receive-all"
+      ;; Passing `:nothing` to `get-log!` returns all expressions
+      (fn []
+        (def machine-id (create!))
+        (update! machine-id exprs-1)
+        (update! machine-id exprs-2)
+        (def all-exprs (<> exprs-1 exprs-2))
+        (match (get-log! machine-id :nothing)
+          [_ 'received-exprs] (assert-equal received-exprs all-exprs))
+        )
+
+      "receive-last-index"
+      ;; Passing the last index from `update!` to `get-log!` returns no expressions
+      (fn []
+        (def machine-id (create!))
+        (def index (update! machine-id exprs-1))
+        (match (get-log! machine-id [:just index])
+          [_ 'received-exprs] (assert-equal received-exprs []))
+        )
+      "receive-with-index"
+      ;; Passing an index from `update!` to `get-log!` returns no expressions
+      (fn []
+        (def machine-id (create!))
+        (def index (update! machine-id exprs-1))
+        (update! machine-id exprs-2)
+        (match (get-log! machine-id [:just index])
+          [_ 'received-exprs] (assert-equal received-exprs exprs-2))
+        )
+      "receive-returns-sent-index"
+      ;; `get-log!` returns the last sent index
+      (fn []
+        (def machine-id (create!))
+        (def index-send (update! machine-id exprs-1))
+        (match (get-log! machine-id :nothing)
+          ['index-receive _] (assert-equal index-receive index-send))
+        )
+    })
+  ))
+
+(def tests-ok (test/run-all (<> (tests "server" server-backend) (tests "ipfs" ipfs-backend))))
+(if tests-ok (exit! 0) (exit! 1))

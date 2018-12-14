@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#
+# Wrapper for the 'ipfs' command that talks to the IPFS daemon instance
+# for the Radicle network.
+
+IPFS_PATH=${IPFS_PATH:-"$HOME/.local/share/radicle/ipfs"} ipfs --api "/ip4/127.0.0.1/tcp/9301" "$@"

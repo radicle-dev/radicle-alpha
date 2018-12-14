@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#
+# rad-ipfs-machine-create [local-name]
+#
+# Creates a new Radicle State Machine on IPFS and prints the machine
+# ID.
+#
+# If `local-name` is provided it uses this value to name the machines
+# IPNS key on the local IPFS daemon. By default a UUID is used.
+
+set -euo pipefail
+
+ipns_name=${1:-$(uuidgen)}
+empty_machine="zdpuAyyGtvC37aeZid2zh7LAGKCbFTn9MzdqoPpbNQm3BCwWT"
+ipns_id=$(bin/rad-ipfs key gen "$ipns_name" --type ed25519)
+bin/rad-ipfs name publish --key "$ipns_id" "$empty_machine" >/dev/null
+echo "$ipns_id"

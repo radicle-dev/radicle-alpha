@@ -10,29 +10,43 @@
 (import prelude/basic :unqualified)
 (import prelude/io :unqualified)
 (import prelude/patterns :unqualified)
+(import prelude/strings :unqualified)
+(import prelude/seq :unqualified)
 
-;; Chains: Functions for dealing with chains.
+(def base-send!
+  "See documentation of `send!`"
+  (fn [id inputs]
+    (match id
+      (/prefix "ipfs://" 'rest) (machine/ipfs/update! rest inputs)
+      (/prefix "http://" _) (machine/eval-server/update! id inputs)
+      _ (throw 'unknown-machine-type (string-append "Cannot handle machine ID " id)))
+  ))
 
-;; A chain is conceptually:
-;;   - A known starting state (i.e. environment, and the assumption that `eval
-;;     == base-eval')
-;;   - A sequence of inputs.
-
+(def primitive-stub-ref/send! (ref base-send!))
 (def send!
   "Update a machine with the vector of `inputs` to evaluate. Returns an
   index that identifies that last input. This index can be passed to
   `receive!`"
-  (fn [machine-id inputs]
-    (machine/eval-server/update! machine-id inputs)))
+  (fn [machine-id inputs] ((read-ref primitive-stub-ref/send!) machine-id inputs)))
 
+(def base-receive!
+  "See documentation of `receive!`"
+  (fn [id index]
+    (match id
+      (/prefix "ipfs://" 'rest) (machine/ipfs/get-log! rest index)
+      (/prefix "http://" _) (machine/eval-server/get-log! id index)
+      _ (throw 'unknown-machine-type (string-append "Cannot handle machine ID " id)))
+  ))
+
+(def primitive-stub-ref/receive! (ref base-receive!))
 (def receive!
   "Get inputs from a machine. Returns a `[index inputs]` pair where
   `inputs` is a vector of expressions and `index` is the index of the
   last input in `inputs`. The `index` argument is either `:nothing` in
   which case all inputs are fetched or `[:just i]` in which case all
   inputs following after the index `i` are fetched."
-  (fn [machine-id index]
-    (machine/eval-server/get-log! machine-id index)))
+  (fn [machine-id index] ((read-ref primitive-stub-ref/receive!) machine-id index)))
+
 
 (def env-var
   "A lens for variables in envs."

@@ -30,21 +30,25 @@ library:
   - generics-eot
   - haskeline
   - http-client
+  - ipld-cid
   - megaparsec
+  - microlens
   - mtl
   - pointed
   - prettyprinter
   - prettyprinter-ansi-terminal
   - process
-  - servant
-  - servant-client
+  - safe-exceptions
   - scientific
   - serialise
+  - servant
+  - servant-client
   - template-haskell
   - text
   - time
   - unordered-containers
   - uuid
+  - wreq
 
 tests:
   spec:
