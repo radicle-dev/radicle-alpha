@@ -193,3 +193,11 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   dict."
   (fn [k]
     (lookup-maybe k (read-persistent-state!))))
+
+(:test "read and write to persistent state"
+       [:setup
+        (do (write-persistent-key! :a 1)
+            (write-persistent-key! :b 2))]
+       [ (read-persistent-key! :a) ==> [:just 1] ]
+       [ (read-persistent-key! :b) ==> [:just 2] ]
+       [ (read-persistent-key! :c) ==> :nothing ])

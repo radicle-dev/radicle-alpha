@@ -189,8 +189,8 @@ instance CurrentTime (StateT WorldState IO) where
       pure t
 
 instance PersistentState (StateT WorldState IO) where
-  readPersistentState = gets worldStatePersistentState
-  writePersistentState = _
+  readPersistentState = Right <$> gets worldStatePersistentState
+  writePersistentState v = modify $ \x -> x { worldStatePersistentState = v }
 
 instance System (StateT WorldState IO) where
     systemS proc = lift $ systemS proc

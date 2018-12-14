@@ -24,4 +24,4 @@ getHistoryFile = radicleXdgFile "history"
 
 -- | Location of the local state file.
 getLocalStateFile :: IO FilePath
-getLocalStateFile = radicleXdgFile "state"
+getLocalStateFile = radicleXdgFile "state.rad"
