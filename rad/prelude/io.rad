@@ -2,9 +2,11 @@
  :doc "Some basic I/O functions."
  :exports '[print! shell! process! read-line! read-file-value! read-file-values! send-code!
             shell-with-stdout! shell-no-stdin! process-with-stdout! write-file!
+            read-persistent-key! write-persistent-key!
            ]}
 
 (import prelude/patterns :unqualified)
+(import prelude/dict :unqualified)
 
 (def read-line!
   "Read a single line of input and interpret it as radicle data."
@@ -171,3 +173,23 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   (fn []
     ;; Some systems support the -1 option, but this is more portable
     (shell-with-stdout! "ls -a | cat" "")))
+
+(def modify-persistent-state!
+  "Modifies the persistent state value using the function `f`."
+  (fn [f]
+    (write-persistent-state! (f (read-persistent-state!)))))
+
+(def write-persistent-key!
+  "Write a key to the persistent state. Assumes that the persistent state contains
+  a dict. It is recommended that you use a namespaced keyword (e.g.
+  `:radicle-issues/modified-at`) as the key."
+  (fn [k v]
+    (modify-persistent-state!
+     (fn [s]
+       (insert k v s)))))
+
+(def read-persistent-key!
+  "Read a persistent state key. Assumes that the persistent state contains a
+  dict."
+  (fn [k]
+    (lookup-maybe k (read-persistent-state!))))

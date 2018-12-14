@@ -31,13 +31,14 @@ import qualified Radicle.Internal.UUID as UUID
 
 
 data WorldState = WorldState
-    { worldStateStdin        :: [Text]
-    , worldStateStdout       :: [Text]
-    , worldStateFiles        :: Map Text Text
-    , worldStateDRG          :: CryptoRand.ChaChaDRG
-    , worldStateUUID         :: Int
-    , worldStateRemoteChains :: Map Text (Seq.Seq Value)
-    , worldStateCurrentTime  :: Time.UTCTime
+    { worldStateStdin           :: [Text]
+    , worldStateStdout          :: [Text]
+    , worldStateFiles           :: Map Text Text
+    , worldStateDRG             :: CryptoRand.ChaChaDRG
+    , worldStateUUID            :: Int
+    , worldStateRemoteChains    :: Map Text (Seq.Seq Value)
+    , worldStateCurrentTime     :: Time.UTCTime
+    , worldStatePersistentState :: Value
     }
 
 defaultWorldState :: WorldState
@@ -50,6 +51,7 @@ defaultWorldState =
     , worldStateUUID = 0
     , worldStateRemoteChains = mempty
     , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
+    , worldStatePersistentState = Dict mempty
     }
 
 worldStateWithSource :: IO WorldState
@@ -185,6 +187,10 @@ instance CurrentTime (StateT WorldState IO) where
       t <- gets worldStateCurrentTime
       modify $ \ws -> ws { worldStateCurrentTime = Time.addUTCTime 10 t }
       pure t
+
+instance PersistentState (StateT WorldState IO) where
+  readPersistentState = gets worldStatePersistentState
+  writePersistentState = _
 
 instance System (StateT WorldState IO) where
     systemS proc = lift $ systemS proc

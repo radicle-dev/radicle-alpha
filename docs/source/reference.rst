@@ -515,6 +515,16 @@ Block until process terminates.
 
 Write a string to the provided handle.
 
+``read-persistent-state!``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Reads the persistent state.
+
+``write-persistent-state!``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Write to the persistent state.
+
 ``subscribe-to!``
 ~~~~~~~~~~~~~~~~~
 
@@ -700,72 +710,6 @@ Returns a string consisting of the results of applying ``f`` to each
 character of ``xs``. Throws a type error if ``f`` returns something
 other than a string
 
-``prelude/io``
---------------
-
-Some basic I/O functions.
-
-``(print! x)``
-~~~~~~~~~~~~~~
-
-Print a value to the console or stdout.
-
-``(shell! command to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Executes ``command`` using the shell with ``to-write`` as input. Stdout
-and stderr are inherited. WARNING: using ``shell!`` with unsanitized
-user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
-
-``(process! command args to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Executes ``command`` using ``execvp`` with ``to-write`` as input. Stdout
-and stderr are inherited. See ``man exec`` for more information on
-``execvp``. Example: ``(process! "ls" ["-Glah"] "")``.
-
-``(read-line!)``
-~~~~~~~~~~~~~~~~
-
-Read a single line of input and interpret it as radicle data.
-
-``(read-file-value! file)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Read a single radicle value from a file.
-
-``(read-file-values! file)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Read many radicle values from a file.
-
-``(send-code! chain-id filename)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Send code from a file to a remote chain.
-
-``(shell-with-stdout! command to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Like ``shell!``, but captures the stdout and returns it.
-
-``(shell-no-stdin! command to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Like ``shell!``, but inherits stdin. WARNING: using ``shell!`` with
-unsanitized user input is a security hazard! Example:
-``(shell-no-stdin! "ls -Glah")``.
-
-``(process-with-stdout! command args to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Like ``process!``, but captures stdout.
-
-``(write-file! filename contents)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Write ``contents`` to file ``filename``.
-
 ``prelude/bool``
 ----------------
 
@@ -874,6 +818,12 @@ Delete several keys ``ks`` from a dict ``d``.
 
 Like ``lookup`` but returns ``default`` if the key is not in the map.
 
+``(lookup-maybe key dict)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``lookup`` but returns ``[:just v]`` when ``key`` exists in
+``dict``, and ``:nothing`` otherwise.
+
 ``prelude/set``
 ---------------
 
@@ -918,6 +868,85 @@ The set of keys of a dict.
 ~~~~~~~~~~~~~~~~~~~
 
 Checks if ``xs`` is a subset of ``ys``.
+
+``prelude/io``
+--------------
+
+Some basic I/O functions.
+
+``(print! x)``
+~~~~~~~~~~~~~~
+
+Print a value to the console or stdout.
+
+``(shell! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Executes ``command`` using the shell with ``to-write`` as input. Stdout
+and stderr are inherited. WARNING: using ``shell!`` with unsanitized
+user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
+
+``(process! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Executes ``command`` using ``execvp`` with ``to-write`` as input. Stdout
+and stderr are inherited. See ``man exec`` for more information on
+``execvp``. Example: ``(process! "ls" ["-Glah"] "")``.
+
+``(read-line!)``
+~~~~~~~~~~~~~~~~
+
+Read a single line of input and interpret it as radicle data.
+
+``(read-file-value! file)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read a single radicle value from a file.
+
+``(read-file-values! file)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read many radicle values from a file.
+
+``(send-code! chain-id filename)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send code from a file to a remote chain.
+
+``(shell-with-stdout! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``shell!``, but captures the stdout and returns it.
+
+``(shell-no-stdin! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``shell!``, but inherits stdin. WARNING: using ``shell!`` with
+unsanitized user input is a security hazard! Example:
+``(shell-no-stdin! "ls -Glah")``.
+
+``(process-with-stdout! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``process!``, but captures stdout.
+
+``(write-file! filename contents)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Write ``contents`` to file ``filename``.
+
+``(read-persistent-key! k)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read a persistent state key. Assumes that the persistent state contains
+a dict.
+
+``(write-persistent-key! k v)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Write a key to the persistent state. Assumes that the persistent state
+contains a dict. It is recommended that you use a namespaced keyword
+(e.g. ``:radicle-issues/modified-at``) as the key.
 
 ``prelude/ref``
 ---------------

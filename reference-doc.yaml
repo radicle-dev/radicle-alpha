@@ -113,6 +113,8 @@ primFns:
 - system!
 - wait-for-process!
 - write-handle!
+- read-persistent-state!
+- write-persistent-state!
 # Repl
 - subscribe-to!
 # Documentation
@@ -125,12 +127,12 @@ modules:
 - prelude/basic
 - prelude/patterns
 - prelude/strings
-- prelude/io
 - prelude/bool
 - prelude/exception
 - prelude/list
 - prelude/dict
 - prelude/set
+- prelude/io
 - prelude/ref
 - prelude/lens
 - prelude/chain

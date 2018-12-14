@@ -18,7 +18,6 @@ import           Text.Megaparsec.Pos (sourcePosPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
-import           Radicle.Internal.Effects.Capabilities (Stdout(..))
 import           Radicle.Internal.Identifier (Ident(..))
 import           Radicle.Internal.Type
 
@@ -163,17 +162,6 @@ renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . prettyV
 -- "(\"hi\" \"there\")"
 renderPrettyDef :: PrettyV v => v -> Text
 renderPrettyDef = renderStrict . layoutSmart defaultLayoutOptions . prettyV
-
--- | Pretty print the value with colors if @m@ supports it.
-putPrettyAnsi :: (PrettyV v, Stdout m) => v -> m ()
-putPrettyAnsi value = do
-    supportsANSI' <- supportsANSI
-    let docStream = layoutSmart defaultLayoutOptions $ prettyV value
-    if supportsANSI'
-    then
-        putStrS $ Term.renderStrict $ reAnnotateS toAnsi docStream
-    else
-        putStrS $ renderStrict docStream
 
 toAnsi :: Type -> Term.AnsiStyle
 toAnsi = \case

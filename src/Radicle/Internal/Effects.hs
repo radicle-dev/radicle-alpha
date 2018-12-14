@@ -24,7 +24,6 @@ import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Number (isInt)
-import           Radicle.Internal.Pretty
 import           Radicle.Internal.PrimFns
 import           Radicle.Internal.Time as Time
 import           Radicle.Internal.Type (Type(..))
@@ -34,6 +33,7 @@ type ReplM m =
     ( Monad m, Stdout (Lang m), Stdin (Lang m)
     , MonadRandom m, UUID.MonadUUID m
     , CurrentTime m
+    , PersistentState m
     , ReadFile (Lang m)
     , System m
     , GetEnv (Lang m) Value
@@ -336,6 +336,19 @@ replPrimFns sysArgs = fromList $ allDocs $
             vs <- readValues filename t
             createModule vs
           v -> throwErrorHere $ TypeError "file-module!" 0 TString v
+      )
+    , ( "read-persistent-state!"
+      , "Reads the persistent state."
+      , \case
+          [] -> do v_ <- readPersistentState
+                   case v_ of
+                     Left e  -> throwErrorHere $ OtherError e
+                     Right v -> pure v
+          xs -> throwErrorHere $ WrongNumberOfArgs "read-persistent-state!" 0 (length xs)
+      )
+    , ( "write-persistent-state!"
+      , "Write to the persistent state."
+      , oneArg "write-persistent-state!" $ (const (Keyword (Ident "ok")) <$>) . writePersistentState
       )
     ]
 

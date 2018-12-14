@@ -9,8 +9,8 @@ import           System.Directory (doesFileExist)
 
 import           Radicle
 import           Radicle.Internal.Effects (exitCode)
+import           Radicle.Internal.Effects.Capabilities (putPrettyAnsi)
 import           Radicle.Internal.HttpStorage
-import           Radicle.Internal.Pretty (putPrettyAnsi)
 
 main :: IO ()
 main = do

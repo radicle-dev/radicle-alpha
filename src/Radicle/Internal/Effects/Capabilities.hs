@@ -9,9 +9,13 @@ import           Protolude
 
 import qualified Data.ByteString as BS
 import           Data.Text.Prettyprint.Doc (PageWidth)
+import qualified Data.Text.Prettyprint.Doc as Pretty
+import qualified Data.Text.Prettyprint.Doc.Render.Terminal as RenderTerm
+import           Data.Text.Prettyprint.Doc.Render.Text as RenderText
 import           Data.Time
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
+import           System.Directory (doesFileExist)
 import           System.Exit (ExitCode)
 import           System.IO
                  ( BufferMode(LineBuffering)
@@ -29,7 +33,10 @@ import           GHCJS.DOM.XMLHttpRequest
                  (getResponseText, newXMLHttpRequest, openSimple, send)
 #endif
 
+import           Radicle.Internal.CLI
 import           Radicle.Internal.Core
+import           Radicle.Internal.Parse
+import           Radicle.Internal.Pretty
 
 class (Monad m) => Stdin m where
     getLineS :: m (Maybe Text)  -- gives Nothing on EOF
@@ -59,6 +66,16 @@ instance (MonadException m, Monad m) => Stdout (InputT m) where
     putStrS = outputStrLn . toS
     supportsANSI = pure True
 
+-- | Pretty print the value with colors if @m@ supports it.
+putPrettyAnsi :: (PrettyV v, Stdout m) => v -> m ()
+putPrettyAnsi value = do
+    supportsANSI' <- supportsANSI
+    let docStream = Pretty.layoutSmart Pretty.defaultLayoutOptions $ prettyV value
+    if supportsANSI'
+    then
+        putStrS $ RenderTerm.renderStrict $ Pretty.reAnnotateS toAnsi docStream
+    else
+        putStrS $ renderStrict docStream
 
 class (Monad m) => System m where
     systemS
@@ -161,3 +178,26 @@ putStrLnS t = putStrS t >> putStrS "\n"
 
 modifyEnvS :: (GetEnv m r, SetEnv m r) => (Env r -> Env r) -> m ()
 modifyEnvS f = getEnvS >>= setEnvS . f
+
+class PersistentState m where
+  readPersistentState :: m (Either Text Value)
+  writePersistentState :: Value -> m ()
+
+instance PersistentState IO where
+  readPersistentState = do
+    f <- getLocalStateFile
+    exists <- doesFileExist f
+    unless exists $ writeFile f "{}"
+    t <- readFile f
+    pure $ first ("Couldn't parse local persistent state:\n" <>) $ parse "persistent-state" t
+  writePersistentState v = do
+    f <- getLocalStateFile
+    writeFile f (renderPrettyDef v)
+
+instance PersistentState (InputT IO) where
+  readPersistentState = liftIO $ readPersistentState
+  writePersistentState = liftIO . writePersistentState
+
+instance (Monad m, PersistentState m) => PersistentState (Lang m) where
+  readPersistentState = lift $ readPersistentState
+  writePersistentState = lift . writePersistentState
