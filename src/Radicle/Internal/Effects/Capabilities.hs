@@ -7,6 +7,7 @@ module Radicle.Internal.Effects.Capabilities where
 
 import           Protolude
 
+import qualified Data.ByteString as BS
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
 import           System.Console.ANSI (hSupportsANSI)
@@ -149,7 +150,7 @@ instance ReadFile (InputT IO) where
 instance ReadFile (InputT IO) where
     readFileS = lift . readFileS
 instance ReadFile IO where
-    readFileS fname = (Right <$> readFile (toS fname))
+    readFileS fname = (Right . decodeUtf8With lenientDecode <$> BS.readFile (toS fname))
                         `catch` (\(e :: IOException) -> pure (Left (show e)))
 #endif
 instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
