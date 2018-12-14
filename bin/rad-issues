@@ -62,17 +62,19 @@
     (def body (fn [d] (lookup :body d)))
     (def pretty-comment (fn [c]
       (string-append
-        "* **" (username c) "** [" (lookup :created-at c) "]:\n\n"
-        (string/intercalate "\n\n" (map (fn [xs] (string-append "   " xs)) (string/lines (body c)))))))
+        "### " (username c) " [" (lookup :created-at c) "]\n\n"
+        (body c) "\n")))
     (def pretty-issue (fn [i]
       (string-replace "\r" "" (string-append
          "\n" comment-divider "\n"
-         "---Add comment above the line.\n"
-         "# Issue " (show (issue-number i)) " : " (lookup :title i)
-         "\n**State:** " (if (eq? (lookup :state i) :open) "open" "closed")
-         "\n**Labels:** " (show (lookup :labels i))
-         "\n## Description\n" (body i)
-         "\n## Comments\n\n\n" (string/unlines (map pretty-comment (lookup :comments i)))
+         "---Add comment above the line.\n\n"
+         "# Issue " (show (issue-number i)) ": " (lookup :title i) "\n\n"
+         "**State:** " (if (eq? (lookup :state i) :open) "open" "closed") "\n"
+         "**Labels:** " (show (lookup :labels i)) "\n\n"
+         (body i) "\n\n"
+         "Comments\n"
+         "--------\n\n"
+         (string/unlines (map pretty-comment (lookup :comments i)))
     ))))
     (def edited-issue (edit-in-editor! (pretty-issue selected)))
     (def extract-comment
