@@ -30,12 +30,17 @@ library:
   - generics-eot
   - haskeline
   - http-client
+  - ipld-cid
   - megaparsec
   - mtl
+  - lens
+  - lens-aeson
   - pointed
   - prettyprinter
   - prettyprinter-ansi-terminal
   - process
+  - safe-exceptions
+  - wreq
   - servant
   - servant-client
   - scientific

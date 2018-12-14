@@ -1,0 +1,3 @@
+#!/usr/bin/env  bash
+
+IPFS_PATH=${IPFS_PATH:-"$HOME/.local/share/radicle/ipfs"} ipfs --api "/ip4/127.0.0.1/tcp/9301" "$@"

@@ -133,6 +133,7 @@ steps:
       docker-compose up -d postgres
       sleep 5 # Wait for the DB to be ready
       docker-compose up -d
+      docker run --detach --publish 9301:5001 --network cloudbuild eu.gcr.io/opensourcecoin/ipfs-test-network
       docker network connect cloudbuild radicle-server_radicle-server_1 --alias radicle-server
 
   - id: "radicle-server integration test"
@@ -146,7 +147,7 @@ steps:
     - |
       set -euxo pipefail
       stack exec -- radicle - <<<'(load! "rad/examples/counter.rad") (counter/run-test)'
-      stack exec -- radicle test/server.rad radicle-server
+      stack exec -- radicle test/machine-backends.rad radicle-server
 
   - id: "Save cache"
     waitFor:

@@ -9,13 +9,4 @@
 ;;
 ;; See `prelude/chain/install-remote-chain-fake` for how to use primitve stubs.
 
-;; send!
-(def primitive-stub-ref/send! (ref machine/eval-server/update!))
-(def machine/eval-server/update!
-  (fn [a b] ((read-ref primitive-stub-ref/send!) a b)))
-
-;; receive!
-(def primitive-stub-ref/receive! (ref machine/eval-server/get-log!))
-(def machine/eval-server/get-log!
-  (fn [a b] ((read-ref primitive-stub-ref/receive!) a b)))
-
+:nothing

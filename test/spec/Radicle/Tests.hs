@@ -882,7 +882,7 @@ test_macros :: [TestTree]
 test_macros =
     [ testCase ":enter-chain keeps old bindings" $ do
         let input = [ "(def x 0)"
-                    , "(:enter-chain \"blah\")"
+                    , "(:enter-chain \"http://blah\")"
                     , "(def x 1)"
                     , ":quit"
                     , "x"

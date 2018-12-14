@@ -126,7 +126,7 @@
             #t
             )
           [:error 'msg] (do
-            (put-str! (string-append "not ok " (show index) " - " name))
+            (put-str! (string-append "not ok " (show index) " - " name "\n" (show msg)))
             #f
             )
           )))))

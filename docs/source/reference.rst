@@ -1114,15 +1114,15 @@ Send the pure prelude to a chain.
 
 Send code from a file to a remote chain.
 
-``(send! machine-id inputs)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(send! a b)``
+~~~~~~~~~~~~~~~
 
 Update a machine with the vector of ``inputs`` to evaluate. Returns an
 index that identifies that last input. This index can be passed to
 ``receive!``
 
-``(receive! machine-id index)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(receive! a b)``
+~~~~~~~~~~~~~~~~~~
 
 Get inputs from a machine. Returns a ``[index inputs]`` pair where
 ``inputs`` is a vector of expressions and ``index`` is the index of the

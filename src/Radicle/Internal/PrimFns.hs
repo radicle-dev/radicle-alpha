@@ -53,6 +53,12 @@ addPrimFns primFns bindings =
       [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)]
 
 
+addPrimFn  :: Ident -> Text -> ([Value] -> Lang m Value) -> PrimFns m -> PrimFns m
+addPrimFn name doc run (PrimFns primFns) = PrimFns primFns'
+  where
+    primFns' = Map.insert name (Doc.Docd (Just doc) run) primFns
+
+
 -- | The universal primops. These are available in chain evaluation.
 purePrimFns :: forall m. (Monad m) => PrimFns m
 purePrimFns = fromList $ allDocs $
