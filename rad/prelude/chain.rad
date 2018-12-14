@@ -191,6 +191,7 @@
    "rad/prelude/strings.rad"
    "rad/prelude/dict.rad"
    "rad/prelude/bool.rad"
+   "rad/prelude/maybe.rad"
    "rad/prelude/list.rad"
    "rad/prelude/set.rad"
    "rad/prelude/ref.rad"

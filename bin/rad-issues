@@ -38,56 +38,109 @@
   (fn [chain]
     (ref (chain/load-chain! (make-name chain)))))
 
-(def list-issues
-  (fn [chain]
+(def mark-last-seen
+  (fn []
+    (write-persistent-key! :radicle-issues/last-seen (now!))))
+
+(def comment-divider "---")
+
+(def add-comment-md
+  (fn [x]
+    (string-append
+     "\n" comment-divider "\n"
+     "---Add comment above the line.\n\n"
+     x)))
+
+(def pretty-comment
+  "Markdown view of a comment. Assumes that the comment has been annotated with a
+  username."
+  (fn [c]
+    (match c
+      '{:username u-n
+        :created-at c-a
+        :body b}
+      (string-append "### " u-n " [" c-a "]\n\n" b "\n"))))
+
+(def pretty-issue
+  "Markdown view of an issue. Assumes the issue and comments have been annotated
+  with usernames."
+  (fn [i]
+    (match i
+      '{:number n
+        :title tit
+        :body b
+        :state state
+        :labels ls
+        :comments cs}
+      (string-replace
+       "\r"
+       ""
+       (string-append
+        "# Issue " (show n) ": " tit "\n\n"
+        "**State:** " (if (eq? state :open) "open" "closed") "\n"
+        "**Labels:** " (show ls) "\n\n"
+        b "\n\n"
+        "Comments\n"
+        "--------\n\n"
+        (string/unlines (map pretty-comment cs)))))))
+
+(def list-items
+  "Lists the recent items and uses an editor to add a relevant comment."
+  (fn [chain last-seen]
+
     (def chain-ref (make-chain-ref chain))
     (load! "rad/monadic/names.rad")
     (def names (ref (chain/load-chain! name-base)))
-    (def mk-key (fn [v]
-      (match v
-        ['key 'val] [(string-append (show key) " - " (lookup :title val)) val])))
-    (def iss (dict-from-seq (map mk-key (seq (list-issues chain-ref)))))
-    (def selected (fzf-select-by-key! iss))
-    (def comment-divider "---")
-    (def username
+    (def add-username
       (fn [d]
-        (catch
-          'any
-          (lookup :github-username d)
-          (fn [x]
-            (match (lookup-key names (lookup :author d))
-              :nothing "???"
-              'name    name)))))
-    (def issue-number (fn [d] (lookup :number d)))
-    (def body (fn [d] (lookup :body d)))
-    (def pretty-comment (fn [c]
-      (string-append
-        "### " (username c) " [" (lookup :created-at c) "]\n\n"
-        (body c) "\n")))
-    (def pretty-issue (fn [i]
-      (string-replace "\r" "" (string-append
-         "\n" comment-divider "\n"
-         "---Add comment above the line.\n\n"
-         "# Issue " (show (issue-number i)) ": " (lookup :title i) "\n\n"
-         "**State:** " (if (eq? (lookup :state i) :open) "open" "closed") "\n"
-         "**Labels:** " (show (lookup :labels i)) "\n\n"
-         (body i) "\n\n"
-         "Comments\n"
-         "--------\n\n"
-         (string/unlines (map pretty-comment (lookup :comments i)))
-    ))))
-    (def edited-issue (edit-in-editor! (pretty-issue selected)))
-    (def extract-comment
-      (fn [xs]
-        (string/unlines (take-while (fn [x] (not (eq? x comment-divider))) (string/lines xs)))))
-    (def send-comment
-      (fn [xs]
-        (def comment (extract-comment edited-issue))
-        (if (eq? comment "")
-          "Issue was not updated."
-          (do (simple-add-comment! chain-ref (issue-number selected) comment)
-            (string-append "Sent comment: " comment)))))
-    (put-str! (send-comment edited-issue))))
+        (def n (catch
+                   'any
+                   (lookup :github-username d)
+                 (fn [x]
+                   (match (lookup-key names (lookup :author d))
+                          :nothing "???"
+                          'name    name))))
+        (insert :username n d)))
+
+    (def add-username-issue
+      (fn [i]
+        (add-username
+         (insert :comments (map add-username (lookup :comments i)) i))))
+
+    (def mk-key
+      (fn [v]
+        (match v
+               (/as 'a {:activity :new-issue
+                        :issue    {:number 'n
+                                   :title 'tit}})
+               [(string-append "[new] Issue " (show n) " - " tit) a]
+               (/as 'a {:activity :new-comments
+                        :issue    {:number 'n
+                                   :title 'tit}})
+               [(string-append "[new comments] Issue " (show n) " - " tit) a])))
+
+    (def items (map mk-key (recent-activity chain-ref last-seen)))
+
+    (match (fzf-select! (map first items))
+           (/just 's)
+           (do (def selected (lookup s (dict-from-seq items)))
+               (def issue-number (match selected {:issue {:number 'n}} n))
+               (def pretty-item
+                 (add-comment-md
+                  (pretty-issue
+                   (add-username-issue
+                    (lookup :issue selected)))))
+               (def edited-item (edit-in-editor! pretty-item))
+               (def added-comment
+                 (string/unlines
+                  (take-while (fn [x] (not (eq? x comment-divider)))
+                              (string/lines edited-item))))
+               (put-str!
+                (if (eq? added-comment "")
+                  "Item was not updated."
+                  (do (simple-add-comment! chain-ref issue-number added-comment)
+                      (string-append "Sent comment: " added-comment)))))
+           _ (print! "No selection made."))))
 
 (def new-issue
   (fn [chain]
@@ -99,10 +152,9 @@
  :labels     []
 }
 ")
-    (def iss (read (edit-in-editor! template)))
+    (def i (read (edit-in-editor! template)))
     (create-issue!
-         chain-ref
-         (<> iss {:state :open :comments [] :created-at (now!)}))))
+         chain-ref (simple-issue i))))
 
 (def create-chain
   (fn [chain]
@@ -122,11 +174,13 @@
 
 (def args (get-args!))
 (match args
-  ["list" 'chain]         (list-issues chain)
+  ["list" "new" 'chain]   (list-items chain (read-persistent-key! :radicle-issues/last-seen))
+  ["list" 'chain]         (list-items chain :nothing)
   ["names"]               (names)
   ["make-key" 'name]      (make-key name)
   ["new"  'chain]         (new-issue chain)
   ["create-chain" 'chain] (create-chain chain)
+  ["done"]                (mark-last-seen)
   ["help"]                (put-str! help)
   _                       (do
                             (put-str! (string-append "Unrecognized command" (show args)))

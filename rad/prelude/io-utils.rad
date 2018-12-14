@@ -1,17 +1,20 @@
 {:module 'prelude/io-utils
  :doc "IO-related utilities"
- :exports '[fzf-select-by-key! edit-in-editor!]}
+ :exports '[fzf-select! edit-in-editor!]}
 
 (import prelude/io '[shell-with-stdout! write-file!] :unqualified)
 (import prelude/strings '[unlines] :unqualified)
 
-(def fzf-select-by-key!
-  "Select from keys in `dict` with `fzf`, returning the corresponding values.
-  The keys of the dict must be strings.
-  Requires that `fzf` be on the path."
-  (fn [dict]
-    (def result (process-with-stdout! "fzf" [] (string-append (unlines (keys dict)) "\n")))
-    (lookup (string-replace "\n" "" (nth 0 result)) dict)))
+(def fzf-select!
+  "Select one of many strings with `fzf`.
+  Requires that `fzf` be on the path.
+  Returns `[:just x]` where `x` is the selected string, or `:nothing` if nothing
+  was selected."
+  (fn [xs]
+    (def result (process-with-stdout! "fzf" [] (string-append (unlines xs) "\n")))
+    (match result
+           [] :nothing
+           ['x] [:just (string-replace "\n" "" x)])))
 
 (def edit-in-editor!
   "Open `$EDITOR` on a file prepopulated with `orig`. Returns the contents of the edited file when the editor exits."
