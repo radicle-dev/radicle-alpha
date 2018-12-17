@@ -1,6 +1,6 @@
 {:module  'prelude/dict
  :doc     "Functions for manipualting dicts."
- :exports '[dict-from-seq keys values rekey modify-map delete-many lookup-default]}
+ :exports '[dict-from-seq keys values rekey modify-map delete-many lookup-default lookup-maybe]}
 
 (def dict-from-seq
   "Creates a dictionary from a list of key-value pairs."
@@ -62,6 +62,14 @@
     (if (member? key dict)
       (lookup key dict)
       default)))
+
+(def lookup-maybe
+  "Like `lookup` but returns `[:just x]` if the key is not in the map and
+  `:nothing` otherwise."
+  (fn [key dict]
+    (if (member? key dict)
+      [:just (lookup key dict)]
+      :nothing)))
 
 (:test "lookup-default"
   [ (lookup-default :one 2 {:one 1}) ==> 1 ]
