@@ -40,7 +40,7 @@
 
 (def mark-last-seen
   (fn []
-    (write-persistent-key! :radicle-issues/last-seen (now!))))
+    (write-file-key! ".radicle-issues" :last-mark-done (now!))))
 
 (def comment-divider "---")
 
@@ -172,9 +172,11 @@
     (load! "rad/monadic/names.rad")
     (print! (list-names name-base))))
 
+(init-file-dict! ".radicle-issues")
+
 (def args (get-args!))
 (match args
-  ["list" "new" 'chain]   (list-items chain (read-persistent-key! :radicle-issues/last-seen))
+  ["list" "new" 'chain]   (list-items chain (read-file-key! ".radicle-issues" :last-mark-done))
   ["list" 'chain]         (list-items chain :nothing)
   ["names"]               (names)
   ["make-key" 'name]      (make-key name)
