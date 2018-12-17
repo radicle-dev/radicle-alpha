@@ -19,8 +19,8 @@ insertExprDB conn name val
         <> "VALUES ((SELECT (COALESCE(MAX(id),-1) + 1) FROM txs WHERE chain = ?), ?, ?)"
 
 getSinceDB :: Connection -> Text -> Int -> IO [Value]
-getSinceDB conn name index
-    = query conn "SELECT expr FROM txs WHERE chain = ? AND id >= ? ORDER BY id ASC" (name, index)
+getSinceDB conn name id
+    = query conn "SELECT expr FROM txs WHERE chain = ? AND id >= ? ORDER BY id ASC" (name, id)
 
 -- | Get all txs in all chains. Useful after a server restart.
 getAllDB :: Connection -> IO [(Text, [Value])]

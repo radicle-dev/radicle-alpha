@@ -24,7 +24,8 @@
   (fn [url]
     {:state (pure-env)
      :inputs []
-     :url url}))
+     :url url
+     :index :nothing}))
 
 ;; eval-in-chain
 
@@ -64,13 +65,16 @@
   "Takes a chain, and returns a new chain updated with the new expressions from the remote chain"
   (fn [chain]
     (def index (length (lookup :inputs chain)))
-    (def new-inputs
-      (receive! (lookup :url chain) index))
+    (def receive-result
+      (receive! (lookup :url chain) (lookup :index chain)))
+    (def new-index (nth 0 receive-result))
+    (def new-inputs (nth 1 receive-result))
     (def upd-ch
       (fn [ch expr]
         (def x (eval-in-chain expr ch))
         (view (@ :chain) x)))
-    (foldl upd-ch chain new-inputs)))
+    (def chain (foldl upd-ch chain new-inputs))
+    (insert :index [:just new-index] chain)))
 
 (:test "update-chain!"
   [:setup
