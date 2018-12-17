@@ -2,9 +2,11 @@
  :doc "Some basic I/O functions."
  :exports '[print! shell! process! read-line! read-file-value! read-file-values! send-code!
             shell-with-stdout! shell-no-stdin! process-with-stdout! write-file!
+            init-file-dict! read-file-key! write-file-key!
            ]}
 
 (import prelude/patterns :unqualified)
+(import prelude/dict :unqualified)
 
 (def read-line!
   "Read a single line of input and interpret it as radicle data."
@@ -171,3 +173,27 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   (fn []
     ;; Some systems support the -1 option, but this is more portable
     (shell-with-stdout! "ls -a | cat" "")))
+
+(def modify-file!
+  "Modified the value stored in a file according to the function `f`."
+  (fn [file f]
+    (write-file! file (show (f (read-file-value! file))))))
+
+(def init-file-dict!
+  "Initiate a file with an empty dict, but only if the file doesn't already
+  exist."
+  (fn [file]
+    (catch 'any
+        (read-file! file)
+        (fn [_] (write-file! file "{}")))))
+
+(def write-file-key!
+  "Write a key to a file. Assumes that the file contents is a serialised dict."
+  (fn [file k v]
+    (modify-file! file
+                  (fn [s] (insert k v s)))))
+
+(def read-file-key!
+  "Read a file key. Assumes that the file contents is a serialised dict."
+  (fn [file k]
+    (lookup-maybe k (read-file-value! file))))

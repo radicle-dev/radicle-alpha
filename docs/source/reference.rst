@@ -700,6 +700,54 @@ Returns a string consisting of the results of applying ``f`` to each
 character of ``xs``. Throws a type error if ``f`` returns something
 other than a string
 
+``prelude/dict``
+----------------
+
+Functions for manipualting dicts.
+
+``(dict-from-seq xs)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Creates a dictionary from a list of key-value pairs.
+
+``(keys d)``
+~~~~~~~~~~~~
+
+Given a dict ``d``, returns a vector of its keys.
+
+``(values d)``
+~~~~~~~~~~~~~~
+
+Given a dict ``d``, returns a vector of its values.
+
+``(rekey old-key new-key d)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Change the key from ``old-key`` to ``new-key`` in a dict ``d``. If
+``new-key`` already exists, it is overwritten.
+
+``(modify-map k f d)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Given a key ``k``, a function ``f`` and a dict ``d``, applies the
+function to the value associated to that key.
+
+``(delete-many ks d)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Delete several keys ``ks`` from a dict ``d``.
+
+``(lookup-default key default dict)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``lookup`` but returns ``default`` if the key is not in the map.
+
+``(lookup-maybe key dict)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``lookup`` but returns ``[:just x]`` if the key is not in the map
+and ``:nothing`` otherwise.
+
 ``prelude/io``
 --------------
 
@@ -766,6 +814,23 @@ Like ``process!``, but captures stdout.
 
 Write ``contents`` to file ``filename``.
 
+``(init-file-dict! file)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Initiate a file with an empty dict, but only if the file doesn't already
+exist.
+
+``(read-file-key! file k)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read a file key. Assumes that the file contents is a serialised dict.
+
+``(write-file-key! file k v)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Write a key to a file. Assumes that the file contents is a serialised
+dict.
+
 ``prelude/bool``
 ----------------
 
@@ -831,48 +896,6 @@ Returns ``ls`` with only the elements that satisfy ``pred``.
 
 Returns all elements of a sequence ``ls`` until one does not satisfy
 ``pred``
-
-``prelude/dict``
-----------------
-
-Functions for manipualting dicts.
-
-``(dict-from-seq xs)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Creates a dictionary from a list of key-value pairs.
-
-``(keys d)``
-~~~~~~~~~~~~
-
-Given a dict ``d``, returns a vector of its keys.
-
-``(values d)``
-~~~~~~~~~~~~~~
-
-Given a dict ``d``, returns a vector of its values.
-
-``(rekey old-key new-key d)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Change the key from ``old-key`` to ``new-key`` in a dict ``d``. If
-``new-key`` already exists, it is overwritten.
-
-``(modify-map k f d)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Given a key ``k``, a function ``f`` and a dict ``d``, applies the
-function to the value associated to that key.
-
-``(delete-many ks d)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Delete several keys ``ks`` from a dict ``d``.
-
-``(lookup-default key default dict)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Like ``lookup`` but returns ``default`` if the key is not in the map.
 
 ``prelude/set``
 ---------------
