@@ -786,11 +786,6 @@ Read a single radicle value from a file.
 
 Read many radicle values from a file.
 
-``(send-code! chain-id filename)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Send code from a file to a remote chain.
-
 ``(shell-with-stdout! command to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1091,6 +1086,11 @@ while also calling the callback on the result.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Send the pure prelude to a chain.
+
+``(send-code! chain-id filename)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send code from a file to a remote chain.
 
 ``prelude/state-machine``
 -------------------------

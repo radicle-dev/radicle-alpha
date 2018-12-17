@@ -3,7 +3,7 @@
 (def create-name-chain!
   (fn [url]
     (chain/send-prelude! url)
-    (send-code! url "rad/monadic/names-remote.rad")))
+    (chain/send-code! url "rad/monadic/names-remote.rad")))
 
 (def lookup-key
   (fn [chain-ref key]

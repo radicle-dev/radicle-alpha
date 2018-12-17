@@ -1,6 +1,8 @@
 {:module 'prelude/chain
  :doc "Functions for simulating remote chains."
- :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval updatable-eval update-chain! eval-fn-app send-prelude!]}
+ :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval
+            updatable-eval update-chain! eval-fn-app send-prelude!
+            send-code!]}
 
 (import prelude/io '[read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
@@ -215,3 +217,8 @@
   "Send the pure prelude to a chain."
   (fn [chain-id]
     (send! chain-id pure-prelude-code)))
+
+(def send-code!
+  "Send code from a file to a remote chain."
+  (fn [chain-id filename]
+    (send! chain-id (io/read-file-values! filename))))
