@@ -48,7 +48,7 @@ import           Servant
                  )
 
 import           Radicle
-import           Radicle.Internal.HttpStorage
+import           Radicle.Internal.MachineBackend.EvalServer
 import           Server.DB
 
 -- * Types
