@@ -125,11 +125,11 @@ modules:
 - prelude/basic
 - prelude/patterns
 - prelude/strings
+- prelude/dict
 - prelude/io
 - prelude/bool
 - prelude/exception
 - prelude/list
-- prelude/dict
 - prelude/set
 - prelude/ref
 - prelude/lens

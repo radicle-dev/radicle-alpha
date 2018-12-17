@@ -180,6 +180,8 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
     (write-file! file (show (f (read-file-value! file))))))
 
 (def init-file-dict!
+  "Initiate a file with an empty dict, but only if the file doesn't already
+  exist."
   (fn [file]
     (catch 'any
         (read-file! file)
