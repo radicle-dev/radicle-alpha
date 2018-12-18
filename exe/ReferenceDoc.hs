@@ -77,8 +77,9 @@ moduleDoc (Env env) name =
 
     getModuleEnv :: Map Value Value -> Env Value
     getModuleEnv module' =
-        envFromRad (lkp [kword|env|] module')
-        `lPanic` ("Cannot parse environment for module " <> name)
+        case lkp [kword|env|] module' of
+          VEnv e -> e
+          _ -> panic "Module's `:env` was not an env."
 
     lkp :: Value -> Map Value Value -> Value
     lkp x m = case Map.lookup x m of

@@ -83,7 +83,7 @@ primFns:
 - import
 # Environment
 - get-current-env
-- pure-env
+- pure-state
 - set-current-env
 - set-env!
 # Time

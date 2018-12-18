@@ -6,7 +6,7 @@
 
 (import prelude/io '[read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
-(import prelude/lens '[.. ... view over @] :unqualified)
+(import prelude/lens '[make-lens .. ... view set over @] :unqualified)
 (import prelude/basic :unqualified)
 
 ;; Chains: Functions for dealing with chains.
@@ -32,15 +32,25 @@
   (fn [machine-id index]
     (machine/eval-server/get-log! machine-id index)))
 
+(def env-var
+  "A lens for variables in envs."
+  (fn [i]
+    (make-lens (fn [e] (get-binding i e))
+               (fn [v e] (set-binding i v e)))))
+
+(def @env
+  "A lens for env part of a machine state."
+  (make-lens state->env set-env))
+
 (def @var
-  "A lens for variables in states of chains."
-  (fn [ident]
-    (... [(@ :env) (@ ident) (@ :val)])))
+  "A lens for variables in machine states."
+  (fn [i]
+    (.. @env (env-var i))))
 
 (def new-chain
   "Return an empty chain dictionary with the given url."
   (fn [url]
-    {:state (pure-env)
+    {:state (pure-state)
      :inputs []
      :url url
      :index :nothing}))
@@ -156,16 +166,11 @@
   (fn [url env]
     (def chain (load-chain! url))
     (def chain-state (lookup :state chain))
-    (def mod-state1
-      (over (@ :env) (fn [x] (insert '_inputs {:val []} x)) chain-state))
-    (def mod-state2
-      (over (@ :env)
-            (fn [x] (insert '_cur-chain {:val (lookup :url chain)} x))
-            mod-state1))
-    (def mod-state3
-      (over (@var 'eval)
-            (fn [x] (add-quit env x))
-            mod-state2))
+    (def mod-state1 (set (@var '_inputs) [] chain-state))
+    (def mod-state2 (set (@var '_cur-chain) (lookup :url chain) mod-state1))
+    (def mod-state3 (over (@var 'eval)
+                          (fn [x] (add-quit env x))
+                          mod-state2))
     (list :ok mod-state3)))
 
 (def eval__ "The eval in place when `chain.rad` is loaded." eval)

@@ -27,8 +27,7 @@ import qualified Data.Set as Set
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
-import           System.Process
-                 (CmdSpec(..), CreateProcess(..), ProcessHandle, StdStream(..))
+import qualified System.Process as Proc
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
@@ -213,7 +212,7 @@ newtype ProcHdl = ProcHdl { getProcHandle :: Int }
     deriving (Show, Read, Ord, Eq, Generic, Serialise)
 
 -- | Lookup a process handle in the bindings, failing if it does not exist.
-lookupProcHandle :: Monad m => ProcHdl -> Lang m ProcessHandle
+lookupProcHandle :: Monad m => ProcHdl -> Lang m Proc.ProcessHandle
 lookupProcHandle (ProcHdl h) = do
     hdls <- gets bindingsProcHandles
     case IntMap.lookup h hdls of
@@ -221,7 +220,7 @@ lookupProcHandle (ProcHdl h) = do
         Just v  -> pure v
 
 -- | Create a new process handle.
-newProcessHandle :: Monad m => ProcessHandle -> Lang m Value
+newProcessHandle :: Monad m => Proc.ProcessHandle -> Lang m Value
 newProcessHandle h = do
     b <- get
     let ix = bindingsNextProcHandle b
@@ -252,6 +251,8 @@ data ValueF r =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
     | LambdaF [Ident] (NonEmpty r) (Env r)
+    | VEnvF (Env r)
+    | StateF PureState
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
@@ -271,6 +272,8 @@ valType = \case
   Handle _ -> THandle
   ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
+  VEnv _ -> TEnv
+  State _ -> TState
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
@@ -284,6 +287,8 @@ hashable = \case
   Handle _ -> False
   ProcHandle _ -> False
   Lambda{} -> False
+  VEnv _ -> False
+  State _ -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
   Dict kvs -> getAll $ Map.foldMapWithKey (\k v -> All (hashable k && hashable v)) kvs
@@ -296,7 +301,7 @@ dict kvs =
   else throwErrorHere NonHashableKey
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict
-  , Ref, Handle, ProcHandle, Lambda #-}
+  , Ref, Handle, ProcHandle, Lambda, VEnv, State #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -364,6 +369,16 @@ pattern Lambda :: ValueConC t => [Ident] -> NonEmpty (Annotated t ValueF) -> Env
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
     where
     Lambda vs exps env = Ann.annotate $ LambdaF vs exps env
+
+pattern VEnv :: ValueConC t => Env (Annotated t ValueF) -> Annotated t ValueF
+pattern VEnv e <- (Ann.match -> VEnvF e)
+  where
+    VEnv e = Ann.annotate $ VEnvF e
+
+pattern State :: ValueConC t => PureState -> Annotated t ValueF
+pattern State s <- (Ann.match -> StateF s)
+  where
+    State s = Ann.annotate $ StateF s
 
 type UntaggedValue = Annotated Identity ValueF
 type Value = Annotated Ann.WithPos ValueF
@@ -440,6 +455,13 @@ instance GhcExts.IsList (PrimFns m) where
     fromList xs = PrimFns . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
     toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . getPrimFns $ e]
 
+data PureState = PureState
+  { env  :: Env Value
+  , refs :: IntMap Value
+  } deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise PureState
+
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
     { bindingsEnv            :: Env Value
@@ -448,7 +470,7 @@ data Bindings prims = Bindings
     , bindingsNextRef        :: Int
     , bindingsHandles        :: IntMap Handle.Handle
     , bindingsNextHandle     :: Int
-    , bindingsProcHandles    :: IntMap ProcessHandle
+    , bindingsProcHandles    :: IntMap Proc.ProcessHandle
     , bindingsNextProcHandle :: Int
     } deriving (Functor, Generic)
 
@@ -479,29 +501,12 @@ setBindings value = do
 
 bindingsFromRadicle :: Value -> Either Text (Bindings (PrimFns m))
 bindingsFromRadicle x = case x of
-    Dict d -> do
-        env' <- kwLookup "env" d ?? "Expecting 'env' key"
-        refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
-        refs <- makeRefs refs'
-        env <- envFromRad env'
-        pure $ emptyBindings
-            { bindingsEnv = env
-            , bindingsRefs = refs
-            , bindingsNextRef = length refs
-            }
-    _ -> throwError "Expecting dict"
-  where
-    makeRefs refs = case refs of
-        List ls -> pure (IntMap.fromList $ zip [0..] ls)
-        _       -> throwError $ "Expecting dict"
-
-envFromRad :: Value -> Either Text (Env Value)
-envFromRad env = case env of
-    Dict d -> fmap (Env . Map.fromList)
-            $ forM (Map.toList d) $ \(k, v) -> case k of
-        Atom i -> (i, ) <$> fromRad v
-        k'     -> Left $ "Expecting atom keys. Got: " <> show k'
-    _ -> Left "Expecting dict"
+    State s -> pure $ emptyBindings
+               { bindingsEnv = env s
+               , bindingsRefs = refs s
+               , bindingsNextRef = length (refs s)
+               }
+    _ -> throwError "Expecting state"
 
 -- | Serializes the environment and references into a Radicle value.
 --
@@ -509,17 +514,7 @@ envFromRad env = case env of
 --    * `gets bindingsToRadicle >>= setBindings == pure ()`
 --    * `setBindings x >> gets bindingsToRadicle == setBindings x >> pure x`
 bindingsToRadicle :: Bindings a -> Value
-bindingsToRadicle x =
-    Dict $ Map.fromList
-        [ (Keyword $ Ident "env", env)
-        , (Keyword $ Ident "refs", refs)
-        ]
-  where
-    env = envToRadicle (bindingsEnv x)
-    refs = List $ IntMap.elems (bindingsRefs x)
-
-envToRadicle :: Env Value -> Value
-envToRadicle = Dict . Map.mapKeys Atom . Map.map toRad . fromEnv
+bindingsToRadicle x = State PureState{ env = bindingsEnv x, refs = bindingsRefs x }
 
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
@@ -744,7 +739,7 @@ createModule = \case
       let exportsSet = Set.fromList (exports m')
       let undefinedExports = Set.difference exportsSet (Map.keysSet (fromEnv e))
       env <- if null undefinedExports
-               then pure . envToRadicle . Env $ Map.restrictKeys (fromEnv e) exportsSet
+               then pure . VEnv . Env $ Map.restrictKeys (fromEnv e) exportsSet
                else throwErrorHere (ModuleError (UndefinedExports (name m') (Set.toList undefinedExports)))
       let modu = Dict $ Map.fromList
                   [ (Keyword (Ident "module"), Atom (name m'))
@@ -821,32 +816,32 @@ instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
       doc <- traverse fromRad (kwLookup "doc" d)
       pure (Doc.Docd doc val)
     fromRad _ = Left "Expecting a dict."
-instance CPA t => FromRad t CmdSpec where
+instance CPA t => FromRad t Proc.CmdSpec where
     fromRad x = case x of
         Vec (Keyword (Ident "shell") Seq.:<| arg Seq.:<| Seq.Empty) ->
-            ShellCommand <$> fromRad arg
+            Proc.ShellCommand <$> fromRad arg
         Vec (Keyword (Ident "raw") Seq.:<| comm Seq.:<| Vec args Seq.:<| Seq.Empty) -> do
             args' <- traverse fromRad $ toList args
             comm' <- fromRad comm
-            pure $ RawCommand comm' args'
+            pure $ Proc.RawCommand comm' args'
         Vec (Keyword (Ident s) Seq.:<| _) ->
             throwError $ "Expecting either :raw or :shell, got: " <> s
         _ ->
             throwError "Expecting vector"
-instance CPA t => FromRad t StdStream where
+instance CPA t => FromRad t Proc.StdStream where
     fromRad x = case x of
-        Keyword (Ident "inherit") -> pure Inherit
-        Keyword (Ident "create-pipe") -> pure CreatePipe
-        Keyword (Ident "no-stream") -> pure NoStream
+        Keyword (Ident "inherit") -> pure Proc.Inherit
+        Keyword (Ident "create-pipe") -> pure Proc.CreatePipe
+        Keyword (Ident "no-stream") -> pure Proc.NoStream
         _ -> throwError $ "Expecting :inherit, :create-pipe, or :no-stream"
-instance CPA t => FromRad t CreateProcess where
+instance CPA t => FromRad t Proc.CreateProcess where
     fromRad x = case x of
         Dict d -> do
             cmdspec' <- fromRad =<< (kwLookup "cmdspec" d ?? "Expecting 'cmdspec' key")
             stdin' <- fromRad =<< (kwLookup "stdin" d ?? "Expecting 'stdin' key")
             stdout' <- fromRad =<< (kwLookup "stdout" d ?? "Expecting 'stdout' key")
             stderr' <- fromRad =<< (kwLookup "stderr" d ?? "Expecting 'stderr' key")
-            pure CreateProcess
+            pure Proc.CreateProcess
                 { cmdspec = cmdspec'
                 , cwd = Nothing
                 , env = Nothing
@@ -909,18 +904,18 @@ instance CPA t => ToRad t (Doc.Docd (Annotated t ValueF)) where
     toRad (Doc.Docd d_ v) = Dict $ Map.fromList $ ( Keyword (Ident "val"), v) : case d_ of
       Just d  -> [ (Keyword (Ident "doc"), toRad d) ]
       Nothing -> []
-instance (CPA t) => ToRad t StdStream where
+instance (CPA t) => ToRad t Proc.StdStream where
     toRad x = case x of
-        Inherit    -> Keyword $ Ident "inherit"
-        CreatePipe -> Keyword $ Ident "create-pipe"
-        NoStream   -> Keyword $ Ident "no-stream"
-        _          -> panic "Cannot convert handle"
-instance (CPA t) => ToRad t CmdSpec where
+        Proc.Inherit    -> Keyword $ Ident "inherit"
+        Proc.CreatePipe -> Keyword $ Ident "create-pipe"
+        Proc.NoStream   -> Keyword $ Ident "no-stream"
+        _               -> panic "Cannot convert handle"
+instance (CPA t) => ToRad t Proc.CmdSpec where
     toRad x = case x of
-        ShellCommand comm ->
+        Proc.ShellCommand comm ->
             let c = toRad comm
             in Vec $ Seq.fromList [Keyword (Ident "shell"), c]
-        RawCommand f args ->
+        Proc.RawCommand f args ->
             let f' = toRad f
                 args' = toRad args
             in Vec $ Seq.fromList [Keyword (Ident "raw"), f', args']

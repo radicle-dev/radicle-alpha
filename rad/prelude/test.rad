@@ -27,6 +27,7 @@
   ```
   "
   (fn [test-def]
+    (put-str! (show test-def))
     (def test-env (lookup :env test-def))
     (def test-name (lookup :name test-def))
     (def error
