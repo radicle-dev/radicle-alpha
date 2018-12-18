@@ -1,12 +1,14 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Server.DB where
+module Server.DB
+    ( insertExprDB
+    , getSinceDB
+    , prepareDatabase
+    ) where
 
-import           Data.List (groupBy, head)
+import           Protolude
+
 import           Database.PostgreSQL.Simple
-import           Database.PostgreSQL.Simple.FromField (FromField(..))
-import           Database.PostgreSQL.Simple.FromRow
 import           Database.PostgreSQL.Simple.ToField (ToField(..))
-import           Protolude hiding (head)
 import           Radicle
 
 -- | Insert a new value into the DB. Note that this should only be done after
@@ -19,26 +21,19 @@ insertExprDB conn name val
         <> "VALUES ((SELECT (COALESCE(MAX(id),-1) + 1) FROM txs WHERE chain = ?), ?, ?)"
 
 getSinceDB :: Connection -> Text -> Int -> IO [Value]
-getSinceDB conn name id
-    = query conn "SELECT expr FROM txs WHERE chain = ? AND id >= ? ORDER BY id ASC" (name, id)
-
--- | Get all txs in all chains. Useful after a server restart.
-getAllDB :: Connection -> IO [(Text, [Value])]
-getAllDB conn = do
-    -- The @ORDER BY@ clauses are important, because
-    -- * 'groupBy' only groups adjacent items in a list, and
-    -- * inputs are evaluated in order
-    res :: [(Int, Text, Value)] <- query_ conn "SELECT id, chain, expr FROM txs ORDER BY chain ASC, id ASC"
-    -- TODO fold over the results and use a 'Map' to group chain inputs
-    let  grouped :: [[(Text, Value)]]
-         grouped
-            = fmap (\(_, a, b) -> (a, b)) <$> groupBy (\(_, l, _) (_, r, _) -> l == r) res
-    pure [ (fst (head each), snd <$> each) | each <- grouped ]
-
+getSinceDB conn name fromIndex = do
+    rows :: [(Int, Text)] <-
+        query conn "SELECT id, expr FROM txs WHERE chain = ? AND id >= ? ORDER BY id ASC" (name, fromIndex)
+    let valuesE = forM rows $ \(id, src) ->
+            let srcName = "[db " <> name <> ":" <> show id <> "]"
+            in parse srcName src
+    case valuesE of
+        Left err     -> panic (show err)
+        Right values -> pure $ values
 
 -- | Create the tables if they don't exist
-createIfNotExists :: Connection -> IO ()
-createIfNotExists conn = void $ execute_ conn sql
+prepareDatabase :: Connection -> IO ()
+prepareDatabase conn = void $ execute_ conn sql
   where
     sql = "CREATE TABLE IF NOT EXISTS txs ("
        <> " id integer NOT NULL,"
@@ -47,11 +42,3 @@ createIfNotExists conn = void $ execute_ conn sql
 
 instance ToField Value where
     toField = toField . renderCompactPretty
-
-instance FromField Value where
-    fromField f bs = fromField f bs >>= \x -> case parse "DB" x of
-        Left _  -> mzero
-        Right v -> pure v
-
-instance FromRow Value where
-    fromRow = field

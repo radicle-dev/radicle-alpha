@@ -31,4 +31,4 @@
 - ignore: {name: Eta reduce}
 - ignore: {name: Use lambda-case}
 - ignore: {name: Redundant $}
-- ignore: {name: Redundant do}
+- ignore: {name: Use const}

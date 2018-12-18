@@ -4,11 +4,7 @@ module Server (main) where
 
 import           Protolude hiding (fromStrict, option)
 
-import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
-import qualified Data.Map as Map
-import qualified Data.Sequence as Seq
-import qualified Data.Text as T
 import           Database.PostgreSQL.Simple
                  (ConnectInfo(..), Connection, connect)
 import           Network.Wai.Handler.Warp (run)
@@ -36,9 +32,7 @@ import           Servant
                  ( (:<|>)(..)
                  , (:>)
                  , Capture
-                 , Get
                  , Handler
-                 , JSON
                  , Raw
                  , ServantErr(..)
                  , Server
@@ -46,86 +40,24 @@ import           Servant
                  , serve
                  , serveDirectoryFileServer
                  )
+import qualified STMContainers.Map as StmMap
 
 import           Radicle
 import           Radicle.Internal.MachineBackend.EvalServer
-import           Server.DB
+import           Server.Chains
 
 -- * Types
 
 newtype Exprs = Exprs { getExprs :: Seq Value }
     deriving (Generic, Eq, Ord)
 
-data Chain = Chain
-    { chainName      :: Text
-    , chainState     :: Bindings (PrimFns Identity)
-    , chainEvalPairs :: Seq.Seq (Value, Value)
-    } deriving (Generic)
-
--- For efficiency we might want keys to also be mvars, but efficiency doesn't
--- matter for a test server.
-newtype Chains = Chains { getChains :: MVar (Map Text Chain) }
 
 type ServerApi
     = "chains" :> Capture "chain" Text :> (ChainSubmitEndpoint :<|> ChainSinceEndpoint)
- :<|> "outputs" :> Capture "chain" Text :> Get '[JSON] [Maybe A.Value]
  :<|> Raw
 
 serverApi :: Proxy ServerApi
 serverApi = Proxy
-
-
--- * Helpers
-
--- | Returns the ID of the last inserted expression which is the chain
--- length minus one.
-insertExpr :: Connection -> Chains -> Text -> [Value] -> IO (Either Text Int)
-insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
-    let maybeChain = Map.lookup name c
-    chain <- case maybeChain of
-        Nothing -> do
-            logInfo "Creating new machine" [("machine", name)]
-            pure $ Chain name pureEnv mempty
-        Just chain' -> pure chain'
-    let (r :: Either (LangError Value) [Value], newSt) = runIdentity
-                   $ runLang (chainState chain)
-                   $ traverse eval vals
-    case r of
-        Left e  -> do
-            logInfo "Submitted expressions failed to evaluate" [("machine", name)]
-            pure . (c ,) . Left $ renderPrettyDef e
-        Right valsRes -> do
-             traverse_ (insertExprDB conn name) vals
-             let news = Seq.fromList $ zip vals valsRes
-             let chain' = chain { chainState = newSt
-                                , chainEvalPairs = chainEvalPairs chain Seq.>< news
-                                }
-             pure (Map.insert name chain' c, Right $ Seq.length (chainEvalPairs chain') - 1)
-
-
--- | Load the state from the DB, returning an MVar with resulting state
--- and values.
-loadState :: Connection -> IO Chains
-loadState conn = do
-    createIfNotExists conn
-    res <- getAllDB conn
-    chainPairs <- forM res $ \(name, vals) -> do
-        let go acc x = eval x >>= \v -> pure (acc Seq.|> (x, v))
-        let st = runIdentity $ runLang pureEnv $ foldM go mempty vals
-        case st of
-            (Left err, _) -> do
-                logInfo "Failed to load machine" [("machine", name)]
-                panic $ show err
-            (Right pairs, st') -> do
-                let c = Chain { chainName = name
-                              , chainState = st'
-                              , chainEvalPairs = pairs
-                              }
-                pure (name, c)
-    chains' <- newMVar $ Map.fromList chainPairs
-    logInfo "Loaded machines into memory" [("machine-count", show $ length chainPairs)]
-    pure $ Chains chains'
-
 
 -- * Handlers
 
@@ -137,7 +69,7 @@ loadState conn = do
 submit :: Connection -> Chains -> Text -> Values -> Handler Value
 submit conn chains name (Values vals) = do
     logInfo "Submitted expressions" [("machine", name), ("expression-count", show $ length vals)]
-    res <- liftIO $ insertExpr conn chains name vals
+    res <- updateChain conn chains name vals
     case res of
         Left err -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 err }
         Right id  -> pure $ Number $ toRational id
@@ -147,32 +79,11 @@ submit conn chains name (Values vals) = do
 since :: Connection -> Text -> Int -> Handler Values
 since conn name index = do
     logInfo "Requested expressions" [("machine", name), ("from-index", show index)]
-    liftIO $ Values <$> getSinceDB conn name index
-
-jsonOutputs :: Chains -> Text -> Handler [Maybe A.Value]
-jsonOutputs st name = do
-    chains <- liftIO . readMVar $ getChains st
-    pure $ case Map.lookup name chains of
-        Nothing    -> []
-        Just chain -> toList $ maybeJson . snd <$> chainEvalPairs chain
+    liftIO $ Values <$> getChainLog conn name index
 
 static :: Server Raw
 static = serveDirectoryFileServer "static/"
 
--- | Log a message to @stdout@.
---
--- The second argument is a list of key-value pairs that will be joined with "="
--- and appended to the message.
---
--- @
---      logInfo "the message" [("foo", "5)]
---      -- prints "INFO   the message foo=5"
--- @
-logInfo :: MonadIO m => Text -> [(Text, Text)] -> m ()
-logInfo msg dat = do
-    putStrLn $ "INFO   " <> msg <> datString
-  where
-    datString = T.intercalate "" $ map (\(key, val) -> " " <> key <> "=" <> val) dat
 
 -- * Opts
 
@@ -235,9 +146,10 @@ main :: IO ()
 main = do
     opts' <- execParser allOpts
     conn <- connect $ connectionInfo opts'
-    st <- loadState conn
+    prepareDatabase conn
+    chainsMap <- StmMap.newIO
     let gzipSettings = def { gzipFiles = GzipPreCompressed GzipIgnore }
-        app = simpleCors $ gzip gzipSettings (serve serverApi (server conn st))
+        app = simpleCors $ gzip gzipSettings (serve serverApi (server conn chainsMap))
     logInfo "Start listening" [("port", show $ serverPort opts')]
     run (serverPort opts') app
   where
@@ -248,6 +160,6 @@ main = do
         )
 
 server :: Connection -> Chains -> Server ServerApi
-server conn chains = chainEndpoints :<|> jsonOutputs chains :<|> static
+server conn chains = chainEndpoints :<|> static
   where
     chainEndpoints chainName = submit conn chains chainName :<|> since conn chainName

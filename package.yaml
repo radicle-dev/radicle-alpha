@@ -100,19 +100,20 @@ executables:
   radicle-server:
     main: Server.hs
     source-dirs: exe
-    other-modules: [Server.DB]
+    other-modules: [Server.DB, Server.Chains]
     when:
       - condition: impl(ghcjs)
         buildable: false
     dependencies:
     - radicle
-    - aeson
     - containers
     - bytestring
+    - mtl
     - optparse-applicative
     - postgresql-simple
     - servant
     - servant-server
+    - stm-containers
     - text
     - warp
     - wai-extra
