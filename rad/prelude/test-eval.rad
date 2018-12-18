@@ -13,21 +13,21 @@
 ;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
 (def eval
   "Evaluation function that adds :test macro to register tests."
-  (fn [expr env]
+  (fn [expr state]
     (if (list? expr)
         (if (eq? (first expr) :test)
             (do
-                (def bindings (lookup :env env))
-                (def test-def {:doc-test (drop 2 expr) :name (nth 1 expr) :env env})
-                (def next-tests {:val test-def})
-                (def bindings_ (insert 'next-tests__ next-tests bindings))
-                (def env (insert :env bindings_ env))
+                (def env (state->env state))
+                (def test-def {:doc-test (drop 2 expr) :name (nth 1 expr) :env state})
+                (def next-tests test-def)
+                (def env_ (set-binding 'next-tests__ next-tests env))
+                (def state (set-env env_ state))
                 (eval '(do
                   (write-ref tests (add-right next-tests__ (read-ref tests)))
                   :nil
-                ) env))
-            (eval expr env))
-        (eval expr env))))
+                ) state))
+            (eval expr state))
+        (eval expr state))))
 
 (:test "'test' works (including :setup)"
     [:setup

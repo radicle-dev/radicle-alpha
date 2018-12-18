@@ -176,7 +176,7 @@ createModule = \case
       let exportsSet = Set.fromList (exports m')
       let undefinedExports = Set.difference exportsSet (Map.keysSet (fromEnv e))
       env <- if null undefinedExports
-               then pure . envToRadicle . Env $ Map.restrictKeys (fromEnv e) exportsSet
+               then pure . VEnv . Env $ Map.restrictKeys (fromEnv e) exportsSet
                else throwErrorHere (ModuleError (UndefinedExports (name m') (Set.toList undefinedExports)))
       let modu = Dict $ Map.fromList
                   [ (Keyword (Ident "module"), Atom (name m'))

@@ -3,6 +3,7 @@ module Radicle.Internal.PrimFns where
 import           Protolude hiding (TypeError)
 
 import qualified Data.Aeson as Aeson
+import           Data.Copointed (Copointed(..))
 import qualified Data.IntMap as IntMap
 import           Data.List (zip3)
 import qualified Data.Map as Map
@@ -70,12 +71,41 @@ purePrimFns = fromList $ allDocs $
               pure $ List [val, bindingsToRadicle st']
           xs -> throwErrorHere $ WrongNumberOfArgs "base-eval" 2 (length xs)
       )
-    , ( "pure-env"
+    , ( "pure-state"
       , "Returns a pure initial radicle state. This is the state of a radicle\
         \ chain before it has processed any inputs."
       , \case
           [] -> pure $ bindingsToRadicle (pureEnv :: Bindings (PrimFns m))
-          xs -> throwErrorHere $ WrongNumberOfArgs "pure-env" 0 (length xs)
+          xs -> throwErrorHere $ WrongNumberOfArgs "pure-state" 0 (length xs)
+      )
+    , ( "state->env"
+      , "Extract the environment from a radicle state."
+      , oneArg "state->env" $ \case
+          VState s -> pure (VEnv (stateEnv s))
+          v -> throwErrorHere $ TypeError "state->env" 0 TState v
+      )
+    , ( "set-binding"
+      , "Add a binding to a radicle env."
+      , threeArg "set-binding" $ \case
+          (Atom i, v, VEnv (Env m)) -> pure $ VEnv (Env (Map.insert i (Doc.Docd Nothing v) m))
+          (Atom _, _, e) -> throwErrorHere $ TypeError "set-binding" 2 TEnv e
+          (a, _, _) -> throwErrorHere $ TypeError "set-binding" 0 TAtom a
+      )
+    , ( "get-binding"
+      , "Lookup a binding in a radicle env."
+      , twoArg "get-binding" $ \case
+          (Atom i@(Ident t), VEnv (Env m)) -> case Map.lookup i m of
+            Just v -> pure (copoint v)
+            Nothing -> throwErrorHere $ OtherError $ "get-binding: " <> t <> " was not in the input env."
+          (Atom _, v) -> throwErrorHere $ TypeError "get-binding" 1 TEnv v
+          (v, _) -> throwErrorHere $ TypeError "get-binding" 0 TAtom v
+      )
+    , ( "set-env"
+      , "Sets the environment of a radicle state to a new value. Returns the updated state."
+      , twoArg "set-env" $ \case
+          (VEnv e, VState s) -> pure $ VState $ s { stateEnv = e }
+          (VEnv _, v) -> throwErrorHere $ TypeError "set-env" 1 TState v
+          (v, _) -> throwErrorHere $ TypeError "set-env" 0 TEnv v
       )
     , ( "apply"
       , "Calls the first argument (a function) using as arguments the\
@@ -102,14 +132,14 @@ purePrimFns = fromList $ allDocs $
           (String _, v) -> throwErrorHere $ TypeError "read-many" 1 TString v
           (v, _) -> throwErrorHere $ TypeError "read-many" 0 TString v
       )
-    , ("get-current-env"
+    , ("get-current-state"
       , "Returns the current radicle state."
       , \case
           [] -> gets bindingsToRadicle
-          xs -> throwErrorHere $ WrongNumberOfArgs "get-current-env" 0 (length xs))
-    , ( "set-current-env"
+          xs -> throwErrorHere $ WrongNumberOfArgs "get-current-state" 0 (length xs))
+    , ( "set-current-state"
       , "Replaces the radicle state with the one provided."
-      , oneArg "set-current-env" $ \x -> do
+      , oneArg "set-current-state" $ \x -> do
           setBindings x
           pure ok
       )
@@ -650,9 +680,8 @@ purePrimFns = fromList $ allDocs $
     import' (Dict d) v_ qual = do
       v <- kwLookup "env" d ?? toLangError (OtherError "Modules should have an `:env` key")
       n <- kwLookup "module" d ?? toLangError (OtherError "Modules should have an `:module` key")
-      case n of
-        Atom name -> do
-          e <- hoistEither $ first (toLangError . OtherError) $ envFromRad v
+      case (n,v) of
+        (Atom name, VEnv e) -> do
           let allMod = fromEnv e
           toImport <- case v_ of
                 Just vs -> do
@@ -667,7 +696,7 @@ purePrimFns = fromList $ allDocs $
           s <- get
           put $ s { bindingsEnv = qualified <> bindingsEnv s }
           pure ok
-        _ -> throwErrorHere (OtherError "The `:module` key of a module should be an atom.")
+        _ -> throwErrorHere (OtherError "The `:module` key of a module should be an `:atom`, and the `:env` key should be an `:env`.")
     import' _ _ _ = throwErrorHere (OtherError "Modules must be dicts")
 
 data ImportQual = Unqualified | FullyQualified | Qualified Ident

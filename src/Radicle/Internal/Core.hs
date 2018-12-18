@@ -5,12 +5,12 @@
 module Radicle.Internal.Core where
 
 import qualified Prelude
-import           Protolude hiding (Constructor, Handle, TypeError, (<>))
+import           Protolude hiding (Constructor, Handle, State, TypeError, (<>))
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
                  (ExceptT(..), MonadError, runExceptT, throwError)
-import           Control.Monad.State
+import           Control.Monad.State hiding (State)
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
 import           Data.Copointed (Copointed(..))
@@ -25,7 +25,6 @@ import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
 import           System.Process
-                 (CmdSpec(..), CreateProcess(..), ProcessHandle, StdStream(..))
 import qualified Text.Megaparsec.Error as Par
 
 import           Radicle.Internal.Annotation (Annotated)
@@ -255,6 +254,8 @@ data ValueF r =
     -- The first argument is the name for recursive calls to the
     -- function in the body.
     | LambdaRecF Ident [Ident] (NonEmpty r) (Env r)
+    | VEnvF (Env r)
+    | VStateF State
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
@@ -275,6 +276,8 @@ valType = \case
   ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
   LambdaRec{} -> TFunction
+  VEnv _ -> TEnv
+  VState _ -> TState
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
@@ -289,6 +292,8 @@ hashable = \case
   ProcHandle _ -> False
   Lambda{} -> False
   LambdaRec{} -> False
+  VEnv _ -> False
+  VState _ -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
   Dict kvs -> getAll $ Map.foldMapWithKey (\k v -> All (hashable k && hashable v)) kvs
@@ -301,7 +306,7 @@ dict kvs =
   else throwErrorHere NonHashableKey
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict
-  , Ref, Handle, ProcHandle, Lambda, LambdaRec #-}
+  , Ref, Handle, ProcHandle, Lambda, LambdaRec, VEnv, VState #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -374,6 +379,16 @@ pattern LambdaRec :: ValueConC t => Ident -> [Ident] -> NonEmpty (Annotated t Va
 pattern LambdaRec self vs exps env <- (Ann.match -> LambdaRecF self vs exps env)
     where
     LambdaRec self vs exps env = Ann.annotate $ LambdaRecF self vs exps env
+
+pattern VEnv :: ValueConC t => Env (Annotated t ValueF) -> Annotated t ValueF
+pattern VEnv e <- (Ann.match -> VEnvF e)
+  where
+    VEnv e = Ann.annotate $ VEnvF e
+
+pattern VState :: ValueConC t => State -> Annotated t ValueF
+pattern VState s <- (Ann.match -> VStateF s)
+  where
+    VState s = Ann.annotate $ VStateF s
 
 type UntaggedValue = Annotated Identity ValueF
 type Value = Annotated Ann.WithPos ValueF
@@ -450,6 +465,13 @@ instance GhcExts.IsList (PrimFns m) where
     fromList xs = PrimFns . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
     toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . getPrimFns $ e]
 
+data State = State
+  { stateEnv  :: Env Value
+  , stateRefs :: IntMap Value
+  } deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise State
+
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
     { bindingsEnv            :: Env Value
@@ -489,29 +511,12 @@ setBindings value = do
 
 bindingsFromRadicle :: Value -> Either Text (Bindings (PrimFns m))
 bindingsFromRadicle x = case x of
-    Dict d -> do
-        env' <- kwLookup "env" d ?? "Expecting 'env' key"
-        refs' <- kwLookup "refs" d ?? "Expecting 'refs' key"
-        refs <- makeRefs refs'
-        env <- envFromRad env'
-        pure $ emptyBindings
-            { bindingsEnv = env
-            , bindingsRefs = refs
-            , bindingsNextRef = length refs
-            }
-    _ -> throwError "Expecting dict"
-  where
-    makeRefs refs = case refs of
-        List ls -> pure (IntMap.fromList $ zip [0..] ls)
-        _       -> throwError $ "Expecting dict"
-
-envFromRad :: Value -> Either Text (Env Value)
-envFromRad env = case env of
-    Dict d -> fmap (Env . Map.fromList)
-            $ forM (Map.toList d) $ \(k, v) -> case k of
-        Atom i -> (i, ) <$> fromRad v
-        k'     -> Left $ "Expecting atom keys. Got: " <> show k'
-    _ -> Left "Expecting dict"
+    VState s -> pure $ emptyBindings
+                { bindingsEnv = stateEnv s
+                , bindingsRefs = stateRefs s
+                , bindingsNextRef = length (stateRefs s)
+                }
+    _ -> throwError "Expecting state"
 
 -- | Serializes the environment and references into a Radicle value.
 --
@@ -519,17 +524,7 @@ envFromRad env = case env of
 --    * `gets bindingsToRadicle >>= setBindings == pure ()`
 --    * `setBindings x >> gets bindingsToRadicle == setBindings x >> pure x`
 bindingsToRadicle :: Bindings a -> Value
-bindingsToRadicle x =
-    Dict $ Map.fromList
-        [ (Keyword $ Ident "env", env)
-        , (Keyword $ Ident "refs", refs)
-        ]
-  where
-    env = envToRadicle (bindingsEnv x)
-    refs = List $ IntMap.elems (bindingsRefs x)
-
-envToRadicle :: Env Value -> Value
-envToRadicle = Dict . Map.mapKeys Atom . Map.map toRad . fromEnv
+bindingsToRadicle x = VState State{ stateEnv = bindingsEnv x, stateRefs = bindingsRefs x }
 
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
