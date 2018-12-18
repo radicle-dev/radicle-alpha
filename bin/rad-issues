@@ -185,7 +185,6 @@
     (load! "rad/monadic/names.rad")
     (print! (list-names name-base))))
 
-<<<<<<< HEAD
 (init-file-dict! ".radicle-issues")
 
 (def cmd-parse-failure
@@ -219,8 +218,8 @@
 
 (def args (get-args!))
 (match args
-  (/cmd-1 "list" 'chain-name) (list-issues chain-name)
-  (/cmd-1 "list-new" 'chain-name) (list-items chain (read-file-key! ".radicle-issues" :last-mark-done))
+  (/cmd-1 "list" 'chain-name) (list-items chain-name :nothing)
+  (/cmd-1 "list-new" 'chain-name) (list-items chain-name (read-file-key! ".radicle-issues" :last-mark-done))
   (/cmd-0 "names") (names)
   (/cmd-1 "make-key" 'nick) (make-key nick)
   (/cmd-1 "new" 'chain-name) (new-issue 'chain-name)
