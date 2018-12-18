@@ -26,7 +26,7 @@ import qualified System.FilePath.Find as FP
 import           Radicle
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
-import           Radicle.Internal.Storage
+import           Radicle.Internal.MachineBackend.Interface
 import qualified Radicle.Internal.UUID as UUID
 
 
@@ -116,14 +116,14 @@ sourceFiles = do
 
 -- | Bindings with REPL and client stuff mocked.
 testBindings :: Bindings (PrimFns (StateT WorldState IO))
-testBindings = addPrimFns storagePrimFns (replBindings [])
+testBindings = addPrimFns memoryMachineBackendPrimFns (replBindings [])
 
 -- | Provides @send!@ and @receive!@ functions that store chains in a
 -- 'Map' in the 'WorldState'.
-storagePrimFns :: PrimFns (StateT WorldState IO)
-storagePrimFns =
-    buildStoragePrimFns StorageBackend
-        { storageSend =
+memoryMachineBackendPrimFns :: PrimFns (StateT WorldState IO)
+memoryMachineBackendPrimFns =
+    buildMachineBackendPrimFns MachineBackend
+        { machineUpdate =
             ( "send!"
             , "Mocked version of `send!` that stores sent values in a map with chains as keys."
             , \id values -> do
@@ -134,7 +134,7 @@ storagePrimFns =
                    s { worldStateRemoteChains = Map.insert id newExprs $ worldStateRemoteChains s }
                 pure $ Right $ Seq.length newExprs
             )
-        , storageReceive =
+        , machineGetLog =
             ( "receive!"
             , "Mocked version of `receive!` that retrieves values from a map with chains as keys."
             , \id maybeIndex -> do

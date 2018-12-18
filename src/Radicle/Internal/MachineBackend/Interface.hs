@@ -1,18 +1,19 @@
--- | Defines and abstract interface 'StorageBackend' for Radicle
--- chains and 'buildStoragePrimFns' to add the storage backend as
--- primitive functions.
+-- | This module defines an abstract 'MachineBackend' interface to
+-- interact with Radicle State Machines. We provide the
+-- 'buildMachinePrimFns' to add an implementation of 'MachineBackend'
+-- to the primitive functions of the interpreter
 --
--- A storage backend defines two functions 'StorageSend' and
--- 'StorageReceive' explained below.
+-- A storage backend defines two functions 'MachineUpdate' and
+-- 'MachineGetLog' explained below.
 --
--- Storage backends use /indices/ to identify entries in a chain. These
+-- Machine backends use /indices/ to identify entries in a chain. These
 -- indices can be used like cursors in a database.
 --
 -- For usage examples see "Radicle.Internal.HttpStorage" and
 -- "Radicle.Internal.TestCapabilities".
-module Radicle.Internal.Storage
-    ( StorageBackend(..)
-    , buildStoragePrimFns
+module Radicle.Internal.MachineBackend.Interface
+    ( MachineBackend(..)
+    , buildMachineBackendPrimFns
     ) where
 
 import           Protolude hiding (TypeError)
@@ -29,34 +30,36 @@ import           Radicle.Internal.Type
 --
 -- The first tuple item is the Radicle identifier the function will be
 -- exposed as. The second tuple item is documentation.
-data StorageBackend i m = StorageBackend
-    { storageSend    :: (Text, Text, StorageSend i m)
-    , storageReceive :: (Text, Text, StorageReceive i m)
+data MachineBackend i m = MachineBackend
+    { machineUpdate :: (Text, Text, MachineUpdate i m)
+    , machineGetLog :: (Text, Text, MachineGetLog i m)
     }
 
 -- | Send a list of expressions to a chain identified by the first
 -- argument. Returns an error or the index of the expression that was
 -- sent.
-type StorageSend i m = Text -> Seq Value -> m (Either Text i)
+type MachineUpdate i m = Text -> Seq Value -> m (Either Text i)
 
--- | Receive all expressions following the given expression and a new
--- index for further queries.
+-- | Get all inputs to a machine following the given input index and
+-- return a new index for further queries.
 --
--- If second arugment is @'Just' i@ then we return all expressions that
--- follow the expression index by @i@ and not including that
--- expression.
+-- If second arugment is @'Just' i@ then we return all input expresions
+-- that follow the input indexed by @i@ and not including that
+-- input.
 --
 -- If the second argument is 'Nothing' we return all expressions.
 --
 -- The first item in the tuple returned is the index of the last entry
--- in the list of expressions returned.
-type StorageReceive i m = Text -> Maybe i -> m (Either Text (i, [Value]))
+-- in the list of inputs returned.
+type MachineGetLog i m = Text -> Maybe i -> m (Either Text (i, [Value]))
 
-buildStoragePrimFns :: forall i m. (Monad m, FromRad WithPos i, ToRad WithPos i) => StorageBackend i m -> PrimFns m
-buildStoragePrimFns backend =
+buildMachineBackendPrimFns
+    :: forall i m. (Monad m, FromRad WithPos i, ToRad WithPos i)
+    => MachineBackend i m -> PrimFns m
+buildMachineBackendPrimFns backend =
     fromList . PrimFns.allDocs $ [sendPrimop, receivePrimop]
   where
-    (sendName, sendDoc, send) = storageSend backend
+    (sendName, sendDoc, send) = machineUpdate backend
     sendPrimop =
       ( sendName
       , sendDoc
@@ -70,7 +73,7 @@ buildStoragePrimFns backend =
          (v, _) -> throwErrorHere $ TypeError sendName 0 TString v
       )
 
-    (receiveName, receiveDoc, receive) = storageReceive backend
+    (receiveName, receiveDoc, receive) = machineGetLog backend
     receivePrimop =
       ( receiveName
       , receiveDoc

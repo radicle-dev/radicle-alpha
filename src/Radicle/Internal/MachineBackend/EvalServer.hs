@@ -1,13 +1,14 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
--- | Provide Radicle primitives for storing chains through an HTTP API.
-module Radicle.Internal.HttpStorage
+-- | Defines a machine backend that uses an HTTP controlled server that
+-- also evaluates submitted expressions.
+module Radicle.Internal.MachineBackend.EvalServer
     ( ChainSubmitEndpoint
     , chainSubmitEndpoint
     , ChainSinceEndpoint
     , chainSinceEndpoint
     , Values(..)
 
-    , createHttpStoragePrimFns
+    , createEvalServerBackendPrimFns
     ) where
 
 import           Protolude hiding (TypeError, toList)
@@ -21,7 +22,7 @@ import           Servant.Client
 
 import           Radicle
 import           Radicle.Internal.Annotation (thisPos)
-import           Radicle.Internal.Storage
+import           Radicle.Internal.MachineBackend.Interface
 
 
 --
@@ -82,15 +83,15 @@ chainSinceEndpoint = Proxy
 
 -- | Returns definitions for the primitive functions
 -- @send!@ and @receive@.
-createHttpStoragePrimFns :: MonadIO m => IO (PrimFns m)
-createHttpStoragePrimFns = do
+createEvalServerBackendPrimFns :: MonadIO m => IO (PrimFns m)
+createEvalServerBackendPrimFns = do
     httpMgr <- HttpClient.newManager HttpClient.defaultManagerSettings
-    pure $ httpStoragePrimFns' httpMgr
+    pure $ httpMachineBackendPrimFns httpMgr
 
-httpStoragePrimFns' :: MonadIO m => HttpClient.Manager -> PrimFns m
-httpStoragePrimFns' mgr =
-    buildStoragePrimFns StorageBackend
-        { storageSend =
+httpMachineBackendPrimFns :: MonadIO m => HttpClient.Manager -> PrimFns m
+httpMachineBackendPrimFns mgr =
+    buildMachineBackendPrimFns MachineBackend
+        { machineUpdate =
             ( "send!"
             , "Given a URL string and a value, sends the value `v` to the remote\
               \ chain located at the URL for evaluation. Returns the index of the\
@@ -103,7 +104,7 @@ httpStoragePrimFns' mgr =
                         Left err -> Left $ "cannot parse server response: " <> err
                         Right n -> Right n
             )
-        , storageReceive =
+        , machineGetLog =
             ( "receive!"
             , "Given a URL string and a `[:just n]`, where `n` is an integer, returns\
               \ all inputs from the remote chain after index `n`. If the second argument\
