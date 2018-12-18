@@ -113,7 +113,9 @@ loadState conn = do
         let go acc x = eval x >>= \v -> pure (acc Seq.|> (x, v))
         let st = runIdentity $ runLang pureEnv $ foldM go mempty vals
         case st of
-            (Left err, _) -> panic $ show err
+            (Left err, _) -> do
+                logInfo "Failed to load machine" [("machine", name)]
+                panic $ show err
             (Right pairs, st') -> do
                 let c = Chain { chainName = name
                               , chainState = st'
