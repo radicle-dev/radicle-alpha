@@ -13,12 +13,14 @@
   "rad-issues - Radicle issue CLI
 
    Usage:
-        rad-issues [list|new|create-chain] <chain-name>
+        rad-issues [list|list-new|new|create-chain] <chain-name>
         rad-issues make-key <nick>
         rad-issues names
         rad-issues help
 
      list         - Select from all issues to view or comment on
+     list-new     - Select from all issues that have new activity
+     done         - Mark all issues as 'seen'
      new          - Create a new issue in $EDITOR
      create-chain - Create a new issues chain
      make-key     - Create a key-pair and register the name
@@ -176,7 +178,7 @@
 
 (def args (get-args!))
 (match args
-  ["list" "new" 'chain]   (list-items chain (read-file-key! ".radicle-issues" :last-mark-done))
+  ["list-new" 'chain]     (list-items chain (read-file-key! ".radicle-issues" :last-mark-done))
   ["list" 'chain]         (list-items chain :nothing)
   ["names"]               (names)
   ["make-key" 'name]      (make-key name)
