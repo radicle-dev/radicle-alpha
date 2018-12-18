@@ -154,20 +154,16 @@
     (take n is)))
 
 (def recent-activity
-  "Returns the activity on the chain since `[:just timestamp]`. If the input is
-  `:nothing` then all activity is returned."
+  "Returns the activity on the chain since a timestamp."
   (fn [chain from]
     (def mod-at
       (fn [x]
         (unix-epoch
          (lookup :modified-at x))))
+    (def u (unix-epoch from))
     (def since
-      (match from
-             (/just 't) (do
-                          (def u (unix-epoch t))
-                          (fn [xs]
-                            (filter (fn [x] (< u (mod-at x))) xs)))
-             _          (fn [xs] xs)))
+      (fn [xs]
+        (filter (fn [x] (< u (mod-at x))) xs)))
     (def most-recent-first
       (fn [xs]
         (sort-by (fn [x] (- 0 (mod-at x)))
@@ -209,7 +205,7 @@
       (simple-add-comment! chain 0 "new")
       (fetch! chain)
       (def is (list-issues chain))
-      (def new (recent-activity chain [:just t])))]
+      (def new (recent-activity chain t)))]
  [ (length (seq is)) ==> 4 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]

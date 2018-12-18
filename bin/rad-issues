@@ -119,30 +119,39 @@
                (/as 'a {:activity :new-comments
                         :issue    {:number 'n
                                    :title 'tit}})
-               [(string-append "[new comments] Issue " (show n) " - " tit) a])))
+               [(string-append "[new comments] Issue " (show n) " - " tit) a]
+               (/as 'i {:issue {:number 'n :title 'tit}})
+               [(string-append "Issue " (show n) " - " tit) i])))
 
-    (def items (map mk-key (recent-activity chain-ref last-seen)))
+    (def items
+      (map mk-key
+           (match last-seen
+             (/just 't) (recent-activity chain-ref t)
+             _          (map (fn [i] {:issue i})
+                             (values (list-issues chain-ref))))))
 
-    (match (fzf-select! (map first items))
-           (/just 's)
-           (do (def selected (lookup s (dict-from-seq items)))
-               (def issue-number (match selected {:issue {:number 'n}} n))
-               (def pretty-item
-                 (add-comment-md
-                  (pretty-issue
-                   (add-username-issue
-                    (lookup :issue selected)))))
-               (def edited-item (edit-in-editor! pretty-item))
-               (def added-comment
-                 (string/unlines
-                  (take-while (fn [x] (not (eq? x comment-divider)))
-                              (string/lines edited-item))))
-               (put-str!
-                (if (eq? added-comment "")
-                  "Item was not updated."
-                  (do (simple-add-comment! chain-ref issue-number added-comment)
-                      (string-append "Sent comment: " added-comment)))))
-           _ (print! "No selection made."))))
+    (if (empty-seq? items)
+      (put-str! "No recent items!")
+      (match (fzf-select! (map first items))
+             (/just 's)
+             (do (def selected (lookup s (dict-from-seq items)))
+                 (def issue-number (match selected {:issue {:number 'n}} n))
+                 (def pretty-item
+                   (add-comment-md
+                    (pretty-issue
+                     (add-username-issue
+                      (lookup :issue selected)))))
+                 (def edited-item (edit-in-editor! pretty-item))
+                 (def added-comment
+                   (string/unlines
+                    (take-while (fn [x] (not (eq? x comment-divider)))
+                                (string/lines edited-item))))
+                 (put-str!
+                  (if (eq? added-comment "")
+                    "Item was not updated."
+                    (do (simple-add-comment! chain-ref issue-number added-comment)
+                        (string-append "Sent comment: " added-comment)))))
+             _ (put-str! "No selection made.")))))
 
 (def new-issue
   (fn [chain]
