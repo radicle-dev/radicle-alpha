@@ -25,11 +25,14 @@ getSinceDB conn name id
 -- | Get all txs in all chains. Useful after a server restart.
 getAllDB :: Connection -> IO [(Text, [Value])]
 getAllDB conn = do
-    res :: [(Int, Text, Value)] <- query_ conn "SELECT id, chain, expr FROM txs"
+    -- The @ORDER BY@ clauses are important, because
+    -- * 'groupBy' only groups adjacent items in a list, and
+    -- * inputs are evaluated in order
+    res :: [(Int, Text, Value)] <- query_ conn "SELECT id, chain, expr FROM txs ORDER BY chain ASC, id ASC"
+    -- TODO fold over the results and use a 'Map' to group chain inputs
     let  grouped :: [[(Text, Value)]]
          grouped
-            = fmap (\(_, a, b) -> (a, b)) . sortOn (\(a,_,_) -> a)
-            <$> groupBy (\(_, l, _) (_, r, _) -> l == r) res
+            = fmap (\(_, a, b) -> (a, b)) <$> groupBy (\(_, l, _) (_, r, _) -> l == r) res
     pure [ (fst (head each), snd <$> each) | each <- grouped ]
 
 
