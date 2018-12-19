@@ -12,16 +12,17 @@ Synopsis
 ---------
 
 This RFC proposes full serialisation of the radicle interpreter state as a
-solutions to maintaining up-to-date views/projections of the relevant state of a
-long-running machine. For facilitating deriving these projections, it proposes
-that machines outputs are write-commands for a particular database.
+solution to maintaining up-to-date views/projections of the state of a
+long-running machine that is relevant to an app. For facilitating deriving these
+projections, it proposes that machine outputs are write-commands for a
+particular database.
 
 Motivation
 ----------
 
 An *app* (e.g. the radicle issues CLI) is a program which reads data from a
-radicle machine, to display to the user, and facilities ``send!``ing inputs to
-remote machines. An app often just depends on one of more *projections* of the
+radicle machine, displays it to the user, and facilitates ``send!``ing inputs to
+remote machines. An app often just depends on one or more *projections* of the
 full radicle state. Currently, to compute this projection, an app has to run the
 interpreter over all the inputs from the start of the machine, and then submit
 an expression for evaluation.
@@ -41,24 +42,24 @@ Criteria
 - An app shouldn't need to process all inputs when it restarts, in order to
   compute the relevant state projection.
 
-- An app should be able to incrementally update the projection given new machine
-  inputs.
+- An app should be able to incrementally update the state projections it needs
+  given new machine inputs.
 
 Proposal
 ----------
 
 In order to start up and derive a projection without going through all the
-inputs from the start an app needs to be able to serialise *something* to disc.
-That can be either the projection itself or the full radicle state.
+inputs from the start, an app needs to be able to serialise *something* to disc.
+That can be either the projection itself or the full interpreter state.
 
-The most robust solution is to serialise the full interpreter state. This
-presents its own challenges:
+The most robust solution is to serialise the full interpreter state. This is
+challenging because:
 
-(a) The state has a high degree of structural sharing. This is because there are
+(1) The state has a high degree of structural sharing. This is because there are
     lots of embedded environments, and they are all very similar to one another
     (differ by the addition of a few bindings).
 
-(b) The state is cyclic. Once source of cyclicity is recursive lambdas, but
+(2) The state is cyclic. Once source of cyclicity is recursive lambdas, but
     there might be others.
 
 The advantages of serialising the full interpreter state are:
@@ -70,10 +71,12 @@ The advantages of serialising the full interpreter state are:
 
 We propose two stages:
 
+.. _stage1:
+
 **Stage 1: recreating radicle state**
 
-In order to be able to serialise the state despite (a) and (b), the interpreter
-code is changed to accommodate a new representation of environments:
+In order to be able to serialise the state despite (1) and (2), the interpreter
+implementation is changed to accommodate a new representation of environments:
 
 - Environments are maps from identifiers to *hashes* of values.
 
@@ -82,13 +85,13 @@ code is changed to accommodate a new representation of environments:
 
 - Environments are hierarchical, so that the sharing is explicit.
 
-**Stage 2: incrementally updated views**
-
 .. _stage2:
 
-For incrementally updating the projections/view, we propose that machines
-(optionally) standardise their outputs as *write-commands* for a database.
-Updating a view is then as simple as:
+**Stage 2: incrementally updated views**
+
+For incrementally updating the projections/views, we propose that machines
+(optionally) standardise their outputs as *write-commands* for a particular
+database. Updating a view is then as simple as:
 
 - Updating the database with the command,
 
@@ -102,7 +105,6 @@ The advantages are:
 - The writes and queries are just radicle data, so this is perfect as a radicle
   output.
 
-
 Using a "reactive" database would allow the projections to be recomputed even
 more efficiently, though this is probably not necessary:
 
@@ -115,22 +117,22 @@ Drawbacks
 ----------
 
 The main drawback is that the interpreter code is likely to be more complex, and
-so more prone to bugs. It might also be less performant.
+so more prone to bugs. It might also be less performant. It is conceivable that
+the interpreter has two modes, one with serialisable state, and one that is
+optimised for performance.
 
 Alternatives
 -------------
 
 The alternative is to only serialise the projection of the state that is
 relevant to the app. The question then arises of how to update this projection
-given new inputs:
-
-The function which performs this update is likely to:
+given new inputs. The function which performs this update is likely to:
 
 - Share a lot of logic with the code of the machine itself,
 
 - Have no guarantee it will project the state correctly,
 
-- Need to morph everytime the semantics of the machine change.
+- Need to morph every time the semantics of the machine change.
 
 Or it could derive the projections from the *outputs* (as described in stage2_),
 but this would require acquiring (and trusting) the stream of outputs from some
@@ -139,9 +141,9 @@ source.
 Unresolved question
 --------------------
 
-- Unclear how challenging the changes to the interpreter for stage 1 are.
+- Unclear how challenging the changes to the interpreter for stage1_ are.
 
-- Unclear which DB to use in stage 2. Since it is likely machines will also want
+- Unclear which DB to use in stage2_. Since it is likely machines will also want
   to take advantage of the DB, and that we encourage apps to be written in
   radicle, the DB features should be included as part of the radicle package. We
   could either include an off-the-shelf DB which fits the radicle datamodel
@@ -150,7 +152,7 @@ Unresolved question
 Implementation
 --------------
 
-First implement stage 1, since this is a priority. Stage 2 can be left for a lot
+First implement stage1_, since this is a priority. stage2_ can be left for a lot
 later.
 
 References
