@@ -1,6 +1,13 @@
 Fast, incremental radicle app state
 ===================================
 
+.. date:: 2018-12-19
+.. reviewers::
+
+   @geigerzaehler
+   @MeBrei
+   @jkarni
+
 Synopsis
 ---------
 
