@@ -75,12 +75,15 @@
         :body b
         :state state
         :labels ls
-        :comments cs}
+        :comments cs
+        :username un
+        :created-at c-a}
       (string-replace
        "\r"
        ""
        (string-append
         "# Issue " (show n) ": " tit "\n\n"
+        "created by " un " [" c-a "]\n\n"
         "**State:** " (if (eq? state :open) "open" "closed") "\n"
         "**Labels:** " (show ls) "\n\n"
         b "\n\n"
