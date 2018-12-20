@@ -1,17 +1,13 @@
 -- | This module defines instances for the classes in
 -- Radicle.Internal.Subscriber.Capabilities that may be used for testing.
 module Radicle.Internal.TestCapabilities (
-      runCode
-    , runCodeWithWorld
+      runCodeWithWorld
     , runPureCode
     , runCodeWithInput
     , runCodeWithFiles
-    , runCodeWithSourceFiles
 
     , WorldState(..)
     , defaultWorldState
-    , worldStateWithSource
-    , addFileToWorld
     ) where
 
 import           Protolude hiding (TypeError)
@@ -57,14 +53,7 @@ worldStateWithSource = do
     sources <- sourceFiles
     pure $ defaultWorldState { worldStateFiles = sources }
 
-addFileToWorld :: Text -> Text -> WorldState -> WorldState
-addFileToWorld name contents ws = ws { worldStateFiles = Map.insert name contents (worldStateFiles ws) }
-
 type TestLang = Lang (StateT WorldState IO)
-
--- | Run Radicle code in a REPL environment.
-runCode :: Text -> IO (Either (LangError Value) Value)
-runCode code = fst <$> runCodeWithWorld defaultWorldState code
 
 -- | Run Radicle code in a REPL environment, with all library files
 -- readable, and with the provided stdin lines.
@@ -82,13 +71,6 @@ runCodeWithFiles :: Map Text Text -> Text -> IO (Either (LangError Value) Value)
 runCodeWithFiles files code =
     let ws = defaultWorldState { worldStateFiles = files }
     in fst <$> runCodeWithWorld ws code
-
--- | Run Radicle code in a REPL environment with all Radicle source files
--- readable.
-runCodeWithSourceFiles :: Text -> IO (Either (LangError Value) Value)
-runCodeWithSourceFiles code = do
-    ws <- worldStateWithSource
-    fst <$> runCodeWithWorld ws code
 
 -- | Run radicle code in a pure environment.
 runPureCode :: Text -> Either (LangError Value) Value

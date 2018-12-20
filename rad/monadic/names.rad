@@ -30,7 +30,8 @@
 (:test
   "The monadic name chain works."
   [:setup
-    (do (def chain-name "http://localhost:8000/chains/shkjksa")
+    (do (chain/install-remote-chain-fake)
+        (def chain-name "http://localhost:8000/chains/shkjksa")
         (create-name-chain! chain-name)
         (add-name! chain-name "alice" "a")
         (add-name! chain-name "bob" "b")

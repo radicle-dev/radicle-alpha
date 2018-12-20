@@ -2,7 +2,7 @@ module Radicle.Internal.Number where
 
 import           Protolude
 
-import           Data.Scientific (Scientific, fromRationalRepetendUnlimited)
+import qualified Data.Scientific as Scientific
 
 isInteger :: Rational -> Either Text Integer
 isInteger (a :% b) | b == 1 = pure a
@@ -18,7 +18,13 @@ isInt x = isInteger x >>= int
          fromIntegral (minBound :: Int) <= i
       && i <= fromIntegral (maxBound :: Int)
 
-isSci :: Rational -> Either Text Scientific
-isSci r = case fromRationalRepetendUnlimited r of
+toBoundedInteger :: (Integral i, Bounded i) => Rational -> Maybe i
+toBoundedInteger r =
+    case isSci r of
+        Left _  -> Nothing
+        Right s -> Scientific.toBoundedInteger s
+
+isSci :: Rational -> Either Text Scientific.Scientific
+isSci r = case Scientific.fromRationalRepetendUnlimited r of
   (s, Nothing) -> pure s
   _            -> Left "Does not have a non-repeating decimal expansion"

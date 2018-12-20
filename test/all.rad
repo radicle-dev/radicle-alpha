@@ -5,6 +5,8 @@
 
 (load! "rad/tests/stub-primitives.rad")
 (load! "rad/prelude.rad")
+(load! "rad/monadic/issues.rad")
+(load! "rad/monadic/names.rad")
 
 (import prelude/test)
 
