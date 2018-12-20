@@ -137,7 +137,7 @@ Adds an element to the right side of a vector.
 ~~~~~~
 
 Merges two structures together. On vectors and lists this performs
-concatenations. On dicts this performs the right-biased merge.
+concatenation. On dicts this performs the right-biased merge.
 
 ``list``
 ~~~~~~~~

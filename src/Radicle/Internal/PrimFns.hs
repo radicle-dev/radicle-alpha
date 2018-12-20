@@ -283,7 +283,7 @@ purePrimFns = fromList $ allDocs $
     -- Structures
     , ( "<>"
       , "Merges two structures together. On vectors and lists this performs\
-        \ concatenations. On dicts this performs the right-biased merge."
+        \ concatenation. On dicts this performs the right-biased merge."
       , twoArg "<>" $ \case
           (List xs, List ys) -> pure $ List (xs ++ ys)
           (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
