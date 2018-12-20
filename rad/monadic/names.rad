@@ -20,7 +20,7 @@
 
 (def add-name!
   (fn [name-chain-url name key]
-    (send!
+    (chain/send!
        name-chain-url
        [(list 'add-name name key)])))
 

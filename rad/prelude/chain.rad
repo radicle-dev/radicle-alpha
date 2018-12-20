@@ -2,7 +2,7 @@
  :doc "Functions for simulating remote chains."
  :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval
             updatable-eval update-chain! eval-fn-app send-prelude!
-            send-code!]}
+            send-code! send! receive!]}
 
 (import prelude/io '[read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
@@ -15,6 +15,22 @@
 ;;   - A known starting state (i.e. environment, and the assumption that `eval
 ;;     == base-eval')
 ;;   - A sequence of inputs.
+
+(def send!
+  "Update a machine with the vector of `inputs` to evaluate. Returns an
+  index that identifies that last input. This index can be passed to
+  `receive!`"
+  (fn [machine-id inputs]
+    (machine/eval-server/update! machine-id inputs)))
+
+(def receive!
+  "Get inputs from a machine. Returns a `[index inputs]` pair where
+  `inputs` is a vector of expressions and `index` is the index of the
+  last input in `inputs`. The `index` argument is either `:nothing` in
+  which case all inputs are fetched or `[:just i]` in which case all
+  inputs following after the index `i` are fetched."
+  (fn [machine-id index]
+    (machine/eval-server/get-log! machine-id index)))
 
 (def @var
   "A lens for variables in states of chains."
