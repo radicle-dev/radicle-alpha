@@ -204,7 +204,7 @@ purePrimFns = fromList $ allDocs $
           [Number n, vs] -> case Num.isInt n of
             Left _ -> throwErrorHere $ OtherError "nth: first argument was not an integer"
             Right i -> do
-              xs <- hoistEitherWith (const (toLangError . OtherError $ "nth: first argument must be sequential")) $ fromRad vs
+              xs <- hoistEitherWith (const (toLangError . OtherError $ "nth: second argument must be sequential")) $ fromRad vs
               case xs `atMay` i of
                 Just x  -> pure x
                 Nothing -> throwErrorHere $ OtherError "nth: index out of bounds"
@@ -417,7 +417,7 @@ purePrimFns = fromList $ allDocs $
           [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
           [fn, Vec ls]  -> Vec <$> traverse (callFn fn) (pure <$> ls)
           [_, v]        -> throwErrorHere $ TypeError "map" 1 TSequence v
-          xs            -> throwErrorHere $ WrongNumberOfArgs "map" 3 (length xs))
+          xs            -> throwErrorHere $ WrongNumberOfArgs "map" 2 (length xs))
     , ( "keyword?"
       , isTy "keyword"
       , oneArg "keyword?" $ \case
@@ -475,7 +475,7 @@ purePrimFns = fromList $ allDocs $
           [x, Dict m]  -> pure . Boolean $ Map.member x m
           [_, v]       -> throwErrorHere
                         $ TypeError "member?" 1 TStructure v
-          xs           -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
+          xs           -> throwErrorHere $ WrongNumberOfArgs "member?" 2 (length xs))
     , ( "ref"
       , "Creates a ref with the argument as the initial value."
       , oneArg "ref" newRef)
