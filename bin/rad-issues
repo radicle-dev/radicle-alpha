@@ -133,7 +133,7 @@
            (match last-seen
              (/just 't) (recent-activity chain-ref t)
              _          (map (fn [i] {:issue i})
-                             (values (list-issues chain-ref))))))
+                             (reverse (values (list-issues chain-ref)))))))
 
     (if (empty-seq? items)
       (put-str! "No recent items!")
