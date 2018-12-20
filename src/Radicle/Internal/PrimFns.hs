@@ -170,6 +170,14 @@ purePrimFns = fromList $ allDocs $
           v                  -> throwErrorHere $ TypeError "rest" 0 TSequence v)
 
     -- Sequences: Lists and Vecs
+    , ( "length"
+      , "Returns the length of a vector, list, or string."
+      , oneArg "length" $ \case
+          List xs -> pure . Number . fromIntegral . length $ xs
+          Vec xs -> pure . Number . fromIntegral . length $ xs
+          String s -> pure . Number . fromIntegral . T.length $ s
+          v -> throwErrorHere $ TypeError "length" 0 TSequence v
+      )
     , ( "drop"
       , "Returns all but the first `n` items of a sequence, unless the sequence is empty,\
         \ in which case an exception is thrown."
@@ -297,7 +305,7 @@ purePrimFns = fromList $ allDocs $
       )
 
     , ( "string-length"
-      , "Returns the length of a string."
+      , "DEPRECATED Use `length` instead. Returns the length of a string."
       , oneArg "string-length" $ \case
           String s -> pure . Number . fromIntegral . T.length $ s
           v -> throwErrorHere $ TypeError "string-length" 0 TString v

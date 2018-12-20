@@ -59,7 +59,7 @@
     (validator/and
      [(validator/type :string)
       (validator/pred (string-append "< " (show max-len) " chars in length")
-                      (fn [s] (< (string-length s) max-len)))])))
+                      (fn [s] (< (length s) max-len)))])))
 
 (def input-keys
   {:nonce      validator/nonce
