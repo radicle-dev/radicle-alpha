@@ -1,6 +1,12 @@
 (load! "rad/prelude.rad")
+(import prelude/chain '[eval] :unqualified)
 
-;; The Repl
+(def help
+  "Default help text."
+  (fn []
+    "radicle is a LISP-like language intended for programming chains, and interacting with those chains.
+
+    Type (doc '<name>) for further documentation of <name>."))
 
 (def read-line-or-exit! (fn []
   (def line (get-line!))
