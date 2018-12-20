@@ -179,6 +179,7 @@ purePrimFns = fromList $ allDocs $
             Right i -> case vs of
               List xs -> pure . List $ drop i xs
               Vec xs  -> pure . Vec $ Seq.drop i xs
+              String xs -> pure . String $ T.drop i xs
               v       -> throwErrorHere $ TypeError "drop" 1 TSequence v
           (v, _) -> throwErrorHere $ TypeError "drop" 0 TNumber v
       )
