@@ -375,8 +375,8 @@ purePrimFns = fromList $ allDocs $
       , "Checks if a number is an integer."
       , oneArg "integral?" $ \case
           Number n -> case Num.isInteger n of
-            Left _  -> pure $ Boolean False
-            Right _ -> pure $ Boolean True
+            Left _  -> pure ff
+            Right _ -> pure tt
           v -> throwErrorHere $ TypeError "integral?" 0 TNumber v
       )
     , ( "foldl-string"
@@ -422,17 +422,20 @@ purePrimFns = fromList $ allDocs $
       , isTy "keyword"
       , oneArg "keyword?" $ \case
           Keyword _ -> pure tt
-          _         -> pure ff)
+          _         -> pure ff
+      )
     , ( "atom?"
       , isTy "atom"
       , oneArg "atom?" $ \case
-                  Atom _ -> pure tt
-                  _      -> pure ff)
+          Atom _ -> pure tt
+          _      -> pure ff
+      )
     , ( "list?"
       , isTy "list"
       , oneArg "list?" $ \case
-                  List _ -> pure tt
-                  _      -> pure ff)
+          List _ -> pure tt
+          _      -> pure ff
+      )
     , ( "vector?"
       , isTy "vector"
       , oneArg "vector?" $ \case
@@ -442,8 +445,9 @@ purePrimFns = fromList $ allDocs $
     , ( "dict?"
       , isTy "dict"
       , oneArg "dict?" $ \case
-                  Dict _ -> pure tt
-                  _      -> pure ff)
+          Dict _ -> pure tt
+          _      -> pure ff
+      )
     , ( "type"
       , "Returns a keyword representing the type of the argument; one of:\
         \ `:atom`, `:keyword`, `:string`, `:number`, `:boolean`, `:list`,\
@@ -454,17 +458,20 @@ purePrimFns = fromList $ allDocs $
       , isTy "string"
       , oneArg "string?" $ \case
           String _ -> pure tt
-          _        -> pure ff)
+          _        -> pure ff
+      )
     , ( "boolean?"
       , isTy "boolean"
       , oneArg "boolean?" $ \case
           Boolean _ -> pure tt
-          _         -> pure ff)
+          _         -> pure ff
+      )
     , ( "number?"
       , isTy "number"
       , oneArg "number?" $ \case
           Number _ -> pure tt
-          _        -> pure ff)
+          _        -> pure ff
+      )
     , ( "member?"
       , "Given `v` and structure `s`, checks if `x` exists in `s`. The structure `s`\
         \ may be a list, vector or dict. If it is a list or a vector, it checks if `v`\
@@ -538,8 +545,8 @@ purePrimFns = fromList $ allDocs $
       , "Checks if a value represents a valid public key."
       , oneArg "public-key?" $
           \v -> case fromRad v of
-                  Right (_ :: PublicKey) -> pure $ Boolean True
-                  Left _                 -> pure $ Boolean False
+                  Right (_ :: PublicKey) -> pure tt
+                  Left _                 -> pure ff
       )
     , ( "uuid?"
       , "Checks if a string has the format of a UUID."
