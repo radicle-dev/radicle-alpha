@@ -917,6 +917,12 @@ Returns all elements of a sequence ``ls`` until one does not satisfy
 Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``. Also
 works for strings
 
+``(/prefix prefix rest-pat)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Matches sequences that start with ``prefix`` and bind the rest of that
+sequence to ``rest-pat``. Also works for strings.
+
 ``prelude/set``
 ---------------
 
