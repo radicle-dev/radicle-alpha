@@ -1,6 +1,6 @@
 {:module 'prelude/list
  :doc "Functions for manipulating lists."
- :exports ['nil 'empty? 'reverse 'range 'concat 'filter 'take-while]}
+ :exports ['nil 'empty? 'reverse 'range 'filter 'take-while]}
 
 ;; nil
 
@@ -48,17 +48,6 @@
 
 (:test "range"
   [ (range 1 5) ==> (1 2 3 4 5) ]
-)
-
-;; concat
-
-(def concat
-  "Concatenates `list1` and `list2`."
-  (fn [list1 list2]
-    (foldr (fn [a b] (cons a b)) list2 list1)))
-
-(:test "concat"
-  [ (concat '(1 2 3) '(4 5 6)) ==> (1 2 3 4 5 6) ]
 )
 
 ;; filter
