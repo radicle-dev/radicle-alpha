@@ -282,7 +282,8 @@ purePrimFns = fromList $ allDocs $
 
     -- Structures
     , ( "<>"
-      , "Merges two structures together. On vectors this performs concatenations. On dicts this performs the right-biased merge."
+      , "Merges two structures together. On vectors and lists this performs\
+        \ concatenations. On dicts this performs the right-biased merge."
       , twoArg "<>" $ \case
           (List xs, List ys) -> pure $ List (xs ++ ys)
           (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
@@ -446,7 +447,7 @@ purePrimFns = fromList $ allDocs $
     , ( "type"
       , "Returns a keyword representing the type of the argument; one of:\
         \ `:atom`, `:keyword`, `:string`, `:number`, `:boolean`, `:list`,\
-        \ `:vector`, `:function`, `:dict`, `:ref`, `:function`."
+        \ `:vector`, `:function`, `:dict`, `:ref`."
       , oneArg "type" $ pure . typeToValue . valType
       )
     , ( "string?"

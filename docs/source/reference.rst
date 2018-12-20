@@ -136,8 +136,8 @@ Adds an element to the right side of a vector.
 ``<>``
 ~~~~~~
 
-Merges two structures together. On vectors this performs concatenations.
-On dicts this performs the right-biased merge.
+Merges two structures together. On vectors and lists this performs
+concatenations. On dicts this performs the right-biased merge.
 
 ``list``
 ~~~~~~~~
@@ -298,8 +298,7 @@ repeatedly.
 
 Returns a keyword representing the type of the argument; one of:
 ``:atom``, ``:keyword``, ``:string``, ``:number``, ``:boolean``,
-``:list``, ``:vector``, ``:function``, ``:dict``, ``:ref``,
-``:function``.
+``:list``, ``:vector``, ``:function``, ``:dict``, ``:ref``.
 
 ``atom?``
 ~~~~~~~~~
