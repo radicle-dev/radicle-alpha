@@ -177,10 +177,10 @@ purePrimFns = fromList $ allDocs $
           (Number n, vs) -> case Num.isInt n of
             Left _ -> throwErrorHere $ OtherError "drop: first argument must be an int"
             Right i -> case vs of
-              List xs -> pure . List $ drop i xs
-              Vec xs  -> pure . Vec $ Seq.drop i xs
+              List xs   -> pure . List $ drop i xs
+              Vec xs    -> pure . Vec $ Seq.drop i xs
               String xs -> pure . String $ T.drop i xs
-              v       -> throwErrorHere $ TypeError "drop" 1 TSequence v
+              v         -> throwErrorHere $ TypeError "drop" 1 TSequence v
           (v, _) -> throwErrorHere $ TypeError "drop" 0 TNumber v
       )
     , ( "take"
