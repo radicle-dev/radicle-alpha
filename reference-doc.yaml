@@ -90,6 +90,7 @@ primFns:
 # Time
 - timestamp?
 - unix-epoch
+- from-unix-epoch
 - now!
 # JSON
 - to-json

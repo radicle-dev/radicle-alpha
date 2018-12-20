@@ -4,6 +4,7 @@ import qualified Prelude
 import           Protolude
 
 import qualified Data.Time as Time
+import qualified Data.Time.Clock.System as Time
 
 locale :: Time.TimeLocale
 locale = Time.defaultTimeLocale
@@ -17,9 +18,8 @@ parseTime = Time.parseTimeM False locale fmt . toS
 formatTime :: Time.UTCTime -> Text
 formatTime = toS . Time.formatTime locale fmt
 
-unixSeconds :: Time.UTCTime -> Maybe Int
-unixSeconds utc =
-  let secs = Time.formatTime Time.defaultTimeLocale "%s" utc
-  in case readEither secs of
-       Left _           -> Nothing
-       Right (i :: Int) -> pure $ fromIntegral i
+unixSeconds :: Time.UTCTime -> Int64
+unixSeconds utc = Time.systemSeconds $ Time.utcToSystemTime utc
+
+unixSecondsToUtc :: Int64 -> Time.UTCTime
+unixSecondsToUtc seconds = Time.systemToUTCTime $ Time.MkSystemTime seconds 0

@@ -1,7 +1,7 @@
 ;; This script stubs some primitives for code evaluated afterwards.
 ;;
 ;; This code is used by `rad/tests/run.rad` to test code that relies on
-;; primitives. Currently only the `send!` and `receive!` primitives are stubbed.
+;; primitives. Currently only some primitives are stubbed.
 ;;
 ;; A primitive `prim` is stubbed by creating a ref `primitive-stub-ref/prim`
 ;; that holds the original primitive value. The function `prim` is then
@@ -19,3 +19,13 @@
 (def machine/eval-server/get-log!
   (fn [a b] ((read-ref primitive-stub-ref/receive!) a b)))
 
+
+;; now!
+(def primitive-stub-ref/now! (ref now!))
+(def now!
+  (fn [] ((read-ref primitive-stub-ref/now!))))
+
+;; read-file!
+(def primitive-stub-ref/read-file! (ref read-file!))
+(def read-file!
+  (fn [path] ((read-ref primitive-stub-ref/read-file!) path)))

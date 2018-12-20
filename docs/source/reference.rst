@@ -405,6 +405,13 @@ Given an ISO 8601 formatted Coordinated Universal Time (UTC) timestamp,
 returns the corresponding Unix epoch time, i.e., the number of seconds
 since Jan 01 1970 (UTC).
 
+``from-unix-epoch``
+~~~~~~~~~~~~~~~~~~~
+
+Given an integer the represents seconds from the unix epock return an
+ISO 8601 formatted Coordinated Universal Time (UTC) timestamp
+representing that time.
+
 ``now!``
 ~~~~~~~~
 
@@ -839,6 +846,18 @@ List the contents of the current working directory
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Modified the value stored in a file according to the function ``f``.
+
+``(install-fake-filesystem! files)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Installs a fake for ``read-file!`` that simulates the presence of files
+in the ``files`` dictionary.
+
+If
+``(read-file! path) is called and``\ path\ ``is a key in``\ files\ ``then the value from``\ files\ ``is returned. Otherwise the original``\ read-file!\`
+is used.
+
+This requires the ``prelude/test/primitive-stub`` script to be loaded.
 
 ``prelude/bool``
 ----------------

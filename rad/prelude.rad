@@ -18,6 +18,7 @@
 (file-module! "rad/prelude/state-machine.rad")
 (file-module! "rad/prelude/validation.rad")
 (file-module! "rad/prelude/util.rad")
+(file-module! "rad/prelude/time.rad")
 (file-module! "rad/prelude/test.rad")
 
 (import prelude/basic :unqualified)

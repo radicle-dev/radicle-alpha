@@ -613,9 +613,19 @@ purePrimFns = fromList $ allDocs $
       , oneArg "unix-epoch" $ \case
           String s -> do
             utc <- Time.parseTime s ?? toLangError (OtherError "Invalid UTC timestamp.")
-            ss <- Time.unixSeconds utc ?? toLangError (OtherError "Could not convert UTC time to Unix epoch.")
+            let ss = Time.unixSeconds utc
             pure (Number (fromIntegral ss))
           v -> throwErrorHere $ TypeError "unix-epoch" 0 TString v
+      )
+    , ( "from-unix-epoch"
+      , "Given an integer the represents seconds from the unix epock return an \
+        \ ISO 8601 formatted Coordinated Universal Time (UTC) timestamp representing\
+        \ that time."
+      , oneArg "from-unix-epoch" $ \case
+          Number q -> case Num.toBoundedInteger q of
+            Nothing -> throwErrorHere $ OtherError "from-unix-epoch: argument must be an int64"
+            Just n -> pure $ String $ Time.formatTime $ Time.unixSecondsToUtc n
+          v -> throwErrorHere $ TypeError "from-unix-epoch" 0 TNumber v
       )
     ]
   where
