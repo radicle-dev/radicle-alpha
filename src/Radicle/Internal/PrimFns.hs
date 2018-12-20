@@ -353,8 +353,8 @@ purePrimFns = fromList $ allDocs $
     , ( "/"
       , "Divides one number by another. Throws an exception if the second argument is 0."
       , twoArg "/" $ \case
-          (Number _, Number 0) -> throwErrorHere $ OtherError "Can't divide by 0"
-          (Number x, Number y) -> pure $ Number (x / y)
+          (Number x, Number y) | y /= 0 -> pure $ Number (x / y)
+          (Number _, Number _) -> throwErrorHere $ OtherError "Can't divide by 0"
           (Number _, v) -> throwErrorHere $ TypeError "/" 1 TNumber v
           (v, _) -> throwErrorHere $ TypeError "/" 0 TNumber v
       )
