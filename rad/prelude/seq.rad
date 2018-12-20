@@ -1,6 +1,7 @@
 {:module 'prelude/seq
  :doc "Functions for manipulating sequences, that is lists and vectors."
- :exports '[empty? seq? reverse filter take-while]}
+ :exports '[empty? seq? reverse filter take-while starts-with?
+           ]}
 
 (import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
@@ -81,3 +82,21 @@
   [ (take-while (fn [x] (eq? x "bar")) (list "foo" "bar") ) ==> () ]
   [ (take-while (fn [x] (not (eq? x "bar"))) (list "foo" "bar") ) ==> ("foo") ]
   [ (take-while (fn [x] (< x 10)) [3 9 10 11] ) ==> [3 9] ])
+
+
+(def starts-with?
+  "Returns `#t` if `prefix` is a prefix of the sequence `s`. Also works for strings"
+  (fn [s prefix]
+    (eq? (take (length prefix) s) prefix)))
+
+(:test "starts-with?"
+  [ (starts-with? "abc" "ab") ==> #t ]
+  [ (starts-with? "abc" "abc") ==> #t ]
+  [ (starts-with? "abc" "") ==> #t ]
+  [ (starts-with? [1 2 3] []) ==> #t ]
+  [ (starts-with? [1 2 3] [1 2]) ==> #t ]
+  [ (starts-with? [1 2 3] [1 2 4]) ==> #f ]
+  [ (starts-with? [1 2 3] [1 2 3]) ==> #t ]
+  [ (starts-with? [] []) ==> #t ]
+  [ (starts-with? [] [1]) ==> #f ]
+  )

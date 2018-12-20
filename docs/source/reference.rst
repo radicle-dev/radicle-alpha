@@ -911,6 +911,12 @@ Returns ``ls`` with only the elements that satisfy ``pred``.
 Returns all elements of a sequence ``ls`` until one does not satisfy
 ``pred``
 
+``(starts-with? s prefix)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``. Also
+works for strings
+
 ``prelude/set``
 ---------------
 
