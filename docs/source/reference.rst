@@ -890,6 +890,11 @@ Functions for manipulating sequences, that is lists and vectors.
 
 True if ``seq`` is empty, false otherwise.
 
+``(seq? x)``
+~~~~~~~~~~~~
+
+Returns ``#t`` if ``x`` is a list or a vector.
+
 ``(reverse xs)``
 ~~~~~~~~~~~~~~~~
 
