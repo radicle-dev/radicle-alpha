@@ -130,6 +130,7 @@ modules:
 - prelude/bool
 - prelude/exception
 - prelude/list
+- prelude/seq
 - prelude/set
 - prelude/ref
 - prelude/lens

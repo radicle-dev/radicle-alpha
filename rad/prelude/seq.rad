@@ -1,0 +1,73 @@
+{:module 'prelude/seq
+ :doc "Functions for manipulating sequences, that is lists and vectors."
+ :exports '[empty? reverse filter take-while]}
+
+(import prelude/basic :unqualified)
+(import prelude/bool :unqualified)
+(import prelude/patterns :unqualified)
+
+
+(def empty?
+  "True if `seq` is empty, false otherwise."
+  (fn [seq] (or (eq? seq '()) (eq? seq []))))
+
+(:test "empty"
+  [ (empty? (list 2)) ==> #f ]
+  [ (empty? (list)) ==> #t ]
+
+  [ (empty? [2]) ==> #f ]
+  [ (empty? []) ==> #t ]
+)
+
+
+(def reverse
+  "Returns the reversed sequence `xs`."
+  (fn [xs]
+    (def-rec go
+      (fn [acc new]
+        (if (empty? new)
+            acc
+            (go (cons (head new) acc) (tail new)))))
+    (match (type xs)
+      :list (go '() xs)
+      :vec (go [] xs)
+      't (throw 'type-mismatch (string-append "reverse: exepcted sequence as arguemtn got " (show t)))
+      )
+    ))
+
+(:test "reverse"
+  [ (reverse (list 1 2 3)) ==> (3 2 1) ]
+  [ (reverse [1 2 3]) ==> [3 2 1] ]
+)
+
+
+(def-rec filter
+  "Returns `ls` with only the elements that satisfy `pred`."
+    (fn [pred ls]
+      (cond
+        (empty? ls)      ls
+        (pred (head ls)) (cons (head ls) (filter pred (tail ls)))
+        :else            (filter pred (tail ls)))))
+
+(:test "filter"
+  [ (filter (fn [x] (< x 10)) (list 3 10 11 5))
+     ==> (3 5) ]
+  [ (filter (fn [x] (< x 10)) [3 10 11 5])
+     ==> [3 5] ]
+)
+
+
+(def-rec take-while
+  "Returns all elements of a sequence `ls` until one does not satisfy `pred`"
+  (fn [pred ls]
+    (cond
+      (empty? ls)       ls
+      (pred (head ls))  (cons (head ls) (take-while pred (tail ls)))
+      :else             (if (list? ls)
+                          (list)
+                          []))))
+
+(:test "take-while"
+  [ (take-while (fn [x] (eq? x "bar")) (list "foo" "bar") ) ==> () ]
+  [ (take-while (fn [x] (not (eq? x "bar"))) (list "foo" "bar") ) ==> ("foo") ]
+  [ (take-while (fn [x] (< x 10)) [3 9 10 11] ) ==> [3 9] ])

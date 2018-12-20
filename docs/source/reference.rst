@@ -858,32 +858,32 @@ Tests for exceptions.
 ``prelude/list``
 ----------------
 
-Functions for manipulating lists.
+Functions for creating lists. See also ``prelude/seq``.
 
 ``nil``
 ~~~~~~~
 
 The empty list.
 
-``(empty? seq)``
-~~~~~~~~~~~~~~~~
-
-True if ``seq`` is empty, false otherwise.
-
-``(reverse ls)``
-~~~~~~~~~~~~~~~~
-
-Returns the reversed list ``ls``.
-
 ``(range from to)``
 ~~~~~~~~~~~~~~~~~~~
 
 Returns a list with all integers from ``from`` to ``to``, inclusive.
 
-``(concat list1 list2)``
-~~~~~~~~~~~~~~~~~~~~~~~~
+``prelude/seq``
+---------------
 
-Concatenates ``list1`` and ``list2``.
+Functions for manipulating sequences, that is lists and vectors.
+
+``(empty? seq)``
+~~~~~~~~~~~~~~~~
+
+True if ``seq`` is empty, false otherwise.
+
+``(reverse xs)``
+~~~~~~~~~~~~~~~~
+
+Returns the reversed sequence ``xs``.
 
 ``(filter pred ls)``
 ~~~~~~~~~~~~~~~~~~~~
