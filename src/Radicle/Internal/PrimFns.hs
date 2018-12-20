@@ -204,7 +204,7 @@ purePrimFns = fromList $ allDocs $
           [Number n, vs] -> case Num.isInt n of
             Left _ -> throwErrorHere $ OtherError "nth: first argument was not an integer"
             Right i -> do
-              xs <- hoistEitherWith (const (toLangError . OtherError $ "nth: first argument must be sequential")) $ fromRad vs
+              xs <- hoistEitherWith (const (toLangError . OtherError $ "nth: second argument must be sequential")) $ fromRad vs
               case xs `atMay` i of
                 Just x  -> pure x
                 Nothing -> throwErrorHere $ OtherError "nth: index out of bounds"
@@ -282,7 +282,8 @@ purePrimFns = fromList $ allDocs $
 
     -- Structures
     , ( "<>"
-      , "Merges two structures together. On vectors this performs concatenations. On dicts this performs the right-biased merge."
+      , "Merges two structures together. On vectors and lists this performs\
+        \ concatenation. On dicts this performs the right-biased merge."
       , twoArg "<>" $ \case
           (List xs, List ys) -> pure $ List (xs ++ ys)
           (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
@@ -412,11 +413,11 @@ purePrimFns = fromList $ allDocs $
     , ( "map"
       , "Given a function `f` and a sequence (list or vector) `xs`, returns a sequence\
         \ of the same size and type as `xs` but with `f` applied to all the elements."
-      , \case
-          [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
-          [fn, Vec ls]  -> Vec <$> traverse (callFn fn) (pure <$> ls)
-          [_, v]        -> throwErrorHere $ TypeError "map" 1 TSequence v
-          xs            -> throwErrorHere $ WrongNumberOfArgs "map" 3 (length xs))
+      , twoArg "map" $ \case
+          (fn, List ls) -> List <$> traverse (callFn fn) (pure <$> ls)
+          (fn, Vec ls)  -> Vec <$> traverse (callFn fn) (pure <$> ls)
+          (_, v)        -> throwErrorHere $ TypeError "map" 1 TSequence v
+      )
     , ( "keyword?"
       , isTy "keyword"
       , oneArg "keyword?" $ \case
@@ -446,7 +447,7 @@ purePrimFns = fromList $ allDocs $
     , ( "type"
       , "Returns a keyword representing the type of the argument; one of:\
         \ `:atom`, `:keyword`, `:string`, `:number`, `:boolean`, `:list`,\
-        \ `:vector`, `:function`, `:dict`, `:ref`, `:function`."
+        \ `:vector`, `:function`, `:dict`, `:ref`."
       , oneArg "type" $ pure . typeToValue . valType
       )
     , ( "string?"
@@ -468,13 +469,13 @@ purePrimFns = fromList $ allDocs $
       , "Given `v` and structure `s`, checks if `x` exists in `s`. The structure `s`\
         \ may be a list, vector or dict. If it is a list or a vector, it checks if `v`\
         \ is one of the items. If `s` is a dict, it checks if `v` is one of the keys."
-      , \case
-          [x, List xs] -> pure . Boolean $ elem x xs
-          [x, Vec xs]  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
-          [x, Dict m]  -> pure . Boolean $ Map.member x m
-          [_, v]       -> throwErrorHere
+      , twoArg "member?" $ \case
+          (x, List xs) -> pure . Boolean $ elem x xs
+          (x, Vec xs)  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
+          (x, Dict m)  -> pure . Boolean $ Map.member x m
+          (_, v)       -> throwErrorHere
                         $ TypeError "member?" 1 TStructure v
-          xs           -> throwErrorHere $ WrongNumberOfArgs "eq?" 2 (length xs))
+      )
     , ( "ref"
       , "Creates a ref with the argument as the initial value."
       , oneArg "ref" newRef)
