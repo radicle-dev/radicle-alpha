@@ -413,11 +413,11 @@ purePrimFns = fromList $ allDocs $
     , ( "map"
       , "Given a function `f` and a sequence (list or vector) `xs`, returns a sequence\
         \ of the same size and type as `xs` but with `f` applied to all the elements."
-      , \case
-          [fn, List ls] -> List <$> traverse (callFn fn) (pure <$> ls)
-          [fn, Vec ls]  -> Vec <$> traverse (callFn fn) (pure <$> ls)
-          [_, v]        -> throwErrorHere $ TypeError "map" 1 TSequence v
-          xs            -> throwErrorHere $ WrongNumberOfArgs "map" 2 (length xs))
+      , twoArg "map" $ \case
+          (fn, List ls) -> List <$> traverse (callFn fn) (pure <$> ls)
+          (fn, Vec ls)  -> Vec <$> traverse (callFn fn) (pure <$> ls)
+          (_, v)        -> throwErrorHere $ TypeError "map" 1 TSequence v
+      )
     , ( "keyword?"
       , isTy "keyword"
       , oneArg "keyword?" $ \case
@@ -469,13 +469,13 @@ purePrimFns = fromList $ allDocs $
       , "Given `v` and structure `s`, checks if `x` exists in `s`. The structure `s`\
         \ may be a list, vector or dict. If it is a list or a vector, it checks if `v`\
         \ is one of the items. If `s` is a dict, it checks if `v` is one of the keys."
-      , \case
-          [x, List xs] -> pure . Boolean $ elem x xs
-          [x, Vec xs]  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
-          [x, Dict m]  -> pure . Boolean $ Map.member x m
-          [_, v]       -> throwErrorHere
+      , twoArg "member?" $ \case
+          (x, List xs) -> pure . Boolean $ elem x xs
+          (x, Vec xs)  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
+          (x, Dict m)  -> pure . Boolean $ Map.member x m
+          (_, v)       -> throwErrorHere
                         $ TypeError "member?" 1 TStructure v
-          xs           -> throwErrorHere $ WrongNumberOfArgs "member?" 2 (length xs))
+      )
     , ( "ref"
       , "Creates a ref with the argument as the initial value."
       , oneArg "ref" newRef)
