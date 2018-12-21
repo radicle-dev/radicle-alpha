@@ -75,7 +75,7 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
                           , sep $ prettyV <$> toList vals
                           ])
         VEnv _ -> angles "env"
-        State _ -> angles "state"
+        VState _ -> angles "state"
       where
         -- We print string literals escaped just like Haskell does.
         escapeStr = T.init . T.tail . show

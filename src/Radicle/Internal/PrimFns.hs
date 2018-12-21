@@ -80,7 +80,7 @@ purePrimFns = fromList $ allDocs $
     , ( "state->env"
       , "Extract the environment from a radicle state."
       , oneArg "state->env" $ \case
-          State s -> pure (VEnv (env s))
+          VState s -> pure (VEnv (stateEnv s))
           v -> throwErrorHere $ TypeError "state->env" 0 TState v
       )
     , ( "set-binding"
@@ -102,7 +102,7 @@ purePrimFns = fromList $ allDocs $
     , ( "set-env"
       , "Sets the environment of a radicle state to a new value. Returns the updated state."
       , twoArg "set-env" $ \case
-          (VEnv e, State s) -> pure $ State $ s { env = e }
+          (VEnv e, VState s) -> pure $ VState $ s { stateEnv = e }
           (VEnv _, v) -> throwErrorHere $ TypeError "set-env" 1 TState v
           (v, _) -> throwErrorHere $ TypeError "set-env" 0 TEnv v
       )

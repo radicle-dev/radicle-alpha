@@ -5,12 +5,12 @@
 module Radicle.Internal.Core where
 
 import qualified Prelude
-import           Protolude hiding (Constructor, Handle, TypeError, (<>))
+import           Protolude hiding (Constructor, Handle, TypeError, (<>), State)
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
                  (ExceptT(..), MonadError, runExceptT, throwError)
-import           Control.Monad.State
+import           Control.Monad.State hiding (State)
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as A
 import           Data.Copointed (Copointed(..))
@@ -252,7 +252,7 @@ data ValueF r =
     -- body. The only reason to have multiple values is for effects.
     | LambdaF [Ident] (NonEmpty r) (Env r)
     | VEnvF (Env r)
-    | StateF PureState
+    | VStateF State
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
@@ -273,7 +273,7 @@ valType = \case
   ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
   VEnv _ -> TEnv
-  State _ -> TState
+  VState _ -> TState
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
@@ -288,7 +288,7 @@ hashable = \case
   ProcHandle _ -> False
   Lambda{} -> False
   VEnv _ -> False
-  State _ -> False
+  VState _ -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
   Dict kvs -> getAll $ Map.foldMapWithKey (\k v -> All (hashable k && hashable v)) kvs
@@ -301,7 +301,7 @@ dict kvs =
   else throwErrorHere NonHashableKey
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict
-  , Ref, Handle, ProcHandle, Lambda, VEnv, State #-}
+  , Ref, Handle, ProcHandle, Lambda, VEnv, VState #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -375,10 +375,10 @@ pattern VEnv e <- (Ann.match -> VEnvF e)
   where
     VEnv e = Ann.annotate $ VEnvF e
 
-pattern State :: ValueConC t => PureState -> Annotated t ValueF
-pattern State s <- (Ann.match -> StateF s)
+pattern VState :: ValueConC t => State -> Annotated t ValueF
+pattern VState s <- (Ann.match -> VStateF s)
   where
-    State s = Ann.annotate $ StateF s
+    VState s = Ann.annotate $ VStateF s
 
 type UntaggedValue = Annotated Identity ValueF
 type Value = Annotated Ann.WithPos ValueF
@@ -455,12 +455,12 @@ instance GhcExts.IsList (PrimFns m) where
     fromList xs = PrimFns . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
     toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . getPrimFns $ e]
 
-data PureState = PureState
-  { env  :: Env Value
-  , refs :: IntMap Value
+data State = State
+  { stateEnv  :: Env Value
+  , stateRefs :: IntMap Value
   } deriving (Eq, Ord, Read, Show, Generic)
 
-instance Serialise PureState
+instance Serialise State
 
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
@@ -501,11 +501,11 @@ setBindings value = do
 
 bindingsFromRadicle :: Value -> Either Text (Bindings (PrimFns m))
 bindingsFromRadicle x = case x of
-    State s -> pure $ emptyBindings
-               { bindingsEnv = env s
-               , bindingsRefs = refs s
-               , bindingsNextRef = length (refs s)
-               }
+    VState s -> pure $ emptyBindings
+                { bindingsEnv = stateEnv s
+                , bindingsRefs = stateRefs s
+                , bindingsNextRef = length (stateRefs s)
+                }
     _ -> throwError "Expecting state"
 
 -- | Serializes the environment and references into a Radicle value.
@@ -514,7 +514,7 @@ bindingsFromRadicle x = case x of
 --    * `gets bindingsToRadicle >>= setBindings == pure ()`
 --    * `setBindings x >> gets bindingsToRadicle == setBindings x >> pure x`
 bindingsToRadicle :: Bindings a -> Value
-bindingsToRadicle x = State PureState{ env = bindingsEnv x, refs = bindingsRefs x }
+bindingsToRadicle x = VState State{ stateEnv = bindingsEnv x, stateRefs = bindingsRefs x }
 
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
