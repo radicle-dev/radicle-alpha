@@ -131,14 +131,14 @@ purePrimFns = fromList $ allDocs $
           (String _, v) -> throwErrorHere $ TypeError "read-many" 1 TString v
           (v, _) -> throwErrorHere $ TypeError "read-many" 0 TString v
       )
-    , ("get-current-env"
+    , ("get-current-state"
       , "Returns the current radicle state."
       , \case
           [] -> gets bindingsToRadicle
-          xs -> throwErrorHere $ WrongNumberOfArgs "get-current-env" 0 (length xs))
-    , ( "set-current-env"
+          xs -> throwErrorHere $ WrongNumberOfArgs "get-current-state" 0 (length xs))
+    , ( "set-current-state"
       , "Replaces the radicle state with the one provided."
-      , oneArg "set-current-env" $ \x -> do
+      , oneArg "set-current-state" $ \x -> do
           setBindings x
           pure ok
       )

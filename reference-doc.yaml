@@ -81,11 +81,14 @@ primFns:
 # Modules
 - file-module!
 - import
-# Environment
-- get-current-env
+# State and Environment
 - pure-state
-- set-current-env
-- set-env!
+- get-current-state
+- set-current-state
+- get-binding
+- set-binding
+- set-env
+- state->env
 # Time
 - timestamp?
 - unix-epoch

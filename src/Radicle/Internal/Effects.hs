@@ -120,16 +120,6 @@ replPrimFns sysArgs = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "apropos!" 0 (length xs)
       )
 
-    , ( "set-env!"
-      , "Given an atom `x` and a value `v`, sets the value associated to `x` in\
-        \ the current environment to be `v`. Doesn't evaluate `v`."
-      , \case
-        [Atom x, v] -> do
-            defineAtom x Nothing v
-            pure nil
-        [v, _] -> throwErrorHere $ TypeError "set-env!" 0 TAtom v
-        xs  -> throwErrorHere $ WrongNumberOfArgs "set-env!" 2 (length xs))
-
     , ( "get-line!"
       , "Reads a single line of input and returns it as a string."
       , \case

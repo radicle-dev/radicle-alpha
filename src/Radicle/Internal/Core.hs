@@ -5,7 +5,7 @@
 module Radicle.Internal.Core where
 
 import qualified Prelude
-import           Protolude hiding (Constructor, Handle, TypeError, (<>), State)
+import           Protolude hiding (Constructor, Handle, State, TypeError, (<>))
 
 import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
