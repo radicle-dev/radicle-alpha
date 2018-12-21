@@ -62,6 +62,41 @@ The advantages of serialising the full interpreter state are:
 - It is likely that we will need to serialise the interpreter state for other
   reasons.
 
+Drawbacks
+----------
+
+The main drawback is that the interpreter code is likely to be more complex, and
+so more prone to bugs. It might also be less performant. It is conceivable that
+the interpreter has two modes, one with serialisable state, and one that is
+optimised for performance.
+
+Alternatives
+-------------
+
+The alternative is to only serialise the projection of the state that is
+relevant to the app. The question then arises of how to update this projection
+given new inputs. The function which performs this update is likely to:
+
+- Share a lot of logic with the code of the machine itself,
+
+- Have no guarantee it will project the state correctly,
+
+- Need to morph every time the semantics of the machine change.
+
+Or it could derive the projections from the *outputs*, but this would require
+acquiring (and trusting) the stream of outputs from some source.
+
+With regards to the implementation, it may be possible to make use to
+RefSerialize_.
+
+Unresolved question
+--------------------
+
+Unclear how challenging the code changes to the interpreter are.
+
+Implementation
+--------------
+
 In order to be able to serialise the state despite (1) and (2), the interpreter
 implementation is changed to accommodate a new representation of environments:
 
@@ -88,45 +123,6 @@ implementation is changed to accommodate a new representation of environments:
   containing exactly the same bindings to primfns, etc. This involves
   maintaining the current ``parent`` environment and the definitions created in
   the current scope when evaluating such a scope.
-
-Drawbacks
-----------
-
-The main drawback is that the interpreter code is likely to be more complex, and
-so more prone to bugs. It might also be less performant. It is conceivable that
-the interpreter has two modes, one with serialisable state, and one that is
-optimised for performance.
-
-Alternatives
--------------
-
-The alternative is to only serialise the projection of the state that is
-relevant to the app. The question then arises of how to update this projection
-given new inputs. The function which performs this update is likely to:
-
-- Share a lot of logic with the code of the machine itself,
-
-- Have no guarantee it will project the state correctly,
-
-- Need to morph every time the semantics of the machine change.
-
-Or it could derive the projections from the *outputs* (as described in stage2_),
-but this would require acquiring (and trusting) the stream of outputs from some
-source.
-
-With regards to the implementation, it may be possible to make use to
-RefSerialize_.
-
-Unresolved question
---------------------
-
-Unclear how challenging the changes to the interpreter for stage1_ are.
-
-Implementation
---------------
-
-First implement stage1_, since this is a priority. stage2_ can be left for a lot
-later.
 
 References
 -----------
