@@ -33,15 +33,3 @@
 (import prelude/validation :as 'validator)
 (import prelude/util :unqualified)
 (import prelude/chain :as 'chain)
-(import prelude/chain '[eval] :unqualified)
-
-(def _initial-prompt-text
-  "Text used for greeting in the repl."
-  "Welcome to radicle. Type (help) for help.")
-
-(def help
-  "Default help text."
-  (fn []
-    "radicle is a LISP-like language intended for programming chains, and interacting with those chains.
-
-    Type (doc '<name>) for further documentation of <name>."))
