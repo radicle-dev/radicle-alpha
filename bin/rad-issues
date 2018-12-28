@@ -140,7 +140,7 @@
       (put-str! "No recent items!")
       (match (fzf-select-with-preview!
                (map first items)
-               (fn [s] (show (lookup s items-dict))))
+               (fn [s] (pretty-issue (add-username-issue (lookup :issue (lookup s items-dict))))))
              (/just 's)
              (do (def selected (lookup s items-dict))
                  (def issue-number (match selected {:issue {:number 'n}} n))

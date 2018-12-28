@@ -20,19 +20,13 @@
   "Like `fzf-select!`, but includes a preview defined by `prev-fn`."
   (fn [xs prev-fn]
     (def temp-file (first (process-with-stdout! "mktemp" [] "")))
-    (def escape-str
-      (fn [s] (string-replace "\t" "\\t" (string-replace "\n" "\\n" s))))
-    (def unescape-str
-      (fn [s] (string-replace "\\t" "\t" (string-replace "\\n" "\n" s))))
+    (def d (dict-from-seq (map (fn [x] [x (prev-fn x)]) xs)))
     (def contents
-      (unlines
-        (map
-          (fn [x] (string-append (escape-str x) "\t" (escape-str (prev-fn x))))
-          xs)))
+      (string-append
+        "(def the-dict " (show d) ")"
+        "(put-str! (lookup (first (get-args!)) the-dict))"))
     (write-file! temp-file contents)
-    (def preview ["--preview" (string-append "awk -F'\t' '$1 == \"{}\" { print $2 }' " temp-file)])
-    (def preview ["--preview" "echo {}"])
-    (print! preview)
+    (def preview ["--preview" (string-append "radicle " temp-file " {}")])
     (def result (process-with-stdout! "fzf" preview (unlines xs)))
     (match result
            [] :nothing
