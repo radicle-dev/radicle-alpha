@@ -48,3 +48,10 @@ You can run tests with `stack test`.
 The documentation is build with `make -C docs html`. Reference documentation for
 Radicle code must be regenerated with `stack run radicle-doc-ref` and checked
 into version control.
+
+## Issues
+
+We are currently using `radicle` itself to manage issues, and have therefore
+disabled issues on Github. You can create and see issues with the
+`bin/rad-issues` script. You can also reach us on the `radicle` IRC channel on
+`#freenode`.

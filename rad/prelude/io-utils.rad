@@ -16,6 +16,28 @@
            [] :nothing
            ['x] [:just (string-replace "\n" "" x)])))
 
+(def fzf-select-with-preview!
+  "Like `fzf-select!`, but includes a preview defined by `prev-fn`."
+  (fn [xs prev-fn]
+    (def temp-file (first (process-with-stdout! "mktemp" [] "")))
+    (def escape-str
+      (fn [s] (string-replace "\t" "\\t" (string-replace "\n" "\\n" s))))
+    (def unescape-str
+      (fn [s] (string-replace "\\t" "\t" (string-replace "\\n" "\n" s))))
+    (def contents
+      (unlines
+        (map
+          (fn [x] (string-append (escape-str x) "\t" (escape-str (prev-fn x))))
+          xs)))
+    (write-file! temp-file contents)
+    (def preview ["--preview" (string-append "awk -F'\t' '$1 == \"{}\" { print $2 }' " temp-file)])
+    (def preview ["--preview" "echo {}"])
+    (print! preview)
+    (def result (process-with-stdout! "fzf" preview (unlines xs)))
+    (match result
+           [] :nothing
+           ['x] [:just (string-replace "\n" "" x)])))
+
 (def edit-in-editor!
   "Open `$EDITOR` on a file prepopulated with `orig`. Returns the contents of the edited file when the editor exits."
   (fn [orig]

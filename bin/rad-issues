@@ -135,11 +135,14 @@
              _          (map (fn [i] {:issue i})
                              (reverse (values (list-issues chain-ref)))))))
 
+    (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
       (put-str! "No recent items!")
-      (match (fzf-select! (map first items))
+      (match (fzf-select-with-preview!
+               (map first items)
+               (fn [s] (show (lookup s items-dict))))
              (/just 's)
-             (do (def selected (lookup s (dict-from-seq items)))
+             (do (def selected (lookup s items-dict))
                  (def issue-number (match selected {:issue {:number 'n}} n))
                  (def pretty-item
                    (add-comment-md
