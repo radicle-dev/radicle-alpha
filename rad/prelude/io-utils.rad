@@ -24,3 +24,12 @@
     (write-file! file orig)
     (shell-no-stdin! (string-append "${EDITOR:-nano} " file) "")
     (read-file! file)))
+
+(def git-request-pull!
+  " "
+  (fn [orig]
+    (def file (unlines (shell-with-stdout! "mktemp" "")))
+    (put-str! file)
+    (write-file! file orig)
+    (shell-no-stdin! (string-append "${EDITOR:-nano} " file) "")
+    (read-file! file)))
