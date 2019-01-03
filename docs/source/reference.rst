@@ -830,6 +830,16 @@ Read a file key. Assumes that the file contents is a serialised dict.
 Write a key to a file. Assumes that the file contents is a serialised
 dict.
 
+``(ls!)``
+~~~~~~~~~
+
+List the contents of the current working directory
+
+``(modify-file! file f)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Modified the value stored in a file according to the function ``f``.
+
 ``prelude/bool``
 ----------------
 
