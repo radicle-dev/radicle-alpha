@@ -671,6 +671,11 @@ Empty-sequence pattern. Matches ``[]`` and ``(list)``
 
 Pattern which matches ``[:just x]``.
 
+``(/member vs)``
+~~~~~~~~~~~~~~~~
+
+Matches values that are members of a structure.
+
 ``prelude/strings``
 -------------------
 

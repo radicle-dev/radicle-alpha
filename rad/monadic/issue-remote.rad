@@ -119,7 +119,8 @@
    :body     (validator/text 4000)
    :labels   (validator/every (validator/text 80))
    :state    (validator/member [:open :closed])
-   :comments (validator/every validator/full-comment)})
+   :comments (validator/every (validator/and [validator/full-comment
+                                              validator/time-created]))})
 
 (def validator/full-issue (validator/keys issue-keys))
 
@@ -128,7 +129,8 @@
 (def validator/issue-input
   "An issue should have all the required fields, be a signed input, etc."
   (validator/and
-   [validator/input
+   [;; NOTE that we don't check `validator/input` at this point, because some of
+    ;; the data is fixed before validation.
     validator/time-created
     validator/full-issue]))
 
@@ -181,16 +183,29 @@
   (fn [e]
     (delete-many [:chain-id :signature :nonce :issue-number] e)))
 
+(def fix-modified-at
+  "Some inputs come in with a missing `:modified-at` key. If this is the case, we
+  add it as equal to the `:created-at` key."
+  (fn [x]
+    (if (member? :modified-at x)
+      x
+      (insert :modified-at (lookup :created-at x) x))))
+
 (def create-issue
   "Create an issue from a dict, checking that it is valid and storing it in `issues`."
   (fn [i]
-    (validator/issue-input i)
+    (validator/input i)
+    (def fixed
+      (insert :comments
+              (map fix-modified-at (lookup :comments i))
+              (fix-modified-at i)))
+    (validator/issue-input fixed)
     (def n (issue-counter :next))
     (def i_
       (strip-input
-       (<> i
+       (<> fixed
            {:number   n
-            :comments (map strip-input (lookup :comments i))})))
+            :comments (map strip-input (lookup :comments fixed))})))
     (set-issues (@ n) i_)
     (mark-used-nonce (lookup :nonce i))))
 
