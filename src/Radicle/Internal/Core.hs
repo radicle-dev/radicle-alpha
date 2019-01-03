@@ -641,7 +641,7 @@ instance (FromRad t a) => FromRad t [a] where
     fromRad x = case x of
         List xs -> traverse fromRad xs
         Vec  xs -> traverse fromRad (toList xs)
-        _       -> Left "Expecting list"
+        _       -> Left "Expecting list or vector"
 instance FromRad t (Doc.Docd (Annotated t ValueF)) where
     fromRad (Dict d) = do
       val <- kwLookup "val" d ?? "Expecting `:val` key"
