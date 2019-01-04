@@ -40,3 +40,15 @@
     (write-file! file orig)
     (shell-no-stdin! (string-append "${EDITOR:-nano} " file) "")
     (read-file! file)))
+<<<<<<< Updated upstream
+=======
+
+(def git-request-pull!
+  "Returns a pull-request string for the current HEAD, against master."
+  (fn [orig]
+    (def result (process-with-stdout! "git" ["request-pull" "master" "HEAD"] "")
+    (put-str! file)
+    (write-file! file orig)
+    (shell-no-stdin! (string-append "${EDITOR:-nano} " file) "")
+    (read-file! file)))
+>>>>>>> Stashed changes

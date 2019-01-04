@@ -1,0 +1,35 @@
+(def state (ref {}))
+
+;; Nonces are used to prevent replays.
+
+(def used-nonces
+  "We keep track of the UUIDs which have been used as nonces in inputs."
+  (ref set/empty))
+
+(def unused-nonce?
+  "Check that a nonce has not been used already."
+  (fn [nonce]
+    (not (set/member? nonce (read-ref used-nonces)))))
+
+(def mark-used-nonce
+  "Mark a UUID as used."
+  (fn [nonce]
+    (modify-ref used-nonces (fn [s] (set/insert nonce s)))))
+
+(def validator/nonce
+  "Validator for unused nonces."
+  (validator/and
+   [validator/uuid
+    (validator/pred "Nonce not already used" unused-nonce?)]))
+
+;; Validation
+
+(def validator/pr-input
+  (validator/and [validator/signed]))
+
+;; Commands
+
+(def new-pr
+  (fn [pr]
+    (validator/pr-input pr)
+    (
