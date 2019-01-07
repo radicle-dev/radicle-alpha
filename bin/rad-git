@@ -1,0 +1,40 @@
+#!/usr/bin/env radicle
+
+(load! "rad/prelude.rad")
+(load! "rad/monadic/git.rad")
+(load! "rad/prelude/io-utils.rad")
+
+(def base-name "http://machines.radicle.xyz/chains/")
+
+(def name-base "http://machines.radicle.xyz/chains/names")
+
+(def make-name
+  (fn [chain]
+    (if (eq? (take 7 chain) "http://")
+        chain
+        (string-append base-name chain))))
+
+(def make-chain-ref
+  (fn [chain]
+    (ref (chain/load-chain! (make-name chain)))))
+
+(def get-patch!
+  (fn []
+    (string/unlines (process-with-stdout! "git" ["format-patch" "master..HEAD" "--stdout"] ""))))
+
+(def get-base-commit!
+  (fn []
+    (string/unlines (process-with-stdout! "git" ["rev-parse" "master"] ""))))
+
+(def new-pr!
+  (fn [chain]
+    (def patch (get-patch!))
+    (def base (get-base-commit!))
+    (def pr-template
+";; PR template. An empty or invalid value will abort.
+{:title       \"Pick a title\"
+ :description \"Pick a body\"
+}
+")
+    (def pr (<> (read (edit-in-editor! pr-template)) {:patch [patch] :base-commit base}))
+    (simple-create-pr! chain pr)))

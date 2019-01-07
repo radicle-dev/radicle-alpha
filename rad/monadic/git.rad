@@ -27,8 +27,8 @@
 
 (def simple-create-pr!
   "Create a remote pr with sensible defaults."
-  (fn [chain tit patch desc]
-    (create-pr! chain (simple-pr {:title tit :patch patch :description desc}))))
+  (fn [chain pr]
+    (create-pr! chain (simple-pr pr))))
 
 (def list-prs
   "Return the full map of prs."
