@@ -2,6 +2,12 @@
  :doc "Provides eval that adds a `:test` macro."
  :exports '[run run-all assert-equal]}
 
+
+(import prelude/basic :unqualified)
+(import prelude/bool :unqualified)
+(import prelude/list :unqualified)
+(import prelude/patterns :unqualified)
+
 (def assert-equal
   "Compares `actual` with `expected` with `eq?`. If the values are not equal an
   `'assertion-error` is thrown. Otherwise `actual` is retuned."
@@ -11,6 +17,65 @@
         (throw 'assertion-error (string-append "failed: got " (show actual) " but expected " (show expected))))
 ))
 
+;; Utils
+
+(def try
+  "Call `f` and catch any errors with `tag`. If no errors were thrown
+  then return `[:ok r]` where `r` is the result of calling `f`. If an
+  error was thrown return `[:error e]` where `e` is the second argument
+  to `throw`."
+  (fn [tag f]
+    (def handle-error
+      (fn [msg] [:error msg]))
+    (catch tag [:ok (f)] handle-error)
+  ))
+
+(def foldl-with-index
+  "Like `(fold f r xs)` but evaluates `(f acc x i)` where `i` is an
+  additional index argument that starts with 0."
+  (fn [f r xs]
+    (head
+      (foldl
+        (fn [acc x]
+          (match acc ['r 'i] [(f r x i) (+ i 1)]))
+        [r 0]
+        xs))
+  ))
+
+(def parse-doc-test-step
+  "Parse a doc test step of the form `[ actual ==> expected ]` and
+  returns a function that when called with an environments runs the
+  step.
+
+  Running a doc step means evluating `actual` in the given environment
+  and comparing the result with `expected` using `assert-equal`."
+  (fn [step]
+    (def lhs (nth 0 step))
+    (def marker (nth 1 step))
+    (def rhs (nth 2 step))
+    (if (eq? marker '==>)
+        (fn [env]
+          (def lhs-res (head (eval lhs env)))
+          (assert-equal lhs-res rhs))
+        (throw 'parse-test-step "Expected and actual not separate by ==>"))
+  ))
+
+(def extract-setup
+  "Extracts the a setup step from the test steps. Returns a `[setup steps]` tuple."
+  (fn [steps]
+    (match steps
+      (/cons [:setup 'setup] 'steps)
+        [setup steps]
+      'steps
+        [:nothing steps])
+  ))
+
+(def print-test-result
+  "Print a test result to stdout using the Test Anyhting Protocol (TAP)."
+  (fn [name result i]
+    (match result
+      [:ok _]      (put-str! (string-append "ok " (show i) " - " name))
+      [:error 'msg] (put-str! (string-append "not ok " (show i) " - " name)))))
 
 (def run
   "Run the tests in `test-def` and print the result. `test-def` is a `{:env env
@@ -26,36 +91,33 @@
   )
   ```
   "
-  (fn [test-def]
+  (fn [test-def index]
     (def test-env (lookup :env test-def))
     (def test-name (lookup :name test-def))
-    (def error
-      (fn [msg]
-        (put-str! (string-append "Test '" test-name "' failed: " msg))))
-    ;; Check a single test in a given env
-    (def check-single
-      (fn [single ix senv]
-        (def lhs (nth 0 single))
-        (def marker (nth 1 single))
-        (def rhs (nth 2 single))
-        (if (eq? marker '==>)
-            (do
-              (def lhs-res (first (eval lhs senv)))
-              (if (eq? lhs-res rhs)
-                  (put-str! (string-append "Test '" test-name " (" (show ix) ")' succeeded"))
-                  (error (string-append "failed: got " (show lhs-res) " but expected " (show rhs)))))
-            (error "Expected and actual not separate by ==>"))
-        (+ ix 1)))
     (def test-contents (lookup :tests test-def))
-    (def maybe-setup (nth 0 test-contents))
-    ;; If first block starts with :setup, run tests in that env
-    (if (eq? (nth 0 maybe-setup) :setup)
-        (do (def setup-env (nth 1 (eval (nth 1 maybe-setup) test-env)))
-            (foldl (fn [ix x] (check-single x ix setup-env)) 1 (rest test-contents)))
-        (foldl (fn [ix x] (check-single x ix test-env)) 1 test-contents))
+    (def setup-and-steps (extract-setup (lookup :tests test-def)))
+    (def setup (nth 0 setup-and-steps))
+    (def steps (nth 1 setup-and-steps))
+    (def step-runners (map parse-doc-test-step steps))
+    (def test-env (nth 1 (eval setup test-env)))
+    (def result
+      (try 'any
+        (fn []
+          (map (fn [r] (r test-env)) step-runners)
+          :nil)))
+    (print-test-result test-name result index)
+    (match result
+      [:error _] #f
+      [:ok _] #t)
 ))
 
+
 (def run-all
-  "Run all `tests`."
+  "Run all `tests` and print the results. Returns `#f` if at least one test fails and `#t` otherwise."
   (fn [tests]
-    (map (fn [t] (run t)) tests)))
+    (put-str! (string-append "1.." (show (length tests))))
+    (foldl-with-index
+      (fn [ok t i] (and ok (run t (+ 1 i))))
+      #t
+      tests)
+  ))

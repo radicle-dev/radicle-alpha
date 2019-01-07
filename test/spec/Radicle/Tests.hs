@@ -830,8 +830,7 @@ test_cbor =
 -- Radicle source with the @:test@ macro.
 test_source_files :: IO TestTree
 test_source_files = do
-    tests <- join <$> traverse testOne [ "rad/prelude.rad"
-                                       , "rad/monadic/issues.rad"
+    tests <- join <$> traverse testOne [ "rad/monadic/issues.rad"
                                        , "rad/monadic/names.rad"
                                        ]
     pure $ testGroup "Radicle source file tests" tests
@@ -843,7 +842,8 @@ test_source_files = do
             Right kp -> pure $ renderCompactPretty kp
             Left _   -> panic "Couldn't generate keypair file."
         let ws = addFileToWorld "my-keys.rad" keyPair ws'
-        let code = "(load! \"" <> file <> "\")"
+        let code = "(load! \"rad/tests/stub-primitives.rad\")"
+                <> "(load! \"" <> file <> "\")"
                 <> "(import prelude/test)"
                 <> "(prelude/test/run-all (read-ref tests))"
         (r, out) <- runCodeWithWorld ws $ toS code

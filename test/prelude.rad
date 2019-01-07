@@ -1,0 +1,12 @@
+#!/usr/bin/env radicle
+
+;; Run all tests defined in the prelude and print their results with
+;; TAP. Exit with status code 1 if any of the tests fail.
+
+(load! "rad/tests/stub-primitives.rad")
+(load! "rad/prelude.rad")
+
+(import prelude/test)
+
+(def tests-ok (prelude/test/run-all (read-ref tests)))
+(if tests-ok (exit! 0) (exit! 1))
