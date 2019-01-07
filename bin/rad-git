@@ -38,3 +38,67 @@
 ")
     (def pr (<> (read (edit-in-editor! pr-template)) {:patch [patch] :base-commit base}))
     (simple-create-pr! chain pr)))
+
+(def pretty-pr show)
+
+(def list-items
+  "Lists the recent items and uses an editor to add a relevant comment."
+  (fn [chain last-seen]
+
+    (def chain-ref (make-chain-ref chain))
+    (load! "rad/monadic/names.rad")
+    (def names (ref (chain/load-chain! name-base)))
+    (def add-username
+      (fn [d]
+        (def n (match (lookup-key names (lookup :author d))
+                          :nothing "???"
+                          'name    name))
+        (insert :username n d)))
+
+    (def add-username-pr
+      (fn [i]
+        (add-username
+         (insert :comments (map add-username (lookup :comments i)) i))))
+
+    (def mk-key
+      (fn [v]
+        (match v
+               (/as 'a {:activity :new-pr
+                        :pr    {:number 'n
+                                   :title 'tit}})
+               [(string-append "[new] PR " (show n) " - " tit) a]
+               (/as 'a {:activity :new-comments
+                        :pr    {:number 'n
+                                   :title 'tit}})
+               [(string-append "[new comments] PR " (show n) " - " tit) a]
+               (/as 'i {:pr {:number 'n :title 'tit}})
+               [(string-append "PR " (show n) " - " tit) i])))
+
+    (def items
+      (map mk-key
+           (match last-seen
+             (/just 't) (recent-activity chain-ref t)
+             _          (map (fn [i] {:pr i})
+                             (reverse (values (list-prs chain-ref)))))))
+
+    (def items-dict (dict-from-seq items))
+    (if (empty-seq? items)
+      (put-str! "No recent items!")
+      (match (fzf-select-with-preview!
+               (map first items)
+               (fn [s] (pretty-pr (add-username-pr (lookup :pr (lookup s items-dict))))))
+             (/just 's)
+             (do (def selected (lookup s items-dict))
+                 (def pr-number (match selected {:pr {:number 'n}} n))
+                 (def pretty-item
+                   (pretty-pr
+                     (add-username-issue
+                      (lookup :issue selected))))
+                 (def edited-item (edit-in-editor! pretty-item))
+                 (put-str! "Item was not updated.")
+             _ (put-str! "No selection made."))))))
+
+(def chain-name "http://localhost:8000/chains/fooprr")
+(def chain (ref (chain/new-chain chain-name)))
+(fetch! chain)
+(list-items chain-name :nothing)
