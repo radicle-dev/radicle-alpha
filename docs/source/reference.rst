@@ -887,6 +887,12 @@ is used.
 
 This requires the ``prelude/test/primitive-stub`` script to be loaded.
 
+``(process-with-stdout-stderr-exitcode! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``process-with-stdout!``, but returns a vec
+``[stdout stderr exitcode]``.
+
 ``prelude/bool``
 ----------------
 
@@ -1183,6 +1189,11 @@ inputs following after the index ``i`` are fetched.
 Install test doubles for the ``send!`` and ``receive!`` primitives that
 use a mutable dictionary to store RSMs. Requires
 ``rad/test/stub-primitives`` to be loaded
+
+``(send-signed-command! chain chain-id cmd payload)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send a command signed by the keys in ``my-keys.rad``.
 
 ``prelude/state-machine``
 -------------------------

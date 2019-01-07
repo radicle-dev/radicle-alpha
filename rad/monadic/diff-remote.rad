@@ -1,0 +1,226 @@
+(import prelude/basic :unqualified)
+(import prelude/bool :unqualified)
+(import prelude/dict :unqualified)
+(import prelude/set :as 'set)
+(import prelude/ref :unqualified)
+(import prelude/validation :as 'validator)
+(import prelude/patterns :unqualified)
+(import prelude/util :unqualified)
+(import prelude/lens :unqualified)
+
+(def chain-id
+  "The name of this chain."
+  "monadic/radicle/diffs")
+
+(def diffs
+  "DIFFs are stored in a dict in a ref, keyed by diff-number."
+  (ref {}))
+
+(def diff-counter
+  "We use a stateful counter for giving diff numbers."
+  (make-counter))
+
+(def used-nonces
+  "We keep track of the UUIDs which have been used as nonces in inputs."
+  (ref set/empty))
+
+(def unused-nonce?
+  "Check that a nonce has not been used already."
+  (fn [nonce]
+    (not (set/member? nonce (read-ref used-nonces)))))
+
+(def mark-used-nonce
+  "Mark a UUID as used."
+  (fn [nonce]
+    (modify-ref used-nonces (fn [s] (set/insert nonce s)))))
+
+(def set-diffs
+  "A helper to set stuff in the diffs ref."
+  (fn [l v]
+    (set-ref diffs l v)))
+
+(def validator/nonce
+  "Validator for unused nonces."
+  (validator/and
+   [validator/uuid
+    (validator/pred "Nonce not already used" unused-nonce?)]))
+
+(def validator/text
+  "A validator for text."
+  (fn [max-len]
+    (validator/and
+     [(validator/type :string)
+      (validator/pred (string-append "< " (show max-len) " chars in length")
+                      (fn [s] (< (string-length s) max-len)))])))
+
+(def input-keys
+  {:nonce      validator/nonce
+   :chain-id   (validator/= chain-id)})
+
+(def validator/time-created
+  (validator/and
+   [(validator/keys
+     {;; NOTE that timestamps are claimed by authors, are not verified, and may
+      ;; be incorrect.
+      :created-at validator/timestamp
+      :modified-at validator/timestamp})
+    (validator/pred "`:modified-at` and `:create-at` are equal"
+                    (fn [t]
+                      (eq? (lookup :created-at t)
+                           (lookup :modified-at t))))]))
+
+(def validator/time-modified
+  (validator/keys
+   {:modified-at validator/timestamp}))
+
+(def validator/input
+  "Checks that the input as a valid new *chain input*, that is, it has an unused
+  nonce, is marked with this chain name, and is signed."
+  (validator/and
+   [(validator/keys input-keys)
+    validator/signed]))
+
+(def validator/diff-number
+  "A validator for numbers which refer to existing diffs."
+  (validator/pred "Existing diff number" (fn [n] (member? n (read-ref diffs)))))
+
+(def comment-keys
+  "A comment's body should be text that isn't too long."
+  {:body (validator/text 4000)})
+
+(def validator/full-comment
+  (validator/keys comment-keys))
+
+(def validator/diff-reference
+  "Refers to an existing issue."
+  (validator/optional-keys {:issue-number validator/diff-number}))
+
+(def validator/comment-input
+  "A comment input should refer to an existing issue."
+  (validator/and
+   [validator/input
+    validator/time-created
+    validator/full-comment
+    validator/diff-reference]))
+
+(def diff-keys
+  {:title       (validator/text 100)
+   :description (validator/text 4000)
+   :patch       (validator/type :string)
+   :state       (validator/member [:pending :retracted :accepted :rejected])
+   :comments    (validator/every validator/full-comment)})
+
+(def validator/full-diff (validator/keys diff-keys))
+
+(def validator/diff-input
+  "An diff should have all the required fields, be a signed input, etc."
+  (validator/and
+   [validator/input
+    validator/time-created
+    validator/full-diff]))
+
+(def edit-keys
+  (fn [ks]
+    (<> ks
+        (<> (keys input-keys)
+            [:diff-number :modified-at :author :signature]))))
+
+(def validator/diff-edit-input
+  "An input to edit an diff."
+  (validator/and
+   [validator/input
+    validator/time-modified
+    validator/diff-reference
+    (validator/contains-only (edit-keys (keys diff-keys)))]))
+
+(def strip-input
+  "After an entity input has been processed/verified, we no longer need some of
+  the fields."
+  (fn [e]
+    (delete-many [:chain-id :signature :nonce :diff-number] e)))
+
+(def create-diff
+  "Create an diff from a dict, checking that it is valid and storing it in `diffs`."
+  (fn [i]
+    (validator/diff-input i)
+    (def n (diff-counter :next))
+    (def i_
+      (strip-input
+       (<> i
+           {:number   n})))
+    (set-diffs (@ n) i_)
+    (mark-used-nonce (lookup :nonce i))))
+
+(def over-diffs
+  "A helper to modify stuff in the diff ref."
+  (fn [l f]
+    (over-ref diffs l f)))
+
+(def add-comment
+  "Add a comment to a diff."
+  (fn [c]
+    (validator/comment-input c)
+    (def c_ (strip-input c))
+    (over-diffs
+      (.. (@ (lookup :diff-number c)) (@ :comments))
+      (fn [cs] (add-right c_ cs)))
+    (mark-used-nonce (lookup :nonce c))))
+
+(def merge-new
+  (fn [new]
+    (fn [old]
+      (<> old new))))
+
+(def edit-diff
+  "Modify some of the attributes of an diff."
+  (fn [i]
+    (validator/diff-edit-input i)
+    (def i_ (delete :author (strip-input i)))
+    (over-diffs (@ (lookup :diff-number i)) (merge-new i_))))
+
+(def list-diffs
+  "List existing diffs."
+  (fn [] (read-ref diffs)))
+
+(def commands
+  "The set of allowed chain commands."
+  (ref
+   {'create-diff    create-diff
+    'list-diffs     list-diffs
+    'edit-diff      edit-diff
+    'add-comment  add-comment}))
+
+(def process-command
+  "Function that maps post-eval commands to existing functions"
+  (fn [expr]
+    (def command (first expr))
+    (def args    (rest expr))
+    (def do-this (lookup command (read-ref commands)))
+    (apply do-this args)))
+
+;; Move to eval-fn-app & updatable-eval from chain.rad to a pure file so it may
+;; be imported
+
+(def eval-fn-app
+  "Given a state, a function, an argument and a callback, returns
+  the result of evaluating the function call on the arg in the given
+  state, while also calling the callback on the result."
+  (fn [state f arg cb]
+    (def exec (base-eval (list f (list 'quote arg)) state))
+    (cb (first exec))
+    exec))
+
+(def updatable-eval
+  "Given an evaluation function `f`, returns a new one which augments `f` with a new
+  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
+  (fn [sub-eval]
+    (fn [expr state]
+      (match expr
+             (/cons 'cmd _) (if (eq? cmd 'update)
+                              (base-eval (nth 1 expr) state)
+                              (sub-eval expr state))
+             _ (sub-eval expr state)))))
+
+(def eval (updatable-eval
+    (fn [expr state]
+      (eval-fn-app state 'process-command expr (fn [x] x)))))

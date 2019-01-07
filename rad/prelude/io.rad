@@ -3,7 +3,7 @@
  :exports '[print! shell! process! read-line! read-file-value! read-file-values!
             shell-with-stdout! shell-no-stdin! process-with-stdout! write-file!
             init-file-dict! read-file-key! write-file-key! ls! modify-file!
-            install-fake-filesystem!
+            install-fake-filesystem! process-with-stdout-stderr-exitcode!
            ]}
 
 (import prelude/patterns :unqualified)
@@ -163,6 +163,30 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   [ (process-with-stdout! "cat" [] "there") ==> ["there"] ]
 )
 
+(def process-with-stdout-stderr-exitcode!
+  "Like `process-with-stdout!`, but returns a vec `[stdout stderr exitcode]`."
+  (fn [command args to-write]
+    (def cp
+      { :cmdspec [:raw command args]
+        :stdin   :create-pipe
+        :stdout  :create-pipe
+        :stderr  :create-pipe
+      })
+    (match (system! cp)
+      {:stdin  [:just 'stdin]
+       :stdout [:just 'stdout]
+       :stderr [:just 'stderr]
+       :proc   'ph
+      } (do (write-handle! stdin to-write)
+            (close-handle! stdin)
+            [(read-contents-handle! stdout) (read-contents-handle! stderr) (wait-for-process! ph)])
+      _ (throw 'io-error "expected only stdin, stdout and stderr to be open"))))
+
+(:test "process-with-stdout-stderr-exitcode!"
+  [ (process-with-stdout-stderr-exitcode! "echo" ["hi"] "") ==> [["hi"] [] :ok] ]
+  [ (process-with-stdout-stderr-exitcode! "false" [] "") ==> [[] [] [:error 1]] ]
+)
+
 ;; General utilities
 (def ls!
   "List the contents of the current working directory"
@@ -212,4 +236,12 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
           (original-read-file! path))
         ))
     (write-ref primitive-stub-ref/read-file! read-file)
+    (def original-find-module-file! (read-ref primitive-stub-ref/find-module-file!))
+    (def find-module-file
+      (fn [path]
+        (if (member? path files)
+          path
+          (original-find-module-file! path))
+        ))
+    (write-ref primitive-stub-ref/find-module-file! find-module-file)
     ))

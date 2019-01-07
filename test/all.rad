@@ -5,6 +5,7 @@
 
 (load! (find-module-file! "tests/stub-primitives.rad"))
 (load! (find-module-file! "prelude.rad"))
+(load! (find-module-file! "monadic/diff.rad"))
 (load! (find-module-file! "monadic/issues.rad"))
 (load! (find-module-file! "monadic/names.rad"))
 

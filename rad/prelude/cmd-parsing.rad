@@ -3,7 +3,6 @@
  :exports
  '[parse-failure /cmd-0 /cmd-1 /cmd-2 /cmd-2-opts]}
 
-(load! "rad/prelude.rad")
 (import prelude/validation :as 'validation)
 
 (def parse-failure
