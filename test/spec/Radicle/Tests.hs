@@ -833,6 +833,7 @@ test_source_files = do
     tests <- join <$> traverse testOne [ "rad/prelude.rad"
                                        , "rad/monadic/issues.rad"
                                        , "rad/monadic/names.rad"
+                                       , "rad/monadic/git.rad"
                                        ]
     pure $ testGroup "Radicle source file tests" tests
   where

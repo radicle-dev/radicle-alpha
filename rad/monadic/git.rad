@@ -1,0 +1,51 @@
+(load! "rad/prelude.rad")
+
+(def radicle-git-chain-id
+  "The name of this chain."
+  "monadic/radicle/git")
+
+(def create-prs-chain!
+  "Create a remote pr chain with the given url."
+  (fn [url]
+    (chain/send-prelude! url)
+    (send-code! url "rad/monadic/git-remote.rad")))
+
+(def simple-pr
+  "Create an open pr with no comments or labels."
+  (fn [p]
+  (def t (now!))
+  (<> {:state       :open
+      :comments    []
+      :created-at  t
+      :modified-at t}
+     p)))
+
+(def create-pr!
+ "Create a new remote pr with the keys in `my-keys.rad`."
+ (fn [chain i]
+ (chain/send-signed-command! chain radicle-git-chain-id 'create-pr i)))
+
+(def simple-create-pr!
+  "Create a remote pr with sensible defaults."
+  (fn [chain tit patch desc]
+    (create-pr! chain (simple-pr {:title tit :patch patch :description desc}))))
+
+(def list-prs
+  "Return the full map of prs."
+  (fn [chain]
+  (lookup :result (chain/eval-in-chain '(list-prs) (read-ref chain)))))
+
+(def fetch!
+  "Update the locally cached state of the chain."
+  chain/update-chain-ref!)
+
+(:test
+ "The monadic prs chain works."
+ [:setup
+  (do (def chain-name "http://localhost:8000/chains/fxoo")
+      (def chain (ref (chain/new-chain chain-name)))
+      (create-prs-chain! chain-name)
+      (simple-create-pr! chain "title0" "patch0" "desc0")
+      (fetch! chain)
+      (def prs (list-prs chain)))]
+  [ (length (seq prs)) ==> 1 ])

@@ -1,0 +1,115 @@
+(import prelude/basic :unqualified)
+(import prelude/bool :unqualified)
+(import prelude/dict :unqualified)
+(import prelude/set :as 'set)
+(import prelude/ref :unqualified)
+(import prelude/validation :as 'validator)
+(import prelude/patterns :unqualified)
+(import prelude/util :unqualified)
+(import prelude/lens :unqualified)
+
+(def prs
+  "PRs are stored in a dict in a ref, keyed by pr-number."
+  (ref {}))
+
+(def pr-counter
+  "We use a stateful counter for giving pr numbers."
+  (make-counter))
+
+(def used-nonces
+  "We keep track of the UUIDs which have been used as nonces in inputs."
+  (ref set/empty))
+
+(def unused-nonce?
+  "Check that a nonce has not been used already."
+  (fn [nonce]
+    (not (set/member? nonce (read-ref used-nonces)))))
+
+(def mark-used-nonce
+  "Mark a UUID as used."
+  (fn [nonce]
+    (modify-ref used-nonces (fn [s] (set/insert nonce s)))))
+
+(def set-prs
+  "A helper to set stuff in the prs ref."
+  (fn [l v]
+    (set-ref prs l v)))
+
+(def validator/nonce
+  "Validator for unused nonces."
+  (validator/and
+   [validator/uuid
+    (validator/pred "Nonce not already used" unused-nonce?)]))
+
+(def validator/text
+  "A validator for text."
+  (fn [max-len]
+    (validator/and
+     [(validator/type :string)
+      (validator/pred (string-append "< " (show max-len) " chars in length")
+                      (fn [s] (< (string-length s) max-len)))])))
+
+(def pr-keys
+  {})
+
+(def strip-input
+  "After an entity input has been processed/verified, we no longer need some of
+  the fields."
+  (fn [e]
+  (delete-many [:chain-id :signature :nonce :pr-number] e)))
+
+(def create-pr
+  "Create an pr from a dict, checking that it is valid and storing it in `prs`."
+  (fn [i]
+    (def n (pr-counter :next))
+    (def i_
+      (strip-input
+       (<> i
+           {:number   n})))
+    (set-prs (@ n) i_)
+    (mark-used-nonce (lookup :nonce i))))
+
+(def list-prs
+  "List existing prs."
+  (fn [] (read-ref prs)))
+
+(def commands
+  "The set of allowed chain commands."
+  (ref
+   {'create-pr create-pr
+    'list-prs  list-prs}))
+
+(def process-command
+  "Function that maps post-eval commands to existing functions"
+  (fn [expr]
+    (def command (first expr))
+    (def args    (rest expr))
+    (def do-this (lookup command (read-ref commands)))
+    (apply do-this args)))
+
+;; Move to eval-fn-app & updatable-eval from chain.rad to a pure file so it may
+;; be imported
+
+(def eval-fn-app
+  "Given a state, a function, an argument and a callback, returns
+  the result of evaluating the function call on the arg in the given
+  state, while also calling the callback on the result."
+  (fn [state f arg cb]
+    (def exec (base-eval (list f (list 'quote arg)) state))
+    (cb (first exec))
+    exec))
+
+(def updatable-eval
+  "Given an evaluation function `f`, returns a new one which augments `f` with a new
+  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
+  (fn [sub-eval]
+    (fn [expr state]
+      (match expr
+             (/cons 'cmd _) (if (eq? cmd 'update)
+                              (base-eval (nth 1 expr) state)
+                              (sub-eval expr state))
+             _ (sub-eval expr state)))))
+
+(def eval (updatable-eval
+    (fn [expr state]
+      (eval-fn-app state 'process-command expr (fn [x] x)))))
