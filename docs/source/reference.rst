@@ -168,6 +168,11 @@ Given a function ``f`` and a sequence (list or vector) ``xs``, returns a
 sequence of the same size and type as ``xs`` but with ``f`` applied to
 all the elements.
 
+``length``
+~~~~~~~~~~
+
+Returns the length of a vector, list, or string.
+
 ``foldl``
 ~~~~~~~~~
 
@@ -277,7 +282,7 @@ arguments isn't a string then an exception is thrown.
 ``string-length``
 ~~~~~~~~~~~~~~~~~
 
-Returns the length of a string.
+DEPRECATED Use ``length`` instead. Returns the length of a string.
 
 ``string-replace``
 ~~~~~~~~~~~~~~~~~~
@@ -566,10 +571,10 @@ Checks that there is a least one truthy value in a list.
 
 Returns true if ``xs`` is an empty sequence (either list or vector).
 
-``(length xs)``
-~~~~~~~~~~~~~~~
+``length``
+~~~~~~~~~~
 
-Returns the length of ``xs``.
+Returns the length of a vector, list, or string.
 
 ``(maybe->>= v f)``
 ~~~~~~~~~~~~~~~~~~~
@@ -885,6 +890,11 @@ Functions for manipulating sequences, that is lists and vectors.
 
 True if ``seq`` is empty, false otherwise.
 
+``(seq? x)``
+~~~~~~~~~~~~
+
+Returns ``#t`` if ``x`` is a list or a vector.
+
 ``(reverse xs)``
 ~~~~~~~~~~~~~~~~
 
@@ -900,6 +910,12 @@ Returns ``ls`` with only the elements that satisfy ``pred``.
 
 Returns all elements of a sequence ``ls`` until one does not satisfy
 ``pred``
+
+``(starts-with? s prefix)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``. Also
+works for strings
 
 ``prelude/set``
 ---------------

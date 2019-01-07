@@ -47,6 +47,7 @@ primFns:
 - vec-to-list
 - zip
 - map
+- length
 - foldl
 - foldr
 - drop
