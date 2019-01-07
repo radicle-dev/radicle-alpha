@@ -18,22 +18,6 @@
     (chain/send-prelude! url)
     (send-code! url "rad/monadic/issue-remote.rad")))
 
-(def sign-entity!
-  "Assumes a key pair is stored at `my-keys.rad`. Using that key pair, will sign a
-  dict by adding `:author` and `:signature` fields, so that it is valid
-  according to `validator/signed`, while also adding a `:nonce`."
-  (fn [e]
-    (def nonce (uuid!))
-    (def e_ (<> e {:chain-id radicle-issues-chain-id
-                   :nonce    nonce}))
-    (def ks (read-file-value! "my-keys.rad"))
-    (def sig
-      (gen-signature! (lookup :private-key ks)
-                      (show e_)))
-    (<> e_
-        {:author    (lookup :public-key ks)
-         :signature sig})))
-
 (def simple-issue
   "Create an open issue with no comments or labels."
   (fn [i]
@@ -54,31 +38,25 @@
      :created-at   t
      :modified-at  t}))
 
-(def send-signed-command!
-  "Send a command signed by the keys in `my-keys.rad`."
-  (fn [chain cmd payload]
-    (send! (lookup :url (read-ref chain))
-           [(list cmd (sign-entity! payload))])))
-
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."
   (fn [chain i]
-    (send-signed-command! chain 'create-issue i)))
+    (chain/send-signed-command! chain radicle-issues-chain-id 'create-issue i)))
 
 (def add-comment!
   "Create a remote comment with the keys in `my-keys.rad`."
   (fn [chain c]
-    (send-signed-command! chain 'add-comment c)))
+    (chain/send-signed-command! chain radicle-issues-chain-id 'add-comment c)))
 
 (def edit-issue!
   "Edit a remote issue with the keys in `my-keys.rad`."
   (fn [chain i]
-    (send-signed-command! chain 'edit-issue i)))
+    (chain/send-signed-command! chain radicle-issues-chain-id 'edit-issue i)))
 
 (def edit-comment!
   "Edit a remote comment with the keys in `my-keys.rad`."
   (fn [chain c]
-    (send-signed-command! chain 'edit-comment c)))
+    (chain/send-signed-command! chain radicle-issues-chain-id 'edit-comment c)))
 
 (def simple-create-issue!
   "Create a remote issue with sensible defaults."
