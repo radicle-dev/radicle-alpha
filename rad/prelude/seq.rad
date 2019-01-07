@@ -1,6 +1,6 @@
 {:module 'prelude/seq
  :doc "Functions for manipulating sequences, that is lists and vectors."
- :exports '[empty? seq? reverse filter take-while starts-with?
+ :exports '[empty? seq? reverse filter take-while starts-with? /prefix
            ]}
 
 (import prelude/basic :unqualified)
@@ -99,4 +99,48 @@
   [ (starts-with? [1 2 3] [1 2 3]) ==> #t ]
   [ (starts-with? [] []) ==> #t ]
   [ (starts-with? [] [1]) ==> #f ]
+  )
+
+(def /prefix
+  "Matches sequences that start with `prefix` and bind the rest of that
+  sequence to `rest-pat`. Also works for strings."
+  (fn [prefix rest-pat]
+    (fn [value]
+      (if (or (string? value) (seq? value))
+        (if (starts-with? value prefix)
+          (match-pat rest-pat (drop (length prefix) value))
+          :nothing)
+        :nothing)
+  )))
+
+(:test "/prefix"
+  [ (match [0 2 3]
+      (/prefix [0 2] 'rs) rs
+      )
+    ==> [3] ]
+  [ (match '(1 2 3)
+      (/prefix '(1 2) 'rs) rs
+      )
+    ==> (3) ]
+  [ (match "abcd"
+      (/prefix "ab" 'rs) rs
+      )
+    ==> "cd" ]
+  ;; nested pattern
+  [ (match [1 2 3]
+      (/prefix [1 2] (/as 'rs _)) rs
+      )
+    ==> [3] ]
+  ;; fail on keyword
+  [ (match :foo
+      (/prefix [] _) #f
+      _              :fall-through
+      )
+    ==> :fall-through ]
+  ;; fail if type differs
+  [ (match '()
+      (/prefix [] _) #f
+      _              :fall-through
+      )
+    ==> :fall-through ]
   )
