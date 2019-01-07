@@ -7,6 +7,7 @@
 (load! "rad/prelude.rad")
 
 (import prelude/lens :unqualified)
+(import prelude/chain '[send-code! ]:unqualified)
 
 (def radicle-issues-chain-id
   "The name of this chain."
@@ -57,8 +58,9 @@
 (def send-signed-command!
   "Send a command signed by the keys in `my-keys.rad`."
   (fn [chain cmd payload]
-    (send! (lookup :url (read-ref chain))
-           [(list cmd (sign-entity! payload))])))
+    (chain/send!
+      (lookup :url (read-ref chain))
+      [(list cmd (sign-entity! payload))])))
 
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."

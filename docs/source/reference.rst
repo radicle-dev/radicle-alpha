@@ -786,11 +786,6 @@ Read a single radicle value from a file.
 
 Read many radicle values from a file.
 
-``(send-code! chain-id filename)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Send code from a file to a remote chain.
-
 ``(shell-with-stdout! command to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1091,6 +1086,27 @@ while also calling the callback on the result.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Send the pure prelude to a chain.
+
+``(send-code! chain-id filename)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send code from a file to a remote chain.
+
+``(send! machine-id inputs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Update a machine with the vector of ``inputs`` to evaluate. Returns an
+index that identifies that last input. This index can be passed to
+``receive!``
+
+``(receive! machine-id index)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Get inputs from a machine. Returns a ``[index inputs]`` pair where
+``inputs`` is a vector of expressions and ``index`` is the index of the
+last input in ``inputs``. The ``index`` argument is either ``:nothing``
+in which case all inputs are fetched or ``[:just i]`` in which case all
+inputs following after the index ``i`` are fetched.
 
 ``prelude/state-machine``
 -------------------------

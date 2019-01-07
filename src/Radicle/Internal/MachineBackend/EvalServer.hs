@@ -81,8 +81,8 @@ chainSinceEndpoint = Proxy
 -- * Client
 --
 
--- | Returns definitions for the primitive functions
--- @send!@ and @receive@.
+-- | Returns definitions for the primitive functions for the
+-- @eval-server@ machine backend.
 createEvalServerBackendPrimFns :: MonadIO m => IO (PrimFns m)
 createEvalServerBackendPrimFns = do
     httpMgr <- HttpClient.newManager HttpClient.defaultManagerSettings
@@ -91,25 +91,17 @@ createEvalServerBackendPrimFns = do
 httpMachineBackendPrimFns :: MonadIO m => HttpClient.Manager -> PrimFns m
 httpMachineBackendPrimFns mgr =
     buildMachineBackendPrimFns MachineBackend
-        { machineUpdate =
-            ( "send!"
-            , "Given a URL string and a value, sends the value `v` to the remote\
-              \ chain located at the URL for evaluation. Returns the index of the\
-              \ submitted input."
-            , \url values -> do
+        { machineType = "eval-server"
+        , machineUpdate =
+            \url values -> do
                 res <- liftIO $ runClientM' url mgr (submit $ toList values)
                 pure $ case res of
                     Left servantError -> Left $ formatServantError servantError
                     Right val -> case fromRad val of
                         Left err -> Left $ "cannot parse server response: " <> err
                         Right n -> Right n
-            )
         , machineGetLog =
-            ( "receive!"
-            , "Given a URL string and a `[:just n]`, where `n` is an integer, returns\
-              \ all inputs from the remote chain after index `n`. If the second argument\
-              \ is `:nothing` all inputs are returned."
-            , \url maybeIndex -> do
+            \url maybeIndex -> do
                 -- There is mismatch between the HTTP API and the
                 -- storage interface that we need to account for here.
                 -- 1. If we send the index `n` to the HTTP API the
@@ -126,7 +118,6 @@ httpMachineBackendPrimFns mgr =
                 pure $ case res of
                     Left err     -> Left $ formatServantError err
                     Right values -> Right (length values + index, values)
-            )
         }
   where
     formatServantError = \case
