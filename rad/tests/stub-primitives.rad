@@ -1,0 +1,21 @@
+;; This script stubs some primitives for code evaluated afterwards.
+;;
+;; This code is used by `rad/tests/run.rad` to test code that relies on
+;; primitives. Currently only the `send!` and `receive!` primitives are stubbed.
+;;
+;; A primitive `prim` is stubbed by creating a ref `primitive-stub-ref/prim`
+;; that holds the original primitive value. The function `prim` is then
+;; redefined as calling the function stored in the reference.
+;;
+;; See `prelude/chain/install-remote-chain-fake` for how to use primitve stubs.
+
+;; send!
+(def primitive-stub-ref/send! (ref machine/eval-server/update!))
+(def machine/eval-server/update!
+  (fn [a b] ((read-ref primitive-stub-ref/send!) a b)))
+
+;; receive!
+(def primitive-stub-ref/receive! (ref machine/eval-server/get-log!))
+(def machine/eval-server/get-log!
+  (fn [a b] ((read-ref primitive-stub-ref/receive!) a b)))
+

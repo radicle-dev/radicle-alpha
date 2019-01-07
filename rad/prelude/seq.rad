@@ -1,11 +1,22 @@
 {:module 'prelude/seq
  :doc "Functions for manipulating sequences, that is lists and vectors."
- :exports '[empty? reverse filter take-while]}
+ :exports '[empty? seq? reverse filter take-while starts-with? /prefix
+           ]}
 
 (import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
 (import prelude/patterns :unqualified)
 
+(def seq?
+  "Returns `#t` if `x` is a list or a vector."
+  (fn [x] (or (list? x) (vector? x))))
+
+(:test "seq?"
+  [ (seq? (list)) ==> #t ]
+  [ (seq? []) ==> #t ]
+  [ (seq? :foo) ==> #f ]
+  [ (seq? "foo") ==> #f ]
+  )
 
 (def empty?
   "True if `seq` is empty, false otherwise."
@@ -71,3 +82,65 @@
   [ (take-while (fn [x] (eq? x "bar")) (list "foo" "bar") ) ==> () ]
   [ (take-while (fn [x] (not (eq? x "bar"))) (list "foo" "bar") ) ==> ("foo") ]
   [ (take-while (fn [x] (< x 10)) [3 9 10 11] ) ==> [3 9] ])
+
+
+(def starts-with?
+  "Returns `#t` if `prefix` is a prefix of the sequence `s`. Also works for strings"
+  (fn [s prefix]
+    (eq? (take (length prefix) s) prefix)))
+
+(:test "starts-with?"
+  [ (starts-with? "abc" "ab") ==> #t ]
+  [ (starts-with? "abc" "abc") ==> #t ]
+  [ (starts-with? "abc" "") ==> #t ]
+  [ (starts-with? [1 2 3] []) ==> #t ]
+  [ (starts-with? [1 2 3] [1 2]) ==> #t ]
+  [ (starts-with? [1 2 3] [1 2 4]) ==> #f ]
+  [ (starts-with? [1 2 3] [1 2 3]) ==> #t ]
+  [ (starts-with? [] []) ==> #t ]
+  [ (starts-with? [] [1]) ==> #f ]
+  )
+
+(def /prefix
+  "Matches sequences that start with `prefix` and bind the rest of that
+  sequence to `rest-pat`. Also works for strings."
+  (fn [prefix rest-pat]
+    (fn [value]
+      (if (or (string? value) (seq? value))
+        (if (starts-with? value prefix)
+          (match-pat rest-pat (drop (length prefix) value))
+          :nothing)
+        :nothing)
+  )))
+
+(:test "/prefix"
+  [ (match [0 2 3]
+      (/prefix [0 2] 'rs) rs
+      )
+    ==> [3] ]
+  [ (match '(1 2 3)
+      (/prefix '(1 2) 'rs) rs
+      )
+    ==> (3) ]
+  [ (match "abcd"
+      (/prefix "ab" 'rs) rs
+      )
+    ==> "cd" ]
+  ;; nested pattern
+  [ (match [1 2 3]
+      (/prefix [1 2] (/as 'rs _)) rs
+      )
+    ==> [3] ]
+  ;; fail on keyword
+  [ (match :foo
+      (/prefix [] _) #f
+      _              :fall-through
+      )
+    ==> :fall-through ]
+  ;; fail if type differs
+  [ (match '()
+      (/prefix [] _) #f
+      _              :fall-through
+      )
+    ==> :fall-through ]
+  )

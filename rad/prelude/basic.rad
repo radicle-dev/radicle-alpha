@@ -45,17 +45,15 @@
     (or (eq? xs (list))
         (eq? xs []))))
 
-;; length
-
-(def length
-  "Returns the length of `xs`."
-  (fn [xs]
-    (foldr (fn [x acc] (+ acc 1)) 0 xs)))
-
+;; TODO move to file for primitive tests
 (:test "length"
   [ (length (list)) ==> 0]
   [ (length (list 2)) ==> 1]
-)
+  [ (length []) ==> 0]
+  [ (length [1 2]) ==> 2]
+  [ (length "") ==> 0]
+  [ (length "abc") ==> 3]
+  )
 
 (def maybe->>=
   "Monadic bind for the maybe monad."

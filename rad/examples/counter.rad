@@ -31,7 +31,7 @@
 (def counter/init-chain!
   "Send the counter application prelude to a chain."
   (fn [chain-id]
-    (send! chain-id counter/prelude)
+    (chain/send! chain-id counter/prelude)
     :done
 ))
 
@@ -41,7 +41,7 @@
     (def chain (chain/load-chain! chain-id))
     (def expr '(increment))
     (def result (lookup :result (chain/eval-in-chain expr chain)))
-    (send! chain-id [expr])
+    (chain/send! chain-id [expr])
     result
 ))
 

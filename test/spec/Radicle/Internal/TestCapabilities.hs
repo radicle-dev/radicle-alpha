@@ -118,32 +118,27 @@ sourceFiles = do
 testBindings :: Bindings (PrimFns (StateT WorldState IO))
 testBindings = addPrimFns memoryMachineBackendPrimFns (replBindings [])
 
--- | Provides @send!@ and @receive!@ functions that store chains in a
--- 'Map' in the 'WorldState'.
+-- | Provides a fake implementation of the @eval-server" machine
+-- backend that store chains in a 'Map' in the 'WorldState'.
 memoryMachineBackendPrimFns :: PrimFns (StateT WorldState IO)
 memoryMachineBackendPrimFns =
     buildMachineBackendPrimFns MachineBackend
-        { machineUpdate =
-            ( "send!"
-            , "Mocked version of `send!` that stores sent values in a map with chains as keys."
-            , \id values -> do
+        { machineType = "eval-server"
+        , machineUpdate =
+            \id values -> do
                 chains <- gets worldStateRemoteChains
                 let exprs = Map.findWithDefault mempty id chains
                 let newExprs = exprs Seq.>< values
                 modify $ \s ->
                    s { worldStateRemoteChains = Map.insert id newExprs $ worldStateRemoteChains s }
                 pure $ Right $ Seq.length newExprs
-            )
         , machineGetLog =
-            ( "receive!"
-            , "Mocked version of `receive!` that retrieves values from a map with chains as keys."
-            , \id maybeIndex -> do
+            \id maybeIndex -> do
                 chains <- gets worldStateRemoteChains
                 let exprs = Map.findWithDefault mempty id chains
                 let index = fromMaybe 0 maybeIndex
                 let newIndex = Seq.length exprs
                 pure $ Right $ (newIndex, toList $ Seq.drop index exprs)
-            )
         }
 
 instance {-# OVERLAPPING #-} Stdin TestLang where

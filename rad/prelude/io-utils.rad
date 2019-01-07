@@ -16,6 +16,22 @@
            [] :nothing
            ['x] [:just (string-replace "\n" "" x)])))
 
+(def fzf-select-with-preview!
+  "Like `fzf-select!`, but includes a preview defined by `prev-fn`."
+  (fn [xs prev-fn]
+    (def temp-file (first (process-with-stdout! "mktemp" [] "")))
+    (def d (dict-from-seq (map (fn [x] [x (prev-fn x)]) xs)))
+    (def contents
+      (string-append
+        "(def the-dict " (show d) ")"
+        "(put-str! (lookup (first (get-args!)) the-dict))"))
+    (write-file! temp-file contents)
+    (def preview ["--preview" (string-append "radicle " temp-file " {}")])
+    (def result (process-with-stdout! "fzf" preview (unlines xs)))
+    (match result
+           [] :nothing
+           ['x] [:just (string-replace "\n" "" x)])))
+
 (def edit-in-editor!
   "Open `$EDITOR` on a file prepopulated with `orig`. Returns the contents of the edited file when the editor exits."
   (fn [orig]

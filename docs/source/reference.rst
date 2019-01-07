@@ -168,6 +168,11 @@ Given a function ``f`` and a sequence (list or vector) ``xs``, returns a
 sequence of the same size and type as ``xs`` but with ``f`` applied to
 all the elements.
 
+``length``
+~~~~~~~~~~
+
+Returns the length of a vector, list, or string.
+
 ``foldl``
 ~~~~~~~~~
 
@@ -277,7 +282,7 @@ arguments isn't a string then an exception is thrown.
 ``string-length``
 ~~~~~~~~~~~~~~~~~
 
-Returns the length of a string.
+DEPRECATED Use ``length`` instead. Returns the length of a string.
 
 ``string-replace``
 ~~~~~~~~~~~~~~~~~~
@@ -566,10 +571,10 @@ Checks that there is a least one truthy value in a list.
 
 Returns true if ``xs`` is an empty sequence (either list or vector).
 
-``(length xs)``
-~~~~~~~~~~~~~~~
+``length``
+~~~~~~~~~~
 
-Returns the length of ``xs``.
+Returns the length of a vector, list, or string.
 
 ``(maybe->>= v f)``
 ~~~~~~~~~~~~~~~~~~~
@@ -786,11 +791,6 @@ Read a single radicle value from a file.
 
 Read many radicle values from a file.
 
-``(send-code! chain-id filename)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Send code from a file to a remote chain.
-
 ``(shell-with-stdout! command to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -829,6 +829,16 @@ Read a file key. Assumes that the file contents is a serialised dict.
 
 Write a key to a file. Assumes that the file contents is a serialised
 dict.
+
+``(ls!)``
+~~~~~~~~~
+
+List the contents of the current working directory
+
+``(modify-file! file f)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Modified the value stored in a file according to the function ``f``.
 
 ``prelude/bool``
 ----------------
@@ -880,6 +890,11 @@ Functions for manipulating sequences, that is lists and vectors.
 
 True if ``seq`` is empty, false otherwise.
 
+``(seq? x)``
+~~~~~~~~~~~~
+
+Returns ``#t`` if ``x`` is a list or a vector.
+
 ``(reverse xs)``
 ~~~~~~~~~~~~~~~~
 
@@ -895,6 +910,18 @@ Returns ``ls`` with only the elements that satisfy ``pred``.
 
 Returns all elements of a sequence ``ls`` until one does not satisfy
 ``pred``
+
+``(starts-with? s prefix)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``. Also
+works for strings
+
+``(/prefix prefix rest-pat)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Matches sequences that start with ``prefix`` and bind the rest of that
+sequence to ``rest-pat``. Also works for strings.
 
 ``prelude/set``
 ---------------
@@ -1081,6 +1108,34 @@ while also calling the callback on the result.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Send the pure prelude to a chain.
+
+``(send-code! chain-id filename)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send code from a file to a remote chain.
+
+``(send! machine-id inputs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Update a machine with the vector of ``inputs`` to evaluate. Returns an
+index that identifies that last input. This index can be passed to
+``receive!``
+
+``(receive! machine-id index)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Get inputs from a machine. Returns a ``[index inputs]`` pair where
+``inputs`` is a vector of expressions and ``index`` is the index of the
+last input in ``inputs``. The ``index`` argument is either ``:nothing``
+in which case all inputs are fetched or ``[:just i]`` in which case all
+inputs following after the index ``i`` are fetched.
+
+``(install-remote-chain-fake)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Install test doubles for the ``send!`` and ``receive!`` primitives that
+use a mutable dictionary to store RSMs. Requires
+``rad/test/stub-primitives`` to be loaded
 
 ``prelude/state-machine``
 -------------------------

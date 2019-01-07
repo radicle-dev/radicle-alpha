@@ -1,11 +1,15 @@
 {:module 'prelude/chain
  :doc "Functions for simulating remote chains."
- :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval updatable-eval update-chain! eval-fn-app send-prelude!]}
+ :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval
+            updatable-eval update-chain! eval-fn-app send-prelude!
+            send-code! send! receive! install-remote-chain-fake]}
 
 (import prelude/io '[read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
-(import prelude/lens '[.. ... view over @] :unqualified)
+(import prelude/lens '[.. ... view over @ @def] :unqualified)
 (import prelude/basic :unqualified)
+(import prelude/io :unqualified)
+(import prelude/patterns :unqualified)
 
 ;; Chains: Functions for dealing with chains.
 
@@ -13,6 +17,22 @@
 ;;   - A known starting state (i.e. environment, and the assumption that `eval
 ;;     == base-eval')
 ;;   - A sequence of inputs.
+
+(def send!
+  "Update a machine with the vector of `inputs` to evaluate. Returns an
+  index that identifies that last input. This index can be passed to
+  `receive!`"
+  (fn [machine-id inputs]
+    (machine/eval-server/update! machine-id inputs)))
+
+(def receive!
+  "Get inputs from a machine. Returns a `[index inputs]` pair where
+  `inputs` is a vector of expressions and `index` is the index of the
+  last input in `inputs`. The `index` argument is either `:nothing` in
+  which case all inputs are fetched or `[:just i]` in which case all
+  inputs following after the index `i` are fetched."
+  (fn [machine-id index]
+    (machine/eval-server/get-log! machine-id index)))
 
 (def @var
   "A lens for variables in states of chains."
@@ -46,12 +66,9 @@
     {:chain new-chain
      :result result }))
 
-(def local-test-chain-name
-  (fn [] (string-append "http://localhost:8000/chains/" (uuid!))))
-
 (:test "eval-in-chain"
   [:setup
-    (do (def empty-chain (new-chain (local-test-chain-name)))
+    (do (def empty-chain (new-chain (uuid!)))
         (def res1 (eval-in-chain '(def x 3) empty-chain))
         (def res (eval-in-chain '(+ x 2) (lookup :chain res1))))
   ]
@@ -76,10 +93,32 @@
     (def chain (foldl upd-ch chain new-inputs))
     (insert :index [:just new-index] chain)))
 
+(def install-remote-chain-fake
+  "Install test doubles for the `send!` and `receive!` primitives that
+  use a mutable dictionary to store RSMs. Requires
+  `rad/test/stub-primitives` to be loaded"
+  (fn []
+      (def remote-chains (ref {}))
+
+      (write-ref primitive-stub-ref/send!
+        (fn [name exprs]
+          (modify-ref remote-chains
+            (fn [chains] (over (@def name []) (fn [chain-exprs] (<> chain-exprs exprs)) chains)))))
+
+      (write-ref primitive-stub-ref/receive!
+        (fn [name maybeIndex]
+          (def inputs (lookup name (read-ref remote-chains)))
+          (def index
+            (match maybeIndex
+              (/just 'index) (+ index 1)
+              :nothing 0))
+          [(length inputs) (drop index inputs)]))
+  ))
 (:test "update-chain!"
   [:setup
     (do
-       (def chain-name (local-test-chain-name))
+       (install-remote-chain-fake)
+       (def chain-name (uuid!))
        (def chain (new-chain chain-name))
        (send! chain-name ['(+ 3 2)])
        (send! chain-name ['(+ 3 3)])
@@ -104,7 +143,8 @@
 (:test "update-chain-ref!"
   [:setup
     (do
-       (def chain-name (local-test-chain-name))
+       (install-remote-chain-fake)
+       (def chain-name (uuid!))
        (def chain (ref (new-chain chain-name)))
        (send! chain-name ['(+ 3 2)])
        (send! chain-name ['(+ 3 3)])
@@ -215,3 +255,8 @@
   "Send the pure prelude to a chain."
   (fn [chain-id]
     (send! chain-id pure-prelude-code)))
+
+(def send-code!
+  "Send code from a file to a remote chain."
+  (fn [chain-id filename]
+    (send! chain-id (io/read-file-values! filename))))

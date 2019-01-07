@@ -3,7 +3,7 @@
 ;; Test correctness of the storage interface provided by the server.
 ;;
 ;; This script tests that the HTTP server implements the storage protocol with
-;; `send!` and `receive!` properly.
+;; `machine/eval-server/update!` and `machine/eval-server/get-log!` properly.
 ;;
 ;; The script accepts the hostname of the server as an optional argument. The
 ;; hostname defaults to `localhost`. We always use port 8000.
@@ -30,41 +30,41 @@
 (def exprs-2 [ :f1 :f2 :f3 ])
 
 (def test/receive-all
-  "Passing `:nothing` to `receive!` returns all expressions"
+  "Passing `:nothing` to `machine/eval-server/get-log!` returns all expressions"
   (fn []
     (def machine-id (create-machine))
-    (send! machine-id exprs-1)
-    (send! machine-id exprs-2)
+    (machine/eval-server/update! machine-id exprs-1)
+    (machine/eval-server/update! machine-id exprs-2)
     (def all-exprs (<> exprs-1 exprs-2))
-    (match (receive! machine-id :nothing)
+    (match (machine/eval-server/get-log! machine-id :nothing)
       [_ 'received-exprs] (assert-equal received-exprs all-exprs))
   ))
 
 (def test/receive-last-index
   (fn []
-    "Passing the last index from `send!` to `receive!` returns no expressions"
+    "Passing the last index from `machine/eval-server/update!` to `machine/eval-server/get-log!` returns no expressions"
     (def machine-id (create-machine))
-    (def index (send! machine-id exprs-1))
-    (match (receive! machine-id [:just index])
+    (def index (machine/eval-server/update! machine-id exprs-1))
+    (match (machine/eval-server/get-log! machine-id [:just index])
       [_ 'received-exprs] (assert-equal received-exprs []))
   ))
 
 (def test/receive-with-index
   (fn []
-    "Passing an index from `send!` to `receive!` returns no expressions"
+    "Passing an index from `machine/eval-server/update!` to `machine/eval-server/get-log!` returns no expressions"
     (def machine-id (create-machine))
-    (def index (send! machine-id exprs-1))
-    (send! machine-id exprs-2)
-    (match (receive! machine-id [:just index])
+    (def index (machine/eval-server/update! machine-id exprs-1))
+    (machine/eval-server/update! machine-id exprs-2)
+    (match (machine/eval-server/get-log! machine-id [:just index])
       [_ 'received-exprs] (assert-equal received-exprs exprs-2))
   ))
 
 (def test/receive-returns-sent-index
-  "`receive!` returns the last sent index"
+  "`machine/eval-server/get-log!` returns the last sent index"
   (fn []
     (def machine-id (create-machine))
-    (def index-send (send! machine-id exprs-1))
-    (match (receive! machine-id :nothing)
+    (def index-send (machine/eval-server/update! machine-id exprs-1))
+    (match (machine/eval-server/get-log! machine-id :nothing)
       ['index-receive _] (assert-equal index-receive index-send))
   ))
 

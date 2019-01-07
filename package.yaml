@@ -191,6 +191,18 @@ executables:
     - optparse-applicative
     ghc-options: -main-is GithubIssues
 
+  radicle-benchmark:
+    main: Benchmarks.hs
+    source-dirs: exe/
+    other-modules: []
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    dependencies:
+    - radicle
+    - criterion
+    ghc-options: -main-is Benchmarks
+
 default-extensions:
 - AutoDeriveTypeable
 - ConstraintKinds
