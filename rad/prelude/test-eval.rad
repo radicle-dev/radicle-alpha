@@ -18,7 +18,7 @@
         (if (eq? (first expr) :test)
             (do
                 (def bindings (lookup :env env))
-                (def test-def {:tests (drop 2 expr) :name (nth 1 expr) :env env})
+                (def test-def {:doc-test (drop 2 expr) :name (nth 1 expr) :env env})
                 (def next-tests {:val test-def})
                 (def bindings_ (insert 'next-tests__ next-tests bindings))
                 (def env (insert :env bindings_ env))

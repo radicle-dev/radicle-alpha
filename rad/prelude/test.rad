@@ -1,12 +1,14 @@
 {:module 'prelude/test
  :doc "Provides eval that adds a `:test` macro."
- :exports '[run run-all assert-equal]}
+ :exports '[run-all make-suite assert-equal]}
 
 
 (import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
+(import prelude/io :unqualified)
 (import prelude/list :unqualified)
 (import prelude/patterns :unqualified)
+(import prelude/validation :as 'validate)
 
 (def assert-equal
   "Compares `actual` with `expected` with `eq?`. If the values are not equal an
@@ -70,17 +72,11 @@
         [:nothing steps])
   ))
 
-(def print-test-result
-  "Print a test result to stdout using the Test Anyhting Protocol (TAP)."
-  (fn [name result i]
-    (match result
-      [:ok _]      (put-str! (string-append "ok " (show i) " - " name))
-      [:error 'msg] (put-str! (string-append "not ok " (show i) " - " name)))))
-
-(def run
-  "Run the tests in `test-def` and print the result. `test-def` is a `{:env env
-  :tests tests :name name}` dictionary where `env` is a radicle environment and
-  `tests` is a list of quoted test cases with an optional `:setup` item.
+(def parse-doc-test
+  "Parse a doc test definition `test-def` and return a simple test. A
+  doc test definition is a  `{:env env :doc-tests tests :name name}`
+  dictionary where `env` is a radicle environment and `tests` is a list
+  of quoted test cases with an optional `:setup` item.
   ```
   '(
     [:setup (do
@@ -91,25 +87,62 @@
   )
   ```
   "
-  (fn [test-def index]
+  (fn [test-def]
     (def test-env (lookup :env test-def))
     (def test-name (lookup :name test-def))
-    (def test-contents (lookup :tests test-def))
-    (def setup-and-steps (extract-setup (lookup :tests test-def)))
+    (def test-contents (lookup :doc-test test-def))
+    (def setup-and-steps (extract-setup test-contents))
     (def setup (nth 0 setup-and-steps))
     (def steps (nth 1 setup-and-steps))
     (def step-runners (map parse-doc-test-step steps))
     (def test-env (nth 1 (eval setup test-env)))
-    (def result
-      (try 'any
-        (fn []
-          (map (fn [r] (r test-env)) step-runners)
-          :nil)))
-    (print-test-result test-name result index)
-    (match result
-      [:error _] #f
-      [:ok _] #t)
-))
+    (def run
+      (fn []
+        (map (fn [r] (r test-env)) step-runners)
+        :nil))
+    {:name test-name :run run}
+    ))
+
+
+(def parse-test
+  "If the test is a doc test, parse it. Otherwise just return the test definition."
+  (fn [test]
+    (if (member? :doc-test test)
+      (parse-doc-test test)
+      test
+      )))
+
+
+(def run-test
+  "Executes a test and print the result. Returns `#t` if the test
+  passed, `#f` otherwise."
+  (fn [test-def index]
+    (match (parse-test test-def)
+      {:name 'name :run 'run} (do
+        (def result (try 'any run))
+        (match result
+          [:ok _]       (do
+            (put-str! (string-append "ok " (show index) " - " name))
+            #t
+            )
+          [:error 'msg] (do
+            (put-str! (string-append "not ok " (show index) " - " name))
+            #f
+            )
+          )))))
+
+(def make-suite
+  "Define a set of tests from a dictionary. The keys of `tests` are
+  test names as strings. The values are functions that run the test.
+  Test names are prefixed with `suite-name`."
+  (fn [suite-name tests]
+    (map
+      (fn [item]
+        (match item ['test-name 'run] (do
+          ((validate/type :function) run)
+          ((validate/type :string) test-name)
+          {:name (string-append suite-name ": " test-name) :run run})))
+      (seq tests))))
 
 
 (def run-all
@@ -117,7 +150,7 @@
   (fn [tests]
     (put-str! (string-append "1.." (show (length tests))))
     (foldl-with-index
-      (fn [ok t i] (and ok (run t (+ 1 i))))
+      (fn [ok t i] (and ok (run-test t (+ 1 i))))
       #t
       tests)
   ))
