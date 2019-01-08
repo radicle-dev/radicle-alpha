@@ -78,7 +78,7 @@
     (cond
       (atom? pat)
       [:just {pat v}]
-      (some [(number? pat) (keyword? pat) (string? pat)])
+      (some [(number? pat) (keyword? pat) (string? pat) (boolean? pat)])
       (if (eq? pat v) [:just {}] :nothing)
       (dict? pat)
       ((/dict pat) v)

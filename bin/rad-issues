@@ -93,7 +93,7 @@
 
 (def list-items
   "Lists the recent items and uses an editor to add a relevant comment."
-  (fn [chain last-seen]
+  (fn [chain options]
 
     (def chain-ref (make-chain-ref chain))
     (load! "rad/monadic/names.rad")
@@ -128,12 +128,20 @@
                (/as 'i {:issue {:number 'n :title 'tit}})
                [(string-append "Issue " (show n) " - " tit) i])))
 
+    (def filt
+      (match [(lookup-default "open" #f options)
+              (lookup-default "closed" #f options)]
+             [#t #f] (fn [x] (eq? (lookup :state (lookup :issue x)) :open))
+             [#f #t] (fn [x] (eq? (lookup :state (lookup :issue x)) :closed))
+             _       (fn [x] #t)))
+
     (def items
       (map mk-key
-           (match last-seen
-             (/just 't) (recent-activity chain-ref t)
-             _          (map (fn [i] {:issue i})
-                             (reverse (values (list-issues chain-ref)))))))
+           (filter filt
+                   (match [(lookup-default "new" #f options) (read-file-key! ".radicle-issues" :last-mark-done)]
+                          [#t [:just 't]] (recent-activity chain-ref t)
+                          _               (map (fn [i] {:issue i})
+                                               (reverse (values (list-issues chain-ref))))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -160,6 +168,16 @@
                     (do (simple-add-comment! chain-ref issue-number added-comment)
                         (string-append "Sent comment: " added-comment)))))
              _ (put-str! "No selection made.")))))
+
+(def close-issue
+  (fn [issue-number chain-name]
+    (def n (read issue-number))
+    (if (number? n)
+      (if (integral? n)
+        (do (def chain-ref (make-chain-ref chain-name))
+            (simple-edit-issue! chain-ref n {:state :closed}))
+        (cmd-parse-failure "Issue numbers must be whole numbers!"))
+      (cmd-parse-failure "To close an issue, please provide the issue number."))))
 
 (def new-issue
   (fn [chain]
@@ -212,6 +230,20 @@
         _ :nothing)
     )))
 
+(def /cmd-2
+  (fn [cmd arg-1 arg-2]
+    ((validation/type :string) cmd)
+    ((validation/type :atom) arg-1)
+    ((validation/type :atom) arg-2)
+    (fn [value]
+      (match value
+             [cmd 'a-1 'a-2] (match-pat [arg-1 arg-2] [a-1 a-2])
+             [cmd _] (cmd-parse-failure (string-append "Missing argument \"" (show arg-2) "\" for command \"" cmd "\""))
+             [cmd] (cmd-parse-failure (string-append "Missing argument \"" (show arg-1) "\" for command \"" cmd "\""))
+             (/cons cmd _) (cmd-parse-failure (string-append "Too many arguments for command \"" cmd "\""))
+             _ :nothing)
+      )))
+
 (def /cmd-0
   (fn [cmd]
     ((validation/type :string) cmd)
@@ -222,14 +254,33 @@
         _ :nothing)
     )))
 
+(def list-options
+  (fn [os]
+    (foldr (fn [o acc]
+             (if (member? o ["--new" "--open" "--closed"])
+               (insert (drop 2 o) #t acc)
+               (cmd-parse-failure (string-append "Invalid list option: " o))))
+           {}
+           os)))
+
+(def /list-cmd
+  (fn [ch-name opts]
+    (fn [v]
+      (match v
+             (/cons "list" (/cons 'c-n 'os)) [:just {ch-name c-n
+                                                     opts    (list-options os)}]
+             _ :nothing))))
+
 (def args (get-args!))
 (match args
+  (/list-cmd 'chain-name 'options) (list-items chain-name options)
   (/cmd-1 "list" 'chain-name) (list-items chain-name :nothing)
   (/cmd-1 "list-new" 'chain-name) (list-items chain-name (read-file-key! ".radicle-issues" :last-mark-done))
   (/cmd-0 "names") (names)
   (/cmd-1 "make-key" 'nick) (make-key nick)
   (/cmd-1 "new" 'chain-name) (new-issue chain-name)
   (/cmd-1 "create-chain" 'chain-name) (create-chain chain-name)
+  (/cmd-2 "close" 'issue-number 'chain-name) (close-issue issue-number chain-name)
   (/cmd-0 "done") (mark-last-seen)
   ["help"] (put-str! help)
   ["-h"] (put-str! help)
