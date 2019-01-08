@@ -14,6 +14,7 @@
 
 (import prelude/patterns '[/cons] :unqualified)
 (import prelude/test '[assert-equal] :unqualified)
+(import prelude/test :as 'test)
 
 (def host
   (match (get-args!)
@@ -68,7 +69,10 @@
       ['index-receive _] (assert-equal index-receive index-send))
   ))
 
-(test/receive-all)
-(test/receive-last-index)
-(test/receive-with-index)
-(test/receive-returns-sent-index)
+
+(test/run-all (test/make-suite "server-machine-backend" {
+  "receive-all" test/receive-all
+  "receive-last-index" test/receive-last-index
+  "receive-with-index" test/receive-with-index
+  "receive-returns-sent-index" test/receive-returns-sent-index
+  }))
