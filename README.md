@@ -13,11 +13,15 @@ contain a lot more information on `radicle`.
 
 ## Installation
 
-You need [stack](https://docs.haskellstack.org/en/stable/install_and_upgrade/) and `libpq-dev`.
+You will need [`stack`](https://docs.haskellstack.org/en/stable/install_and_upgrade/) and `libpq-dev` installed.
+
+Then run:
 
 ```
 stack install
 ```
+
+Note: `stack` will need about 4GB of memory to compile successfully.
 
 ## Usage
 
