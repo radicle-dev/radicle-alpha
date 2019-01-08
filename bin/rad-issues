@@ -256,10 +256,13 @@
         _ :nothing)
     )))
 
+(def valid-list-options
+  ["--new" "--open" "--closed"])
+
 (def list-options
   (fn [os]
     (foldr (fn [o acc]
-             (if (member? o ["--new" "--open" "--closed"])
+             (if (member? o valid-list-options)
                (insert (drop 2 o) #t acc)
                (cmd-parse-failure (string-append "Invalid list option: " o))))
            {}
@@ -269,8 +272,11 @@
   (fn [ch-name opts]
     (fn [v]
       (match v
-             (/cons "list" (/cons 'c-n 'os)) [:just {ch-name c-n
-                                                     opts    (list-options os)}]
+             ["list"] (cmd-parse-failure "Missing arguments for command \"list\"")
+             (/cons "list" (/cons 'c-n 'os)) (if (member? c-n valid-list-options)
+                                               (cmd-parse-failure "Missing \"chain-name\" argument for command \"list\"")
+                                               [:just {ch-name c-n
+                                                       opts    (list-options os)}])
              _ :nothing))))
 
 (def args (get-args!))
