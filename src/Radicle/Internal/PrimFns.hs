@@ -241,6 +241,7 @@ purePrimFns = fromList $ allDocs $
               _         -> throwErrorHere $ TypeError "take" 1 TSequence vs
           (v, _) -> throwErrorHere $ TypeError "take" 0 TNumber v
       )
+    -- TODO(james) nth, sortby, zip, etc. should work for strings
     , ( "nth"
       , "Given an integral number `n` and `xs`, returns the `n`th element\
         \ (zero indexed) of `xs` when `xs` is a list or a vector. If `xs`\
@@ -431,8 +432,8 @@ purePrimFns = fromList $ allDocs $
         \ combining values with `f`, using elements of `xs` from left to right."
       , threeArg "foldl" $ \case
           (fn, ini, s) -> case s of
-            Vec xs -> foldlM (\b a -> callFn fn [b, a]) ini xs
-            List xs -> foldlM (\b a -> callFn fn [b, a]) ini xs
+            Vec xs -> foldlM (\x y -> callFn fn [x, y]) ini xs
+            List xs -> foldlM (\x y -> callFn fn [x, y]) ini xs
             String t -> T.foldl (\macc c -> do {x <- macc; callFn fn [x, String (T.singleton c)]}) (pure ini) t
             v -> throwErrorHere $ TypeError "foldl" 2 TSequence v
       )
@@ -441,18 +442,12 @@ purePrimFns = fromList $ allDocs $
         \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
         \ combining values with `f`, using elements of `xs` from right to left."
       , threeArg "foldr" $ \case
-          (fn, init', v) -> do
-            ls :: [Value] <- fromRadOtherErr v
-            foldrM (\b a -> callFn fn [b, a]) init' ls
+          (fn, ini, s) -> case s of
+            Vec xs -> foldrM (\x y -> callFn fn [x, y]) ini xs
+            List xs -> foldrM (\x y -> callFn fn [x, y]) ini xs
+            String t -> T.foldr (\c macc -> do {x <- macc; callFn fn [String (T.singleton c), x]}) (pure ini) t
+            v -> throwErrorHere $ TypeError "foldr" 2 TSequence v
       )
-    -- , ( "map"
-    --   , "Given a function `f` and a sequence (list or vector) `xs`, returns a sequence\
-    --     \ of the same size and type as `xs` but with `f` applied to all the elements."
-    --   , twoArg "map" $ \case
-    --       (fn, List ls) -> List <$> traverse (callFn fn) (pure <$> ls)
-    --       (fn, Vec ls)  -> Vec <$> traverse (callFn fn) (pure <$> ls)
-    --       (_, v)        -> throwErrorHere $ TypeError "map" 1 TSequence v
-    --   )
     , ( "keyword?"
       , isTy "keyword"
       , oneArg "keyword?" $ \case
