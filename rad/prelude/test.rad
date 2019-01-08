@@ -5,6 +5,7 @@
 
 (import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
+(import prelude/seq :unqualified)
 (import prelude/io :unqualified)
 (import prelude/list :unqualified)
 (import prelude/patterns :unqualified)

@@ -1,5 +1,6 @@
 (import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
+(import prelude/seq :unqualified)
 (import prelude/dict :unqualified)
 (import prelude/ref :unqualified)
 (import prelude/validation :as 'validator)
@@ -11,11 +12,11 @@
 
 (def name-unused?
   (fn [name]
-    (not (elem? name (map first (read-ref names))))))
+    (not (member? name (map first (read-ref names))))))
 
 (def key-unused?
   (fn [key]
-    (not (elem? key (map (fn [x] (nth 1 x)) (read-ref names))))))
+    (not (member? key (map (fn [x] (nth 1 x)) (read-ref names))))))
 
 (def validator/name
   (validator/and

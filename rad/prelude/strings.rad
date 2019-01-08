@@ -45,7 +45,7 @@
 (def is-space-char?
   "Returns true if the character `x` is a space character `space-chars`."
   (fn [x]
-    (elem? x space-chars)))
+    (member? x space-chars)))
 
 (:test "is-space-char?"
   [ (is-space-char? "s") ==> #f]

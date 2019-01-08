@@ -179,26 +179,32 @@ purePrimFns = fromList $ allDocs $
       , twoArg "cons" $ \case
           (x, List xs) -> pure $ List (x:xs)
           (x, Vec xs) -> pure $ Vec (x Seq.:<| xs)
-          (_, _)       -> throwErrorHere $ OtherError "cons: second argument not a list or vector"
+          (String (isChar -> Just c), String s) -> pure $ String (T.cons c s)
+          (_, String _) -> throwErrorHere $ OtherError "cons: when consing onto a string the first argument must be a single-character string"
+          (_, _)       -> throwErrorHere $ OtherError "cons: second argument must be a list, vector or string"
       )
     , ("first"
       , "Retrieves the first element of a sequence if it exists. Otherwise throws an\
         \ exception."
       , oneArg "first" $ \case
-          List (x:_)        -> pure x
-          List []           -> throwErrorHere $ OtherError "first: empty list"
-          Vec (x Seq.:<| _) -> pure x
-          Vec Seq.Empty     -> throwErrorHere $ OtherError "first: empty vector"
-          v                 -> throwErrorHere $ TypeError "first" 0 TSequence v)
+          List (x:_)                      -> pure x
+          List _                          -> throwErrorHere $ OtherError "first: empty list"
+          Vec (x Seq.:<| _)               -> pure x
+          Vec _                           -> throwErrorHere $ OtherError "first: empty vector"
+          String (T.uncons -> Just (c,_)) -> pure (String (T.singleton c))
+          String _                        -> throwErrorHere $ OtherError "first: empty string"
+          v                               -> throwErrorHere $ TypeError "first" 0 TSequence v)
     , ("rest"
       , "Given a non-empty sequence, returns the sequence of all the elements but the\
         \ first. If the sequence is empty, throws an exception."
       , oneArg "tail" $ \case
-          List (_:xs)        -> pure $ List xs
-          List []            -> throwErrorHere $ OtherError "rest: empty list"
-          Vec (_ Seq.:<| xs) -> pure $ Vec xs
-          Vec Seq.Empty      -> throwErrorHere $ OtherError "rest: empty vector"
-          v                  -> throwErrorHere $ TypeError "rest" 0 TSequence v)
+          List (_:xs)                     -> pure $ List xs
+          List _                          -> throwErrorHere $ OtherError "rest: empty list"
+          Vec (_ Seq.:<| xs)              -> pure $ Vec xs
+          Vec _                           -> throwErrorHere $ OtherError "rest: empty vector"
+          String (T.uncons -> Just (_,t)) -> pure $ String t
+          String _                        -> throwErrorHere $ OtherError "rest: empty string"
+          v                               -> throwErrorHere $ TypeError "rest" 0 TSequence v)
 
     -- Sequences: Lists and Vecs
     , ( "length"
@@ -419,27 +425,16 @@ purePrimFns = fromList $ allDocs $
             Right _ -> pure tt
           v -> throwErrorHere $ TypeError "integral?" 0 TNumber v
       )
-    , ( "foldl-string"
-      , "A left fold on a string. That is, given a function `f`, an initial\
-        \ accumulator value `init`, and a string `s`, reduce `s` by applying `f`\
-        \ to the accumulator and the next character in the string repeatedly."
-      , threeArg "foldl-string" $ \case
-          (fn, ini, String v) -> do
-              let folder f = T.foldl g (pure ini) v
-                    where
-                      g x y = x >>= (`f` y)
-              folder (\b a -> callFn fn [b, String $ T.singleton a])
-          (_, _, x)           -> throwErrorHere
-                               $ TypeError "foldl-string" 2 TString x
-      )
     , ( "foldl"
       , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
         \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
         \ combining values with `f`, using elements of `xs` from left to right."
       , threeArg "foldl" $ \case
-          (fn, init', v) -> do
-            ls :: [Value] <- fromRadOtherErr v
-            foldlM (\b a -> callFn fn [b, a]) init' ls
+          (fn, ini, s) -> case s of
+            Vec xs -> foldlM (\b a -> callFn fn [b, a]) ini xs
+            List xs -> foldlM (\b a -> callFn fn [b, a]) ini xs
+            String t -> T.foldl (\macc c -> do {x <- macc; callFn fn [x, String (T.singleton c)]}) (pure ini) t
+            v -> throwErrorHere $ TypeError "foldl" 2 TSequence v
       )
     , ( "foldr"
       , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
@@ -450,14 +445,14 @@ purePrimFns = fromList $ allDocs $
             ls :: [Value] <- fromRadOtherErr v
             foldrM (\b a -> callFn fn [b, a]) init' ls
       )
-    , ( "map"
-      , "Given a function `f` and a sequence (list or vector) `xs`, returns a sequence\
-        \ of the same size and type as `xs` but with `f` applied to all the elements."
-      , twoArg "map" $ \case
-          (fn, List ls) -> List <$> traverse (callFn fn) (pure <$> ls)
-          (fn, Vec ls)  -> Vec <$> traverse (callFn fn) (pure <$> ls)
-          (_, v)        -> throwErrorHere $ TypeError "map" 1 TSequence v
-      )
+    -- , ( "map"
+    --   , "Given a function `f` and a sequence (list or vector) `xs`, returns a sequence\
+    --     \ of the same size and type as `xs` but with `f` applied to all the elements."
+    --   , twoArg "map" $ \case
+    --       (fn, List ls) -> List <$> traverse (callFn fn) (pure <$> ls)
+    --       (fn, Vec ls)  -> Vec <$> traverse (callFn fn) (pure <$> ls)
+    --       (_, v)        -> throwErrorHere $ TypeError "map" 1 TSequence v
+    --   )
     , ( "keyword?"
       , isTy "keyword"
       , oneArg "keyword?" $ \case
@@ -660,6 +655,12 @@ purePrimFns = fromList $ allDocs $
     ok = kw "ok"
 
     kw = Keyword . Ident
+
+    -- | O(1) Checks if a 'Text' is a single 'Char'.
+    isChar t = do
+      (c, rest) <- T.uncons t
+      guard $ T.null rest
+      pure c
 
     pair :: (Value, Value) -> Value
     pair (x,y) = Vec (x :<| y :<| Empty)

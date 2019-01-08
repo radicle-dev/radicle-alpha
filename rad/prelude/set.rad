@@ -4,6 +4,7 @@
  :exports '[empty insert delete member? to-vec from-seq key-set subset?]}
 
 (import prelude/bool :unqualified)
+(import prelude/seq :unqualified)
 (import prelude/dict :as 'dict)
 
 (def empty

@@ -1,6 +1,6 @@
 {:module  'prelude/basic
  :doc     "Basic function used for checking equality, determining the type of a value, etc."
- :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem? head tail read read-many]}
+ :exports '[or some empty-seq? length maybe->>= maybe-foldlM head tail read read-many]}
 
 ;; or
 
@@ -74,18 +74,6 @@
       [:just i]
       (maybe->>= (f i (nth 0 xs))
                  (fn [b] (maybe-foldlM f b (drop 1 xs)))))))
-
-;; elem?
-
-(def elem?
- "Returns true if `x` is an element of the sequence `xs`"
- (fn [x xs]
-   (some (map (fn [c] (eq? c x)) xs))))
-
-(:test "elem?"
- [ (elem? "f" (list "f" "g" "h")) ==> #t]
- [ (elem? "h" ["f" "g" "h"]) ==> #t]
- [ (elem? "a" (list "f" "g" "h")) ==> #f])
 
 (def read
   "Reads a radicle value from a string."

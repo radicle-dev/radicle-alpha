@@ -203,3 +203,4 @@ language_extensions:
   - TupleSections
   - TypeFamilies
   - TypeOperators
+  - ViewPatterns

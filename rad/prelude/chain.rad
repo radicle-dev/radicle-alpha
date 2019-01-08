@@ -4,6 +4,7 @@
             updatable-eval update-chain! eval-fn-app send-prelude!
             send-code! send! receive! install-remote-chain-fake]}
 
+(import prelude/seq :unqualified)
 (import prelude/io '[read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/lens '[make-lens .. ... view set over @ @def] :unqualified)
@@ -233,9 +234,10 @@
   "List of files which together define the pure prelude."
   ["rad/prelude/basic.rad"
    "rad/prelude/patterns.rad"
+   "rad/prelude/bool.rad"
+   "rad/prelude/seq.rad"
    "rad/prelude/strings.rad"
    "rad/prelude/dict.rad"
-   "rad/prelude/bool.rad"
    "rad/prelude/maybe.rad"
    "rad/prelude/list.rad"
    "rad/prelude/set.rad"

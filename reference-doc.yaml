@@ -46,7 +46,6 @@ primFns:
 - list-to-vec
 - vec-to-list
 - zip
-- map
 - length
 - foldl
 - foldr
@@ -67,7 +66,6 @@ primFns:
 - string-append
 - string-length
 - string-replace
-- foldl-string
 # Types
 - type
 - atom?
@@ -128,10 +126,11 @@ primFns:
 modules:
 - prelude/basic
 - prelude/patterns
+- prelude/bool
+- prelude/seq
 - prelude/strings
 - prelude/dict
 - prelude/io
-- prelude/bool
 - prelude/exception
 - prelude/list
 - prelude/seq

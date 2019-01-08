@@ -3,6 +3,7 @@
  :exports '[dict-from-seq keys values rekey modify-map delete-many lookup-default lookup-maybe]}
 
 (import prelude/patterns :unqualified)
+(import prelude/seq :unqualified)
 
 (def dict-from-seq
   "Creates a dictionary from a list of key-value pairs."

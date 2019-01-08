@@ -161,13 +161,6 @@ Takes two sequences and returns a sequence of corresponding pairs. In
 one sequence is shorter than the other, the excess elements of the
 longer sequence are discarded.
 
-``map``
-~~~~~~~
-
-Given a function ``f`` and a sequence (list or vector) ``xs``, returns a
-sequence of the same size and type as ``xs`` but with ``f`` applied to
-all the elements.
-
 ``length``
 ~~~~~~~~~~
 
@@ -289,14 +282,6 @@ DEPRECATED Use ``length`` instead. Returns the length of a string.
 
 Replace all occurrences of the first argument with the second in the
 third.
-
-``foldl-string``
-~~~~~~~~~~~~~~~~
-
-A left fold on a string. That is, given a function ``f``, an initial
-accumulator value ``init``, and a string ``s``, reduce ``s`` by applying
-``f`` to the accumulator and the next character in the string
-repeatedly.
 
 ``type``
 ~~~~~~~~
@@ -602,11 +587,6 @@ Monadic bind for the maybe monad.
 Monadic fold over the elements of a sequence ``xs``, associating to the
 left (i.e. from left to right) in the maybe monad.
 
-``(elem? x xs)``
-~~~~~~~~~~~~~~~~
-
-Returns true if ``x`` is an element of the sequence ``xs``
-
 ``head``
 ~~~~~~~~
 
@@ -860,26 +840,6 @@ List the contents of the current working directory
 
 Modified the value stored in a file according to the function ``f``.
 
-``prelude/bool``
-----------------
-
-Functions for dealing with truthiness and #f.
-
-``(not x)``
-~~~~~~~~~~~
-
-True if ``x`` is ``#f``, false otherwise.
-
-``(and x y)``
-~~~~~~~~~~~~~
-
-Returns ``y`` if ``x`` is not ``#f``, otherwise returns ``x``
-
-``(all xs)``
-~~~~~~~~~~~~
-
-Checks that all the items of a list are truthy.
-
 ``prelude/exception``
 ---------------------
 
@@ -913,7 +873,13 @@ True if ``seq`` is empty, false otherwise.
 ``(seq? x)``
 ~~~~~~~~~~~~
 
-Returns ``#t`` if ``x`` is a list or a vector.
+Returns ``#t`` if ``x`` is a list, vector or string.
+
+``(map f xs)``
+~~~~~~~~~~~~~~
+
+Returns a sequence consisting of the result of applying ``f`` to the
+items of ``xs``.
 
 ``(reverse xs)``
 ~~~~~~~~~~~~~~~~

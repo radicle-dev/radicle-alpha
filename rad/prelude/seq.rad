@@ -1,6 +1,6 @@
 {:module 'prelude/seq
  :doc "Functions for manipulating sequences, that is lists and vectors."
- :exports '[empty? seq? reverse filter take-while starts-with? /prefix
+ :exports '[empty? seq? map reverse filter take-while starts-with? /prefix
            ]}
 
 (import prelude/basic :unqualified)
@@ -8,8 +8,17 @@
 (import prelude/patterns :unqualified)
 
 (def seq?
-  "Returns `#t` if `x` is a list or a vector."
+  "Returns `#t` if `x` is a list, vector or string."
   (fn [x] (or (list? x) (vector? x))))
+
+(def empty-seq
+  "Returns an empty version of the input seq."
+  (fn [xs]
+    (cond
+      (vector? xs) []
+      (list? xs)   (list)
+      (string? xs) ""
+      :else        (throw 'type-mismatch "empty-seq: expects a seq"))))
 
 (:test "seq?"
   [ (seq? (list)) ==> #t ]
@@ -30,6 +39,11 @@
   [ (empty? []) ==> #t ]
 )
 
+(def map
+  "Returns a sequence consisting of the result of applying `f` to the items of
+  `xs`."
+  (fn [f xs]
+    (foldr (fn [x acc] (cons (f x) acc)) (empty-seq xs) xs)))
 
 (def reverse
   "Returns the reversed sequence `xs`."

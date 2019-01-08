@@ -3,6 +3,7 @@
 
 (import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
+(import prelude/seq :unqualified)
 (import prelude/dict :unqualified)
 (import prelude/set :as 'set)
 (import prelude/ref :unqualified)

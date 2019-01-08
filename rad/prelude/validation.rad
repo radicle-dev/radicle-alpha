@@ -6,6 +6,7 @@
  '[= member and or type pred integral optional-key contains contains-all
    contains-only key optional-keys keys every uuid signed timestamp]}
 
+(import prelude/seq :unqualified)
 (import prelude/dict :unqualified)
 (import prelude/dict :as 'dict)
 (import prelude/set :as 'set)
