@@ -26,6 +26,11 @@
   (fn []
     (string/unlines (process-with-stdout! "git" ["rev-parse" "master"] ""))))
 
+(def apply-patch!
+  "Given a patch, apply it to the current branch"
+  (fn [patch]
+    (process! "git" ["apply" "-"] patch)))
+
 (def new-pr!
   (fn [chain]
     (def patch (get-patch!))
@@ -40,6 +45,19 @@
     (simple-create-pr! chain pr)))
 
 (def pretty-pr show)
+
+(def checkout-pr!
+  "Creates a new branch pr/<PR-number> based on the PR, and switches to it."
+  (fn [chain pr-no]
+    (def chain-ref (make-chain-ref chain))
+    (def patch
+      (match (lookup pr-no (read-ref chain-ref))
+        'pr      pr
+        :nothing (do
+                   (put-str! "No such PR")
+                   (exit! 1))))
+    (process! "git" ["checkout" "-b" (string-append "pr/" (show pr-no))] "")
+    (apply-patch! patch)))
 
 (def list-items
   "Lists the recent items and uses an editor to add a relevant comment."
@@ -98,7 +116,12 @@
                  (put-str! "Item was not updated.")
              _ (put-str! "No selection made."))))))
 
-(def chain-name "http://localhost:8000/chains/fooprr")
+(def new-pr-chain!
+  "Create a new PR chain with the given URL"
+  (fn [url]
+    (chain/send-prelude! chain)
+    (send-code! url "rad/monadic/git-remote.rad")))
+(def chain-name "http://localhost:8000/chains/foo")
 (def chain (ref (chain/new-chain chain-name)))
 (fetch! chain)
 (list-items chain-name :nothing)
