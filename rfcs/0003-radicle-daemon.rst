@@ -13,7 +13,7 @@ Motivation
 -----------
 
 Currently to run a query against the state of some remote chain, all the inputs
-are downloaded and the state re-materialised from the start. This is too slow.
+are downloaded and the state re-materialised from scratch. This is too slow.
 
 The daemon also allows apps not written in radicle or Haskell to have access to
 a radicle interpreter.
@@ -43,15 +43,16 @@ requests on a specific port. The API uses JSON.
      "last_input_id": 55}
 
   The daemon works out if it must query a remote or local machine based on the
-  existence of a protocol (e.g. "http://" or "ipfs://"). If there is no protocol
-  then the query refers to a locally maintained machine. Otherwise it will fetch
-  inputs from a remote machine using the correct protocol.
+  existence of a protocol (e.g. ``http://`` or ``ipfs://``). If there is no
+  protocol then the query refers to a locally maintained machine. Otherwise it
+  will fetch inputs from a remote machine using the correct protocol (but only
+  ``http`` is supported initially).
 
   The fields ``keep_input``, ``keep_polling``, ``poll_period`` are optional.
-  ``keep_input`` controls how long the daemon will cache the inputs for.
-  ``keep_polling`` and ``poll_period`` control how long it should keep polling
-  for new inputs for (after the last interaction) and the amount of time between
-  each poll.
+  ``keep_input`` controls how long (seconds) the daemon will cache the inputs
+  for. ``keep_polling`` and ``poll_period`` control how long (seconds) it should
+  keep polling for new inputs for (after the last interaction) and the amount of
+  time between each poll.
 
 - Get the list of inputs of a remote machine:
 
