@@ -20,6 +20,8 @@
         rad-issues close <issue-number> <chain-name>
         rad-issues make-key <nick>
         rad-issues names
+        rad-issues done
+        rad-issues create-chain <chain-name>
         rad-issues help
 
      list         - Select from issues to view or comment on
