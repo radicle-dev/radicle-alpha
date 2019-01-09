@@ -10,14 +10,15 @@ import           Text.Megaparsec
                  , between
                  , choice
                  , eof
-                 , getPosition
+                 , getSourcePos
                  , manyTill
+                 , satisfy
                  , sepBy
                  , try
                  , (<?>)
                  )
 import qualified Text.Megaparsec as M
-import           Text.Megaparsec.Char (char, satisfy, space1, string)
+import           Text.Megaparsec.Char (char, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Text.Megaparsec.Error as Par
 
@@ -38,7 +39,7 @@ spaceConsumer = L.space space1 lineComment blockComment
 
 tag :: ValueF Value -> VParser
 tag v = do
-    pos <- getPosition -- N.B. in megaparsec 7 this is called getSourcePos
+    pos <- getSourcePos -- N.B. in megaparsec 7 this is called getSourcePos
     pure $ Ann.Annotated (Ann.WithPos (Ann.SrcPos pos) v)
 
 symbol :: Text -> Parser Text
@@ -146,7 +147,7 @@ valueP = do
 parseValues
     :: Text    -- ^ Name of source file (for error reporting)
     -> Text    -- ^ Source code to be parsed
-    -> Either (Par.ParseError Char Void) [Value]
+    -> Either (Par.ParseErrorBundle Text Void) [Value]
 parseValues sourceName srcCode
     = M.parse (spaceConsumer *> many valueP <* eof) (toS sourceName) srcCode
 
@@ -166,7 +167,7 @@ parse :: MonadError Text m
 parse file src = do
   let res = runIdentity (M.runParserT (spaceConsumer *> valueP <* eof) (toS file) src)
   case res of
-    Left err -> throwError . toS $ M.parseErrorPretty' src err
+    Left err -> throwError . toS $ M.errorBundlePretty err
     Right v  -> pure v
 
 -- | Smart constructor for Ident.

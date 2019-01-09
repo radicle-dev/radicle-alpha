@@ -504,7 +504,7 @@ Close a handle
 ~~~~~~~~~~~
 
 (system! proc) execute a system process. Returns the dict with the form
-``{ :stdin maybe-handle :stdout maybe-handle :stderr maybe-handle :proc prochandle }``
+``{ :stdin maybe-handle      :stdout maybe-handle      :stderr maybe-handle      :proc prochandle    }``
 Where ``maybe-handle`` is either ``[:just handle]`` or ``:nothing``.
 Note that this is quite a low-level function; higher-level ones are more
 convenient.
