@@ -78,9 +78,11 @@
         :nothing (do
                    (put-str! "No such PR")
                    (exit! 1))))
-    (process! "git" ["checkout" (lookup :base-commit pr)] "")
-    (process! "git" ["checkout" "-b" (string-append "pr/" (show pr-no))] "")
-    (apply-patch! (head (lookup :patch pr)))))
+   ;; (process! "git" ["checkout" (lookup :base-commit pr)] "")
+   ;; (process! "git" ["checkout" "-b" (string-append "pr/" (show pr-no))] "")
+    (put-str! (head (lookup :patch pr)))
+;;    (apply-patch! (head (lookup :patch pr)))))
+    ))
 
 (def list-items
   "Lists the recent items and uses an editor to add a relevant comment."
