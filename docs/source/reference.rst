@@ -870,8 +870,8 @@ Returns a list with all integers from ``from`` to ``to``, inclusive.
 
 Functions for manipulating sequences, that is lists and vectors.
 
-``(empty? seq)``
-~~~~~~~~~~~~~~~~
+``(empty? s)``
+~~~~~~~~~~~~~~
 
 True if ``seq`` is empty, false otherwise.
 
@@ -905,8 +905,7 @@ Returns all elements of a sequence ``ls`` until one does not satisfy
 ``(starts-with? s prefix)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``. Also
-works for strings
+Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``.
 
 ``(/prefix prefix rest-pat)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

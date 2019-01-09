@@ -9,66 +9,71 @@
 
 (def seq?
   "Returns `#t` if `x` is a list, vector or string."
-  (fn [x] (or (list? x) (vector? x) (string? x))))
-
-(def empty-seq
-  "Returns an empty version of the input seq."
-  (fn [xs]
-    (cond
-      (vector? xs) []
-      (list? xs)   (list)
-      (string? xs) ""
-      :else        (throw 'type-mismatch "empty-seq: expects a seq"))))
+  (fn [x] (some [(list? x) (vector? x) (string? x)])))
 
 (:test "seq?"
-  [ (seq? (list)) ==> #t ]
-  [ (seq? []) ==> #t ]
-  [ (seq? :foo) ==> #f ]
-  [ (seq? "foo") ==> #f ]
-  )
+       [ (seq? (list)) ==> #t ]
+       [ (seq? []) ==> #t ]
+       [ (seq? :foo) ==> #f ]
+       [ (seq? "foo") ==> #t ]
+       )
+
+(def empty-seq
+  "If `xs` is a list or a vector, returns an empty sequence of the same type. If
+  `xs` is a string, returns `[]`."
+  (fn [xs]
+    (cond
+      (or (vector? xs) (string? xs)) []
+      (list? xs)   (list)
+      :else        (throw 'type-mismatch "empty-seq: expects a seq"))))
+
+(def empty-version
+  (fn [xs]
+    (match (type xs)
+           :list   (list)
+           :vec    []
+           :string ""
+           't      (throw 'type-mismatch (string-append "empty-version: expects sequence as argument got " (show t))))))
 
 (def empty?
   "True if `seq` is empty, false otherwise."
-  (fn [seq] (or (eq? seq '()) (eq? seq []))))
+  (fn [s] (some [(eq? s '()) (eq? s []) (eq? s "")])))
 
 (:test "empty"
   [ (empty? (list 2)) ==> #f ]
   [ (empty? (list)) ==> #t ]
-
   [ (empty? [2]) ==> #f ]
   [ (empty? []) ==> #t ]
+  [ (empty? "") ==> #t ]
+  [ (empty? "hello") ==> #f ]
 )
 
 (def map
   "Returns a sequence consisting of the result of applying `f` to the items of
   `xs`."
   (fn [f xs]
-    (foldr (fn [x acc] (cons (f x) acc)) (empty-seq xs) xs)))
+    (foldr (fn [x acc] (cons (f x) acc))
+           (empty-seq xs)
+           xs)))
 
 (:test "map"
-       [ (map (fn [x] (+ x 1)) (list 1 2 3)) ==> (list 2 3 4)]
+       [ (map (fn [x] (+ x 1)) (list 1 2 3)) ==> (2 3 4)]
        [ (map (fn [x] (+ x 1)) [1 2 3]) ==> [2 3 4]]
-       [ (map (fn [x] (if (eq? x "f") "b" x)) "foo") ==> "boo"]
-       [ (map (fn [x] 0) "foo") ==> [0 0 0]])
+       [ (map (fn [x] (if (eq? x "f") "b" x)) "foo") ==> ["b" "o" "o"]]
+       [ (map (fn [x] 0) "") ==> [] ]
+       )
 
 (def reverse
   "Returns the reversed sequence `xs`."
   (fn [xs]
-    (def-rec go
-      (fn [acc new]
-        (if (empty? new)
-            acc
-            (go (cons (head new) acc) (tail new)))))
-    (match (type xs)
-      :list (go '() xs)
-      :vec (go [] xs)
-      't (throw 'type-mismatch (string-append "reverse: exepcted sequence as arguemtn got " (show t)))
-      )
-    ))
+    (foldl (fn [acc x] (cons x acc))
+           (empty-version xs)
+           xs)))
 
 (:test "reverse"
   [ (reverse (list 1 2 3)) ==> (3 2 1) ]
   [ (reverse [1 2 3]) ==> [3 2 1] ]
+  [ (reverse "abc") ==> "cba" ]
 )
 
 
@@ -85,6 +90,8 @@
      ==> (3 5) ]
   [ (filter (fn [x] (< x 10)) [3 10 11 5])
      ==> [3 5] ]
+  [ (filter (fn [x] (eq? x "a")) "ababa")
+     ==> "aaa" ]
 )
 
 
@@ -94,18 +101,18 @@
     (cond
       (empty? ls)       ls
       (pred (head ls))  (cons (head ls) (take-while pred (tail ls)))
-      :else             (if (list? ls)
-                          (list)
-                          []))))
+      :else             (empty-version ls))))
 
 (:test "take-while"
   [ (take-while (fn [x] (eq? x "bar")) (list "foo" "bar") ) ==> () ]
   [ (take-while (fn [x] (not (eq? x "bar"))) (list "foo" "bar") ) ==> ("foo") ]
-  [ (take-while (fn [x] (< x 10)) [3 9 10 11] ) ==> [3 9] ])
+  [ (take-while (fn [x] (< x 10)) [3 9 10 11] ) ==> [3 9] ]
+  [ (take-while (fn [x] (eq? x "a")) "aaabb") ==> "aaa" ]
+  )
 
 
 (def starts-with?
-  "Returns `#t` if `prefix` is a prefix of the sequence `s`. Also works for strings"
+  "Returns `#t` if `prefix` is a prefix of the sequence `s`."
   (fn [s prefix]
     (eq? (take (length prefix) s) prefix)))
 

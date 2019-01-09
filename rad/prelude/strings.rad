@@ -5,6 +5,7 @@
 
 (import prelude/basic :unqualified)
 (import prelude/patterns :unqualified)
+(import prelude/seq :unqualified)
 
 (def intercalate
   "Intercalates a string in a list of strings"
@@ -68,7 +69,7 @@
               [ls ""]
               [(add-right current ls) ""])
           [ls (string-append current new-char)])))
-    (match (foldl-string f [[] ""] xs)
+    (match (foldl f [[] ""] xs)
       ['ls ""] ls
       ['ls 'x] (add-right x ls))))
 
@@ -111,11 +112,7 @@
 (def map-string
   "Returns a string consisting of the results of applying `f` to each character
   of `xs`. Throws a type error if `f` returns something other than a string"
-  (fn [f xs]
-    (def g
-      (fn [acc new-char]
-        (string-append acc (f new-char))))
-    (foldl-string g "" xs)))
+  (fn [f xs] (foldl <> "" (map f xs))))
 
 (:test "map-string"
   [ (map-string (fn [x] "A") "foo") ==> "AAA"]
