@@ -8,6 +8,8 @@
 ;;   - deal with multiple patches properly (e.g. in pretty-pr)
 ;;   - make and use cmd-2 pattern
 ;;   - handle parsing numbers in cmd-parsing/validation logic
+;;   - be graceful about checkouts failing
+;;   - should we be using "git diff", rather than squashing and then git format-patch?
 
 
 (load! "rad/prelude.rad")
@@ -120,6 +122,7 @@
              _          (map (fn [i] {:pr i})
                              (reverse (values (list-prs chain-ref)))))))
 
+    (put-str! (head (lookup :patch (lookup :pr (nth 1 (head items))))))
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
       (put-str! "No recent items!")
