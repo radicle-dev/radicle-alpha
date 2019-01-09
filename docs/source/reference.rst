@@ -136,8 +136,11 @@ Adds an element to the right side of a vector.
 ``<>``
 ~~~~~~
 
-Merges two structures together. On vectors and lists this performs
-concatenation. On dicts this performs the right-biased merge.
+Merges two structures together. On sequences this performs
+concatenation. On dicts this performs the right-biased merge. If the
+inputs are sequences of the same type, then the result will be of this
+same type. If the inputs are sequences of different types, then the
+result will be a vector.
 
 ``list``
 ~~~~~~~~
@@ -159,28 +162,30 @@ Transforms vectors to lists.
 
 Takes two sequences and returns a sequence of corresponding pairs. In
 one sequence is shorter than the other, the excess elements of the
-longer sequence are discarded.
+longer sequence are discarded. If both sequences have the same type,
+then the result will have this type also. If the sequences don't have
+the same type, the result is a vector.
 
 ``length``
 ~~~~~~~~~~
 
-Returns the length of a vector, list, or string.
+Returns the length of a sequence..
 
 ``foldl``
 ~~~~~~~~~
 
-Given a function ``f``, an initial value ``i`` and a sequence (list or
-vector) ``xs``, reduces ``xs`` to a single value by starting with ``i``
-and repetitively combining values with ``f``, using elements of ``xs``
-from left to right.
+Given a function ``f``, an initial value ``i`` and a sequence (list,
+vector or string) ``xs``, reduces ``xs`` to a single value by starting
+with ``i`` and repetitively combining values with ``f``, using elements
+of ``xs`` from left to right.
 
 ``foldr``
 ~~~~~~~~~
 
-Given a function ``f``, an initial value ``i`` and a sequence (list or
-vector) ``xs``, reduces ``xs`` to a single value by starting with ``i``
-and repetitively combining values with ``f``, using elements of ``xs``
-from right to left.
+Given a function ``f``, an initial value ``i`` and a sequence (list,
+vector or string) ``xs``, reduces ``xs`` to a single value by starting
+with ``i`` and repetitively combining values with ``f``, using elements
+of ``xs`` from right to left.
 
 ``drop``
 ~~~~~~~~
@@ -203,16 +208,16 @@ short, in which case an exception is thrown.
 ``nth``
 ~~~~~~~
 
-Given an integral number ``n`` and ``xs``, returns the ``n``\ th element
-(zero indexed) of ``xs`` when ``xs`` is a list or a vector. If ``xs``
-does not have an ``n``-th element, or if it is not a list or vector,
-then an exception is thrown.
+Given an integral number ``n`` and a sequence ``xs``, returns the
+``n``\ th element (zero indexed) of ``xs``. If ``xs`` does not have an
+``n``-th element, or if it is not a sequence, then an exception is
+thrown.
 
 ``seq``
 ~~~~~~~
 
-Given a structure ``s``, returns a sequence. Lists and vectors are
-returned without modification while for dicts a vector of
+Given a structure ``s``, returns a sequence. Lists, vectors and strings
+are returned without modification while for dicts a vector of
 key-value-pairs is returned: these are vectors of length 2 whose first
 item is a key and whose second item is the associated value.
 
@@ -249,9 +254,9 @@ exception is thrown.
 ~~~~~~~~~~~
 
 Given ``v`` and structure ``s``, checks if ``x`` exists in ``s``. The
-structure ``s`` may be a list, vector or dict. If it is a list or a
-vector, it checks if ``v`` is one of the items. If ``s`` is a dict, it
-checks if ``v`` is one of the keys.
+structure ``s`` may be a sequence or dict. If it is a sequence, it
+checks if ``v`` is one of the items. If ``s`` is a dict, it checks if
+``v`` is one of the keys.
 
 ``map-keys``
 ~~~~~~~~~~~~
@@ -574,7 +579,7 @@ Returns true if ``xs`` is an empty sequence (either list or vector).
 ``length``
 ~~~~~~~~~~
 
-Returns the length of a vector, list, or string.
+Returns the length of a sequence..
 
 ``(maybe->>= v f)``
 ~~~~~~~~~~~~~~~~~~~

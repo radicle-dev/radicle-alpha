@@ -61,36 +61,45 @@ test_eval =
         "{(+ 1 1) :a (+ 0 2) :b}" `succeedsWith` Dict (fromList [(int 2, kw "a")])
 
     , testCase "'cons' conses an element" $ do
-        let prog = [s|(cons #t (list #f))|]
-        prog `succeedsWith` List [Boolean True, Boolean False]
+        [s|(cons #t (list #f))|] `succeedsWith` List [Boolean True, Boolean False]
+        [s|(cons #t [#f])|] `succeedsWith` toRad [Boolean True :: Value, Boolean False]
+        [s|(cons "a" "bc")|] `succeedsWith` String "abc"
 
     , testCase "'first' returns the first element of a list" $ do
-        let prog = [s|(first (list #t #f))|]
-        prog `succeedsWith` Boolean True
+        [s|(first (list #t #f))|] `succeedsWith` Boolean True
+        [s|(first [#t #f])|] `succeedsWith` Boolean True
+        [s|(first "abc")|] `succeedsWith` String "a"
 
     , testCase "'rest' returns the tail of a list" $ do
-        let prog = [s|(rest (list #t #f #t))|]
-        prog `succeedsWith` List [Boolean False, Boolean True]
+        [s|(rest (list #t #f #t))|] `succeedsWith` List [Boolean False, Boolean True]
+        [s|(rest [#t #f #t])|] `succeedsWith` toRad [Boolean False :: Value, Boolean True]
+        [s|(rest "abc")|] `succeedsWith` String "bc"
 
     , testCase "'drop' drops" $ do
         "(drop 1 (list #t #f #t))" `succeedsWith` List [Boolean False, Boolean True]
+        "(drop 0 [0 1 2])" `succeedsWith` toRad [0 :: Int, 1, 2]
         "(drop 2 [1 2 3 4])" `succeedsWith` toRad [3 :: Int, 4]
+        [s|(drop 2 "hello")|] `succeedsWith` String "llo"
 
     , testCase "'nth' extracts elements from lists and vectors" $ do
         "(nth 0 [0 1 2])" `succeedsWith` int 0
         "(nth 1 [0 1 2])" `succeedsWith` int 1
         "(nth 0 '(0 1 2))" `succeedsWith` int 0
         "(nth 1 '(0 1 2))" `succeedsWith` int 1
+        [s|(nth 1 "hello")|] `succeedsWith` String "e"
 
     , testCase "'take n' takes n elements of a sequence" $ do
         "(take 0 [0 1 2])" `succeedsWith` Vec (fromList [])
         "(take 2 [0 1 2])" `succeedsWith` Vec (fromList [Number 0, Number 1])
         "(take 2 (list 0 1 2))" `succeedsWith` List [Number 0, Number 1]
+        [s|(take 2 "hello")|] `succeedsWith` String "he"
 
-    , testCase "'drop n' drops n elements of a sequence" $ do
-        "(drop 0 [0 1 2])" `succeedsWith` Vec (fromList [Number 0, Number 1, Number 2])
-        "(drop 2 [0 1 2])" `succeedsWith` Vec (fromList [Number 2])
-        "(drop 2 (list 0 1 2))" `succeedsWith` List [Number 2]
+    , testCase "'zip' zips sequences" $ do
+        "(zip [0 1 2] [0 1])" `succeedsWith` toRad [(0,0)::(Int,Int), (1,1)]
+        "(zip (list 0 1) (list 0 1 2))" `succeedsWith` List (toRad <$> [(0,0)::(Int,Int), (1,1)])
+        "(zip [0 1 2] (list 0 1))" `succeedsWith` toRad [(0,0)::(Int,Int), (1,1)]
+        [s|(zip "hello" "you")|] `succeedsWith` toRad [('h','y'), ('e','o'), ('l','u')]
+        [s|(zip [0 1 2] "foo")|] `succeedsWith` toRad [(0 ::Int, 'f'), (1, 'o'), (2, 'o')]
 
     , testProperty "'eq?' considers equal values equal" $ \(val :: Value) -> do
         let prog = [i|(eq? #{renderPrettyDef val} #{renderPrettyDef val})|]
@@ -116,13 +125,15 @@ test_eval =
         "(integral? 1)" `succeedsWith` Boolean True
         "(integral? 1/3)" `succeedsWith` Boolean False
 
-    , testCase "'member?' returns true if list contains element" $ do
-        let prog = [s|(member? #t (list #f #t))|]
-        prog `succeedsWith` Boolean True
+    , testCase "'member?' returns true if sequence contains element" $ do
+        [s|(member? #t (list #f #t))|] `succeedsWith` Boolean True
+        [s|(member? #t [#f #t])|] `succeedsWith` Boolean True
+        [s|(member? "e" "hello")|] `succeedsWith` Boolean True
 
-    , testCase "'member?' returns false if list does not contain element" $ do
-        let prog = [s|(member? "hi" (list #f #t))|]
-        prog `succeedsWith` Boolean False
+    , testCase "'member?' returns false if sequence does not contain element" $ do
+        [s|(member? "hi" (list #f #t))|] `succeedsWith` Boolean False
+        [s|(member? "hi" [#f #t])|] `succeedsWith` Boolean False
+        [s|(member? "z" "hello")|] `succeedsWith` Boolean False
 
     , testCase "'lookup' returns value of key in map" $ do
         let prog1 = [s|(lookup 'key1 (dict 'key1 "a" 'key2 "b"))|]
@@ -173,24 +184,15 @@ test_eval =
                    "Got:\n" <> prettyEither (runPureCode prog)
         counterexample (toS info) $ res == expected
 
-    , testCase "'foldl' foldls the list" $ do
-        let prog = [s|(foldl (fn [x y] (- x y)) 0 (list 1 2 3))|]
-        prog `succeedsWith` int (-6)
+    , testCase "'foldl' foldls the sequence" $ do
+        [s|(foldl (fn [x y] (- x y)) 0 (list 1 2 3))|] `succeedsWith` int (-6)
+        [s|(foldl (fn [x y] (- x y)) 0 [1 2 3])|] `succeedsWith` int (-6)
+        [s|(foldl (fn [acc x] (if (member? x "024") (<> x acc) acc)) "" "012345")|] `succeedsWith` String "420"
 
-    , testCase "'foldr' foldrs the list" $ do
-        let prog = [s|(foldr (fn [x y] (- x y)) 0 (list 1 2 3))|]
-        prog `succeedsWith` int 2
-
-    , testCase "'foldl' foldls a string" $ do
-        let prog = [s|(foldl (fn [x y] (if (eq? y "a") (+ x 1) x))
-                             0
-                             "blablabla")
-                   |]
-        prog `succeedsWith` int 3
-
-    -- , testCase "'map' maps over the list" $ do
-    --     let prog = [s|(map (fn [x] (+ x 1)) (list 1 2))|]
-    --     prog `succeedsWith` List [int 2, int 3]
+    , testCase "'foldr' foldrs the sequence" $ do
+        [s|(foldr (fn [x y] (- x y)) 0 (list 1 2 3))|] `succeedsWith` int 2
+        [s|(foldr (fn [x y] (- x y)) 0 [1 2 3])|] `succeedsWith` int 2
+        [s|(foldr (fn [x acc] (if (member? x "024") (<> x acc) acc)) "" "012345")|] `succeedsWith` String "024"
 
     , testCase "'foldr' doesn't over-eval elements of argument list" $ do
         let prog = [s|(foldr <> (list) (list (list 1)))|]

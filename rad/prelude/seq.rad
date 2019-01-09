@@ -9,7 +9,7 @@
 
 (def seq?
   "Returns `#t` if `x` is a list, vector or string."
-  (fn [x] (or (list? x) (vector? x))))
+  (fn [x] (or (list? x) (vector? x) (string? x))))
 
 (def empty-seq
   "Returns an empty version of the input seq."
@@ -44,6 +44,12 @@
   `xs`."
   (fn [f xs]
     (foldr (fn [x acc] (cons (f x) acc)) (empty-seq xs) xs)))
+
+(:test "map"
+       [ (map (fn [x] (+ x 1)) (list 1 2 3)) ==> (list 2 3 4)]
+       [ (map (fn [x] (+ x 1)) [1 2 3]) ==> [2 3 4]]
+       [ (map (fn [x] (if (eq? x "f") "b" x)) "foo") ==> "boo"]
+       [ (map (fn [x] 0) "foo") ==> [0 0 0]])
 
 (def reverse
   "Returns the reversed sequence `xs`."

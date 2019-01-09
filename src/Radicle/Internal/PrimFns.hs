@@ -173,13 +173,13 @@ purePrimFns = fromList $ allDocs $
           (_, v) -> throwErrorHere $ TypeError "add-right" 1 TVec v
       )
 
-    -- Lists
+    -- Sequences: Lists, Vecs and Strings
     , ("cons"
       , "Adds an element to the front of a sequence."
       , twoArg "cons" $ \case
           (x, List xs) -> pure $ List (x:xs)
           (x, Vec xs) -> pure $ Vec (x Seq.:<| xs)
-          (String (isChar -> Just c), String s) -> pure $ String (T.cons c s)
+          (isCharV -> Just c, String s) -> pure $ String (T.cons c s)
           (_, String _) -> throwErrorHere $ OtherError "cons: when consing onto a string the first argument must be a single-character string"
           (_, _)       -> throwErrorHere $ OtherError "cons: second argument must be a list, vector or string"
       )
@@ -205,10 +205,8 @@ purePrimFns = fromList $ allDocs $
           String (T.uncons -> Just (_,t)) -> pure $ String t
           String _                        -> throwErrorHere $ OtherError "rest: empty string"
           v                               -> throwErrorHere $ TypeError "rest" 0 TSequence v)
-
-    -- Sequences: Lists and Vecs
     , ( "length"
-      , "Returns the length of a vector, list, or string."
+      , "Returns the length of a sequence.."
       , oneArg "length" $ \case
           List xs -> pure . Number . fromIntegral . length $ xs
           Vec xs -> pure . Number . fromIntegral . length $ xs
@@ -241,19 +239,21 @@ purePrimFns = fromList $ allDocs $
               _         -> throwErrorHere $ TypeError "take" 1 TSequence vs
           (v, _) -> throwErrorHere $ TypeError "take" 0 TNumber v
       )
-    -- TODO(james) nth, sortby, zip, etc. should work for strings
     , ( "nth"
-      , "Given an integral number `n` and `xs`, returns the `n`th element\
-        \ (zero indexed) of `xs` when `xs` is a list or a vector. If `xs`\
-        \ does not have an `n`-th element, or if it is not a list or vector, then\
-        \ an exception is thrown."
+      , "Given an integral number `n` and a sequence `xs`, returns the `n`th\
+        \ element (zero indexed) of `xs`. If `xs` does not have an `n`-th\
+        \ element, or if it is not a sequence, then an exception is thrown."
       , \case
-          [Number n, vs] -> case Num.isInt n of
+          [Number n, v] -> case Num.isInt n of
             Left _ -> throwErrorHere $ OtherError "nth: first argument was not an integer"
             Right i -> do
-              xs <- hoistEitherWith (const (toLangError . OtherError $ "nth: second argument must be sequential")) $ fromRad vs
-              case xs `atMay` i of
-                Just x  -> pure x
+              x_ <- case v of
+                Vec xs   -> pure $ Seq.lookup i xs
+                List xs  -> pure $ xs `atMay` i
+                String t -> pure $ atMay (charV <$> toS t) i
+                _        -> throwErrorHere $ TypeError "nth" 1 TSequence v
+              case x_ of
+                Just x -> pure x
                 Nothing -> throwErrorHere $ OtherError "nth: index out of bounds"
           [v,_] -> throwErrorHere $ TypeError "nth" 0 TNumber v
           xs -> throwErrorHere $ WrongNumberOfArgs "nth" 2 (length xs)
@@ -262,24 +262,25 @@ purePrimFns = fromList $ allDocs $
       , "Given a sequence `xs` and a function `f`, returns a sequence with the same\
         \ elements `x` of `xs` but sorted according to `(f x)`."
       , twoArg "sort-by" $ \case
-          (f, List xs) -> do ys <- traverse (\x -> (x,) <$> callFn f [x]) xs
-                             let ys' = sortWith snd ys
-                             pure (List (fst <$> ys'))
-          (f, Vec xs) -> do ys <- traverse (\x -> (x,) <$> callFn f [x]) xs
-                            let ys' = Seq.sortOn snd ys
-                            pure (Vec (fst <$> ys'))
-          (_, v) -> throwErrorHere $ TypeError "sort-by" 1 TSequence v
+          (f, List xs)  -> List <$> sortSeqWith identity sortWith f xs
+          (f, Vec xs)   -> Vec <$> sortSeqWith identity Seq.sortOn f xs
+          (f, String t) -> String . toS <$> sortSeqWith charV sortWith f (toS t)
+          (_, v)        -> throwErrorHere $ TypeError "sort-by" 1 TSequence v
       )
     , ( "zip"
       , "Takes two sequences and returns a sequence of corresponding pairs. In one\
         \ sequence is shorter than the other, the excess elements of the longer\
-        \ sequence are discarded."
+        \ sequence are discarded. If both sequences have the same type, then the\
+        \ result will have this type also. If the sequences don't have the same\
+        \ type, the result is a vector."
       , twoArg "zip" $ \case
           (Vec xs, Vec ys) -> pure $ Vec (pair <$> Seq.zip xs ys)
           (List xs, List ys) -> pure $ List (pair <$> zip xs ys)
-          (List _, v) -> throwErrorHere $ TypeError "zip" 1 TList v
-          (Vec _, v) -> throwErrorHere $ TypeError "zip" 1 TList v
-          (v, _) -> throwErrorHere $ TypeError "zip" 0 TSequence v
+          (String x, String y) -> pure $ Vec $ fromList $ (pair . bimap charV charV <$> T.zip x y)
+          (x, y) -> case (isSeq x, isSeq y) of
+            (Just xs, Just ys) -> pure $ Vec $ fromList $ (pair <$> zip xs ys)
+            (Just _, _) -> throwErrorHere $ TypeError "zip" 1 TSequence y
+            _ -> throwErrorHere $ TypeError "zip" 0 TSequence x
       )
     , ( "vec-to-list"
       , "Transforms vectors to lists."
@@ -329,17 +330,21 @@ purePrimFns = fromList $ allDocs $
 
     -- Structures
     , ( "<>"
-      , "Merges two structures together. On vectors and lists this performs\
-        \ concatenation. On dicts this performs the right-biased merge."
+      , "Merges two structures together. On sequences this performs\
+        \ concatenation. On dicts this performs the right-biased merge. If the\
+        \ inputs are sequences of the same type, then the result will be of this\
+        \ same type. If the inputs are sequences of different types, then the\
+        \ result will be a vector."
       , twoArg "<>" $ \case
           (List xs, List ys) -> pure $ List (xs ++ ys)
           (Vec xs, Vec ys) -> pure $ Vec (xs Seq.>< ys)
           (Dict m, Dict n) -> pure $ Dict (n <> m)
-          (x, y) -> throwErrorHere $ case x of
-            List _ -> TypeError "<>" 1 TList y
-            Vec _  -> TypeError "<>" 1 TVec y
-            Dict _ -> TypeError "<>" 1 TDict y
-            _      -> TypeError "<>" 0 TStructure y
+          (Dict _, v) -> throwErrorHere $ TypeError "<>" 1 TDict v
+          (String x, String y) -> pure $ String (T.append x y)
+          (x, y) -> case (isSeq x, isSeq y) of
+            (Just xs, Just ys) -> pure $ Vec $ fromList $ xs ++ ys
+            (Just _, _) -> throwErrorHere $ TypeError "<>" 1 TSequence y
+            _ -> throwErrorHere $ TypeError "<>" 0 TSequence x
       )
 
     , ( "string-length"
@@ -427,9 +432,10 @@ purePrimFns = fromList $ allDocs $
           v -> throwErrorHere $ TypeError "integral?" 0 TNumber v
       )
     , ( "foldl"
-      , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
-        \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
-        \ combining values with `f`, using elements of `xs` from left to right."
+      , "Given a function `f`, an initial value `i` and a sequence (list, vector\
+        \ or string) `xs`, reduces `xs` to a single value by starting with `i`\
+        \ and repetitively combining values with `f`, using elements of `xs`\
+        \ from left to right."
       , threeArg "foldl" $ \case
           (fn, ini, s) -> case s of
             Vec xs -> foldlM (\x y -> callFn fn [x, y]) ini xs
@@ -438,9 +444,10 @@ purePrimFns = fromList $ allDocs $
             v -> throwErrorHere $ TypeError "foldl" 2 TSequence v
       )
     , ( "foldr"
-      , "Given a function `f`, an initial value `i` and a sequence (list or vector)\
-        \ `xs`, reduces `xs` to a single value by starting with `i` and repetitively\
-        \ combining values with `f`, using elements of `xs` from right to left."
+      , "Given a function `f`, an initial value `i` and a sequence (list, vector\
+        \ or string) `xs`, reduces `xs` to a single value by starting with `i`\
+        \ and repetitively combining values with `f`, using elements of `xs`\
+        \ from right to left."
       , threeArg "foldr" $ \case
           (fn, ini, s) -> case s of
             Vec xs -> foldrM (\x y -> callFn fn [x, y]) ini xs
@@ -504,11 +511,12 @@ purePrimFns = fromList $ allDocs $
       )
     , ( "member?"
       , "Given `v` and structure `s`, checks if `x` exists in `s`. The structure `s`\
-        \ may be a list, vector or dict. If it is a list or a vector, it checks if `v`\
+        \ may be a sequence or dict. If it is a sequence, it checks if `v`\
         \ is one of the items. If `s` is a dict, it checks if `v` is one of the keys."
       , twoArg "member?" $ \case
           (x, List xs) -> pure . Boolean $ elem x xs
           (x, Vec xs)  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
+          (isCharV -> Just c, String t) -> pure . Boolean $ T.any (== c) t
           (x, Dict m)  -> pure . Boolean $ Map.member x m
           (_, v)       -> throwErrorHere
                         $ TypeError "member?" 1 TStructure v
@@ -537,14 +545,15 @@ purePrimFns = fromList $ allDocs $
       , "Returns a string representing the argument value."
       , oneArg "show" (pure . String . renderPrettyDef))
     , ( "seq"
-      , "Given a structure `s`, returns a sequence. Lists and vectors are returned\
-        \ without modification while for dicts a vector of key-value-pairs is returned:\
-        \ these are vectors of length 2 whose first item is a key and whose second item\
-        \ is the associated value."
+      , "Given a structure `s`, returns a sequence. Lists, vectors and strings\
+        \ are returned without modification while for dicts a vector of\
+        \ key-value-pairs is returned: these are vectors of length 2 whose first\
+        \ item is a key and whose second item is the associated value."
       , oneArg "seq" $
           \case
             x@(List _) -> pure x
             x@(Vec _) -> pure x
+            x@(String _) -> pure x
             Dict kvs -> pure . Vec . Seq.fromList $ [Vec (Seq.fromList [k, v]) | (k,v) <- Map.toList kvs ]
             v -> throwErrorHere $ TypeError "seq" 0 TStructure v
       )
@@ -651,11 +660,26 @@ purePrimFns = fromList $ allDocs $
 
     kw = Keyword . Ident
 
+    charV = String . T.singleton
+
     -- | O(1) Checks if a 'Text' is a single 'Char'.
     isChar t = do
       (c, rest) <- T.uncons t
       guard $ T.null rest
       pure c
+
+    isCharV (String (isChar -> Just c)) = pure c
+    isCharV _                           = Nothing
+
+    isSeq (Vec s)    = pure (Protolude.toList s)
+    isSeq (List xs)  = pure xs
+    isSeq (String t) = pure (charV <$> toS t)
+    isSeq _          = Nothing
+
+    sortSeqWith el sorter f xs = do
+      ys <- traverse (\x -> (x,) <$> callFn f [el x]) xs
+      let ys' = sorter snd ys
+      pure (fst <$> ys')
 
     pair :: (Value, Value) -> Value
     pair (x,y) = Vec (x :<| y :<| Empty)

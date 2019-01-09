@@ -717,6 +717,8 @@ instance ToRad t Integer where
     toRad = Number . fromIntegral
 instance ToRad t Scientific where
     toRad = Number . toRational
+instance ToRad t Char where
+    toRad = String . T.singleton
 instance ToRad t Text where
     toRad = String
 instance {-# OVERLAPPING #-} ToRad t [Char] where
