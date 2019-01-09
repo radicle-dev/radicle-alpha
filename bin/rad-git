@@ -1,10 +1,23 @@
 #!/usr/bin/env radicle
 
+;; TODO:
+;;   - docstrings
+;;   - move arg-parsing stuff into a library (and factor it out of rad-issues too)
+;;   - pretty print prs
+;;   - don't use make-chain-ref when we don't need loading
+;;   - deal with multiple patches properly (e.g. in pretty-pr)
+;;   - make and use cmd-2 pattern
+;;   - handle parsing numbers in cmd-parsing/validation logic
+
+
 (load! "rad/prelude.rad")
 (load! "rad/monadic/git.rad")
 (load! "rad/prelude/io-utils.rad")
+(import prelude/validation :as 'validation)
 
-(def base-name "http://machines.radicle.xyz/chains/")
+(def help "rad-git")
+
+(def base-name "http://localhost:8000/chains/")
 
 (def name-base "http://machines.radicle.xyz/chains/names")
 
@@ -19,8 +32,8 @@
     (ref (chain/load-chain! (make-name chain)))))
 
 (def get-patch!
-  (fn []
-    (string/unlines (process-with-stdout! "git" ["format-patch" "master..HEAD" "--stdout"] ""))))
+  (fn [diff-range]
+    (string/unlines (process-with-stdout! "git" ["diff" diff-range] ""))))
 
 (def get-base-commit!
   (fn []
@@ -32,8 +45,8 @@
     (process! "git" ["apply" "-"] patch)))
 
 (def new-pr!
-  (fn [chain]
-    (def patch (get-patch!))
+  (fn [chain diff-range]
+    (def patch (get-patch! diff-range))
     (def base (get-base-commit!))
     (def pr-template
 ";; PR template. An empty or invalid value will abort.
@@ -42,22 +55,30 @@
 }
 ")
     (def pr (<> (read (edit-in-editor! pr-template)) {:patch [patch] :base-commit base}))
-    (simple-create-pr! chain pr)))
+    (simple-create-pr! (make-chain-ref chain) pr)))
 
-(def pretty-pr show)
+(def pretty-pr
+  (fn [pr]
+    (string-append
+      (lookup :title pr)
+      "\n"
+      (lookup :description pr)
+      "\n"
+      (head (lookup :patch pr)))))
 
 (def checkout-pr!
   "Creates a new branch pr/<PR-number> based on the PR, and switches to it."
   (fn [chain pr-no]
     (def chain-ref (make-chain-ref chain))
-    (def patch
-      (match (lookup pr-no (read-ref chain-ref))
-        'pr      pr
+    (def pr
+      (match (lookup pr-no (list-prs chain-ref))
+        'the-pr  the-pr
         :nothing (do
                    (put-str! "No such PR")
                    (exit! 1))))
+    (process! "git" ["checkout" (lookup :base-commit pr)] "")
     (process! "git" ["checkout" "-b" (string-append "pr/" (show pr-no))] "")
-    (apply-patch! patch)))
+    (apply-patch! (head (lookup :patch pr)))))
 
 (def list-items
   "Lists the recent items and uses an editor to add a relevant comment."
@@ -118,10 +139,51 @@
 
 (def new-pr-chain!
   "Create a new PR chain with the given URL"
-  (fn [url]
-    (chain/send-prelude! chain)
-    (send-code! url "rad/monadic/git-remote.rad")))
-(def chain-name "http://localhost:8000/chains/foo")
-(def chain (ref (chain/new-chain chain-name)))
-(fetch! chain)
-(list-items chain-name :nothing)
+  (fn [name]
+    (chain/send-prelude! name)
+    (send-code! name "rad/monadic/git-remote.rad")))
+
+;; Command-line parsing
+
+
+(def cmd-parse-failure
+  (fn [error]
+    (put-str! error)
+    (put-str! help)
+    (exit! 1)
+  ))
+
+(def /cmd-1
+  (fn [cmd cmd-args-pat]
+    ((validation/type :string) cmd)
+    ((validation/type :atom) cmd-args-pat)
+    (fn [value]
+      (match value
+        [cmd 'cmd-args] (match-pat cmd-args-pat cmd-args)
+        [cmd] (cmd-parse-failure (string-append "Missing argument \"" (show cmd-args-pat) "\" for command \"" cmd "\""))
+        (/cons cmd _) (cmd-parse-failure (string-append "Too many arguments for command \"" cmd "\""))
+        _ :nothing)
+    )))
+
+(def /cmd-0
+  (fn [cmd]
+    ((validation/type :string) cmd)
+    (fn [value]
+      (match value
+        [cmd] [:just {}]
+        (/cons cmd _) (cmd-parse-failure (string-append "Too many arguments for command \"" cmd "\""))
+        _ :nothing)
+    )))
+
+
+(def args (get-args!))
+(match args
+  ["propose" 'chain-name 'range] (new-pr! (make-name chain-name) range)
+  ["checkout" 'chain-name 'pr-no] (checkout-pr! chain-name (read pr-no))
+  (/cmd-1 "create-chain" 'chain-name) (new-pr-chain! (make-name chain-name))
+  (/cmd-1 "list" 'chain-name) (list-items (make-name chain-name) :nothing)
+  ["help"] (put-str! help)
+  ["-h"] (put-str! help)
+  ["--help"] (put-str! help)
+  (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
+  [] (put-str! help))
