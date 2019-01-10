@@ -17,6 +17,7 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import qualified Radicle.Internal.Doc as Doc
+import           Radicle.Internal.Eval
 import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse
