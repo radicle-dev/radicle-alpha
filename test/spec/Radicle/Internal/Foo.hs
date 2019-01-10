@@ -11,7 +11,6 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 import           Radicle
-import           Radicle.Internal.Core
 
 data Foo
   = FooA { a1 :: Text, a2 :: Scientific }
@@ -20,8 +19,8 @@ data Foo
   | FooD
   deriving (Eq, Show, Generic)
 
-instance CPA t => FromRad t Foo
-instance CPA t => ToRad t Foo
+instance FromRad t Foo
+instance ToRad t Foo
 instance Arbitrary Foo where
   arbitrary = oneof
     [ FooA <$> arbitrary <*> arbitrary
