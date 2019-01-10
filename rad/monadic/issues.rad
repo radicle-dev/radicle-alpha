@@ -4,8 +4,6 @@
 ;; Create a remote issue chain. Returns a ref for the chain that you
 ;; can assign to a variable.
 
-(load! "rad/prelude.rad")
-
 (import prelude/lens :unqualified)
 (import prelude/chain '[send-code! ]:unqualified)
 
