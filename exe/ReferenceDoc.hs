@@ -99,13 +99,16 @@ lPanic (Right r) _ = r
 
 valueDoc :: Text -> Text -> Value -> [Block]
 valueDoc name docString value = case value of
-    Lambda args _ _ ->
-        let callExample = "(" <> T.intercalate " " (name : map fromIdent args) <> ")"
-        in [ Header 3 nullAttr [Code nullAttr (toS callExample) ] ]
-           <> parseMarkdownBlocks docString
+    Lambda args _ _ -> lambdaDoc args
+    LambdaRec _ args _ _ -> lambdaDoc args
     _ ->
         [ Header 3 nullAttr [Code nullAttr (toS name) ] ]
         <> parseMarkdownBlocks docString
+  where
+    lambdaDoc args =
+        let callExample = "(" <> T.intercalate " " (name : map fromIdent args) <> ")"
+        in [ Header 3 nullAttr [Code nullAttr (toS callExample) ] ]
+           <> parseMarkdownBlocks docString
 
 -- | Generate documentation for primitive functions defined by 'replBindings'
 docForPrimFns :: Content -> [Block]
