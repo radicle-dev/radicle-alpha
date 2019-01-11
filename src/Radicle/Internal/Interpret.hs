@@ -6,6 +6,7 @@ import           Text.Megaparsec (eof, runParserT)
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
+import           Radicle.Internal.Eval
 import           Radicle.Internal.Parse
 
 -- | Parse and evaluate a Text.
