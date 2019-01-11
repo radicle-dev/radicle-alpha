@@ -252,6 +252,12 @@ data ValueF r =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
     | LambdaF [Ident] (NonEmpty r) (Env r)
+    -- | Like 'LambdaF' but indicates a function that can call itself
+    -- recursively.
+    --
+    -- The first argument is the name for recursive calls to the
+    -- function in the body.
+    | LambdaRecF Ident [Ident] (NonEmpty r) (Env r)
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
@@ -271,6 +277,7 @@ valType = \case
   Handle _ -> THandle
   ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
+  LambdaRec{} -> TFunction
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
@@ -284,6 +291,7 @@ hashable = \case
   Handle _ -> False
   ProcHandle _ -> False
   Lambda{} -> False
+  LambdaRec{} -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
   Dict kvs -> getAll $ Map.foldMapWithKey (\k v -> All (hashable k && hashable v)) kvs
@@ -296,7 +304,7 @@ dict kvs =
   else throwErrorHere NonHashableKey
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict
-  , Ref, Handle, ProcHandle, Lambda #-}
+  , Ref, Handle, ProcHandle, Lambda, LambdaRec #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -364,6 +372,11 @@ pattern Lambda :: ValueConC t => [Ident] -> NonEmpty (Annotated t ValueF) -> Env
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
     where
     Lambda vs exps env = Ann.annotate $ LambdaF vs exps env
+
+pattern LambdaRec :: ValueConC t => Ident -> [Ident] -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
+pattern LambdaRec self vs exps env <- (Ann.match -> LambdaRecF self vs exps env)
+    where
+    LambdaRec self vs exps env = Ann.annotate $ LambdaRecF self vs exps env
 
 type UntaggedValue = Annotated Identity ValueF
 type Value = Annotated Ann.WithPos ValueF
@@ -722,10 +735,11 @@ specialForms = Map.fromList $ first Ident <$>
       val' <- baseEval val
       case val' of
         Lambda is b e -> do
-          let v = Lambda is b (Env . Map.insert name (Doc.Docd doc_ v) . fromEnv $ e)
-          defineAtom name doc_ v
+          defineAtom name doc_ $ LambdaRec name is b e
           pure nil
-        _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
+        LambdaRec{} -> throwErrorHere $
+            OtherError "'def-rec' cannot be used to alias functions. Use 'def' instead"
+        _ -> throwErrorHere $ OtherError "'def-rec' can only be used to define functions"
 
 data ModuleMeta = ModuleMeta
   { name    :: Ident
@@ -927,24 +941,34 @@ instance (CPA t) => ToRad t CmdSpec where
 
 -- * Helpers
 
--- Loc is the source location of the application.
-callFn :: Monad m => Value -> [Value] -> Lang m Value
-callFn f vs = case f of
-  Lambda bnds body closure ->
-      if length bnds /= length vs
-          then throwErrorHere $ WrongNumberOfArgs "lambda" (length bnds)
-                                                           (length vs)
-          else do
-              let mappings = GhcExts.fromList (Doc.noDocs $ zip bnds vs)
-                  modEnv = mappings <> closure
-              NonEmpty.last <$> withEnv (const modEnv)
-                                        (traverse baseEval body)
-  PrimFn i -> do
-    fn <- lookupPrimop i
-    fn vs
-  _ -> throwErrorHere $ NonFunctionCalled f
+-- | Call a lambda or primitvie function @f@ with @arguments@. @f@ and
+-- @argumenst@ are not evaluated.
+callFn :: forall m. Monad m => Value -> [Value] -> Lang m Value
+callFn f arguments = case f of
+    Lambda argNames body closure -> do
+        args <- argumentBindings argNames
+        evalManyWithEnv (args <> closure) body
+    LambdaRec self argNames body closure -> do
+        args <- argumentBindings argNames
+        let selfBinding = GhcExts.fromList (Doc.noDocs [(self, f)])
+        evalManyWithEnv (args <> selfBinding <> closure) body
+    PrimFn i -> do
+        fn <- lookupPrimop i
+        fn arguments
+    _ -> throwErrorHere $ NonFunctionCalled f
+  where
+    evalManyWithEnv :: Env Value -> NonEmpty Value -> Lang m Value
+    evalManyWithEnv env exprs =
+        NonEmpty.last <$> withEnv (const env) (traverse baseEval exprs)
+    argumentBindings :: [Ident] -> Lang m (Env Value)
+    argumentBindings names =
+        if length names /= length arguments
+        then throwErrorHere $ WrongNumberOfArgs "lambda" (length names) (length arguments)
+        else pure $ GhcExts.fromList (Doc.noDocs $ zip names arguments)
 
--- | Infix evaluation of application (of functions or special forms)
+-- | Process special forms or call function. If @f@ is an atom that
+-- indicates a special form that special form is processed. Otherwise
+-- @f@ and @vs@ are evaluated in 'callFn' is called.
 infixr 1 $$
 ($$) :: Monad m => Value -> [Value] -> Lang m Value
 f $$ vs = case f of

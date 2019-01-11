@@ -67,16 +67,18 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
         Dict mp -> braces . align $
             sep [ prettyV k <+> prettyV val
                 | (k, val) <- Map.toList mp ]
-        Lambda ids vals _ ->
+        Lambda ids vals _ -> prettyLambda ids vals
+        LambdaRec _ ids vals _ -> prettyLambda ids vals
+      where
+        -- We print string literals escaped just like Haskell does.
+        escapeStr = T.init . T.tail . show
+        prettyLambda ids vals =
           let args :: Ann.Annotated t ValueF = Vec $ Seq.fromList (Atom <$> ids)
           in parens $
                annotate TAtom "fn" <+>
                align (sep [ prettyV args
                           , sep $ prettyV <$> toList vals
                           ])
-      where
-        -- We print string literals escaped just like Haskell does.
-        escapeStr = T.init . T.tail . show
 
 instance Pretty Ann.SrcPos where
     pretty (Ann.SrcPos pos)        = pretty (sourcePosPretty pos)
