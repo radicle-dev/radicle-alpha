@@ -369,27 +369,42 @@ from ``m``. ``(import m '[f g] :as 'foo')`` will import ``f`` and ``g``
 from ``m`` as ``foo/f`` and ``foo/g``. To import definitions with no
 qualification at all, use ``(import m :unqualified)``.
 
-``get-current-env``
-~~~~~~~~~~~~~~~~~~~
-
-Returns the current radicle state.
-
-``pure-env``
-~~~~~~~~~~~~
+``pure-state``
+~~~~~~~~~~~~~~
 
 Returns a pure initial radicle state. This is the state of a radicle
 chain before it has processed any inputs.
 
-``set-current-env``
-~~~~~~~~~~~~~~~~~~~
+``get-current-state``
+~~~~~~~~~~~~~~~~~~~~~
+
+Returns the current radicle state.
+
+``set-current-state``
+~~~~~~~~~~~~~~~~~~~~~
 
 Replaces the radicle state with the one provided.
 
-``set-env!``
-~~~~~~~~~~~~
+``get-binding``
+~~~~~~~~~~~~~~~
 
-Given an atom ``x`` and a value ``v``, sets the value associated to
-``x`` in the current environment to be ``v``. Doesn't evaluate ``v``.
+Lookup a binding in a radicle env.
+
+``set-binding``
+~~~~~~~~~~~~~~~
+
+Add a binding to a radicle env.
+
+``set-env``
+~~~~~~~~~~~
+
+Sets the environment of a radicle state to a new value. Returns the
+updated state.
+
+``state->env``
+~~~~~~~~~~~~~~
+
+Extract the environment from a radicle state.
 
 ``timestamp?``
 ~~~~~~~~~~~~~~
@@ -660,6 +675,11 @@ Empty-sequence pattern. Matches ``[]`` and ``(list)``
 ~~~~~~~~~~~~~~~
 
 Pattern which matches ``[:just x]``.
+
+``(/member vs)``
+~~~~~~~~~~~~~~~~
+
+Matches values that are members of a structure.
 
 ``prelude/strings``
 -------------------

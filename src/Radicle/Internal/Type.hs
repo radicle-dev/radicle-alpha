@@ -19,6 +19,8 @@ data Type
   | TRef
   | THandle
   | TProcHandle
+  | TEnv
+  | TState
   deriving (Eq, Show, Read, Generic)
 
 instance Serialise Type

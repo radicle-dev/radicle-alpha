@@ -69,6 +69,8 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
                 | (k, val) <- Map.toList mp ]
         Lambda ids vals _ -> prettyLambda ids vals
         LambdaRec _ ids vals _ -> prettyLambda ids vals
+        VEnv _ -> angles "env"
+        VState _ -> angles "state"
       where
         -- We print string literals escaped just like Haskell does.
         escapeStr = T.init . T.tail . show

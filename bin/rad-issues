@@ -6,9 +6,9 @@
 
 (import prelude/validation :as 'validation)
 
-(def base-name "http://machines.radicle.xyz/chains/")
+(def base-name "http://staging.machines.radicle.xyz/chains/")
 
-(def name-base "http://machines.radicle.xyz/chains/names")
+(def name-base "http://staging.machines.radicle.xyz/chains/names")
 
 (def help
   (string-append

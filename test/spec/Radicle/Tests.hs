@@ -153,7 +153,7 @@ test_eval =
         f "(insert (ref 0) 1 {})"
         f "{(ref 0) 1}"
         "(lookup :k {'(fn [x] y) 1 :k :v})" `succeedsWith` Keyword [ident|v|]
-        f "(eval {'(fn [y] y) :a-fun} (get-current-env))"
+        f "(eval {'(fn [y] y) :a-fun} (get-current-state))"
         f "(dict (ref 0) 1)"
 
     , testProperty "'string-append' concatenates string" $ \ss -> do
@@ -198,18 +198,18 @@ test_eval =
         prog `succeedsWith` List [List [int 1, int 1]]
 
     , testCase "'eval' evaluates the list" $ do
-        let prog = [s|(first (eval (quote #t) (get-current-env)))|]
+        let prog = [s|(first (eval (quote #t) (get-current-state)))|]
         prog `succeedsWith` Boolean True
 
     , testCase "'eval' only evaluates the first quote" $ do
-        let prog1 = [s|(first (eval (quote (quote (+ 3 2))) (get-current-env)))|]
+        let prog1 = [s|(first (eval (quote (quote (+ 3 2))) (get-current-state)))|]
             prog2 = [s|(quote (+ 3 2))|]
             res1 = runPureCode prog1
             res2 = runPureCode prog2
         res1 @?= res2
 
     , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
-        let prog1 = [i| (first (eval (fn [] #{renderPrettyDef _v}) (get-current-env))) |]
+        let prog1 = [i| (first (eval (fn [] #{renderPrettyDef _v}) (get-current-state))) |]
             prog2 = [i| (fn [] #{renderPrettyDef _v}) |]
             res1 = runPureCode $ toS prog1
             res2 = runPureCode $ toS prog2

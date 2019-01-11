@@ -37,7 +37,7 @@ main = do
                (   "(do"
                 <> "(file-module! \"rad/prelude/test-eval.rad\") (import prelude/test-eval '[eval tests] :unqualified)"
                 <> foldMap (\m -> "(file-module! \"rad/" <> m <> ".rad\")") (modules content)
-                <> "(get-current-env))")
+                <> "(get-current-state))")
                (replBindings [])
     let res = res_ `lPanic` "Error running the prelude."
     let env = bindingsEnv $ bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
@@ -77,8 +77,9 @@ moduleDoc (Env env) name =
 
     getModuleEnv :: Map Value Value -> Env Value
     getModuleEnv module' =
-        envFromRad (lkp [kword|env|] module')
-        `lPanic` ("Cannot parse environment for module " <> name)
+        case lkp [kword|env|] module' of
+          VEnv e -> e
+          _      -> panic "Module's `:env` was not an env."
 
     lkp :: Value -> Map Value Value -> Value
     lkp x m = case Map.lookup x m of
