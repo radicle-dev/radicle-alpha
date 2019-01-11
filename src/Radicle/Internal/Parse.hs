@@ -39,7 +39,7 @@ spaceConsumer = L.space space1 lineComment blockComment
 
 tag :: ValueF Value -> VParser
 tag v = do
-    pos <- getSourcePos -- N.B. in megaparsec 7 this is called getSourcePos
+    pos <- getSourcePos
     pure $ Ann.Annotated (Ann.WithPos (Ann.SrcPos pos) v)
 
 symbol :: Text -> Parser Text
