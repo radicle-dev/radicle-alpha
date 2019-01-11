@@ -786,56 +786,56 @@ createModule = \case
 type CPA t = (Ann.Annotation t, Copointed t)
 
 class FromRad t a where
-  fromRad :: Annotated t ValueF -> Either Text a
+  fromRad :: (CPA t) => Annotated t ValueF -> Either Text a
   default fromRad :: (CPA t, HasEot a, FromRadG t (Eot a)) => Annotated t ValueF -> Either Text a
   fromRad = fromRadG
 
-instance CPA t => FromRad t () where
+instance FromRad t () where
     fromRad (Vec Seq.Empty) = pure ()
     fromRad _               = Left "Expecting an empty vector"
-instance (CPA t, FromRad t a, FromRad t b) => FromRad t (a,b) where
+instance (FromRad t a, FromRad t b) => FromRad t (a,b) where
     fromRad (Vec (x :<| y :<| Seq.Empty)) = (,) <$> fromRad x <*> fromRad y
     fromRad _ = Left "Expecting a vector of length 2"
-instance (CPA t, FromRad t a) => FromRad t (Maybe a) where
+instance (FromRad t a) => FromRad t (Maybe a) where
     fromRad (Vec (Keyword (Ident "just") :<| x :<| Empty)) = Just <$> fromRad x
     fromRad (Keyword (Ident "nothing")) = pure Nothing
     fromRad _ = Left "Expecting `:nothing` or `[:just _]`"
 instance FromRad t (Annotated t ValueF) where
   fromRad = pure
-instance CPA t => FromRad t Rational where
+instance FromRad t Rational where
   fromRad (Number n) = pure n
   fromRad _          = Left "Not a number"
-instance CPA t => FromRad t Scientific where
+instance FromRad t Scientific where
   fromRad = fromRad >=> Num.isSci
-instance CPA t => FromRad t Int where
+instance FromRad t Int where
     fromRad = fromRad >=> Num.isInt
-instance CPA t => FromRad t Integer where
+instance FromRad t Integer where
     fromRad = fromRad >=> Num.isInteger
-instance CPA t => FromRad t Text where
+instance FromRad t Text where
     fromRad x = case x of
         String n -> pure n
         _        -> Left "Expecting string"
-instance {-# OVERLAPPING #-} CPA t => FromRad t [Char] where
+instance {-# OVERLAPPING #-} FromRad t [Char] where
     fromRad x = case x of
         String n -> pure $ toS n
         _        -> Left "Expecting string"
-instance CPA t => FromRad t ExitCode where
+instance FromRad t ExitCode where
     fromRad x = case x of
         Keyword (Ident "ok") -> pure $ ExitSuccess
         Vec (Keyword (Ident "error") Seq.:<| errValue Seq.:<| Seq.Empty) -> ExitFailure <$> fromRad errValue
         _ -> Left "Expecting either :ok or [:error errValue]"
-instance (CPA t, FromRad t a) => FromRad t [a] where
+instance (FromRad t a) => FromRad t [a] where
     fromRad x = case x of
         List xs -> traverse fromRad xs
         Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
-instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
+instance FromRad t (Doc.Docd (Annotated t ValueF)) where
     fromRad (Dict d) = do
       val <- kwLookup "val" d ?? "Expecting `:val` key"
       doc <- traverse fromRad (kwLookup "doc" d)
       pure (Doc.Docd doc val)
     fromRad _ = Left "Expecting a dict."
-instance CPA t => FromRad t CmdSpec where
+instance FromRad t CmdSpec where
     fromRad x = case x of
         Vec (Keyword (Ident "shell") Seq.:<| arg Seq.:<| Seq.Empty) ->
             ShellCommand <$> fromRad arg
@@ -847,13 +847,13 @@ instance CPA t => FromRad t CmdSpec where
             throwError $ "Expecting either :raw or :shell, got: " <> s
         _ ->
             throwError "Expecting vector"
-instance CPA t => FromRad t StdStream where
+instance FromRad t StdStream where
     fromRad x = case x of
         Keyword (Ident "inherit") -> pure Inherit
         Keyword (Ident "create-pipe") -> pure CreatePipe
         Keyword (Ident "no-stream") -> pure NoStream
         _ -> throwError $ "Expecting :inherit, :create-pipe, or :no-stream"
-instance CPA t => FromRad t CreateProcess where
+instance FromRad t CreateProcess where
     fromRad x = case x of
         Dict d -> do
             cmdspec' <- fromRad =<< (kwLookup "cmdspec" d ?? "Expecting 'cmdspec' key")
@@ -881,55 +881,54 @@ instance CPA t => FromRad t CreateProcess where
 
 
 class ToRad t a where
-  toRad :: a -> Annotated t ValueF
+  toRad :: CPA t => a -> Annotated t ValueF
   default toRad :: (HasEot a, ToRadG t (Eot a)) => a -> Annotated t ValueF
-  toRad =
-    toRadG
+  toRad = toRadG
 
-instance CPA t => ToRad t () where
+instance ToRad t () where
     toRad _ = Vec Empty
-instance CPA t => ToRad t Bool where
+instance ToRad t Bool where
     toRad = Boolean
-instance (CPA t, ToRad t a, ToRad t b) => ToRad t (a,b) where
+instance (ToRad t a, ToRad t b) => ToRad t (a,b) where
     toRad (a,b) = Vec $ toRad a :<| toRad b :<| Empty
-instance (CPA t, ToRad t a, ToRad t b, ToRad t c) => ToRad t (a,b,c) where
+instance (ToRad t a, ToRad t b, ToRad t c) => ToRad t (a,b,c) where
     toRad (a,b,c) = Vec $ toRad a :<| toRad b :<| toRad c :<| Empty
-instance (CPA t, ToRad t a, ToRad t b, ToRad t c, ToRad t d) => ToRad t (a,b,c,d) where
+instance (ToRad t a, ToRad t b, ToRad t c, ToRad t d) => ToRad t (a,b,c,d) where
     toRad (a,b,c,d) = Vec $ toRad a :<| toRad b :<| toRad c :<| toRad d :<| Empty
-instance (CPA t, ToRad t a) => ToRad t (Maybe a) where
+instance (ToRad t a) => ToRad t (Maybe a) where
     toRad Nothing  = Keyword (Ident "nothing")
     toRad (Just x) = Vec $ Keyword (Ident "just") :<| toRad x :<| Empty
-instance CPA t => ToRad t Int where
+instance ToRad t Int where
     toRad = Number . fromIntegral
-instance CPA t => ToRad t Integer where
+instance ToRad t Integer where
     toRad = Number . fromIntegral
-instance CPA t => ToRad t Scientific where
+instance ToRad t Scientific where
     toRad = Number . toRational
-instance CPA t => ToRad t Text where
+instance ToRad t Text where
     toRad = String
-instance {-# OVERLAPPING #-} CPA t => ToRad t [Char] where
+instance {-# OVERLAPPING #-} ToRad t [Char] where
     toRad = String . toS
-instance CPA t => ToRad t ExitCode where
+instance ToRad t ExitCode where
     toRad x = case x of
         ExitSuccess -> Keyword (Ident "ok")
         ExitFailure c -> Vec $ Seq.fromList [Keyword (Ident "error"), toRad c]
 instance ToRad t (Ann.Annotated t ValueF) where
     toRad = identity
-instance (CPA t, ToRad t a) => ToRad t [a] where
+instance (ToRad t a) => ToRad t [a] where
     toRad xs = Vec . Seq.fromList $ toRad <$> xs
-instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
+instance (ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
-instance CPA t => ToRad t (Doc.Docd (Annotated t ValueF)) where
+instance ToRad t (Doc.Docd (Annotated t ValueF)) where
     toRad (Doc.Docd d_ v) = Dict $ Map.fromList $ ( Keyword (Ident "val"), v) : case d_ of
       Just d  -> [ (Keyword (Ident "doc"), toRad d) ]
       Nothing -> []
-instance (CPA t) => ToRad t StdStream where
+instance ToRad t StdStream where
     toRad x = case x of
         Inherit    -> Keyword $ Ident "inherit"
         CreatePipe -> Keyword $ Ident "create-pipe"
         NoStream   -> Keyword $ Ident "no-stream"
         _          -> panic "Cannot convert handle"
-instance (CPA t) => ToRad t CmdSpec where
+instance ToRad t CmdSpec where
     toRad x = case x of
         ShellCommand comm ->
             let c = toRad comm
@@ -1045,7 +1044,7 @@ instance ToRadG t Void where
   toRadConss _ = absurd
 
 class ToRadFields t a where
-  toRadFields :: a -> [Annotated t ValueF]
+  toRadFields :: CPA t => a -> [Annotated t ValueF]
 
 instance (ToRad t a, ToRadFields t as) => ToRadFields t (a, as) where
   toRadFields (x, xs) = toRad x : toRadFields xs
