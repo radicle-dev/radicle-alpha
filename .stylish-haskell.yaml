@@ -193,6 +193,7 @@ language_extensions:
   - GeneralizedNewtypeDeriving
   - LambdaCase
   - MultiParamTypeClasses
+  - MultiWayIf
   - NoImplicitPrelude
   - OverloadedStrings
   - RankNTypes
