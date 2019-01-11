@@ -1,5 +1,7 @@
 (load! "rad/monadic/issues.rad")
 
+(import prelude/chain :unqualified)
+
 ;; This is a script that migrates the issues chain. It is used when there is a
 ;; breaking change.
 ;; Example:
