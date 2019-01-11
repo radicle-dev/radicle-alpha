@@ -43,10 +43,10 @@ requests on a specific port. The API uses JSON.
      "last_input_id": 55}
 
   The daemon works out if it must query a remote or local machine based on the
-  existence of a protocol (e.g. ``http://`` or ``ipfs://``). If there is no
-  protocol then the query refers to a locally maintained machine. Otherwise it
-  will fetch inputs from a remote machine using the correct protocol (but only
-  ``http`` is supported initially).
+  protocol (``radicle-local://`` versus ``http://`` or ``ipfs://``). If there is
+  no protocol then the query refers to a locally maintained machine. Otherwise
+  it will fetch inputs from a remote machine using the correct protocol (but
+  only ``http`` is supported initially).
 
   The fields ``keep_input``, ``keep_polling``, ``poll_period`` are optional.
   ``keep_input`` controls how long (seconds) the daemon will cache the inputs
@@ -83,7 +83,9 @@ Alternatives
 Unresolved question
 --------------------
 
-N/A
+- The daemon might be used by multiple apps to access data about the same remote
+  machine. In this case something should prevent one app disabling the
+  cache/polling settings of the other.
 
 Implementation
 ---------------
