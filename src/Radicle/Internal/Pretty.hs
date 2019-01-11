@@ -13,7 +13,7 @@ import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Terminal (Color(..), color)
 import qualified Data.Text.Prettyprint.Doc.Render.Terminal as Term
 import           Data.Text.Prettyprint.Doc.Render.Text
-import           Text.Megaparsec.Error (parseErrorPretty)
+import           Text.Megaparsec.Error (errorBundlePretty)
 import           Text.Megaparsec.Pos (sourcePosPretty)
 
 import qualified Radicle.Internal.Annotation as Ann
@@ -116,7 +116,7 @@ instance PrettyV r => PrettyV (LangErrorData r) where
             <+> sep (prettyV . asValue . Atom <$> is)
         OtherError t -> "Error:" <+> pretty t
         SpecialForm f t -> "Error using special form" <+> pretty f <> ":" <+> pretty t <> "."
-        ParseError t -> "Parser error:" <+> pretty (parseErrorPretty t)
+        ParseError t -> "Parser error:" <+> pretty (errorBundlePretty t)
         Exit code -> "Exit with code " <+> pretty code
         ThrownError i val -> "Exception" <+> pretty i <+> prettyV val
         PatternMatchError e -> case e of

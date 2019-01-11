@@ -11,7 +11,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import           GHC.Exts (IsList(..), sortWith)
-import           Text.Megaparsec (parseErrorPretty)
+import           Text.Megaparsec (errorBundlePretty)
 
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
@@ -713,7 +713,7 @@ readValues
 readValues sourceFile code = do
     case parseValues sourceFile code  of
       Right vs -> pure vs
-      Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String . toS $ parseErrorPretty e)
+      Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String . toS $ errorBundlePretty e)
 
 allDocs :: [(Text, Text, a)] -> [(Ident, Maybe Text, a)]
 allDocs = fmap $ \(x,y,z) -> (unsafeToIdent x, Just y, z)

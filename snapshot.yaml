@@ -5,10 +5,10 @@
 #
 # See https://docs.haskellstack.org/en/stable/custom_snapshot/
 #
-name: radicle-deps-12.9
-resolver: lts-12.9
+name: radicle-deps-13.2
+resolver: lts-13.2
 
 packages:
-- acid-state-0.14.3
-- cborg-0.2.0.0
-- serialise-0.2.0.0
+- cborg-0.2.1.0
+- serialise-0.2.1.0
+- github-0.20

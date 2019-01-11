@@ -12,7 +12,7 @@ steps:
       load-cache
 
   - id: "Build deps"
-    name: 'haskell:8.4.3'
+    name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: 'bash'
     args:
@@ -26,17 +26,17 @@ steps:
       stack build stylish-haskell hlint weeder
 
   - id: "Format"
-    name: 'haskell:8.4.3'
+    name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['./scripts/check-fmt.sh']
 
   - id: "Lint"
-    name: 'haskell:8.4.3'
+    name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['stack', 'exec', '--', 'hlint', '.']
 
   - id: "Build & Test"
-    name: 'haskell:8.4.3'
+    name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
@@ -54,14 +54,14 @@ steps:
 
   - id: "Lint (weeder)"
     waitFor: ["Build & Test"]
-    name: 'haskell:8.4.3'
+    name: 'haskell:8.6.3'
     env: ["STACK_ROOT=/workspace/.stack"]
     args: ["stack", "exec", "--", "weeder", "--match"]
 
   - id: "Build reference document"
     waitFor:
     - "Build & Test"
-    name: 'haskell:8.4.3'
+    name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
@@ -79,7 +79,7 @@ steps:
   - id: "Check tutorial"
     waitFor:
     - "Build & Test"
-    name: 'haskell:8.4.3'
+    name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
@@ -138,7 +138,7 @@ steps:
   - id: "radicle-server integration test"
     waitFor:
     - "Start and expose radicle-server"
-    name: 'haskell:8.4.3'
+    name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: 'bash'
     args:

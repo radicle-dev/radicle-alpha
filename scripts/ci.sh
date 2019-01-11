@@ -4,7 +4,7 @@ set -euo pipefail
 
 dependency_hash=$( (cat package.yaml; cat snapshot.yaml) | sha256sum | cut -d ' ' -f 1)
 
-remote="gs://radicle-build-cache/v2"
+remote="gs://radicle-build-cache/v3"
 
 local_cache_archive="stack-root.tar.gz"
 remote_cache_master="$remote/stack-root-master.tar.gz"
