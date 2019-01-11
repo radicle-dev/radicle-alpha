@@ -1,5 +1,5 @@
 { pkgs ? import <nixpkgs> {}
-, compiler ? "ghc843"
+, compiler ? "ghc863"
 , doc ? true
 , extras ? true
 }:
