@@ -1,5 +1,3 @@
-(load! "rad/prelude.rad")
-
 (def create-name-chain!
   (fn [url]
     (chain/send-prelude! url)

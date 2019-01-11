@@ -178,14 +178,14 @@
     (def n (read issue-number))
     (if (number? n)
       (if (integral? n)
-        (do (def chain-ref (make-chain-ref chain-name))
+        (do (def chain-ref (ref (chain/new-chain (make-name chain-name))))
             (simple-edit-issue! chain-ref n {:state :closed}))
         (cmd-parse-failure "Issue numbers must be whole numbers!"))
       (cmd-parse-failure "To close an issue, please provide the issue number."))))
 
 (def new-issue
   (fn [chain]
-    (def chain-ref (make-chain-ref chain))
+    (def chain-ref (ref (chain/new-chain (make-name chain))))
     (def template
 ";; Issue template. An empty or invalid value will abort.
 {:title      \"Pick a title\"
