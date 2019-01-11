@@ -6,6 +6,7 @@ import           Radicle.Internal.Annotation as X
 import           Radicle.Internal.CLI as X
 import           Radicle.Internal.Core as X
 import           Radicle.Internal.Effects as X
+import           Radicle.Internal.Eval as X
 import           Radicle.Internal.Identifier as X
 import           Radicle.Internal.Interpret as X
 import           Radicle.Internal.Parse as X

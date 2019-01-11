@@ -16,14 +16,11 @@ import qualified Data.Aeson as A
 import           Data.Copointed (Copointed(..))
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.IntMap as IntMap
-import           Data.List.NonEmpty (NonEmpty)
-import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
-import qualified Data.Set as Set
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
@@ -252,6 +249,12 @@ data ValueF r =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
     | LambdaF [Ident] (NonEmpty r) (Env r)
+    -- | Like 'LambdaF' but indicates a function that can call itself
+    -- recursively.
+    --
+    -- The first argument is the name for recursive calls to the
+    -- function in the body.
+    | LambdaRecF Ident [Ident] (NonEmpty r) (Env r)
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
@@ -271,6 +274,7 @@ valType = \case
   Handle _ -> THandle
   ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
+  LambdaRec{} -> TFunction
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
@@ -284,6 +288,7 @@ hashable = \case
   Handle _ -> False
   ProcHandle _ -> False
   Lambda{} -> False
+  LambdaRec{} -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
   Dict kvs -> getAll $ Map.foldMapWithKey (\k v -> All (hashable k && hashable v)) kvs
@@ -296,7 +301,7 @@ dict kvs =
   else throwErrorHere NonHashableKey
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict
-  , Ref, Handle, ProcHandle, Lambda #-}
+  , Ref, Handle, ProcHandle, Lambda, LambdaRec #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -364,6 +369,11 @@ pattern Lambda :: ValueConC t => [Ident] -> NonEmpty (Annotated t ValueF) -> Env
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
     where
     Lambda vs exps env = Ann.annotate $ LambdaF vs exps env
+
+pattern LambdaRec :: ValueConC t => Ident -> [Ident] -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
+pattern LambdaRec self vs exps env <- (Ann.match -> LambdaRecF self vs exps env)
+    where
+    LambdaRec self vs exps env = Ann.annotate $ LambdaRecF self vs exps env
 
 type UntaggedValue = Annotated Identity ValueF
 type Value = Annotated Ann.WithPos ValueF
@@ -589,239 +599,61 @@ lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns 
 defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
 defineAtom i d v = modify $ addBinding i d v
 
--- * Eval
-
--- | The buck-passing eval. Uses whatever 'eval' is in scope.
-eval :: Monad m => Value -> Lang m Value
-eval val = do
-    e <- lookupAtom (Ident "eval")
-    logValPos e $ do
-        st <- gets bindingsToRadicle
-        result <- callFn e [val, st]
-        case result of
-            List [val', newSt] -> do
-                setBindings newSt
-                pure val'
-            _ -> throwErrorHere
-               $ OtherError "eval: should return list with value and new env"
-
-
--- | The built-in, original, eval.
-baseEval :: Monad m => Value -> Lang m Value
-baseEval val = logValPos val $ case val of
-    Atom i -> lookupAtom i
-    List (f:vs) -> f $$ vs
-    List xs -> throwErrorHere
-        $ WrongNumberOfArgs ("application: " <> show xs)
-                            2
-                            (length xs)
-    Vec xs -> Vec <$> traverse baseEval xs
-    Dict mp -> do
-        let evalBoth (a,b) = (,) <$> baseEval a <*> baseEval b
-        kvs <- traverse evalBoth (Map.toList mp)
-        dict $ Map.fromList kvs
-    autoquote -> pure autoquote
-
-specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)
-specialForms = Map.fromList $ first Ident <$>
-  [ ( "fn"
-    , \case
-          args : b : bs ->
-            case args of
-              Vec atoms_ -> do
-                atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn" "One of the arguments was not an atom")
-                e <- gets bindingsEnv
-                pure (Lambda atoms (b :| bs) e)
-              _ -> throwErrorHere $ SpecialForm "fn" "First argument must be a vector of argument atoms"
-          _ -> throwErrorHere $ SpecialForm "fn" "Need an argument vector and a body"
-      )
-  , ( "module", createModule )
-  , ("quote", \case
-          [v] -> pure v
-          xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
-  , ("def", \case
-          [Atom name, val] -> def name Nothing val
-          [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
-          [Atom name, String d, val] -> def name (Just d) val
-          xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
-    , ( "def-rec"
-      , \case
-          [Atom name, val] -> defRec name Nothing val
-          [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
-          [Atom name, String d, val] -> defRec name (Just d) val
-          xs               -> throwErrorHere $ WrongNumberOfArgs "def-rec" 2 (length xs)
-      )
-    , ("do", (lastDef nil <$>) . traverse baseEval)
-    , ("catch", \case
-          [l, form, handler] -> do
-              mlabel <- baseEval l
-              handlerclo <- baseEval handler
-              case mlabel of
-                  -- TODO reify stack
-                  Atom label -> baseEval form `catchError` \(LangError _stack e) -> do
-                     (thrownLabel, thrownValue) <- errorDataToValue e
-                     if thrownLabel == label || label == Ident "any"
-                         then handlerclo $$ [thrownValue]
-                         else baseEval form
-                  _ -> throwErrorHere $ SpecialForm "catch" "first argument must be atom"
-          xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
-    , ("if", \case
-          [condition, t, f] -> do
-            b <- baseEval condition
-            -- I hate this as much as everyone that might ever read Haskell, but
-            -- in Lisps a lot of things that one might object to are True...
-            if b == Boolean False then baseEval f else baseEval t
-          xs -> throwErrorHere $ WrongNumberOfArgs "if" 3 (length xs))
-    , ( "cond", (cond =<<) . evenArgs "cond" )
-    , ( "match", match )
-  ]
-  where
-    cond = \case
-      [] -> pure nil
-      (c,e):ps -> do
-        b <- baseEval c
-        if b /= Boolean False
-          then baseEval e
-          else cond ps
-
-    match = \case
-      v : cases -> do
-        cs <- evenArgs "match" cases
-        v' <- baseEval v
-        goMatches v' cs
-      _ -> throwErrorHere $ PatternMatchError NoValue
-
-    goMatches _ [] = throwErrorHere (PatternMatchError NoMatch)
-    goMatches v ((m, body):cases) = do
-      patFn <- baseEval m
-      matchPat <- lookupAtom (Ident "match-pat")
-      res <- callFn matchPat [patFn, v]
-      let res_ = fromRad res
-      case res_ of
-        Right (Just (Dict binds)) -> do
-          b <- bindsToEnv m binds
-          addBinds b *> baseEval body
-        Right Nothing -> goMatches v cases
-        _ -> throwErrorHere $ PatternMatchError (BadBindings m)
-
-    bindsToEnv pat m = do
-        is <- traverse isBind (Map.toList m)
-        pure $ Env (Map.fromList is)
-      where
-        isBind (Atom x, v) = pure (x, Doc.Docd Nothing v)
-        isBind _ = throwErrorHere $ PatternMatchError (BadBindings pat)
-
-    addBinds e = modify (\s -> s { bindingsEnv = e <> bindingsEnv s })
-
-    def name doc_ val = do
-      val' <- baseEval val
-      defineAtom name doc_ val'
-      pure nil
-
-    defRec name doc_ val = do
-      val' <- baseEval val
-      case val' of
-        Lambda is b e -> do
-          let v = Lambda is b (Env . Map.insert name (Doc.Docd doc_ v) . fromEnv $ e)
-          defineAtom name doc_ v
-          pure nil
-        _ -> throwErrorHere $ OtherError "def-rec can only be used to define functions"
-
-data ModuleMeta = ModuleMeta
-  { name    :: Ident
-  , exports :: [Ident]
-  , doc     :: Text
-  }
-
--- | Given a list of forms, the first of which should be module declaration,
--- runs the rest of the forms in a new scope, and then defs the module value
--- according to the name in the declaration.
-createModule :: forall m. Monad m => [Value] -> Lang m Value
-createModule = \case
-    (m : forms) -> do
-      m' <- baseEval m >>= meta
-      e <- withEnv identity $ traverse_ eval forms *> gets bindingsEnv
-      let exportsSet = Set.fromList (exports m')
-      let undefinedExports = Set.difference exportsSet (Map.keysSet (fromEnv e))
-      env <- if null undefinedExports
-               then pure . envToRadicle . Env $ Map.restrictKeys (fromEnv e) exportsSet
-               else throwErrorHere (ModuleError (UndefinedExports (name m') (Set.toList undefinedExports)))
-      let modu = Dict $ Map.fromList
-                  [ (Keyword (Ident "module"), Atom (name m'))
-                  , (Keyword (Ident "env"), env)
-                  , (Keyword (Ident "exports"), Vec (Seq.fromList (Atom <$> exports m')))
-                  ]
-      defineAtom (name m') (Just (doc m')) modu
-      pure modu
-    _ ->  throwErrorHere (ModuleError MissingDeclaration)
-  where
-    meta v@(Dict d) = do
-      name <- modLookup v "module" d "missing `:module` key"
-      doc  <- modLookup v "doc" d "missing `:doc` key"
-      exports <- modLookup v "exports" d "Missing `:exports` key"
-      case (name, doc, exports) of
-        (Atom n, String ds, Vec es) -> do
-          is <- traverse isAtom es ?? toLangError (ModuleError (InvalidDeclaration "`:exports` must be a vector of atoms" v))
-          pure $ ModuleMeta n (toList is) ds
-        _ -> throwErrorHere (ModuleError (InvalidDeclaration "`:module` must be an atom, `:doc` must be a string and `:exports` must be a vector" v))
-    meta v = throwErrorHere (ModuleError (InvalidDeclaration "must be dict" v))
-    modLookup v k d e = kwLookup k d ?? toLangError (ModuleError (InvalidDeclaration e v))
-
 -- * From/ ToRadicle
 
 type CPA t = (Ann.Annotation t, Copointed t)
 
 class FromRad t a where
-  fromRad :: Annotated t ValueF -> Either Text a
+  fromRad :: (CPA t) => Annotated t ValueF -> Either Text a
   default fromRad :: (CPA t, HasEot a, FromRadG t (Eot a)) => Annotated t ValueF -> Either Text a
   fromRad = fromRadG
 
-instance CPA t => FromRad t () where
+instance FromRad t () where
     fromRad (Vec Seq.Empty) = pure ()
     fromRad _               = Left "Expecting an empty vector"
-instance (CPA t, FromRad t a, FromRad t b) => FromRad t (a,b) where
+instance (FromRad t a, FromRad t b) => FromRad t (a,b) where
     fromRad (Vec (x :<| y :<| Seq.Empty)) = (,) <$> fromRad x <*> fromRad y
     fromRad _ = Left "Expecting a vector of length 2"
-instance (CPA t, FromRad t a) => FromRad t (Maybe a) where
+instance (FromRad t a) => FromRad t (Maybe a) where
     fromRad (Vec (Keyword (Ident "just") :<| x :<| Empty)) = Just <$> fromRad x
     fromRad (Keyword (Ident "nothing")) = pure Nothing
     fromRad _ = Left "Expecting `:nothing` or `[:just _]`"
 instance FromRad t (Annotated t ValueF) where
   fromRad = pure
-instance CPA t => FromRad t Rational where
+instance FromRad t Rational where
   fromRad (Number n) = pure n
   fromRad _          = Left "Not a number"
-instance CPA t => FromRad t Scientific where
+instance FromRad t Scientific where
   fromRad = fromRad >=> Num.isSci
-instance CPA t => FromRad t Int where
+instance FromRad t Int where
     fromRad = fromRad >=> Num.isInt
-instance CPA t => FromRad t Integer where
+instance FromRad t Integer where
     fromRad = fromRad >=> Num.isInteger
-instance CPA t => FromRad t Text where
+instance FromRad t Text where
     fromRad x = case x of
         String n -> pure n
         _        -> Left "Expecting string"
-instance {-# OVERLAPPING #-} CPA t => FromRad t [Char] where
+instance {-# OVERLAPPING #-} FromRad t [Char] where
     fromRad x = case x of
         String n -> pure $ toS n
         _        -> Left "Expecting string"
-instance CPA t => FromRad t ExitCode where
+instance FromRad t ExitCode where
     fromRad x = case x of
         Keyword (Ident "ok") -> pure $ ExitSuccess
         Vec (Keyword (Ident "error") Seq.:<| errValue Seq.:<| Seq.Empty) -> ExitFailure <$> fromRad errValue
         _ -> Left "Expecting either :ok or [:error errValue]"
-instance (CPA t, FromRad t a) => FromRad t [a] where
+instance (FromRad t a) => FromRad t [a] where
     fromRad x = case x of
         List xs -> traverse fromRad xs
         Vec  xs -> traverse fromRad (toList xs)
         _       -> Left "Expecting list"
-instance CPA t => FromRad t (Doc.Docd (Annotated t ValueF)) where
+instance FromRad t (Doc.Docd (Annotated t ValueF)) where
     fromRad (Dict d) = do
       val <- kwLookup "val" d ?? "Expecting `:val` key"
       doc <- traverse fromRad (kwLookup "doc" d)
       pure (Doc.Docd doc val)
     fromRad _ = Left "Expecting a dict."
-instance CPA t => FromRad t CmdSpec where
+instance FromRad t CmdSpec where
     fromRad x = case x of
         Vec (Keyword (Ident "shell") Seq.:<| arg Seq.:<| Seq.Empty) ->
             ShellCommand <$> fromRad arg
@@ -833,13 +665,13 @@ instance CPA t => FromRad t CmdSpec where
             throwError $ "Expecting either :raw or :shell, got: " <> s
         _ ->
             throwError "Expecting vector"
-instance CPA t => FromRad t StdStream where
+instance FromRad t StdStream where
     fromRad x = case x of
         Keyword (Ident "inherit") -> pure Inherit
         Keyword (Ident "create-pipe") -> pure CreatePipe
         Keyword (Ident "no-stream") -> pure NoStream
         _ -> throwError $ "Expecting :inherit, :create-pipe, or :no-stream"
-instance CPA t => FromRad t CreateProcess where
+instance FromRad t CreateProcess where
     fromRad x = case x of
         Dict d -> do
             cmdspec' <- fromRad =<< (kwLookup "cmdspec" d ?? "Expecting 'cmdspec' key")
@@ -867,55 +699,54 @@ instance CPA t => FromRad t CreateProcess where
 
 
 class ToRad t a where
-  toRad :: a -> Annotated t ValueF
+  toRad :: CPA t => a -> Annotated t ValueF
   default toRad :: (HasEot a, ToRadG t (Eot a)) => a -> Annotated t ValueF
-  toRad =
-    toRadG
+  toRad = toRadG
 
-instance CPA t => ToRad t () where
+instance ToRad t () where
     toRad _ = Vec Empty
-instance CPA t => ToRad t Bool where
+instance ToRad t Bool where
     toRad = Boolean
-instance (CPA t, ToRad t a, ToRad t b) => ToRad t (a,b) where
+instance (ToRad t a, ToRad t b) => ToRad t (a,b) where
     toRad (a,b) = Vec $ toRad a :<| toRad b :<| Empty
-instance (CPA t, ToRad t a, ToRad t b, ToRad t c) => ToRad t (a,b,c) where
+instance (ToRad t a, ToRad t b, ToRad t c) => ToRad t (a,b,c) where
     toRad (a,b,c) = Vec $ toRad a :<| toRad b :<| toRad c :<| Empty
-instance (CPA t, ToRad t a, ToRad t b, ToRad t c, ToRad t d) => ToRad t (a,b,c,d) where
+instance (ToRad t a, ToRad t b, ToRad t c, ToRad t d) => ToRad t (a,b,c,d) where
     toRad (a,b,c,d) = Vec $ toRad a :<| toRad b :<| toRad c :<| toRad d :<| Empty
-instance (CPA t, ToRad t a) => ToRad t (Maybe a) where
+instance (ToRad t a) => ToRad t (Maybe a) where
     toRad Nothing  = Keyword (Ident "nothing")
     toRad (Just x) = Vec $ Keyword (Ident "just") :<| toRad x :<| Empty
-instance CPA t => ToRad t Int where
+instance ToRad t Int where
     toRad = Number . fromIntegral
-instance CPA t => ToRad t Integer where
+instance ToRad t Integer where
     toRad = Number . fromIntegral
-instance CPA t => ToRad t Scientific where
+instance ToRad t Scientific where
     toRad = Number . toRational
-instance CPA t => ToRad t Text where
+instance ToRad t Text where
     toRad = String
-instance {-# OVERLAPPING #-} CPA t => ToRad t [Char] where
+instance {-# OVERLAPPING #-} ToRad t [Char] where
     toRad = String . toS
-instance CPA t => ToRad t ExitCode where
+instance ToRad t ExitCode where
     toRad x = case x of
         ExitSuccess -> Keyword (Ident "ok")
         ExitFailure c -> Vec $ Seq.fromList [Keyword (Ident "error"), toRad c]
 instance ToRad t (Ann.Annotated t ValueF) where
     toRad = identity
-instance (CPA t, ToRad t a) => ToRad t [a] where
+instance (ToRad t a) => ToRad t [a] where
     toRad xs = Vec . Seq.fromList $ toRad <$> xs
-instance (CPA t, ToRad t a) => ToRad t (Map.Map Text a) where
+instance (ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
-instance CPA t => ToRad t (Doc.Docd (Annotated t ValueF)) where
+instance ToRad t (Doc.Docd (Annotated t ValueF)) where
     toRad (Doc.Docd d_ v) = Dict $ Map.fromList $ ( Keyword (Ident "val"), v) : case d_ of
       Just d  -> [ (Keyword (Ident "doc"), toRad d) ]
       Nothing -> []
-instance (CPA t) => ToRad t StdStream where
+instance ToRad t StdStream where
     toRad x = case x of
         Inherit    -> Keyword $ Ident "inherit"
         CreatePipe -> Keyword $ Ident "create-pipe"
         NoStream   -> Keyword $ Ident "no-stream"
         _          -> panic "Cannot convert handle"
-instance (CPA t) => ToRad t CmdSpec where
+instance ToRad t CmdSpec where
     toRad x = case x of
         ShellCommand comm ->
             let c = toRad comm
@@ -927,44 +758,11 @@ instance (CPA t) => ToRad t CmdSpec where
 
 -- * Helpers
 
--- Loc is the source location of the application.
-callFn :: Monad m => Value -> [Value] -> Lang m Value
-callFn f vs = case f of
-  Lambda bnds body closure ->
-      if length bnds /= length vs
-          then throwErrorHere $ WrongNumberOfArgs "lambda" (length bnds)
-                                                           (length vs)
-          else do
-              let mappings = GhcExts.fromList (Doc.noDocs $ zip bnds vs)
-                  modEnv = mappings <> closure
-              NonEmpty.last <$> withEnv (const modEnv)
-                                        (traverse baseEval body)
-  PrimFn i -> do
-    fn <- lookupPrimop i
-    fn vs
-  _ -> throwErrorHere $ NonFunctionCalled f
-
--- | Infix evaluation of application (of functions or special forms)
-infixr 1 $$
-($$) :: Monad m => Value -> [Value] -> Lang m Value
-f $$ vs = case f of
-    Atom i ->
-      case Map.lookup i specialForms of
-        Just form -> form vs
-        Nothing   -> fnApp
-    _ -> fnApp
-  where
-    fnApp = do
-      f' <- baseEval f
-      vs' <- traverse baseEval vs
-      callFn f' vs'
-
 nil :: Value
 nil = List []
 
 quote :: Value -> Value
 quote v = List [Atom (Ident "quote"), v]
-
 
 list :: [Value] -> Value
 list vs = List (Atom (Ident "list") : vs)
@@ -1021,7 +819,7 @@ instance ToRadG t Void where
   toRadConss _ = absurd
 
 class ToRadFields t a where
-  toRadFields :: a -> [Annotated t ValueF]
+  toRadFields :: CPA t => a -> [Annotated t ValueF]
 
 instance (ToRad t a, ToRadFields t as) => ToRadFields t (a, as) where
   toRadFields (x, xs) = toRad x : toRadFields xs

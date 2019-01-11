@@ -487,9 +487,18 @@ test_eval =
             (triangular 10)
             |]
         runPureCode prog @?= Right (int 55)
+    , testCase "def-rec shadows previous definition" $ do
+        let prog = [s|
+            (def decrement #f)
+            (def-rec decrement
+              (fn [n]
+                (if (eq? n 0) 0 (decrement (- n 1)))))
+            (decrement 10)
+            |]
+        runPureCode prog @?= Right (int 0)
 
     , testCase "def-rec errors when defining a non-function" $
-        failsWith "(def-rec x 42)" (OtherError "def-rec can only be used to define functions")
+        failsWith "(def-rec x 42)" (OtherError "'def-rec' can only be used to define functions")
 
     , testCase "stack traces work" $ do
         let prog = [s|

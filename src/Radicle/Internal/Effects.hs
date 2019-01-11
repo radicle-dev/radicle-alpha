@@ -21,6 +21,7 @@ import           System.Console.Haskeline
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
+import           Radicle.Internal.Eval
 import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Number (isInt)
