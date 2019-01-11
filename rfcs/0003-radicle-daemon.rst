@@ -7,7 +7,7 @@ Synopsis
 ---------
 
 This RFC gives a rough spec of the *radicle daemon*, a long-running background
-process which replicates remote machines on the users PC.
+process which materialises the state of remote IPFS machines on the users PC.
 
 Motivation
 -----------
@@ -16,13 +16,15 @@ Currently to run a query against the state of some remote chain, all the inputs
 are downloaded and the state re-materialised from scratch. This is too slow.
 
 The daemon also allows apps not written in radicle or Haskell to have access to
-a radicle interpreter.
+a radicle interpreter by maintaining *local machines*.
 
 Proposal
 ---------
 
 The radicle daemon is an executable which starts a server which listens for HTTP
-requests on a specific port. The API uses JSON.
+requests on a specific port.
+
+The API uses JSON.
 
 - Query a machine, that is, run an expression against it.
 
@@ -43,10 +45,9 @@ requests on a specific port. The API uses JSON.
      "last_input_id": 55}
 
   The daemon works out if it must query a remote or local machine based on the
-  protocol (``radicle-local://`` versus ``http://`` or ``ipfs://``). If there is
-  no protocol then the query refers to a locally maintained machine. Otherwise
-  it will fetch inputs from a remote machine using the correct protocol (but
-  only ``http`` is supported initially).
+  protocol (``radicle-local://`` versus ``ipfs://``). In the local case it will
+  stores the input expressions in a file. For remote IPFS machines it will fetch
+  the inputs by sending queries to the IPFS daemon which it assumes is running.
 
   The fields ``keep_input``, ``keep_polling``, ``poll_period`` are optional.
   ``keep_input`` controls how long (seconds) the daemon will cache the inputs
@@ -54,18 +55,19 @@ requests on a specific port. The API uses JSON.
   keep polling for new inputs for (after the last interaction) and the amount of
   time between each poll.
 
-- Get the list of inputs of a remote machine:
-
-  ``GET /:machined_url/inputs/:id``
-
-  Returns all the inputs since the input with ID ``id``. Optionally accepts the
-  same json caching/polling configuration json as above.
-
 - Send an input:
   ``POST /:machine_url/send "(inc)"``
 
-  For local machines this adds an input to the machine directly. For remote
-  machines this attempts to ``send`` the expression.
+  For local machines this adds an input to the machine directly.
+
+  For remote IPFS machines this will first check a radicle config file for
+  private keys indicating that this PC is *writer* for the IPFS chain. In this
+  case (and if the input is valid), it will write it to IPFS.
+
+  If such a config is not found, the daemon will assume it is a *reader* for
+  that machine, and it will send the input to the IPFS pubsub topic associated
+  to the machine and wait for an ``ACK``. If no ``ACK`` is received, it will
+  return an error stating the machine owner is offline.
 
 Drawbacks
 ----------
@@ -73,6 +75,8 @@ Drawbacks
 - An extra executable to maintain.
 
 - More installation steps for users.
+
+- Depends on the IPFS daemon.
 
 Alternatives
 -------------
