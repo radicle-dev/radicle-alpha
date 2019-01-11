@@ -76,7 +76,7 @@ data LangErrorData r =
     | NonHashableKey
     | ModuleError ModuleError
     | OtherError Text
-    | ParseError (Par.ParseError Char Void)
+    | ParseError (Par.ParseErrorBundle Text Void)
     -- | Raised if @(throw ident value)@ is evaluated. Arguments are
     -- provided by the call to @throw@.
     | ThrownError Ident r
