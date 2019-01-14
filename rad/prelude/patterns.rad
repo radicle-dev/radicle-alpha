@@ -1,6 +1,6 @@
 {:module  'prelude/patterns
  :doc     "Pattern matching is first-class in radicle so new patterns can easily be defined. These are the most essential."
- :exports '[match-pat _ /? /as /cons /nil /just /member]}
+ :exports '[match-pat _ /? /as /cons /nil /just /elem]}
 
 (import prelude/basic :unqualified)
 
@@ -214,16 +214,16 @@
   ]
 )
 
-(def /member
-  "Matches values that are members of a structure."
+(def /elem
+  "Matches values that are elements of a sequence."
   (fn [vs]
     (fn [v]
-      (if (member? v vs)
+      (if (elem? v vs)
         [:just {}]
         :nothing))))
 
-(:test "/member"
+(:test "/elem"
   [(match [1 4]
-          [1 (/member [1 3 5])] :no
-          [1 (/member [2 4 8])] :yes
-          _                     :no) ==> :yes])
+          [1 (/elem [1 3 5])] :no
+          [1 (/elem [2 4 8])] :yes
+          _                   :no) ==> :yes])

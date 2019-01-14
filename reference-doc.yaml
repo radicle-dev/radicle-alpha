@@ -59,6 +59,7 @@ primFns:
 - lookup
 - insert
 - delete
+- elem?
 - member?
 - map-keys
 - map-values

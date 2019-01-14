@@ -9,7 +9,7 @@
 ;;                  "machines.radicle.xyz/chains/new-radicle-issues")
 
 (def input-pat
-  (list (/member ['create-issue 'edit-issue 'add-comment 'edit-comment]) _))
+  (list (/elem ['create-issue 'edit-issue 'add-comment 'edit-comment]) _))
 
 (def input?
   (fn [i]

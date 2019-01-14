@@ -10,7 +10,7 @@
 ;;                 "staging.machines.radicle.xyz/chains/names")
 
 (def input-pat
-  (list (/member ['add-name]) _ _))
+  (list (/elem ['add-name]) _ _))
 
 (def input?
   (fn [i]

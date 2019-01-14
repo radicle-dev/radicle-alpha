@@ -250,13 +250,16 @@ Given ``k`` and a dict ``d``, returns a dict with the same associations
 as ``d`` but without the key ``k``. If ``d`` isn't a dict then an
 exception is thrown.
 
+``elem?``
+~~~~~~~~~
+
+Given ``v`` and a sequence ``s``, checks if ``v`` is one of the items of
+``s``.
+
 ``member?``
 ~~~~~~~~~~~
 
-Given ``v`` and structure ``s``, checks if ``x`` exists in ``s``. The
-structure ``s`` may be a sequence or dict. If it is a sequence, it
-checks if ``v`` is one of the items. If ``s`` is a dict, it checks if
-``v`` is one of the keys.
+Given ``k`` and dict ``d``, checks if ``k`` is a key in ``d``.
 
 ``map-keys``
 ~~~~~~~~~~~~
@@ -661,10 +664,78 @@ Empty-sequence pattern. Matches ``[]`` and ``(list)``
 
 Pattern which matches ``[:just x]``.
 
-``(/member vs)``
+``(/elem vs)``
+~~~~~~~~~~~~~~
+
+Matches values that are elements of a sequence.
+
+``prelude/bool``
+----------------
+
+Functions for dealing with truthiness and #f.
+
+``(not x)``
+~~~~~~~~~~~
+
+True if ``x`` is ``#f``, false otherwise.
+
+``(and x y)``
+~~~~~~~~~~~~~
+
+Returns ``y`` if ``x`` is not ``#f``, otherwise returns ``x``
+
+``(all xs)``
+~~~~~~~~~~~~
+
+Checks that all the items of a list are truthy.
+
+``prelude/seq``
+---------------
+
+Functions for manipulating sequences, that is lists and vectors.
+
+``(empty? s)``
+~~~~~~~~~~~~~~
+
+True if ``seq`` is empty, false otherwise.
+
+``(seq? x)``
+~~~~~~~~~~~~
+
+Returns ``#t`` if ``x`` is a list, vector or string.
+
+``(map f xs)``
+~~~~~~~~~~~~~~
+
+Returns a sequence consisting of the result of applying ``f`` to the
+items of ``xs``.
+
+``(reverse xs)``
 ~~~~~~~~~~~~~~~~
 
-Matches values that are members of a structure.
+Returns the reversed sequence ``xs``.
+
+``(filter pred ls)``
+~~~~~~~~~~~~~~~~~~~~
+
+Returns ``ls`` with only the elements that satisfy ``pred``.
+
+``(take-while pred ls)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns all elements of a sequence ``ls`` until one does not satisfy
+``pred``
+
+``(starts-with? s prefix)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``.
+
+``(/prefix prefix rest-pat)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Matches sequences that start with ``prefix`` and bind the rest of that
+sequence to ``rest-pat``. Also works for strings.
 
 ``prelude/strings``
 -------------------
@@ -1148,8 +1219,8 @@ Given ``x``, returns a validator that checks for equality with ``x``.
 ``(member xs)``
 ~~~~~~~~~~~~~~~
 
-Given a structure, returns a validator which checks for membership in
-the structure.
+Given a sequence, returns a validator which checks for membership in the
+sequence.
 
 ``(and vs)``
 ~~~~~~~~~~~~
