@@ -6,6 +6,8 @@
 
 (import prelude/lens :unqualified)
 (import prelude/chain '[send-code! ]:unqualified)
+(import prelude/time '[install-fake-clock] :unqualified)
+(import prelude/io :as 'io)
 
 (def radicle-issues-chain-id
   "The name of this chain."
@@ -190,7 +192,12 @@
 (:test
  "The monadic issues chain works."
  [:setup
-  (do (def chain-name "http://localhost:8000/chains/fxoo")
+  (do (chain/install-remote-chain-fake)
+      (install-fake-clock)
+      (io/install-fake-filesystem!
+        { "my-keys.rad" (show (gen-key-pair! (default-ecc-curve)))
+        })
+      (def chain-name (string-append "http://foo"))
       (def chain (ref (chain/new-chain chain-name)))
       (create-issues-chain! chain-name)
       (simple-create-issue! chain "title0" "body0")
@@ -199,13 +206,13 @@
       (simple-add-comment! chain 1 "comment1")
       (simple-edit-issue! chain 0 {:state :closed})
       (simple-edit-comment! chain 0 0 {:body "comment0-edit"})
-      (def t (now!))
+      (def last-checked-at (now!))
       (simple-create-issue! chain "new" "new")
       (simple-create-issue! chain "newer" "newer")
       (simple-add-comment! chain 0 "new")
       (fetch! chain)
       (def is (list-issues chain))
-      (def new (recent-activity chain t)))]
+      (def new (recent-activity chain last-checked-at)))]
  [ (length (seq is)) ==> 4 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]

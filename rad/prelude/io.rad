@@ -3,6 +3,7 @@
  :exports '[print! shell! process! read-line! read-file-value! read-file-values!
             shell-with-stdout! shell-no-stdin! process-with-stdout! write-file!
             init-file-dict! read-file-key! write-file-key! ls! modify-file!
+            install-fake-filesystem!
            ]}
 
 (import prelude/patterns :unqualified)
@@ -192,3 +193,23 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   "Read a file key. Assumes that the file contents is a serialised dict."
   (fn [file k]
     (lookup-maybe k (read-file-value! file))))
+
+(def install-fake-filesystem!
+  "Installs a fake for `read-file!` that simulates the presence of
+  files in the `files` dictionary.
+
+  If `(read-file! path) is called and `path` is a key in `files` then
+  the value from `files` is returned. Otherwise the original
+  `read-file!` is used.
+
+  This requires the `prelude/test/primitive-stub` script to be loaded."
+  (fn [files]
+    (def original-read-file! (read-ref primitive-stub-ref/read-file!))
+    (def read-file
+      (fn [path]
+        (if (member? path files)
+          (lookup path files)
+          (original-read-file! path))
+        ))
+    (write-ref primitive-stub-ref/read-file! read-file)
+    ))
