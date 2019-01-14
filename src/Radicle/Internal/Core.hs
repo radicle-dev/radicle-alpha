@@ -21,8 +21,8 @@ import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
-import           Generics.Eot
 import qualified Data.Text as T
+import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
 import           System.Process
