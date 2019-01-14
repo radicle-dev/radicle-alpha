@@ -22,10 +22,10 @@
                                     :actual y})))))
 
 (def member
-  "Given a structure, returns a validator which checks for membership in the structure."
+  "Given a sequence, returns a validator which checks for membership in the sequence."
   (fn [xs]
     (fn [x]
-      (if (member? x xs)
+      (if (elem? x xs)
         x
         (throw 'validation-failure {:info "Element was not a member of container."
                                     :container xs

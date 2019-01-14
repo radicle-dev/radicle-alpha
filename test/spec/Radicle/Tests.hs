@@ -125,15 +125,15 @@ test_eval =
         "(integral? 1)" `succeedsWith` Boolean True
         "(integral? 1/3)" `succeedsWith` Boolean False
 
-    , testCase "'member?' returns true if sequence contains element" $ do
-        [s|(member? #t (list #f #t))|] `succeedsWith` Boolean True
-        [s|(member? #t [#f #t])|] `succeedsWith` Boolean True
-        [s|(member? "e" "hello")|] `succeedsWith` Boolean True
+    , testCase "'elem?' returns true if sequence contains element" $ do
+        [s|(elem? #t (list #f #t))|] `succeedsWith` Boolean True
+        [s|(elem? #t [#f #t])|] `succeedsWith` Boolean True
+        [s|(elem? "e" "hello")|] `succeedsWith` Boolean True
 
-    , testCase "'member?' returns false if sequence does not contain element" $ do
-        [s|(member? "hi" (list #f #t))|] `succeedsWith` Boolean False
-        [s|(member? "hi" [#f #t])|] `succeedsWith` Boolean False
-        [s|(member? "z" "hello")|] `succeedsWith` Boolean False
+    , testCase "'elem?' returns false if sequence does not contain element" $ do
+        [s|(elem? "hi" (list #f #t))|] `succeedsWith` Boolean False
+        [s|(elem? "hi" [#f #t])|] `succeedsWith` Boolean False
+        [s|(elem? "z" "hello")|] `succeedsWith` Boolean False
 
     , testCase "'lookup' returns value of key in map" $ do
         let prog1 = [s|(lookup 'key1 (dict 'key1 "a" 'key2 "b"))|]
@@ -187,12 +187,12 @@ test_eval =
     , testCase "'foldl' foldls the sequence" $ do
         [s|(foldl (fn [x y] (- x y)) 0 (list 1 2 3))|] `succeedsWith` int (-6)
         [s|(foldl (fn [x y] (- x y)) 0 [1 2 3])|] `succeedsWith` int (-6)
-        [s|(foldl (fn [acc x] (if (member? x "024") (<> x acc) acc)) "" "012345")|] `succeedsWith` String "420"
+        [s|(foldl (fn [acc x] (if (elem? x "024") (<> x acc) acc)) "" "012345")|] `succeedsWith` String "420"
 
     , testCase "'foldr' foldrs the sequence" $ do
         [s|(foldr (fn [x y] (- x y)) 0 (list 1 2 3))|] `succeedsWith` int 2
         [s|(foldr (fn [x y] (- x y)) 0 [1 2 3])|] `succeedsWith` int 2
-        [s|(foldr (fn [x acc] (if (member? x "024") (<> x acc) acc)) "" "012345")|] `succeedsWith` String "024"
+        [s|(foldr (fn [x acc] (if (elem? x "024") (<> x acc) acc)) "" "012345")|] `succeedsWith` String "024"
 
     , testCase "'foldr' doesn't over-eval elements of argument list" $ do
         let prog = [s|(foldr <> (list) (list (list 1)))|]

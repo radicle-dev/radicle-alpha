@@ -12,11 +12,11 @@
 
 (def name-unused?
   (fn [name]
-    (not (member? name (map first (read-ref names))))))
+    (not (elem? name (map first (read-ref names))))))
 
 (def key-unused?
   (fn [key]
-    (not (member? key (map (fn [x] (nth 1 x)) (read-ref names))))))
+    (not (elem? key (map (fn [x] (nth 1 x)) (read-ref names))))))
 
 (def validator/name
   (validator/and

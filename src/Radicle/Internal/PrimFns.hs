@@ -510,16 +510,20 @@ purePrimFns = fromList $ allDocs $
           _        -> pure ff
       )
     , ( "member?"
-      , "Given `v` and structure `s`, checks if `x` exists in `s`. The structure `s`\
-        \ may be a sequence or dict. If it is a sequence, it checks if `v`\
-        \ is one of the items. If `s` is a dict, it checks if `v` is one of the keys."
+      , "Given `k` and dict `d`, checks if `k` is a key in `d`."
+      , twoArg "member?" $ \case
+          (x, Dict m)  -> pure . Boolean $ Map.member x m
+          (_, v)       -> throwErrorHere
+                        $ TypeError "member?" 1 TDict v
+      )
+    , ( "elem?"
+      , "Given `v` and a sequence `s`, checks if `v` is one of the items of `s`."
       , twoArg "member?" $ \case
           (x, List xs) -> pure . Boolean $ elem x xs
           (x, Vec xs)  -> pure . Boolean . isJust $ Seq.elemIndexL x xs
           (isCharV -> Just c, String t) -> pure . Boolean $ T.any (== c) t
-          (x, Dict m)  -> pure . Boolean $ Map.member x m
           (_, v)       -> throwErrorHere
-                        $ TypeError "member?" 1 TStructure v
+                        $ TypeError "elem?" 1 TSequence v
       )
     , ( "ref"
       , "Creates a ref with the argument as the initial value."
