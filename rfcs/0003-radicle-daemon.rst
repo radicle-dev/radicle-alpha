@@ -38,16 +38,30 @@ inputs received will be pinned.
 
 - *Query* a machine, that is, run an expression against it.
 
-  ``POST /machines/:machine_id/query "(get-state)"``
+  ``POST /machines/:machine_id/query``
 
-  Results in something like: ``"{:apples 22 :oranges 42}"``.
+  .. code-block:: json
+
+     {"expression": "(get-state)"}
+
+  Response:
+
+  .. code-block:: json
+
+     {"query_result": "{:apples 22 :oranges 42}"}
 
   The daemon will check for new inputs and then run the expression in
-  the cached machine state, sending the result back as a response.
+  the materialised machine state, sending the result back as a
+  response.
 
 - *Send* an input:
   
-  ``POST /machines/:machine_id/send "(inc)"``
+  ``POST /machines/:machine_id/send``
+
+  .. code-block:: json
+
+     {"expressions": ["(add-number 42)",
+                      "(add-number 43)"]}
 
   First the daemon checks if it is the *writer* for this machine (see
   newMachine_). In this case (and if the input is valid), it will
@@ -69,11 +83,10 @@ inputs received will be pinned.
   .. code-block:: json
 
     {"type": "new_input",
-     "nonce": "abc123",
-     "expression": "(add-number 42)"}
+     "nonce": "abc123"}
 
-  If no such message is received within a set timeframe it will return
-  an error reponse.
+  If no such message is received within a set time frame it will return
+  an error response.
   
 - .. _newMachine:
 
@@ -104,8 +117,10 @@ inputs received will be pinned.
   subscribe to the machine's IPFS pubsub topic to listen for messages
   of type ``"input_request"``. When it receives such a message, it
   will check to see if the ``"expression"`` is valid. If it is, it
-  will write it to IPFS, update the IPNS link and post a message of
-  type ``"new_input"`` with the same nonce and expression.
+  will add it to the linked-list of inputs on IPFS, and publish the
+  updated IPNS record. If this is successful, the daemon posts a
+  message of type ``"new_input"`` with the same nonce to the
+  machines's pubsub topic.
   
 Drawbacks
 ----------
@@ -124,9 +139,13 @@ N/A
 Unresolved question
 --------------------
 
-- The daemon might be used by multiple apps to access data about the same remote
-  machine. In this case something should prevent one app disabling the
-  cache/polling settings of the other.
+- In the future, Pubsub messages of type ``"new_input"`` should be
+  signed, preferably with the private key paired with the IPNS ID.
+
+- The initial version of the daemon will materialise all machines and
+  pin all inputs. In the future there should be a mechanism for
+  controlling the cache lifetime of a machine, and possibly polling
+  settings.
 
 Implementation
 ---------------
