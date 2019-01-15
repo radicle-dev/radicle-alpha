@@ -8,7 +8,6 @@ import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
-import qualified Data.Text as T
 import           Database.PostgreSQL.Simple
                  (ConnectInfo(..), Connection, connect)
 import           Network.Wai.Handler.Warp (run)
@@ -49,6 +48,7 @@ import           Servant
 
 import           Radicle
 import           Radicle.Internal.MachineBackend.EvalServer
+import           Server.Common
 import           Server.DB
 
 -- * Types
@@ -158,21 +158,6 @@ jsonOutputs st name = do
 
 static :: Server Raw
 static = serveDirectoryFileServer "static/"
-
--- | Log a message to @stdout@.
---
--- The second argument is a list of key-value pairs that will be joined with "="
--- and appended to the message.
---
--- @
---      logInfo "the message" [("foo", "5)]
---      -- prints "INFO   the message foo=5"
--- @
-logInfo :: MonadIO m => Text -> [(Text, Text)] -> m ()
-logInfo msg dat = do
-    putStrLn $ "INFO   " <> msg <> datString
-  where
-    datString = T.intercalate "" $ map (\(key, val) -> " " <> key <> "=" <> val) dat
 
 -- * Opts
 

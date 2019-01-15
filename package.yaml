@@ -104,7 +104,7 @@ executables:
   radicle-server:
     main: Server.hs
     source-dirs: exe
-    other-modules: [Server.DB]
+    other-modules: [Server.DB, Server.Common]
     when:
       - condition: impl(ghcjs)
         buildable: false
@@ -122,6 +122,21 @@ executables:
     - wai-extra
     - wai-cors
     ghc-options: -main-is Server -O3 -threaded
+
+  radicle-daemon:
+    main: Daemon.hs
+    source-dirs: exe
+    other-modules: [Server.Common]
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    dependencies:
+    - radicle
+    - optparse-applicative
+    - servant-server
+    - text
+    - warp
+    ghc-options: -main-is Daemon -O3 -threaded
 
   radicle-client-ghcjs:
     main: GHCJS.hs
