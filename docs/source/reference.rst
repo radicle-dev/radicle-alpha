@@ -357,6 +357,14 @@ Given a file whose code starts with module metadata, creates the module.
 That is, the file is evaluated as if the code was wrapped in
 ``(module ...)``.
 
+``find-module-file!``
+~~~~~~~~~~~~~~~~~~~~~
+
+Find a file according to radicle search path rules. These are: 1) If
+RADPATH is set, first search there; 2) If RADPATH is not set, search in
+the distribution directory 3) If the file is still not found, search in
+the current directory.
+
 ``import``
 ~~~~~~~~~~
 

@@ -35,7 +35,7 @@ steps:
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['stack', 'exec', '--', 'hlint', '.']
 
-  - id: "Build & Test"
+  - id: "Build"
     name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
@@ -46,21 +46,38 @@ steps:
 
       apt-get -qq update
       apt-get -yqq install libpq-dev
-      stack build --fast --test --no-terminal --pedantic
 
-      stack exec -- radicle test/all.rad
+      stack build \
+        --no-terminal \
+        --fast \
+        --pedantic \
+        --test \
+        --no-run-tests
 
       ./images/radicle-server/ci-copy-bin.sh
 
+  - id: "Test"
+    name: 'haskell:8.6.3'
+    env: ['STACK_ROOT=/workspace/.stack']
+    entrypoint: bash
+    args:
+    - '-c'
+    - |
+      set -euxo pipefail
+
+      stack test :doctest
+      stack test :spec
+      RADPATH="$(pwd)/rad" stack exec -- radicle test/all.rad
+
   - id: "Lint (weeder)"
-    waitFor: ["Build & Test"]
+    waitFor: ["Build"]
     name: 'haskell:8.6.3'
     env: ["STACK_ROOT=/workspace/.stack"]
     args: ["stack", "exec", "--", "weeder", "--match"]
 
   - id: "Build reference document"
     waitFor:
-    - "Build & Test"
+    - "Build"
     name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
@@ -70,7 +87,7 @@ steps:
       set -euxo pipefail
 
       mv docs/source/reference.rst oldref
-      stack exec radicle-ref-doc
+      RADPATH="$(pwd)/rad" stack exec radicle-ref-doc
       if ! (diff oldref docs/source/reference.rst); then
         echo "Reference docs are not checked in"
         exit 1
@@ -78,7 +95,7 @@ steps:
 
   - id: "Check tutorial"
     waitFor:
-    - "Build & Test"
+    - "Build"
     name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
@@ -87,11 +104,11 @@ steps:
     - |
       set -euxo pipefail
 
-      stack exec radicle-doc docs/source/guide/Basics.lrad
+      RADPATH="$(pwd)/rad" stack exec radicle-doc docs/source/guide/Basics.lrad
 
   - id: "Build radicle-server image"
     waitFor:
-    - "Build & Test"
+    - "Build"
     name: 'gcr.io/cloud-builders/docker'
     entrypoint: bash
     env:
@@ -153,12 +170,14 @@ steps:
     - "-c"
     - |
       set -euxo pipefail
-      stack exec -- radicle - <<<'(load! "rad/examples/counter.rad") (counter/run-test)'
-      RAD_IPFS_API_URL=http://ipfs-test-network:5001 stack exec -- radicle test/machine-backends.rad radicle-server
+      export RAD_IPFS_API_URL=http://ipfs-test-network:5001
+      export RADPATH="$(pwd)/rad"
+      stack test :e2e
+      stack exec -- radicle test/machine-backends.rad radicle-server
 
   - id: "Save cache"
     waitFor:
-    - "Build & Test"
+    - "Build"
     name: gcr.io/cloud-builders/gsutil
     env:
     - BRANCH_NAME=$BRANCH_NAME

@@ -8,7 +8,7 @@ import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
-import qualified Data.Text as T
+import qualified Data.Time.Clock.System as Time
 import           Database.PostgreSQL.Simple
                  (ConnectInfo(..), Connection, connect)
 import           Network.Wai.Handler.Warp (run)
@@ -49,22 +49,13 @@ import           Servant
 
 import           Radicle
 import           Radicle.Internal.MachineBackend.EvalServer
+import           Server.Common hiding (getChains)
 import           Server.DB
 
 -- * Types
 
 newtype Exprs = Exprs { getExprs :: Seq Value }
     deriving (Generic, Eq, Ord)
-
-data Chain = Chain
-    { chainName      :: Text
-    , chainState     :: Bindings (PrimFns Identity)
-    , chainEvalPairs :: Seq.Seq (Value, Value)
-    } deriving (Generic)
-
--- For efficiency we might want keys to also be mvars, but efficiency doesn't
--- matter for a test server.
-newtype Chains = Chains { getChains :: MVar (Map Text Chain) }
 
 type ServerApi
     = "chains" :> Capture "chain" Text :> (ChainSubmitEndpoint :<|> ChainSinceEndpoint)
@@ -74,38 +65,42 @@ type ServerApi
 serverApi :: Proxy ServerApi
 serverApi = Proxy
 
+type HttpChain = Chain Text Int ()
+
+newtype HttpChains = HttpChains { getChains :: MVar (Map Text HttpChain) }
 
 -- * Helpers
 
 -- | Returns the ID of the last inserted expression which is the chain
 -- length minus one.
-insertExpr :: Connection -> Chains -> Text -> [Value] -> IO (Either Text Int)
+insertExpr :: Connection -> HttpChains -> Text -> [Value] -> IO (Either Text Int)
 insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
     let maybeChain = Map.lookup name c
     chain <- case maybeChain of
         Nothing -> do
             logInfo "Creating new machine" [("machine", name)]
-            pure $ Chain name pureEnv mempty
+            t <- Time.getSystemTime
+            pure $ Chain name pureEnv mempty Nothing Writer () t LowFreq
         Just chain' -> pure chain'
-    let (r :: Either (LangError Value) [Value], newSt) = runIdentity
-                   $ runLang (chainState chain)
-                   $ traverse eval vals
-    case r of
+    case advanceChain chain vals of
         Left e  -> do
             logInfo "Submitted expressions failed to evaluate" [("machine", name)]
             pure . (c ,) . Left $ renderPrettyDef e
-        Right valsRes -> do
+        Right (valsRes, newSt) -> do
              traverse_ (insertExprDB conn name) vals
              let news = Seq.fromList $ zip vals valsRes
+             let pairs = chainEvalPairs chain Seq.>< news
+             let lastIndex = Seq.length pairs - 1
              let chain' = chain { chainState = newSt
-                                , chainEvalPairs = chainEvalPairs chain Seq.>< news
+                                , chainEvalPairs = pairs
+                                , chainLastIndex = Just lastIndex
                                 }
-             pure (Map.insert name chain' c, Right $ Seq.length (chainEvalPairs chain') - 1)
+             pure (Map.insert name chain' c, Right lastIndex )
 
 
 -- | Load the state from the DB, returning an MVar with resulting state
 -- and values.
-loadState :: Connection -> IO Chains
+loadState :: Connection -> IO HttpChains
 loadState conn = do
     createIfNotExists conn
     res <- getAllDB conn
@@ -117,14 +112,20 @@ loadState conn = do
                 logInfo "Failed to load machine" [("machine", name)]
                 panic $ show err
             (Right pairs, st') -> do
+                t <- Time.getSystemTime
                 let c = Chain { chainName = name
                               , chainState = st'
                               , chainEvalPairs = pairs
+                              , chainLastIndex = Just $ Seq.length pairs - 1
+                              , chainMode = Writer
+                              , chainSubscription = ()
+                              , chainLastUpdated = t
+                              , chainPolling = LowFreq
                               }
                 pure (name, c)
     chains' <- newMVar $ Map.fromList chainPairs
     logInfo "Loaded machines into memory" [("machine-count", show $ length chainPairs)]
-    pure $ Chains chains'
+    pure $ HttpChains chains'
 
 
 -- * Handlers
@@ -134,7 +135,7 @@ loadState conn = do
 -- second the expressions being submitted. The server either accepts all or
 -- rejects all expressions (though other systems may not provide this
 -- guarantee).
-submit :: Connection -> Chains -> Text -> Values -> Handler Value
+submit :: Connection -> HttpChains -> Text -> Values -> Handler Value
 submit conn chains name (Values vals) = do
     logInfo "Submitted expressions" [("machine", name), ("expression-count", show $ length vals)]
     res <- liftIO $ insertExpr conn chains name vals
@@ -149,7 +150,7 @@ since conn name index = do
     logInfo "Requested expressions" [("machine", name), ("from-index", show index)]
     liftIO $ Values <$> getSinceDB conn name index
 
-jsonOutputs :: Chains -> Text -> Handler [Maybe A.Value]
+jsonOutputs :: HttpChains -> Text -> Handler [Maybe A.Value]
 jsonOutputs st name = do
     chains <- liftIO . readMVar $ getChains st
     pure $ case Map.lookup name chains of
@@ -158,21 +159,6 @@ jsonOutputs st name = do
 
 static :: Server Raw
 static = serveDirectoryFileServer "static/"
-
--- | Log a message to @stdout@.
---
--- The second argument is a list of key-value pairs that will be joined with "="
--- and appended to the message.
---
--- @
---      logInfo "the message" [("foo", "5)]
---      -- prints "INFO   the message foo=5"
--- @
-logInfo :: MonadIO m => Text -> [(Text, Text)] -> m ()
-logInfo msg dat = do
-    putStrLn $ "INFO   " <> msg <> datString
-  where
-    datString = T.intercalate "" $ map (\(key, val) -> " " <> key <> "=" <> val) dat
 
 -- * Opts
 
@@ -247,7 +233,7 @@ main = do
        <> header "radicle-server"
         )
 
-server :: Connection -> Chains -> Server ServerApi
+server :: Connection -> HttpChains -> Server ServerApi
 server conn chains = chainEndpoints :<|> jsonOutputs chains :<|> static
   where
     chainEndpoints chainName = submit conn chains chainName :<|> since conn chainName

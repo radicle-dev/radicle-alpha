@@ -11,10 +11,10 @@ exec doc -- docs/source/guide/Issues.lrad`.
 
 First we load the prelude:
 
-    (load! "rad/prelude.rad")
+    (load! (find-module-file! "prelude.rad"))
 
 We'll use a ref to store the issues, as a dictionary from issue IDs to issues.
-    
+
     (def issues (ref {}))
 
 To update the state of our issues we'll use `modify-ref`, a function which takes
@@ -27,7 +27,7 @@ create a function for that:
 
 Next we'll define a function for creating a new issue. An issue is a dict which
 looks like:
-    
+
     { :id     "ab12-xy23"
       :author "user-id-here"
       :title  "I want pattern matching"
@@ -90,7 +90,7 @@ leave such an `update` command with no restrictions; we'll talk about that
 later.
 
     (load! "rad/chain.rad")
-    
+
     (def eval
       (updatable-eval
         (fn [expr state]
@@ -103,7 +103,7 @@ function at the REPL.
              :author "james"
              :title  "Pattern matching"
              :body   "Pleeease"})
-    
+
     (create {:id     "a37e56bd-b66a-4f3f-af06-9eaeb4afdae9"
              :author "julian"
              :title  "Better numbers"
@@ -145,7 +145,7 @@ to issues.
               (modify-map issue-id
                           (fn [i]
                             (modify-map :comments
-                                        (fn [cs] (add-right comment cs)) 
+                                        (fn [cs] (add-right comment cs))
                                         i))
                           is))))))
 

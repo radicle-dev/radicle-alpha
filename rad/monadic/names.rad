@@ -1,7 +1,7 @@
 (def create-name-chain!
   (fn [url]
     (chain/send-prelude! url)
-    (chain/send-code! url "rad/monadic/names-remote.rad")))
+    (chain/send-code! url (find-module-file! "rad/monadic/names-remote.rad"))))
 
 (def lookup-key
   (fn [chain-ref key]

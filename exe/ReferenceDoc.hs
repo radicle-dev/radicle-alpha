@@ -35,8 +35,8 @@ main = do
     res_ <- interpret
                "reference-doc"
                (   "(do"
-                <> "(file-module! \"rad/prelude/test-eval.rad\") (import prelude/test-eval '[eval tests] :unqualified)"
-                <> foldMap (\m -> "(file-module! \"rad/" <> m <> ".rad\")") (modules content)
+                <> "(file-module! \"prelude/test-eval.rad\") (import prelude/test-eval '[eval tests] :unqualified)"
+                <> foldMap (\m -> "(file-module! \"" <> m <> ".rad\")") (modules content)
                 <> "(get-current-state))")
                (replBindings [])
     let res = res_ `lPanic` "Error running the prelude."

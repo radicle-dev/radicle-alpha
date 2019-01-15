@@ -203,3 +203,5 @@ language_extensions:
   - TupleSections
   - TypeFamilies
   - TypeOperators
+  - NamedFieldPuns
+  - TypeApplications

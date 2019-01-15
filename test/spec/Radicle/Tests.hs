@@ -874,7 +874,7 @@ prettyEither (Right v) = renderPrettyDef v
 -- that the last two lines of the actual output equal @[a, b]@.
 assertReplInteraction :: [Text] -> [Text] -> IO ()
 assertReplInteraction input expected = do
-    (result, output) <- runCodeWithInput input "(load! \"rad/repl.rad\")"
+    (result, output) <- runCodeWithInput input "(load! (find-module-file! \"repl.rad\"))"
     case result of
         Left err -> assertFailure $ "Error thrown in Repl: " <> toS (renderPrettyDef err)
         Right _  -> pure ()

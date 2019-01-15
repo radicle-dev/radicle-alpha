@@ -11,6 +11,7 @@ extra-source-files:
 dependencies:
 - base >=4 && <5
 - protolude
+
 ghc-options:
   - -Wall
   - -Wcompat
@@ -28,6 +29,8 @@ library:
   - aeson
   - ansi-terminal
   - bytestring
+  - conduit
+  - conduit-extra
   - containers
   - cryptonite
   - directory
@@ -35,14 +38,18 @@ library:
   - generics-eot
   - haskeline
   - http-client
+  - http-conduit
+  - http-types
   - ipld-cid
   - megaparsec
   - microlens
   - mtl
+  - multibase
   - pointed
   - prettyprinter
   - prettyprinter-ansi-terminal
   - process
+  - resourcet
   - safe-exceptions
   - scientific
   - serialise
@@ -75,7 +82,6 @@ tests:
     - serialise
     - string-qq
     - tasty
-    - tasty-discover
     - tasty-hunit
     - tasty-quickcheck
     - text
@@ -88,8 +94,26 @@ tests:
     - doctest
     - Glob
     - hpack
+  e2e:
+    main: Main.hs
+    source-dirs:
+    - test/e2e
+    dependencies:
+    - process
+    - tasty
+    - tasty-hunit
 
 executables:
+  rad:
+    main: Rad.hs
+    source-dirs: exe
+    other-modules: [Paths_radicle]
+    dependencies:
+    - directory
+    - unix
+    - text
+    ghc-options: -main-is Rad -O3 -threaded
+
   radicle:
     main: RadicleExe.hs
     source-dirs: exe
@@ -104,7 +128,7 @@ executables:
   radicle-server:
     main: Server.hs
     source-dirs: exe
-    other-modules: [Server.DB]
+    other-modules: [Server.DB, Server.Common]
     dependencies:
     - radicle
     - aeson
@@ -118,7 +142,27 @@ executables:
     - warp
     - wai-extra
     - wai-cors
+    - time
     ghc-options: -main-is Server
+
+  radicle-daemon:
+    main: Daemon.hs
+    source-dirs: exe
+    other-modules: [Server.Common]
+    dependencies:
+    - radicle
+    - aeson
+    - mtl
+    - containers
+    - bytestring
+    - directory
+    - http-types
+    - optparse-applicative
+    - servant-server
+    - text
+    - warp
+    - time
+    ghc-options: -main-is Daemon
 
   radicle-doc:
     main: Doc.hs
@@ -185,6 +229,7 @@ default-extensions:
 - DeriveFunctor
 - DeriveGeneric
 - DeriveTraversable
+- DuplicateRecordFields
 - FlexibleContexts
 - FlexibleInstances
 - FunctionalDependencies
@@ -192,6 +237,7 @@ default-extensions:
 - LambdaCase
 - MultiParamTypeClasses
 - MultiWayIf
+- NamedFieldPuns
 - NoImplicitPrelude
 - OverloadedStrings
 - RankNTypes

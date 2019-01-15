@@ -1,4 +1,4 @@
-(load! "rad/prelude.rad")
+(load! (find-module-file! "prelude.rad"))
 (import prelude/chain '[eval] :unqualified)
 
 (def help

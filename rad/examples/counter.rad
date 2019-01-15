@@ -9,7 +9,7 @@
 ;;     (counter/get-value "my-chain-id") ;; => 1
 ;;
 
-(load! "rad/prelude.rad")
+(load! (find-module-file! "prelude.rad"))
 
 (import prelude/test '[assert-equal] :unqualified)
 
@@ -51,14 +51,3 @@
     (def chain (chain/load-chain! chain-id))
     (lookup :result (chain/eval-in-chain '(get-value) chain))
 ))
-
-(def counter/run-test
-  (fn []
-    (def chain-id (string-append "http://radicle-server:8000/chains/" (uuid!)))
-    (assert-equal (counter/init-chain! chain-id) :done)
-    (assert-equal (counter/get-value chain-id) 0)
-    (assert-equal (counter/increment! chain-id) 1)
-    (assert-equal (counter/increment! chain-id) 2)
-    (assert-equal (counter/get-value chain-id) 2)
-    :test-ok
-) )
