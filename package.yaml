@@ -132,6 +132,7 @@ executables:
         buildable: false
     dependencies:
     - radicle
+    - aeson
     - optparse-applicative
     - servant-server
     - text
