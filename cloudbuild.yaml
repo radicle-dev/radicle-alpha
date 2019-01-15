@@ -121,7 +121,7 @@ steps:
         docker push "$image_name:$tag"
       fi
 
-  - id: "Start and expose radicle-server"
+  - id: "Start radicle-server and IPFS daemon"
     name: 'docker/compose:1.23.2'
     waitFor:
     - "Build radicle-server image"
@@ -129,15 +129,25 @@ steps:
     args:
     - "-c"
     - |
+      set -euxo pipefail
       cd images/radicle-server
       docker-compose up -d postgres
       sleep 5 # Wait for the DB to be ready
       docker-compose up -d
+      docker run \
+        --name ipfs-test-network \
+        --detach \
+        --publish 9301:5001 \
+        --network cloudbuild \
+        eu.gcr.io/opensourcecoin/ipfs-test-network
       docker network connect cloudbuild radicle-server_radicle-server_1 --alias radicle-server
+      sleep 3 # Wait for service to be booted
+      # Add the empty entry to the IPFS test network. Radicle requires it
+      echo '{"radicle": true}' | docker exec -i ipfs-test-network ipfs dag put --pin
 
-  - id: "radicle-server integration test"
+  - id: "Integration tests"
     waitFor:
-    - "Start and expose radicle-server"
+    - "Start radicle-server and IPFS daemon"
     name: 'haskell:8.6.3'
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: 'bash'
@@ -146,7 +156,7 @@ steps:
     - |
       set -euxo pipefail
       stack exec -- radicle - <<<'(load! "rad/examples/counter.rad") (counter/run-test)'
-      stack exec -- radicle test/server.rad radicle-server
+      IPFS_API_URL=http://ipfs-test-network:5001 stack exec -- radicle test/machine-backends.rad radicle-server
 
   - id: "Save cache"
     waitFor:
