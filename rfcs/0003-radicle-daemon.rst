@@ -54,7 +54,7 @@ inputs received will be pinned.
   the materialised machine state, sending the result back as a
   response.
 
-- *Send* an input:
+- *Send* some inputs:
   
   ``POST /machines/:machine_id/send``
 
@@ -64,9 +64,10 @@ inputs received will be pinned.
                       "(add-number 43)"]}
 
   First the daemon checks if it is the *writer* for this machine (see
-  newMachine_). In this case (and if the input is valid), it will
-  write it to IPFS, and then send out a message of type
-  ``"new_input"`` on the machines' pubsub topic (with no nonce).
+  newMachine_). In this case (and if the expressions are valid), it
+  will add a node to the IPFS linked list, update the IPNS record. If
+  this is successful, it sends then send out a message of type
+  ``"new_input"`` on the machine's pubsub topic (with no nonce).
 
   If it is not the writer, the daemon will assume it is a *reader* for
   that machine. It will generate a random nonce, and send
@@ -75,7 +76,8 @@ inputs received will be pinned.
 
     {"type": "input_request",
      "nonce": "abc123",
-     "expression": "(add-number 42)"}
+     "expressions": ["(add-number 42)",
+                      "(add-number 43)"]}
   
   to the IPFS pubsub topic associated to the machine and wait for a
   message with the same nonce:
