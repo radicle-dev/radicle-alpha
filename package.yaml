@@ -126,6 +126,7 @@ executables:
     other-modules: [Server.Common]
     dependencies:
     - radicle
+    - aeson
     - optparse-applicative
     - servant-server
     - text
