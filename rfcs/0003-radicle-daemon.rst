@@ -32,72 +32,74 @@ Proposal
 The radicle daemon is an executable which starts a server which
 listens for HTTP requests on a specific port. It exposes a JSON API.
 
-The two main endpoints are:
+.. _endpoints:
 
-- Query a machine, that is, run an expression against it.
+**Endpoints:**
 
-  ``POST /:machine_url/query``
+Using any ``/machines`` endpoint will trigger the daemon subscribing
+and polling for activity on the machine, as described pubsub_.
 
-  .. code-block:: json
+- *Query* a machine, that is, run an expression against it.
 
-    {"expression": "(get-state)",
-     "keep_input": 259200,
-     "keep_polling": 3600,
-     "poll_period": 30}
+  ``POST /machines/:machine_id/query "(get-state)"``
 
-  Results in something like:
+  Results in something like: ``"{:apples 22 :oranges 42}"``.
 
-  .. code-block:: json
+  The daemon uses the IPNS link to check for new inputs. It also asks
+  the IPFS daemon to pin all the inputs.
 
-    {"result": "{:apples 22 :oranges 42}",
-     "last_input_id": 55}
+- *Send* an input:
+  ``POST /machines/:machine_id/send "(inc)"``
 
-  The daemon works out if it must query a remote or local machine
-  based on the protocol (``radicle-local://`` versus ``ipfs://``). In
-  the local case it will store the input expressions in a file. For
-  remote IPFS machines it will fetch and pin the inputs by sending
-  queries to the IPFS daemon which it assumes is running.
+  First the daemon checks with the IPFS daemon to see if it is the
+  *writer* for this machine. In this case (and if the input is valid),
+  it will write it to IPFS.
 
-  The fields ``keep_input``, ``keep_polling``, ``poll_period`` are
-  optional.
-
-  - ``keep_input`` controls how long (seconds) the daemon will cache
-    the inputs for. In the case of a local machine this controls how
-    long it will keep a log-file of all the expressions for. In the
-    case of an IPFS machine, it controls for how long the daemon will
-    pin the inputs.
-
-  - ``keep_polling`` and ``poll_period`` control how long (seconds) it
-    should keep polling for new inputs for (after the last
-    interaction) and the amount of time between each poll.
-
-- Send an input:
-  ``POST /:machine_url/send``
+  If it is not the writer, the daemon will assume it is a *reader* for
+  that machine it will generate a random nonce, and it will send
 
   .. code-block:: json
 
-    {"expression": "(inc)",
-     "keep_input": 259200,
-     ...}
+    {"type": "input_request",
+     "nonce": "abc123",
+     "expression": "(add-number 42)"}
+  
+  to the IPFS pubsub topic associated to the machine and wait for an:
 
-  For local machines this adds an input to the machine directly.
+  .. code-block:: json
 
-  For remote IPFS machines this will first check a radicle config file
-  for private keys indicating that this PC is the *writer* for this
-  IPFS chain. In this case (and if the input is valid), it will write
-  it to IPFS.
+    {"type": "new_input",
+     "nonce": "abc123"
+     "expression": "(add-number 42)"}
 
-  If such a config is not found, the daemon will assume it is a
-  *reader* for that machine, and it will send the input to the IPFS
-  pubsub topic associated to the machine and wait for an ``ACK``. If
-  no ``ACK`` is received within a reasonable timeframe, it will return
-  an error stating the machine owner is offline.
+  If no such message is received within a set timeframe it will return
+  an error reponse.
 
-Additionally, for all machines for which the daemon is the *writer*,
-it will subscribe to the machine's IPFS pubsub topic to listen for
-input suggestions from contributors. When it receives such a message,
-it will check to see if the input is valid. If it is, it will write it
-to the IPFS and send back an ``ACK``.
+- *New* (IPFS) machine:
+  ``POST /machines/new``
+
+  Creates a new empty machines on IPFS and returns the resulting
+  ``machine_id``. The daemon will now assume it is the *writer* for
+  this machine.
+
+.. _pubsub:
+
+**Pubsub and polling:**
+
+- For all machines for which the daemon is a *reader*, it will poll
+  IPNS for new inputs at a low frequency. Furthermore, it will
+  subscribe to the machine's IPFS pubsub topic and listen for messages
+  with type ``"new_input"``. When such a message is received, it will
+  start polling for new inputs at a high frequency. If none are
+  detected after a certain time period the daemon will assume it was a
+  late pubsub message and return to low-frequency polling.
+
+- For all machines for which the daemon is the *writer*, it will
+  subscribe to the machine's IPFS pubsub topic to listen for messages
+  of type ``"input_request"``. When it receives such a message, it
+  will check to see if the ``"expression"`` is valid. If it is, it
+  will write it to IPFS and update the IPNS link and post a message of
+  type ``"new_input"`` with the same nonce and expression.
   
 Drawbacks
 ----------
@@ -111,8 +113,7 @@ Drawbacks
 Alternatives
 -------------
 
-- Just use state serialisation, but this currently looks like a complex refactor
-  of the radicle codebase.
+N/A
 
 Unresolved question
 --------------------
@@ -121,19 +122,16 @@ Unresolved question
   machine. In this case something should prevent one app disabling the
   cache/polling settings of the other.
 
-- How are ``ACK`` sent back? Do we use throwaway topics?
-  
-- It might be possible to replace polling with writing and subscribing
-  to IPFS pubsub topics.
-
 Implementation
 ---------------
 
 - Share as much code with ``radicle-server`` as possible.
 
-- Use files instead of postgres for persistence.
-
 References
 -----------
 
-N/A
+IPNS_
+IPFSPubsub_
+
+.. _IPNS: https://docs.ipfs.io/guides/concepts/ipns/
+.. _IPFSPubsub: https://blog.ipfs.io/25-pubsub/
