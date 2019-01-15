@@ -6,9 +6,20 @@ let
           radicle =
             haskellPackagesNew.callPackage ./default.nix { };
 
-          doctest =
-            pkgs.haskell.lib.doJailbreak haskellPackagesOld.doctest;
+          tdigest =
+            pkgs.haskell.lib.doJailbreak haskellPackagesOld.tdigest;
 
+          ipld-cid =
+            haskellPackagesNew.callPackage ./ipld-cid.nix { };
+
+          binary-varint =
+            haskellPackagesNew.callPackage ./binary-varint.nix { };
+
+          multibase =
+            haskellPackagesNew.callPackage ./multibase.nix { };
+
+          multihash-cryptonite =
+            haskellPackagesNew.callPackage ./multihash-cryptonite.nix { };
         };
       };
     };
