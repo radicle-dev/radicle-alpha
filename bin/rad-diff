@@ -8,20 +8,21 @@
 (load! (find-module-file! "prelude.rad"))
 (load! (find-module-file! "monadic/diff.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
+(load! (find-module-file! "monadic/project.rad"))
 (load! (find-module-file! "prelude/cmd-parsing.rad"))
 (import prelude/validation :as 'validation)
 
-(def base-name "http://localhost:8000/chains/")
-
-(def make-name
+(def make-chain-ref
   (fn [chain]
-    (if (eq? (take 7 chain) "http://")
-        chain
-        (string-append base-name chain))))
+    (ref (chain/load-chain! chain))))
+
+(def chain-name
+  (fn []
+    (lookup :id (first-rsm-of-type! (make-chain-ref (get-project-url!)) :rad-diff))))
 
 (def make-chain-ref
   (fn [chain]
-    (ref (chain/load-chain! (make-name chain)))))
+    (ref (chain/load-chain! chain))))
 
 (def valid-list-options
   ["--new" "--pending" "--retracted" "--accepted" "--rejected" "--fancy"])
@@ -52,9 +53,7 @@
      reject       - Reject a diff
      create-chain - Create a new diffs chain
      help         - Print this help and exit
-
-   If <chain-name> begins with 'http://', that URL will be used. Otherwise,
-  " base-name " will be prepended to <chain-name>." ))
+  "))
 
 (def cmd-parse-failure
   (fn [error]
@@ -280,7 +279,7 @@
 (def new-diff-chain!
   "Create a new DIFF chain with the given URL"
   (fn [chain-name]
-    (create-diffs-chain! (make-name chain-name))))
+    (create-diffs-chain! chain-name)))
 
 (def edit-diff-state!
   "Edit the state of a DIFF. If the new state is `:accepted` the DIFF is then
@@ -319,20 +318,20 @@
                (cmd-parse-failure (string-append "Invalid list option: " o)))) os)))
 
 (def /list-cmd
-  (fn [chain-name opts]
-    (/cmd-2-opts "list" chain-name opts valid-list-options list-options help)))
+  (fn [opts]
+    (/cmd-1-opts "list" opts valid-list-options list-options help)))
 
 (def args (get-args!))
 (match args
-  (/list-cmd 'chain-name 'options) (list-items chain-name options)
-  (/cmd-2 "propose" 'commit 'chain-name help) (new-diff! (make-name chain-name) commit)
-  (/cmd-2 "checkout" 'diff-no 'chain-name help) (checkout-diff! chain-name (read diff-no))
-  (/cmd-2 "show" 'diff-no 'chain-name help) (show-diff! chain-name (read diff-no))
-  (/cmd-2 "retract" 'diff-no 'chain-name help) (edit-diff-state! chain-name (read diff-no) :retracted)
-  (/cmd-2 "accept" 'diff-no 'chain-name help) (edit-diff-state! chain-name (read diff-no) :accepted)
-  (/cmd-2 "reject" 'diff-no 'chain-name help) (edit-diff-state! chain-name (read diff-no) :rejected)
-  ["comment" 'diff-no 'comment 'chain-name] (create-comment! chain-name (read diff-no) comment)
-  (/cmd-1 "create-chain" 'chain-name help) (new-diff-chain! chain-name)
+  (/list-cmd 'options) (list-items (chain-name) options)
+  (/cmd-1 "propose" 'commit help) (new-diff! (chain-name) commit)
+  (/cmd-1 "checkout" 'diff-no help) (checkout-diff! (chain-name) (read diff-no))
+  (/cmd-1 "show" 'diff-no help) (show-diff! (chain-name) (read diff-no))
+  (/cmd-1 "retract" 'diff-no help) (edit-diff-state! (chain-name) (read diff-no) :retracted)
+  (/cmd-1 "accept" 'diff-no help) (edit-diff-state! (chain-name) (read diff-no) :accepted)
+  (/cmd-1 "reject" 'diff-no help) (edit-diff-state! (chain-name) (read diff-no) :rejected)
+  ["comment" 'diff-no 'comment] (create-comment! (chain-name) (read diff-no) comment)
+  (/cmd-0 "create-chain" help) (new-diff-chain! (chain-name))
   (/cmd-0 "done" help) (mark-last-seen)
   ["help"] (put-str! help)
   ["-h"] (put-str! help)

@@ -1,0 +1,85 @@
+;; Helpers for setting up and interacting with project RSMs
+
+(import prelude/lens :unqualified)
+(import prelude/chain '[send-code! send-signed-command!] :unqualified)
+(import prelude/time '[install-fake-clock] :unqualified)
+(import prelude/io :as 'io)
+
+(def get-project-url!
+  (fn []
+    (def proj (get-git-config! "rad.project.url"))
+    (if (eq? proj "")
+        (do
+          (put-str! "Not in a radicle project")
+          (exit! 1))
+        proj)))
+
+(def rsm-id
+  "The name of this RSM."
+  "monadic/radicle/project")
+
+(def set-meta!
+  "Set the metadata for a project"
+  (fn [chain i]
+    (send-signed-command! chain rsm-id 'set-meta i)))
+
+(def get-meta!
+  "Get the metadata for a project"
+  (fn [chain]
+    (lookup :result (chain/eval-in-chain '(get-meta) (read-ref chain)))))
+
+(def create-project!
+  "Create a remote project RSM with the given url."
+  (fn [url meta]
+    (chain/send-prelude! url)
+    (send-code! url (find-module-file! "monadic/project-remote.rad"))
+    (set-meta! (ref {:url url}) meta)))
+
+(def add-rsm!
+  "Add a new RSM to the project."
+  (fn [chain i]
+    (send-signed-command! chain rsm-id 'add-rsm i)))
+
+(def list-rsms!
+  "List RMSs of the project."
+  (fn [chain]
+    (lookup :result (chain/eval-in-chain '(list-rsms) (read-ref chain)))))
+
+(def add-issues-rsm!
+  (fn [chain id]
+    (add-rsm! chain { :id id :type :rad-issues })))
+
+(def add-diff-rsm!
+  (fn [chain id]
+    (add-rsm! chain { :id id :type :rad-diff })))
+
+(def add-repo-rsm!
+  (fn [chain id]
+    (add-rsm! chain { :id id :type :rad-repo })))
+
+(def first-rsm-of-type!
+  (fn [chain typ]
+    (first (filter (fn [x] (eq? (lookup :type x) typ)) (list-rsms! chain)))))
+
+(:test "The monadic project chain works."
+
+ [:setup
+  (do (chain/install-remote-chain-fake)
+      (install-fake-clock)
+      (io/install-fake-filesystem!
+        { "../my-keys.rad" (show (gen-key-pair! (default-ecc-curve)))
+        })
+      (def chain-name "http://bar")
+      (def chain (ref (chain/new-chain chain-name)))
+      (create-project! chain-name { :name "test" :description "test project"})
+      (add-issues-rsm! chain "a")
+      (add-diff-rsm! chain "b")
+      (add-repo-rsm! chain "c")
+      (fetch! chain))
+  ]
+
+  [ (get-meta! chain) ==> { :name "test" :description "test project" }]
+  [ (lookup :id (first-rsm-of-type! chain :rad-issues)) ==> "a" ]
+  [ (lookup :id (first-rsm-of-type! chain :rad-diff)) ==> "b" ]
+  [ (lookup :id (first-rsm-of-type! chain :rad-repo)) ==> "c" ]
+)

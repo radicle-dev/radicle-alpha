@@ -149,7 +149,9 @@ test_eval =
         prog3 `succeedsWith` String "b"
 
     , testCase "dict keys should be hashable" $ do
-        let f x = x `failsWith` NonHashableKey
+        let f x = case noStack (runPureCode x) of
+                Left (NonHashableKey _) -> True @?= True
+                _ -> assertFailure "Expected NonHashableKey"
         f "(insert (ref 0) 1 {})"
         f "{(ref 0) 1}"
         "(lookup :k {'(fn [x] y) 1 :k :v})" `succeedsWith` Keyword [ident|v|]

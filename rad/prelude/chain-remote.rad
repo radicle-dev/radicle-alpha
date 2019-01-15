@@ -1,0 +1,56 @@
+{:module 'prelude/chain-remote
+ :doc "Functions for writing remote RSMs"
+ :exports '[make-updatable-eval]}
+
+(import prelude/ref '[modify-ref] :unqualified)
+(import prelude/patterns :unqualified)
+
+(def eval-fn-app
+  "Given a state, a function, an argument and a callback, returns
+  the result of evaluating the function call on the arg in the given
+  state, while also calling the callback on the result."
+  (fn [state f arg cb]
+    (def exec (base-eval (list f (list 'quote arg)) state))
+    (cb (first exec))
+    exec))
+
+(def updatable-eval
+  "Given an evaluation function `f`, returns a new one which augments `f` with a new
+  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
+  (fn [sub-eval]
+    (fn [expr state]
+      (match expr
+             (/cons 'cmd _) (if (eq? cmd 'update)
+                              (base-eval (nth 1 expr) state)
+                              (sub-eval expr state))
+             _ (sub-eval expr state)))))
+
+(def make-updatable-eval
+  "Make an updatable eval from a list of command mappings."
+  (fn [initial-commands]
+    (def commands (ref initial-commands))
+    (def process-command
+      "Function that maps post-eval commands to existing functions"
+      (fn [expr]
+        (def command (first expr))
+        (def args    (rest expr))
+        (def do-this (lookup command (read-ref commands)))
+        (apply do-this args)))
+    (updatable-eval
+        (fn [expr state]
+          (eval-fn-app state process-command expr (fn [x] x))))))
+
+(:test "make-updatable-eval"
+  [:setup
+    (do
+      (def counter (ref 0))
+      (def commands
+        {'inc (fn [] (modify-ref counter (fn [x] (+ x 1))))
+         'get (fn [] (read-ref counter))})
+      (def ev (make-updatable-eval commands))
+      (def res (ev '(inc) (get-current-state)))
+      (def st (nth 1 res))
+    )
+  ]
+  [ (nth 0 (ev '(get) st)) ==> 1 ]
+)

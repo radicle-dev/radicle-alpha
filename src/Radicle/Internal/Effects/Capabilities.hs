@@ -12,7 +12,7 @@ import           Data.Time
 import           Paths_radicle
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
-import           System.Directory (doesFileExist)
+import           System.Directory (doesFileExist, setCurrentDirectory)
 import           System.Environment (lookupEnv)
 import           System.Exit (ExitCode)
 import           System.FilePath (splitSearchPath, (</>))
@@ -69,6 +69,7 @@ class (Monad m) => System m where
     hGetLineS :: Handle -> m (Maybe Text)
     hCloseS :: Handle -> m ()
     openFileS :: Text -> IOMode -> m (Either Text Handle)
+    setCurrentDirS :: FilePath -> m ()
 
 instance System m => System (Lang m) where
     systemS proc = lift $ systemS proc
@@ -77,6 +78,7 @@ instance System m => System (Lang m) where
     hGetLineS = lift . hGetLineS
     hCloseS = lift . hCloseS
     openFileS f mode = lift $ openFileS f mode
+    setCurrentDirS = lift . setCurrentDirS
 
 instance System IO where
     systemS = createProcess
@@ -92,6 +94,8 @@ instance System IO where
     hCloseS = hClose
     openFileS f mode = catch (Right <$> openFile (toS f) mode)
                              (\e -> pure . Left $ show (e :: IOException))
+    setCurrentDirS = setCurrentDirectory
+
 
 instance System m => System (InputT m) where
     systemS proc = lift $ systemS proc
@@ -100,6 +104,7 @@ instance System m => System (InputT m) where
     hGetLineS = lift . hGetLineS
     hCloseS = lift . hCloseS
     openFileS f mode = lift $ openFileS f mode
+    setCurrentDirS = lift . setCurrentDirS
 
 class Monad m => CurrentTime m where
   currentTime :: m UTCTime

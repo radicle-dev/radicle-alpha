@@ -1,8 +1,8 @@
 {:module 'prelude/chain
  :doc "Functions for simulating remote chains."
  :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval
-            updatable-eval update-chain! eval-fn-app send-prelude!
-            send-code! send! receive! install-remote-chain-fake send-signed-command!]}
+            update-chain! send-prelude!  send-signed-command! sign-entity!
+            send-code! send! receive!  install-remote-chain-fake]}
 
 (import prelude/io '[read-file-value! read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
@@ -223,25 +223,6 @@
             :else (eval__ expr env))
           (eval__ expr env))))
 
-(def eval-fn-app
-  "Given a state, a function, an argument and a callback, returns
-  the result of evaluating the function call on the arg in the given
-  state, while also calling the callback on the result."
-  (fn [state f arg cb]
-    (def exec (base-eval (list f (list 'quote arg)) state))
-    (cb (first exec))
-    exec))
-
-(def updatable-eval
-  "Given an evaluation function `f`, returns a new one which augments `f` with a new
-  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
-  (fn [sub-eval]
-    (fn [expr state]
-      (match expr
-             (/cons 'cmd _) (if (eq? cmd 'update)
-                              (base-eval (nth 1 expr) state)
-                              (sub-eval expr state))
-             _ (sub-eval expr state)))))
 
 (def pure-prelude-files
   "List of files which together define the pure prelude."
@@ -258,6 +239,8 @@
      "prelude/lens.rad"
      "prelude/state-machine.rad"
      "prelude/validation.rad"
+     "prelude/nonces.rad"
+     "prelude/chain-remote.rad"
      "prelude/util.rad"]))
 
 (def file-to-module

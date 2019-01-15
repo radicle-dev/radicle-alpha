@@ -1,0 +1,78 @@
+;; Project RSM
+;; Meant to be sent to a chain with send-code!
+
+(import prelude/basic :unqualified)
+(import prelude/bool :unqualified)
+(import prelude/dict :unqualified)
+(import prelude/set :as 'set)
+(import prelude/ref :unqualified)
+(import prelude/validation :as 'validator)
+(import prelude/patterns :unqualified)
+(import prelude/util :unqualified)
+(import prelude/lens :unqualified)
+(import prelude/nonces :unqualified)
+(import prelude/set :as 'set)
+(import prelude/chain-remote '[make-updatable-eval] :unqualified)
+
+(def rsms
+  "A url-based dict of RSMs."
+  (ref set/empty))
+
+(def rsm-id
+  "The name of this RSM."
+  "monadic/radicle/project")
+
+(def meta
+  (ref {:name ""
+        :description "" }))
+
+(def noncer (make-noncer))
+
+(def validator/rsm
+  (validator/keys
+    {:type (validator/type :keyword)
+     :id (validator/string-of-max-length 80)}))
+
+(def validator/meta
+  (validator/keys
+    {:name (validator/string-of-max-length 80)
+     :description (validator/string-of-max-length 800)}))
+
+(def validator/input
+  (validator/and
+    [ (validator/keys {:nonce      (noncer :validator)
+                       :chain-id   (validator/= rsm-id)})
+      validator/signed] ))
+
+(def add-rsm
+  (fn [r]
+    (validator/input r)
+    (validator/rsm r)
+    (noncer [:use (lookup :nonce r)])
+    (modify-ref rsms (fn [rs] (set/insert r rs)))))
+
+(def set-meta
+  (fn [r]
+    (validator/input r)
+    (validator/meta r)
+    (noncer [:use (lookup :nonce r)])
+    (write-ref meta {:name (lookup :name r) :description (lookup :description r)})))
+
+(def list-rsms
+  (fn []
+    (set/to-vec (read-ref rsms))))
+
+(def get-meta
+  (fn []
+    (read-ref meta)))
+
+;; General logic
+
+(def commands
+  "The set of allowed commands."
+   {'add-rsm add-rsm
+    'set-meta set-meta
+    'get-meta get-meta
+    'list-rsms list-rsms })
+
+(def eval (make-updatable-eval commands))
