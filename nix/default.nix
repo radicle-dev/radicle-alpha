@@ -37,4 +37,6 @@ mkDerivation {
     tasty-discover tasty-hunit tasty-quickcheck text time
   ];
   license = stdenv.lib.licenses.mit;
+  libraryToolDepends = [ hpack ];
+  preConfigure = "hpack";
 }
