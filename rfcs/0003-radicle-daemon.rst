@@ -22,10 +22,6 @@ Motivation
   inputs to the owner for inclusion into the machine. This daemon
   would listen for inputs on an IPFS pubsub channel.
 
-- The daemon also allows apps not written in radicle or Haskell to
-  have access to a radicle interpreter by maintaining *local
-  machines*.
-
 Proposal
 ---------
 
@@ -37,7 +33,8 @@ listens for HTTP requests on a specific port. It exposes a JSON API.
 **Endpoints:**
 
 Using any ``/machines`` endpoint will trigger the daemon subscribing
-and polling for activity on the machine, as described pubsub_.
+and polling for activity on the machine, as described pubsub_. Any new
+inputs received will be pinned.
 
 - *Query* a machine, that is, run an expression against it.
 
@@ -45,18 +42,20 @@ and polling for activity on the machine, as described pubsub_.
 
   Results in something like: ``"{:apples 22 :oranges 42}"``.
 
-  The daemon uses the IPNS link to check for new inputs. It also asks
-  the IPFS daemon to pin all the inputs.
+  The daemon will check for new inputs and then run the expression in
+  the cached machine state, sending the result back as a response.
 
 - *Send* an input:
+  
   ``POST /machines/:machine_id/send "(inc)"``
 
-  First the daemon checks with the IPFS daemon to see if it is the
-  *writer* for this machine. In this case (and if the input is valid),
-  it will write it to IPFS.
+  First the daemon checks if it is the *writer* for this machine (see
+  newMachine_). In this case (and if the input is valid), it will
+  write it to IPFS, and then send out a message of type
+  ``"new_input"`` on the machines' pubsub topic (with no nonce).
 
   If it is not the writer, the daemon will assume it is a *reader* for
-  that machine it will generate a random nonce, and it will send
+  that machine. It will generate a random nonce, and send
 
   .. code-block:: json
 
@@ -64,22 +63,26 @@ and polling for activity on the machine, as described pubsub_.
      "nonce": "abc123",
      "expression": "(add-number 42)"}
   
-  to the IPFS pubsub topic associated to the machine and wait for an:
+  to the IPFS pubsub topic associated to the machine and wait for a
+  message with the same nonce:
 
   .. code-block:: json
 
     {"type": "new_input",
-     "nonce": "abc123"
+     "nonce": "abc123",
      "expression": "(add-number 42)"}
 
   If no such message is received within a set timeframe it will return
   an error reponse.
+  
+- .. _newMachine:
 
-- *New* (IPFS) machine:
+  *New* (IPFS) machine:
+  
   ``POST /machines/new``
 
   Creates a new empty machines on IPFS and returns the resulting
-  ``machine_id``. The daemon will now assume it is the *writer* for
+  ``machine_id``. The daemon configures itself as the *writer* for
   this machine.
 
 .. _pubsub:
@@ -94,11 +97,14 @@ and polling for activity on the machine, as described pubsub_.
   detected after a certain time period the daemon will assume it was a
   late pubsub message and return to low-frequency polling.
 
+  When new inputs are detected, the materialised machine state is
+  updated, ready for query requests.
+
 - For all machines for which the daemon is the *writer*, it will
   subscribe to the machine's IPFS pubsub topic to listen for messages
   of type ``"input_request"``. When it receives such a message, it
   will check to see if the ``"expression"`` is valid. If it is, it
-  will write it to IPFS and update the IPNS link and post a message of
+  will write it to IPFS, update the IPNS link and post a message of
   type ``"new_input"`` with the same nonce and expression.
   
 Drawbacks
@@ -130,8 +136,9 @@ Implementation
 References
 -----------
 
-IPNS_
-IPFSPubsub_
+- IPNS_
+
+- IPFSPubsub_
 
 .. _IPNS: https://docs.ipfs.io/guides/concepts/ipns/
 .. _IPFSPubsub: https://blog.ipfs.io/25-pubsub/
