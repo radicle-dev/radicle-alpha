@@ -2,17 +2,23 @@
 
 (load! (find-module-file! "prelude.rad"))
 (load! (find-module-file! "monadic/issues.rad"))
+(load! (find-module-file! "monadic/project.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
 (load! (find-module-file! "prelude/cmd-parsing.rad"))
 
 (import prelude/validation :as 'validation)
 
-(def base-name "http://machines.radicle.xyz/chains/")
+(def make-chain-ref
+  (fn [chain]
+    (ref (chain/load-chain! chain))))
+
+(def base-name
+  (fn []
+    (lookup :id (first-rsm-of-type! (make-chain-ref (get-project-url!)) :rad-issues))))
 
 (def name-base "http://machines.radicle.xyz/chains/names")
 
 (def help
-  (string-append
   "rad-issues - Radicle issue CLI
 
    Usage:
@@ -33,23 +39,11 @@
      make-key     - Create a key-pair and register the name
      names        - See all registered names
      help         - Print this help and exit
-
-   If <chain-name> begins with 'http://', that URL will be used. Otherwise,
-  " base-name " will be prepended to <chain-name>." ))
+   ")
 
 (def cmd-parse-failure
   (fn [error]
     (parse-failure error help)))
-
-(def make-name
-  (fn [chain]
-    (if (eq? (take 7 chain) "http://")
-        chain
-        (string-append base-name chain))))
-
-(def make-chain-ref
-  (fn [chain]
-    (ref (chain/load-chain! (make-name chain)))))
 
 (def mark-last-seen
   (fn []
@@ -105,7 +99,7 @@
   (fn [chain options]
 
     (def chain-ref (make-chain-ref chain))
-    (load! (find-module-file! "rad/monadic/names.rad"))
+    (load! (find-module-file! "monadic/names.rad"))
     (def names (ref (chain/load-chain! name-base)))
     (def add-username
       (fn [d]
@@ -183,14 +177,14 @@
     (def n (read issue-number))
     (if (number? n)
       (if (integral? n)
-        (do (def chain-ref (ref (chain/new-chain (make-name chain-name))))
+        (do (def chain-ref (ref (chain/new-chain chain-name)))
             (simple-edit-issue! chain-ref n {:state :closed}))
         (cmd-parse-failure "Issue numbers must be whole numbers!"))
       (cmd-parse-failure "To close an issue, please provide the issue number."))))
 
 (def new-issue
   (fn [chain]
-    (def chain-ref (ref (chain/new-chain (make-name chain))))
+    (def chain-ref (ref (chain/new-chain chain)))
     (def template
 ";; Issue template. An empty or invalid value will abort.
 {:title      \"Pick a title\"
@@ -204,18 +198,18 @@
 
 (def create-chain
   (fn [chain]
-    (create-issues-chain! (make-name chain))))
+    (create-issues-chain! chain)))
 
 (def make-key
   (fn [name]
     (def kp (gen-key-pair! (default-ecc-curve)))
     (write-file! "my-keys.rad" (show kp))
-    (load! "rad/monadic/names.rad")
+    (load! (find-module-file! "monadic/names.rad"))
     (add-name! name-base name (lookup :public-key kp))))
 
 (def names
   (fn []
-    (load! "rad/monadic/names.rad")
+    (load! (find-module-file! "monadic/names.rad"))
     (print! (list-names name-base))))
 
 (init-file-dict! ".radicle-issues")
@@ -238,12 +232,12 @@
 
 (def args (get-args!))
 (match args
-  (/list-cmd 'chain-name 'options) (list-items chain-name options)
+  ["list"] (list-items (base-name) [])
   (/cmd-0 "names" help) (names)
   (/cmd-1 "make-key" 'nick help) (make-key nick)
-  (/cmd-1 "new" 'chain-name help) (new-issue chain-name)
+  (/cmd-0 "new" help) (new-issue (base-name))
   (/cmd-1 "create-chain" 'chain-name help) (create-chain chain-name)
-  (/cmd-2 "close" 'issue-number 'chain-name help) (close-issue issue-number chain-name)
+  (/cmd-1 "close" 'issue-number help) (close-issue issue-number (base-name))
   (/cmd-0 "done" help) (mark-last-seen)
   ["help"] (put-str! help)
   ["-h"] (put-str! help)

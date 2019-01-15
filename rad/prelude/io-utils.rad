@@ -1,8 +1,8 @@
 {:module 'prelude/io-utils
  :doc "IO-related utilities"
- :exports '[fzf-select! edit-in-editor!]}
+ :exports '[fzf-select! edit-in-editor! get-git-config! set-git-config!]}
 
-(import prelude/io '[shell-with-stdout! write-file!] :unqualified)
+(import prelude/io '[shell-with-stdout! write-file! process-with-stdout!] :unqualified)
 (import prelude/strings '[unlines] :unqualified)
 
 (def fzf-select!
@@ -40,3 +40,13 @@
     (write-file! file orig)
     (shell-no-stdin! (string-append "${EDITOR:-nano} " file) "")
     (read-file! file)))
+
+(def get-git-config!
+  "Get the value associated with a key in git config."
+  (fn [key]
+    (unlines (process-with-stdout! "git" ["config" "--get" key] ""))))
+
+(def set-git-config!
+  "Set the value associated with a key in git config."
+  (fn [key value]
+    (process-with-stdout! "git" ["config" key value] "")))

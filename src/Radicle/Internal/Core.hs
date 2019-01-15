@@ -72,7 +72,7 @@ data LangErrorData r =
     -- | Takes the function name, expected number of args, and actual number of
     -- args
     | WrongNumberOfArgs Text Int Int
-    | NonHashableKey
+    | NonHashableKey Value
     | ModuleError ModuleError
     | OtherError Text
     | ParseError (Par.ParseErrorBundle Text Void)
@@ -135,7 +135,7 @@ errorDataToValue e = case e of
               expected)
           , ("actual", Number $ fromIntegral actual)]
         )
-    NonHashableKey -> makeVal ( "non-hashable-key", [])
+    NonHashableKey k -> makeVal ("non-hashable-key", [("key", k)])
     ModuleError me -> case me of
       MissingDeclaration -> makeVal ( "missing-module-declaration", [])
       InvalidDeclaration t v -> makeVal ( "invalid-module-declaration", [("info", String t), ("declaration", v)])
@@ -182,8 +182,14 @@ readRef (Reference r) = do
 
 -- | As with References and ProcHdls, we keep a counter for each handle, and in
 -- the environment map those to actual handles.
-newtype Hdl = Hdl { getHandle :: Int }
-    deriving (Show, Read, Ord, Eq, Generic, Serialise)
+data Hdl
+    = Hdl Int
+    | StdIn
+    | StdOut
+    | StdErr
+    deriving (Show, Read, Ord, Eq, Generic)
+
+instance Serialise Hdl
 
 -- | Create a new handle.
 newHandle :: Monad m => Handle.Handle -> Lang m Value
@@ -202,6 +208,9 @@ lookupHandle (Hdl h) = do
     case IntMap.lookup h hdls of
         Nothing -> throwErrorHere $ Impossible "no such handle"
         Just v  -> pure v
+lookupHandle StdIn = pure stdin
+lookupHandle StdOut = pure stdout
+lookupHandle StdErr = pure stderr
 
 -- | As with References and Hdls, we keep a counter for each handle, and in the
 -- environment map those to actual handles.
@@ -300,10 +309,9 @@ hashable = \case
 
 -- | Smart constructor for dicts which checks that all the keys are hashable.
 dict :: (Monad m) => Map Value Value -> Lang m Value
-dict kvs =
-  if all hashable (Map.keys kvs)
-  then pure $ Dict kvs
-  else throwErrorHere NonHashableKey
+dict kvs = case filter (not . hashable) (Map.keys kvs) of
+  []    -> pure $ Dict kvs
+  k : _ -> throwErrorHere $ NonHashableKey k
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict
   , Ref, Handle, ProcHandle, Lambda, LambdaRec, VEnv, VState #-}

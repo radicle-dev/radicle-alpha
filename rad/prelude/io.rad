@@ -3,7 +3,7 @@
  :exports '[print! shell! process! read-line! read-file-value! read-file-values!
             shell-with-stdout! shell-no-stdin! process-with-stdout! write-file!
             init-file-dict! read-file-key! write-file-key! ls! modify-file!
-            install-fake-filesystem! process-with-stdout-stderr-exitcode!
+            install-fake-filesystem! process-with-stdout-stderr-exitcode! prompt!
            ]}
 
 (import prelude/patterns :unqualified)
@@ -217,6 +217,12 @@ Example: `(process! \"ls\" [\"-Glah\"] \"\")`. "
   "Read a file key. Assumes that the file contents is a serialised dict."
   (fn [file k]
     (lookup-maybe k (read-file-value! file))))
+
+(def prompt!
+  "Ask for user input with a prompt."
+  (fn [prompt]
+    (write-handle! (stderr!) prompt)
+    (read-line-handle! (stdin!))))
 
 (def install-fake-filesystem!
   "Installs a fake for `read-file!` that simulates the presence of

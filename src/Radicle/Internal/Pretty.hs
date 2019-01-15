@@ -105,7 +105,7 @@ instance PrettyV r => PrettyV (LangErrorData r) where
         WrongNumberOfArgs t x y -> "Wrong number of args in" <+> pretty t
                                  <+> "Expected:" <+> pretty x
                                  <+> "Got:" <+> pretty y
-        NonHashableKey -> "Non-hashable key in dict."
+        NonHashableKey k -> "Non-hashable key in dict:" <+> prettyV k
         ModuleError me -> case me of
           MissingDeclaration -> "Modules must start with a metadata declaration"
           InvalidDeclaration t decl -> vsep

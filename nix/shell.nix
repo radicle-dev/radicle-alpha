@@ -19,14 +19,16 @@ stdenv.mkDerivation {
     LANG = "en_US.UTF-8";
     libraryPkgconfigDepends = [ zlib ];
     shellHook = ''
-      export PATH=$PATH:`stack path --local-bin`
-      export STACK_ARGS="--system-ghc --no-nix-pure --nix-packages 'zlib fzf moreutils'"
+      export PATH=$PATH:`stack path --local-bin`:$PWD/bin
+      export RADPATH=$PWD/rad
+      export STACK_ARGS="--silent --system-ghc --no-nix-pure --nix-packages 'zlib fzf moreutils'"
       export IS_NIX_SHELL="true"
       export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
       eval $(grep export ${ghc}/bin/ghc)
       alias check="pushd $PWD && ./scripts/check-fmt.sh && hlint . && popd"
       alias mkdocs="pushd $PWD/docs && make html && popd"
       alias sb="stack build --fast $STACK_ARGS"
+      alias se="stack exec $STACK_ARGS"
       alias sbs="stack build --fast $STACK_ARGS radicle:exe:radicle-server"
       alias sbrad="stack build --fast $STACK_ARGS radicle:exe:radicle"
       alias st="stack test --fast $STACK_ARGS"
