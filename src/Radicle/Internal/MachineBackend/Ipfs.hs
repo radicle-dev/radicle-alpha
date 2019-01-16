@@ -19,6 +19,7 @@ module Radicle.Internal.MachineBackend.Ipfs
     ( ipfsPrimFns
     , ipfsMachineCreate
     , IpnsId
+    , ipfsMachineCreate
     ) where
 
 import           Protolude hiding (TypeError, catch, try)
