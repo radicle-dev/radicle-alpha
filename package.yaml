@@ -12,7 +12,12 @@ dependencies:
 - base >=4 && <5
 - protolude
 ghc-options:
-  -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wredundant-constraints
+  - -threaded
 
 data-files:
 - rad/**/*.rad
@@ -55,7 +60,6 @@ tests:
     main: Main.hs
     source-dirs:
     - test/spec
-    ghc-options: -threaded
     dependencies:
     - radicle
     - containers
@@ -80,7 +84,6 @@ tests:
     main: Main.hs
     source-dirs:
     - test/docs
-    ghc-options: -threaded
     dependencies:
     - doctest
     - Glob
@@ -99,7 +102,7 @@ executables:
     when:
       - condition: impl(ghcjs)
         buildable: false
-    ghc-options: -main-is RadicleExe -O3 -threaded
+    ghc-options: -main-is RadicleExe
 
   radicle-server:
     main: Server.hs
@@ -121,7 +124,7 @@ executables:
     - warp
     - wai-extra
     - wai-cors
-    ghc-options: -main-is Server -O3 -threaded
+    ghc-options: -main-is Server
 
   radicle-client-ghcjs:
     main: GHCJS.hs
@@ -148,7 +151,7 @@ executables:
     # in ghcjs due to the metadata initializer only supporting objects with up
     # to 100
     # fields: https://github.com/ghcjs/ghcjs/issues/498#issuecomment-230725647
-    ghc-options: -main-is GHCJS -threaded -debug
+    ghc-options: -main-is GHCJS -debug
 
   radicle-doc:
     main: Doc.hs
@@ -206,6 +209,19 @@ executables:
     - radicle
     - criterion
     ghc-options: -main-is Benchmarks
+
+  rad-machines:
+    main: Machines.hs
+    source-dirs: exe/
+    other-modules: []
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    dependencies:
+    - radicle
+    - uuid
+    - optparse-applicative
+    ghc-options: -main-is Machines
 
 default-extensions:
 - AutoDeriveTypeable
