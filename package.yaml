@@ -133,6 +133,8 @@ executables:
     dependencies:
     - radicle
     - aeson
+    - bytestring
+    - http-types
     - optparse-applicative
     - servant-server
     - text
