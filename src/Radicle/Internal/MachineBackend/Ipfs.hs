@@ -306,7 +306,7 @@ ipfsHttpPost path payloadArgName payload = do
 
 ipfsApiUrl :: Text -> IO Text
 ipfsApiUrl path = do
-    baseUrl <- fromMaybe "http://localhost:9301" <$> lookupEnv "IPFS_API_URL"
+    baseUrl <- fromMaybe "http://localhost:9301" <$> lookupEnv "RAD_IPFS_API_URL"
     pure $ toS baseUrl <> "/api/v0/" <> path
 
 handleRequestException :: MonadThrow m => HttpException -> m a

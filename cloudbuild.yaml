@@ -156,7 +156,7 @@ steps:
     - |
       set -euxo pipefail
       stack exec -- radicle - <<<'(load! "rad/examples/counter.rad") (counter/run-test)'
-      IPFS_API_URL=http://ipfs-test-network:5001 stack exec -- radicle test/machine-backends.rad radicle-server
+      RAD_IPFS_API_URL=http://ipfs-test-network:5001 stack exec -- radicle test/machine-backends.rad radicle-server
 
   - id: "Save cache"
     waitFor:
