@@ -127,6 +127,7 @@ executables:
     dependencies:
     - radicle
     - aeson
+    - mtl
     - containers
     - bytestring
     - http-types
