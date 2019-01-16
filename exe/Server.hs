@@ -56,16 +56,6 @@ import           Server.DB
 newtype Exprs = Exprs { getExprs :: Seq Value }
     deriving (Generic, Eq, Ord)
 
-data Chain = Chain
-    { chainName      :: Text
-    , chainState     :: Bindings (PrimFns Identity)
-    , chainEvalPairs :: Seq.Seq (Value, Value)
-    } deriving (Generic)
-
--- For efficiency we might want keys to also be mvars, but efficiency doesn't
--- matter for a test server.
-newtype Chains = Chains { getChains :: MVar (Map Text Chain) }
-
 type ServerApi
     = "chains" :> Capture "chain" Text :> (ChainSubmitEndpoint :<|> ChainSinceEndpoint)
  :<|> "outputs" :> Capture "chain" Text :> Get '[JSON] [Maybe A.Value]
@@ -79,28 +69,27 @@ serverApi = Proxy
 
 -- | Returns the ID of the last inserted expression which is the chain
 -- length minus one.
-insertExpr :: Connection -> Chains -> Text -> [Value] -> IO (Either Text Int)
+insertExpr :: Connection -> Chains Int -> Text -> [Value] -> IO (Either Text Int)
 insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
     let maybeChain = Map.lookup name c
     chain <- case maybeChain of
         Nothing -> do
             logInfo "Creating new machine" [("machine", name)]
-            pure $ Chain name pureEnv mempty
+            pure $ Chain name pureEnv mempty Nothing
         Just chain' -> pure chain'
-    let (r :: Either (LangError Value) [Value], newSt) = runIdentity
-                   $ runLang (chainState chain)
-                   $ traverse eval vals
-    case r of
+    case advanceChain chain vals of
         Left e  -> do
             logInfo "Submitted expressions failed to evaluate" [("machine", name)]
             pure . (c ,) . Left $ renderPrettyDef e
-        Right valsRes -> do
+        Right (valsRes, newSt) -> do
              traverse_ (insertExprDB conn name) vals
              let news = Seq.fromList $ zip vals valsRes
+             let lastIndex = Seq.length (chainEvalPairs chain') - 1
              let chain' = chain { chainState = newSt
                                 , chainEvalPairs = chainEvalPairs chain Seq.>< news
+                                , chainLastIndex = lastIndex
                                 }
-             pure (Map.insert name chain' c, Right $ Seq.length (chainEvalPairs chain') - 1)
+             pure (Map.insert name chain' c, Right lastIndex )
 
 
 -- | Load the state from the DB, returning an MVar with resulting state

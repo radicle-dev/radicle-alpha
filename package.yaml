@@ -127,6 +127,7 @@ executables:
     dependencies:
     - radicle
     - aeson
+    - containers
     - bytestring
     - http-types
     - optparse-applicative
@@ -200,6 +201,7 @@ default-extensions:
 - DeriveFunctor
 - DeriveGeneric
 - DeriveTraversable
+- DuplicateRecordFields
 - FlexibleContexts
 - FlexibleInstances
 - FunctionalDependencies
