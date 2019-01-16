@@ -1,0 +1,31 @@
+# Defines all services required for end-to-end tests
+version: '3'
+
+services:
+  postgres:
+    image: postgres:11-alpine
+    ports:
+    - "15432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+  radicle-server:
+    image: eu.gcr.io/opensourcecoin/radicle-server
+    build: ../images/radicle-server
+    depends_on:
+    - postgres
+    command:
+    - radicle-server
+    - --host=postgres
+    - --db=postgres
+    ports:
+    - "8000:8000"
+
+  ipfs-test-network:
+    image: eu.gcr.io/opensourcecoin/ipfs-test-network
+    ports:
+    - "19301:5001"
+
+
+volumes:
+  pg-data: {}
+
