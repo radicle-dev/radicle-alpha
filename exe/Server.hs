@@ -64,7 +64,6 @@ type ServerApi
 serverApi :: Proxy ServerApi
 serverApi = Proxy
 
-type HttpChain = Chain Text Int
 type HttpChains = Chains Text Int
 
 -- * Helpers

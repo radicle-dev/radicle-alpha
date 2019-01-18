@@ -222,7 +222,7 @@ actAsWriter chains id = subscribeForever id onMsg
   where
     onMsg :: Message -> IO ()
     onMsg = \case
-      Req ReqInput{..} -> do
+      Req ReqInputs{..} -> do
         m_ <- lookupMachine chains id
         case m_ of
           Nothing -> panic "Daemon was setup as writer for a chain it hasn't laoded!"
@@ -233,12 +233,22 @@ actAsWriter chains id = subscribeForever id onMsg
 -- new input notification, and also sets up polling.
 actAsReader :: IpfsChains -> MachineId -> IO ()
 actAsReader chains id = subscribeForever id onMsg
+  -- TODO(james): set up polling.
   where
+    onMsg :: Message -> IO ()
     onMsg = \case
       New NewInputs{..} -> do
-        -- TODO(james): update materialised state, bump freq
-        pure ()
+        m_ <- lookupMachine chains id
+        case m_ of
+          Nothing -> panic "Subscribed for changes on a non-loaded machine!"
+          Just m -> runExceptT (refreshAsReader chains m) >> pure () -- TODO(james): log error somewhere
       _ -> pure ()
+
+refreshAsReader :: IpfsChains -> IpfsChain -> ExceptT Text IO IpfsChain
+refreshAsReader chains m = do
+  m' <- catchUpMachine chains m
+  liftIO $ bumpPolling m'
+  pure m'
 
 -- Do some high-freq polling for a while.
 bumpPolling :: IpfsChain -> IO ()

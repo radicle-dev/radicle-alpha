@@ -2,7 +2,7 @@ module Radicle.Daemon.Ipfs
   ( MachineId(..)
   , Message(..)
   , NewInputs(..)
-  , ReqInput(..)
+  , ReqInputs(..)
   , writeIpfs
   , publish
   , subscribeForever
@@ -27,32 +27,27 @@ newtype MachineId = MachineId Text
     deriving (Show, Eq, Ord, Generic)
 
 -- | Messages sent on a machine's IPFS pubsub topic.
-data Message = New NewInput | Req ReqInput
+data Message = New NewInputs | Req ReqInputs
     deriving (Show, Eq, Generic)
+
+instance Aeson.FromJSON Message
 
 -- | Message sent to signal a new input has been added to the machine.
 data NewInputs = NewInputs
   { nonce   :: Maybe Text
   , results :: [Value]
-  }
-
-instance Aeson.FromJSON Message
-
-data NewInput = NewInput
-  { nonce   :: Maybe Text
-  , results :: [Value]
   } deriving (Show, Eq, Generic)
 
-instance Aeson.FromJSON NewInput
+instance Aeson.FromJSON NewInputs
 
 -- | Message sent to request the writer to add an input to the
 -- machine.
-data ReqInput = ReqInput
+data ReqInputs = ReqInputs
   { nonce       :: Text
   , expressions :: [Value]
   } deriving (Show, Eq, Generic)
 
-instance Aeson.FromJSON ReqInput
+instance Aeson.FromJSON ReqInputs
 
 writeIpfs :: MachineId -> [Value] -> IO Ipfs.MachineEntryIndex
 writeIpfs = notImplemented
