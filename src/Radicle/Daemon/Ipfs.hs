@@ -15,30 +15,44 @@ module Radicle.Daemon.Ipfs
 
 import           Protolude
 
+import qualified Data.Aeson as Aeson
+
 import           Radicle (Value)
 import qualified Radicle.Internal.MachineBackend.Ipfs as Ipfs
 import qualified Radicle.Internal.UUID as UUID
+import qualified Radicle.Ipfs as Ipfs
 
 
 newtype MachineId = MachineId Text
     deriving (Show, Eq, Ord, Generic)
 
 -- | Messages sent on a machine's IPFS pubsub topic.
-data Message = New NewInputs | Req ReqInput
+data Message = New NewInput | Req ReqInput
+    deriving (Show, Eq, Generic)
 
 -- | Message sent to signal a new input has been added to the machine.
 data NewInputs = NewInputs
-  { nonce :: Maybe Text
+  { nonce   :: Maybe Text
   , results :: [Value]
   }
+
+instance Aeson.FromJSON Message
+
+data NewInput = NewInput
+  { nonce   :: Maybe Text
+  , results :: [Value]
+  } deriving (Show, Eq, Generic)
+
+instance Aeson.FromJSON NewInput
 
 -- | Message sent to request the writer to add an input to the
 -- machine.
 data ReqInput = ReqInput
   { nonce       :: Text
   , expressions :: [Value]
-  }
+  } deriving (Show, Eq, Generic)
 
+instance Aeson.FromJSON ReqInput
 
 writeIpfs :: MachineId -> [Value] -> IO Ipfs.MachineEntryIndex
 writeIpfs = notImplemented
@@ -48,9 +62,15 @@ publish :: MachineId -> Message -> IO ()
 publish = notImplemented
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
--- Takes an optional timeout.
 subscribeForever :: MachineId -> (Message -> IO ()) -> IO ()
-subscribeForever = notImplemented
+subscribeForever (MachineId id) messageHandler =
+    Ipfs.subscribe topic pubsubHandler
+  where
+    topic = "radicle:machine:" <> id
+    pubsubHandler Ipfs.PubsubMessage{..} =
+        case Aeson.decodeStrict messageData of
+            Nothing  -> putStrLn ("Cannot parse pubsub message" :: Text)
+            Just msg -> messageHandler msg
 
 subscribeOne :: MachineId -> Int -> (Message -> Bool) -> IO (Maybe Message)
 subscribeOne = notImplemented
