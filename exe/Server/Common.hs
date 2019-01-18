@@ -9,17 +9,17 @@ import           Radicle
 
 data ReaderOrWriter = Reader | Writer
 
-data Chain a = Chain
-    { chainName      :: Text
+data Chain id idx = Chain
+    { chainName      :: id
     , chainState     :: Bindings (PrimFns Identity)
     , chainEvalPairs :: Seq.Seq (Value, Value)
-    , chainLastIndex :: Maybe a
+    , chainLastIndex :: Maybe idx
     , chainMode      :: ReaderOrWriter
     } deriving (Generic)
 
 -- For efficiency we might want keys to also be mvars, but efficiency doesn't
 -- matter for a test server.
-newtype Chains a = Chains { getChains :: MVar (Map Text (Chain a)) }
+newtype Chains id idx = Chains { getChains :: MVar (Map id (Chain id idx)) }
 
 -- | Log a message to @stdout@.
 --
@@ -36,7 +36,7 @@ logInfo msg dat = do
   where
     datString = T.intercalate "" $ map (\(key, val) -> " " <> key <> "=" <> val) dat
 
-advanceChain :: Chain a -> [Value] -> Either (LangError Value) ([Value], Bindings (PrimFns Identity))
+advanceChain :: Chain id idx -> [Value] -> Either (LangError Value) ([Value], Bindings (PrimFns Identity))
 advanceChain chain vals =
   let (r_, newSt) = runIdentity $ runLang (chainState chain) $ traverse eval vals
   in case r_ of

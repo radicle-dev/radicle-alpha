@@ -64,12 +64,14 @@ type ServerApi
 serverApi :: Proxy ServerApi
 serverApi = Proxy
 
+type HttpChain = Chain Text Int
+type HttpChains = Chains Text Int
 
 -- * Helpers
 
 -- | Returns the ID of the last inserted expression which is the chain
 -- length minus one.
-insertExpr :: Connection -> Chains Int -> Text -> [Value] -> IO (Either Text Int)
+insertExpr :: Connection -> HttpChains -> Text -> [Value] -> IO (Either Text Int)
 insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
     let maybeChain = Map.lookup name c
     chain <- case maybeChain of
@@ -95,7 +97,7 @@ insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
 
 -- | Load the state from the DB, returning an MVar with resulting state
 -- and values.
-loadState :: Connection -> IO (Chains Int)
+loadState :: Connection -> IO HttpChains
 loadState conn = do
     createIfNotExists conn
     res <- getAllDB conn
@@ -126,7 +128,7 @@ loadState conn = do
 -- second the expressions being submitted. The server either accepts all or
 -- rejects all expressions (though other systems may not provide this
 -- guarantee).
-submit :: Connection -> Chains Int -> Text -> Values -> Handler Value
+submit :: Connection -> HttpChains -> Text -> Values -> Handler Value
 submit conn chains name (Values vals) = do
     logInfo "Submitted expressions" [("machine", name), ("expression-count", show $ length vals)]
     res <- liftIO $ insertExpr conn chains name vals
@@ -141,7 +143,7 @@ since conn name index = do
     logInfo "Requested expressions" [("machine", name), ("from-index", show index)]
     liftIO $ Values <$> getSinceDB conn name index
 
-jsonOutputs :: Chains Int -> Text -> Handler [Maybe A.Value]
+jsonOutputs :: HttpChains -> Text -> Handler [Maybe A.Value]
 jsonOutputs st name = do
     chains <- liftIO . readMVar $ getChains st
     pure $ case Map.lookup name chains of
@@ -224,7 +226,7 @@ main = do
        <> header "radicle-server"
         )
 
-server :: Connection -> Chains Int -> Server ServerApi
+server :: Connection -> HttpChains -> Server ServerApi
 server conn chains = chainEndpoints :<|> jsonOutputs chains :<|> static
   where
     chainEndpoints chainName = submit conn chains chainName :<|> since conn chainName

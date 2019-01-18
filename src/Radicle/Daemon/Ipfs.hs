@@ -1,7 +1,7 @@
 module Radicle.Daemon.Ipfs
   ( MachineId(..)
   , Message(..)
-  , NewInput(..)
+  , NewInputs(..)
   , ReqInput(..)
   , writeIpfs
   , publish
@@ -21,17 +21,22 @@ import qualified Radicle.Internal.UUID as UUID
 
 
 newtype MachineId = MachineId Text
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Ord, Generic)
 
 -- | Messages sent on a machine's IPFS pubsub topic.
-data Message = New NewInput | Req ReqInput
+data Message = New NewInputs | Req ReqInput
 
-data NewInput = NewInput
-  { nonce :: Maybe Text }
+-- | Message sent to signal a new input has been added to the machine.
+data NewInputs = NewInputs
+  { nonce :: Maybe Text
+  , results :: [Value]
+  }
 
+-- | Message sent to request the writer to add an input to the
+-- machine.
 data ReqInput = ReqInput
-  { nonce      :: Maybe Text
-  , expression :: [Value]
+  { nonce       :: Text
+  , expressions :: [Value]
   }
 
 
