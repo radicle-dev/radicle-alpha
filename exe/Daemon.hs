@@ -7,6 +7,7 @@ import           Protolude hiding (fromStrict, option)
 import           Control.Monad.Except
 import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
+import qualified Data.Unique as Unique
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Network.HTTP.Types.URI as URL
@@ -65,8 +66,8 @@ type New   = "new"   :> Post '[JSON] MachineId
 type DaemonApi =
   "v0" :> "machines" :> ( Capture "machineId" MachineId :> ( Query :<|> Send ) :<|> New )
 
-serverApi :: Proxy DaemonApi
-serverApi = Proxy
+daemonApi :: Proxy DaemonApi
+daemonApi = Proxy
 
 -- * Main
 
@@ -76,17 +77,51 @@ main = do
     -- TODO(james): - initAsReader all the reader chains
     --              - initAsWriter all the writer chains
     chains <- Chains <$> newMVar Map.empty
-    let app = serve serverApi (server chains)
+    let app = serve daemonApi (server chains)
     logInfo "Start listening" [("port", show port)]
     run port app
 
-type IpfsChain = Chain MachineId MachineEntryIndex
-type IpfsChains = Chains MachineId MachineEntryIndex
+type IpfsChain = Chain MachineId MachineEntryIndex TopicSubscription
+type IpfsChains = Chains MachineId MachineEntryIndex TopicSubscription
 
 server :: IpfsChains -> Server DaemonApi
 server chains = machineEndpoints :<|> newMachine chains
   where
     machineEndpoints id = query chains id :<|> send chains id
+
+-- * Subscriptions
+
+type MsgHandler = Message -> IO ()
+
+type RegisteredHandler = Unique.Unique
+
+newtype TopicSubscription = TopicSubscription
+  { handlers :: MVar (Map RegisteredHandler MsgHandler)
+  }
+
+-- Given a machine ID, creates a subscription for that machine's
+-- pubsub topic.
+initSubscription :: MachineId -> IO TopicSubscription
+initSubscription id = do
+    hdlrs <- newMVar Map.empty
+    _ <- forkIO (subscribeForever id (mainHdlr hdlrs))
+    pure $ TopicSubscription hdlrs
+  where
+    mainHdlr hdlrs msg = do
+      hs <- readMVar hdlrs
+      traverse_ ($ msg) (Map.elems hs)
+
+-- Add a message handler to a topic subscription.
+addHandler :: TopicSubscription -> MsgHandler -> IO RegisteredHandler
+addHandler ts h = do
+  u <- Unique.newUnique
+  modifyMVar (handlers ts) (pure . (,()) . Map.insert u h)
+  pure u
+
+-- Remove a message handler from a topic subscription.
+removeHandler :: TopicSubscription -> RegisteredHandler -> IO ()
+removeHandler ts u =
+  modifyMVar (handlers ts) (pure . (,()) . Map.delete u)
 
 -- * Endpoints
 
@@ -130,7 +165,7 @@ send chains id (Expressions jvs) = do
       msg_ <- liftIO $ subscribeOne id 10000 isResponse
       case msg_ of
         Nothing -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 "The writer for this IPFS machine appears to be offline." }
-        Just (New NewInputs{..}) -> pure SendResult{ results = JsonValue <$> results }
+        Just (New NewInputs{results = rs}) -> pure SendResult{ results = JsonValue <$> rs }
         _ -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 "Error: didn't filter machine topic messages correctly." }
 
 -- * Helpers
@@ -187,7 +222,7 @@ catchUpMachine chains m = do
   (idx, is) <- liftIO $ machineInputsFrom (chainName m) (chainLastIndex m)
   fst <$> addInputs chains m is (pure idx) (const (pure ()))
 
--- Adds inputs to a cached machine.
+-- Add inputs to a cached machine.
 addInputs
   :: IpfsChains
   -> IpfsChain

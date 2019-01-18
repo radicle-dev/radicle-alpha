@@ -64,7 +64,7 @@ type ServerApi
 serverApi :: Proxy ServerApi
 serverApi = Proxy
 
-type HttpChains = Chains Text Int
+type HttpChains = Chains Text Int ()
 
 -- * Helpers
 
@@ -76,7 +76,7 @@ insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
     chain <- case maybeChain of
         Nothing -> do
             logInfo "Creating new machine" [("machine", name)]
-            pure $ Chain name pureEnv mempty Nothing Writer
+            pure $ Chain name pureEnv mempty Nothing Writer ()
         Just chain' -> pure chain'
     case advanceChain chain vals of
         Left e  -> do
