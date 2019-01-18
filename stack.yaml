@@ -49,7 +49,7 @@ docker:
   # The default "host" does not work if the host version of stack is
   # not statically linked, which is the case on Arch.
   stack-exe: download
-  repo: fpco/stack-build:lts-12.9
+  repo: "fpco/stack-build:lts-13.2"
 
 # Extra package databases containing global packages
 # extra-package-dbs: []

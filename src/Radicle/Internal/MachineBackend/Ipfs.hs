@@ -23,19 +23,14 @@ import           Control.Exception.Safe
 import           Control.Monad.Fail
 import           Data.Aeson (FromJSON, ToJSON, (.:), (.=))
 import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Types as Aeson
 import           Data.IPLD.CID
 import qualified Data.Text as T
-import           Lens.Micro ((.~), (^.))
-import           Network.HTTP.Client
-                 (HttpException(..), HttpExceptionContent(..))
-import qualified Network.Wreq as Wreq
-import           System.Environment (lookupEnv)
 
 import           Radicle
 import           Radicle.Internal.Core
 import           Radicle.Internal.MachineBackend.Interface
 import qualified Radicle.Internal.PrimFns as PrimFns
+import qualified Radicle.Ipfs as Ipfs
 
 -- | Primitive functions for the IPFS machine backend and the primitive
 -- function @machine/ipfs/create!@.
@@ -60,29 +55,13 @@ ipfsPrimFns =
 -- | Create a Radicle machine and return its identifier. The argument
 -- is the name to store with the returned key on the local. It is not
 -- portable. To avoid conflicts it is recommended to use a UUID.
-ipfsMachineCreate :: Text -> IO (Either Text IpnsId)
+ipfsMachineCreate :: Text -> IO (Either Text Ipfs.IpnsId)
 ipfsMachineCreate name = do
     res <- liftIO $ tryAny $ do
-        IpfsKeyGenResponse machineId <- ipfsKeyGen name
-        namePublish machineId $ IpfsAddressIpfs emtpyMachineCid
+        Ipfs.KeyGenResponse machineId <- Ipfs.keyGen name
+        Ipfs.namePublish machineId $ Ipfs.AddressIpfs emtpyMachineCid
         pure machineId
     pure $ first (toS . displayException) res
-
-
-data IpfsException
-    = IpfsException Text
-    -- | JSON response from the IPFS Api cannot be parsed. First
-    -- argument is the request path, second argument the JSON parsing
-    -- error
-    | IpfsExceptionInvalidResponse Text Text
-    -- | The IPFS daemon is not running.
-    | IpfsExceptionNoDaemon
-    deriving (Show, Eq)
-
-instance Exception IpfsException where
-    displayException (IpfsException msg) = "ipfs: " <> toS msg
-    displayException IpfsExceptionNoDaemon = "ipfs: Daemon not reachable, run 'rad ipfs daemon"
-    displayException (IpfsExceptionInvalidResponse url _) = "ipfs: Cannot parse IPFS daemon response for " <> toS url
 
 
 newtype MachineEntryIndex = MachineEntryIndex CID
@@ -115,15 +94,15 @@ ipfsMachineBackend =
 
 sendIpfs :: Text -> Seq Value -> IO MachineEntryIndex
 sendIpfs ipnsId values = do
-    IpfsNameResolveResponse cid <- nameResolve ipnsId
-    IpfsDagPutResponse newEntryCid <- dagPut $ MachineEntry (toList values) cid
-    namePublish ipnsId $ IpfsAddressIpfs newEntryCid
+    Ipfs.NameResolveResponse cid <- Ipfs.nameResolve ipnsId
+    Ipfs.DagPutResponse newEntryCid <- Ipfs.dagPut $ MachineEntry (toList values) cid
+    Ipfs.namePublish ipnsId $ Ipfs.AddressIpfs newEntryCid
     pure $ MachineEntryIndex newEntryCid
 
-receiveIpfs :: IpnsId -> Maybe MachineEntryIndex -> IO (MachineEntryIndex, [Value])
+receiveIpfs :: Ipfs.IpnsId -> Maybe MachineEntryIndex -> IO (MachineEntryIndex, [Value])
 receiveIpfs ipnsId maybeFrom = do
     let MachineEntryIndex fromCid = fromMaybe (MachineEntryIndex emtpyMachineCid) maybeFrom
-    IpfsNameResolveResponse cid <- nameResolve ipnsId
+    Ipfs.NameResolveResponse cid <- Ipfs.nameResolve ipnsId
     blocks <- getBlocks cid fromCid
     pure $ (MachineEntryIndex cid, blocks)
   where
@@ -132,7 +111,7 @@ receiveIpfs ipnsId maybeFrom = do
         if cid == fromCid || cid == emtpyMachineCid
         then pure []
         else do
-            entry <- dagGet (IpfsAddressIpfs cid)
+            entry <- Ipfs.dagGet (Ipfs.AddressIpfs cid)
             rest <- getBlocks (entryPrevious entry) fromCid
             pure $ rest <> entryExpressions entry
 
@@ -160,7 +139,7 @@ instance FromJSON MachineEntry where
             case parseValues src expressionCode of
                 Left err  -> fail $ "failed to parse Radicle expression: " <> show err
                 Right v -> pure v
-        entryPrevious <- parseIpldLink =<< o .: "previous"
+        entryPrevious <- Ipfs.parseIpldLink =<< o .: "previous"
         pure MachineEntry {..}
 
 instance ToJSON MachineEntry where
@@ -168,149 +147,5 @@ instance ToJSON MachineEntry where
         let code = T.intercalate "\n" $ map renderCompactPretty entryExpressions
         in Aeson.object
             [ "expression" .= code
-            , "previous" .= ipldLink entryPrevious
+            , "previous" .= Ipfs.ipldLink entryPrevious
             ]
-
--- | Given a CID @"abc...def"@ it returns a IPLD link JSON object
--- @{"/": "abc...def"}@.
-ipldLink :: CID -> Aeson.Value
-ipldLink cid = Aeson.object [ "/" .= cidToText cid ]
-
--- | Parses JSON values of the form @{"/": "abc...def"}@ where
--- @"abc...def"@ is a valid CID.
-parseIpldLink :: Aeson.Value -> Aeson.Parser CID
-parseIpldLink =
-    Aeson.withObject "IPLD link" $ \o -> do
-        cidText <- o .: "/"
-        case cidFromText cidText of
-            Left e    -> fail $ "Invalid CID: " <> e
-            Right cid -> pure cid
-
---------------------------------------------------------------------------
--- * IPFS types
---------------------------------------------------------------------------
-
-type IpnsId = Text
-
--- | Addresses either an IPFS content ID or an IPNS ID.
-data IpfsAddress
-    = IpfsAddressIpfs CID
-    | IpfsAddressIpns IpnsId
-    deriving (Eq, Show, Read, Generic)
-
--- This is the same representation of IPFS paths as used by the IPFS CLI and
--- daemon. Either @"/ipfs/abc...def"@ or @"/ipns/abc...def"@.
-ipfsAddressToText :: IpfsAddress -> Text
-ipfsAddressToText (IpfsAddressIpfs cid)    = "/ipfs/" <> cidToText cid
-ipfsAddressToText (IpfsAddressIpns ipnsId) = "/ipns/" <> ipnsId
-
--- | Partial inverse of 'ipfsAddressToText'.
-ipfsAddressFromText :: Text -> Maybe IpfsAddress
-ipfsAddressFromText t =
-        (IpfsAddressIpfs <$> maybeIpfsAddress)
-    <|> (IpfsAddressIpns <$> T.stripPrefix "/ipns/" t)
-  where
-    maybeIpfsAddress = do
-        cidText <- T.stripPrefix "/ipfs/" t
-        case cidFromText cidText of
-            Left _    -> Nothing
-            Right cid -> Just cid
-
-
---------------------------------------------------------------------------
--- * IPFS node API
---------------------------------------------------------------------------
-
-newtype IpfsKeyGenResponse = IpfsKeyGenResponse IpnsId
-
-ipfsKeyGen :: Text -> IO IpfsKeyGenResponse
-ipfsKeyGen name = ipfsHttpGet "key/gen" [("arg", name), ("type", "ed25519")]
-
-instance FromJSON IpfsKeyGenResponse where
-    parseJSON = Aeson.withObject "ipfs key/gen" $ \o ->
-        IpfsKeyGenResponse <$> o .: "Id"
-
-
-newtype IpfsDagPutResponse
-    = IpfsDagPutResponse CID
-
-dagPut :: ToJSON a => a -> IO IpfsDagPutResponse
-dagPut obj = ipfsHttpPost "dag/put?pin=true" "arg" (Aeson.encode obj)
-
-instance FromJSON IpfsDagPutResponse where
-    parseJSON = Aeson.withObject "v0/dag/put response" $ \o -> do
-        cidObject <- o .: "Cid"
-        cidText <- cidObject .: "/"
-        case cidFromText cidText of
-            Left _    -> fail "invalid CID"
-            Right cid -> pure $ IpfsDagPutResponse cid
-
-
-dagGet :: FromJSON a => IpfsAddress -> IO a
-dagGet addr = do
-    result <- ipfsHttpGet "dag/get" [("arg", ipfsAddressToText addr)]
-    case Aeson.fromJSON result of
-        Aeson.Error _   -> throw $ IpfsException $ "Invalid machine log entry at " <> ipfsAddressToText addr
-        Aeson.Success a -> pure a
-
-namePublish :: IpnsId -> IpfsAddress -> IO ()
-namePublish ipnsId addr = do
-    _ :: Aeson.Value <- ipfsHttpGet "name/publish" [("arg", ipfsAddressToText addr), ("key", ipnsId)]
-    pure ()
-
-
-newtype IpfsNameResolveResponse
-    = IpfsNameResolveResponse CID
-
-nameResolve :: IpnsId -> IO IpfsNameResolveResponse
-nameResolve ipnsId = ipfsHttpGet "name/resolve" [("arg", ipnsId), ("recursive", "true")]
-
-instance FromJSON IpfsNameResolveResponse where
-    parseJSON = Aeson.withObject "v0/name/resolve response" $ \o -> do
-        path <- o .: "Path"
-        case ipfsAddressFromText path of
-            Nothing                    -> fail "invalid IPFS path"
-            Just (IpfsAddressIpfs cid) -> pure $ IpfsNameResolveResponse cid
-            Just _                     -> fail "expected /ipfs path"
-
-
---------------------------------------------------------------------------
--- * IPFS Internal
---------------------------------------------------------------------------
-
-ipfsHttpGet
-    :: FromJSON a
-    => Text  -- ^ Path of the endpoint under "/api/v0/"
-    -> [(Text, Text)] -- ^ URL query parameters
-    -> IO a
-ipfsHttpGet path params = do
-    let opts = Wreq.defaults & Wreq.params .~ params
-    url <- ipfsApiUrl path
-    res <- Wreq.getWith opts (toS url) `catch` handleRequestException
-    jsonRes <- Wreq.asJSON res `catch` handleParseException path
-    pure $ jsonRes ^. Wreq.responseBody
-
-ipfsHttpPost
-    :: FromJSON a
-    => Text  -- ^ Path of the endpoint under "/api/v0/"
-    -> Text  -- ^ Name of the argument for payload
-    -> LByteString -- ^ Payload argument
-    -> IO a
-ipfsHttpPost path payloadArgName payload = do
-    url <- ipfsApiUrl path
-    res <- Wreq.post (toS url) (Wreq.partLBS payloadArgName payload) `catch` handleRequestException
-    jsonRes <- Wreq.asJSON res `catch` handleParseException path
-    pure $ jsonRes ^. Wreq.responseBody
-
-ipfsApiUrl :: Text -> IO Text
-ipfsApiUrl path = do
-    baseUrl <- fromMaybe "http://localhost:9301" <$> lookupEnv "IPFS_API_URL"
-    pure $ toS baseUrl <> "/api/v0/" <> path
-
-handleRequestException :: MonadThrow m => HttpException -> m a
-handleRequestException (HttpExceptionRequest _ (ConnectionFailure _)) =
-    throw IpfsExceptionNoDaemon
-handleRequestException ex = throw ex
-
-handleParseException :: MonadCatch m => Text -> Wreq.JSONError -> m a
-handleParseException path (Wreq.JSONError msg) = throw $ IpfsExceptionInvalidResponse path (toS msg)
