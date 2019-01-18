@@ -28,6 +28,8 @@ library:
   - aeson
   - ansi-terminal
   - bytestring
+  - conduit
+  - conduit-extra
   - containers
   - cryptonite
   - directory
@@ -35,14 +37,17 @@ library:
   - generics-eot
   - haskeline
   - http-client
+  - http-conduit
   - ipld-cid
   - megaparsec
   - microlens
   - mtl
+  - multibase
   - pointed
   - prettyprinter
   - prettyprinter-ansi-terminal
   - process
+  - resourcet
   - safe-exceptions
   - scientific
   - serialise
