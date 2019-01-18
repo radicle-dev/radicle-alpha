@@ -5,7 +5,6 @@ module Daemon where
 import           Protolude hiding (fromStrict, option)
 
 import           Control.Monad.Except
---import           Control.Monad.Fail
 import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map.Strict as Map
@@ -53,10 +52,14 @@ newtype Expressions = Expressions { expressions :: [JsonValue] }
 instance A.FromJSON Expressions
 instance A.ToJSON Expressions
 
+newtype SendResult = SendResult
+  { results :: [JsonValue]
+  } deriving (A.ToJSON)
+
 -- * API
 
 type Query = "query" :> ReqBody '[JSON] Expression  :> Post '[JSON] Expression
-type Send  = "send"  :> ReqBody '[JSON] Expressions :> Post '[JSON] ()
+type Send  = "send"  :> ReqBody '[JSON] Expressions :> Post '[JSON] SendResult
 type New   = "new"   :> Post '[JSON] MachineId
 
 type DaemonApi =
@@ -77,8 +80,8 @@ main = do
     logInfo "Start listening" [("port", show port)]
     run port app
 
-type IpfsChain = Chain MachineEntryIndex
-type IpfsChains = Chains MachineEntryIndex
+type IpfsChain = Chain MachineId MachineEntryIndex
+type IpfsChains = Chains MachineId MachineEntryIndex
 
 server :: IpfsChains -> Server DaemonApi
 server chains = machineEndpoints :<|> newMachine chains
@@ -110,49 +113,44 @@ query chains id (Expression (JsonValue v)) = do
     Right rv -> pure (Expression (JsonValue rv))
 
 -- | Write a new expression to an IPFS machine.
-send :: IpfsChains -> MachineId -> Expressions -> Handler ()
+send :: IpfsChains -> MachineId -> Expressions -> Handler SendResult
 send chains id (Expressions jvs) = do
   m <- loadPinSubscribe chains id
   case chainMode m of
     Writer -> do
       let vs = jsonValue <$> jvs
-      -- TODO(james): remove duplication of below with addInputs
-      case runIdentity $ runLang (chainState m) $ traverse eval vs of
-        (Left err, _) -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 (renderPrettyDef err) }
-        (Right rs, newSt) -> do
-          idx <- liftIO $ writeIpfs id vs
-          let news = Seq.fromList $ zip vs rs
-              m' = m { chainState = newSt
-                     , chainEvalPairs = chainEvalPairs m Seq.>< news
-                     , chainLastIndex = Just idx }
-          liftIO $ insertMachine chains m'
-          liftIO $ publish id (New NewInput{ nonce = Nothing })
-          pure ()
+      (_, rs) <- withErr err500 $ writeInputs chains m vs Nothing
+      pure SendResult{ results = JsonValue <$> rs }
     Reader -> do
       nonce <- liftIO $ UUID.uuid
       let isResponse = \case
-            New NewInput{ nonce = Just nonce' } | nonce == nonce' -> True
+            New NewInputs{ nonce = Just nonce' } | nonce == nonce' -> True
             _ -> False
       -- TODO(james): decide what a good timeout is.
-      msg_ <- liftIO $ subscribeOne id 1000 isResponse
+      msg_ <- liftIO $ subscribeOne id 10000 isResponse
       case msg_ of
         Nothing -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 "The writer for this IPFS machine appears to be offline." }
-        Just _ -> pure ()
+        Just (New NewInputs{..}) -> pure SendResult{ results = JsonValue <$> results }
+        _ -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 "Error: didn't filter machine topic messages correctly." }
 
 -- * Helpers
 
-type MachineState = Bindings (PrimFns Identity)
+lookupMachine :: (MonadIO m) => IpfsChains -> MachineId -> m (Maybe IpfsChain)
+lookupMachine chains id = do
+  cs <- liftIO $ readMVar (getChains chains)
+  pure (Map.lookup id cs)
 
 -- | Given an 'MachineId', makes sure the machine state is materialised,
 -- makes sure the inputs are pinned and subscribes to the topic for
 -- updates. Returns the chain.
 loadPinSubscribe :: IpfsChains -> MachineId -> Handler IpfsChain
-loadPinSubscribe chains mid@(MachineId id) = do
-  cs <- liftIO $ readMVar (getChains chains)
-  case Map.lookup id cs of
-    -- In this case we have not seen the machine before, se we must be
-    -- a reader.
-    Nothing -> withErr err500 $ initAsReader chains mid
+loadPinSubscribe chains id = do
+  m_ <- lookupMachine chains id
+  case m_ of
+    Nothing ->
+      -- In this case we have not seen the machine before, se we must
+      -- be a reader.
+      withErr err500 $ initAsReader chains id
     Just m -> case chainMode m of
       Writer -> pure m
       Reader -> do
@@ -181,34 +179,54 @@ loadMachine :: ReaderOrWriter -> IpfsChains -> MachineId -> ExceptT Text IO Ipfs
 loadMachine mode chains id = do
   (idx, is) <- liftIO $ machineInputsFrom id Nothing
   let m = emptyMachine id mode
-  addInputs chains m is idx
+  fst <$> addInputs chains m is (pure idx) (const (pure ()))
 
 -- Given a cached machine, loads updates from IPFS.
 catchUpMachine :: IpfsChains -> IpfsChain -> ExceptT Text IO IpfsChain
 catchUpMachine chains m = do
-  (idx, is) <- liftIO $ machineInputsFrom (MachineId (chainName m)) (chainLastIndex m)
-  addInputs chains m is idx
+  (idx, is) <- liftIO $ machineInputsFrom (chainName m) (chainLastIndex m)
+  fst <$> addInputs chains m is (pure idx) (const (pure ()))
 
 -- Adds inputs to a cached machine.
-addInputs :: IpfsChains -> IpfsChain -> [Value] -> MachineEntryIndex -> ExceptT Text IO IpfsChain
-addInputs chains m is idx = case advanceChain m is of
+addInputs
+  :: IpfsChains
+  -> IpfsChain
+  -> [Value]
+  -> IO MachineEntryIndex -- ^ Determine the new index.
+  -> ([Value] -> IO ())   -- ^ Performed after the chain is cached.
+  -> ExceptT Text IO (IpfsChain, [Value])
+addInputs chains m is getIdx after = case advanceChain m is of
     Left err -> ExceptT $ pure $ Left (renderCompactPretty err)
     Right (rs, newState) -> do
+      idx <- liftIO getIdx
       let news = Seq.fromList $ zip is rs
           m' = m { chainState = newState
                  , chainLastIndex = Just idx
                  , chainEvalPairs = chainEvalPairs m Seq.>< news
                  }
       liftIO $ insertMachine chains m'
-      pure m'
+      liftIO (after rs)
+      pure (m', rs)
+
+-- Write some inputs to a machine as the writer, sends out a
+-- 'NewInput' message.
+writeInputs :: IpfsChains -> IpfsChain -> [Value] -> Maybe Text -> ExceptT Text IO (IpfsChain, [Value])
+writeInputs chains chain is nonce =
+  let id = chainName chain
+  in addInputs chains chain is (writeIpfs id is) (\rs -> publish id (New NewInputs{results = rs, ..}))
 
 -- Subscribes the daemon to the machine's pubsub topic to listen for
 -- input requests.
 actAsWriter :: IpfsChains -> MachineId -> IO ()
 actAsWriter chains id = subscribeForever id onMsg
   where
+    onMsg :: Message -> IO ()
     onMsg = \case
-      Req ReqInput{..} -> pure () -- TODO(james): try to write the input and repond
+      Req ReqInput{..} -> do
+        m_ <- lookupMachine chains id
+        case m_ of
+          Nothing -> panic "Daemon was setup as writer for a chain it hasn't laoded!"
+          Just m -> runExceptT (writeInputs chains m expressions (Just nonce)) >> pure () -- TODO(james): log error somewhere
       _ -> pure ()
 
 -- Subscribes the daemon to the machine's pubsub topic to listen for
@@ -217,7 +235,9 @@ actAsReader :: IpfsChains -> MachineId -> IO ()
 actAsReader chains id = subscribeForever id onMsg
   where
     onMsg = \case
-      New NewInput{..} -> pure () -- TODO(james): update materialised state, bump freq
+      New NewInputs{..} -> do
+        -- TODO(james): update materialised state, bump freq
+        pure ()
       _ -> pure ()
 
 -- Do some high-freq polling for a while.
@@ -229,7 +249,7 @@ insertMachine :: IpfsChains -> IpfsChain -> IO ()
 insertMachine chains chain = modifyMVar (getChains chains) $ \cs -> pure (Map.insert (chainName chain) chain cs, ())
 
 emptyMachine :: MachineId -> ReaderOrWriter -> IpfsChain
-emptyMachine (MachineId id) mode =
+emptyMachine id mode =
   Chain{ chainName = id
        , chainState = pureEnv
        , chainEvalPairs = mempty
