@@ -60,7 +60,7 @@ type Send  = "send"  :> ReqBody '[JSON] Expressions :> Post '[JSON] ()
 type New   = "new"   :> Post '[JSON] MachineId
 
 type DaemonApi =
-  "v1" :> "machines" :> ( Capture "machineId" MachineId :> ( Query :<|> Send ) :<|> New )
+  "v0" :> "machines" :> ( Capture "machineId" MachineId :> ( Query :<|> Send ) :<|> New )
 
 serverApi :: Proxy DaemonApi
 serverApi = Proxy
@@ -94,10 +94,9 @@ newMachine chains = do
   id_ <- createMachine
   case id_ of
     Left err -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 err }
-    Right id -> do
-      let m = emptyMachine id Writer
-      liftIO $ insertMachine chains m
-      _ <- withErr err500 $ initAsWriter chains id
+    Right id -> liftIO $ do
+      insertMachine chains (emptyMachine id Writer)
+      actAsWriter chains id
       -- TODO: check that we have persisted in config file that this
       -- daemon follows this machine.
       pure id
