@@ -75,7 +75,7 @@ insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
     chain <- case maybeChain of
         Nothing -> do
             logInfo "Creating new machine" [("machine", name)]
-            pure $ Chain name pureEnv mempty Nothing
+            pure $ Chain name pureEnv mempty Nothing Writer
         Just chain' -> pure chain'
     case advanceChain chain vals of
         Left e  -> do
@@ -84,17 +84,18 @@ insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
         Right (valsRes, newSt) -> do
              traverse_ (insertExprDB conn name) vals
              let news = Seq.fromList $ zip vals valsRes
-             let lastIndex = Seq.length (chainEvalPairs chain') - 1
+             let pairs = chainEvalPairs chain Seq.>< news
+             let lastIndex = Seq.length pairs - 1
              let chain' = chain { chainState = newSt
-                                , chainEvalPairs = chainEvalPairs chain Seq.>< news
-                                , chainLastIndex = lastIndex
+                                , chainEvalPairs = pairs
+                                , chainLastIndex = Just lastIndex
                                 }
              pure (Map.insert name chain' c, Right lastIndex )
 
 
 -- | Load the state from the DB, returning an MVar with resulting state
 -- and values.
-loadState :: Connection -> IO Chains
+loadState :: Connection -> IO (Chains Int)
 loadState conn = do
     createIfNotExists conn
     res <- getAllDB conn
@@ -109,6 +110,8 @@ loadState conn = do
                 let c = Chain { chainName = name
                               , chainState = st'
                               , chainEvalPairs = pairs
+                              , chainLastIndex = Just $ Seq.length pairs - 1
+                              , chainMode = Writer
                               }
                 pure (name, c)
     chains' <- newMVar $ Map.fromList chainPairs
@@ -123,7 +126,7 @@ loadState conn = do
 -- second the expressions being submitted. The server either accepts all or
 -- rejects all expressions (though other systems may not provide this
 -- guarantee).
-submit :: Connection -> Chains -> Text -> Values -> Handler Value
+submit :: Connection -> Chains Int -> Text -> Values -> Handler Value
 submit conn chains name (Values vals) = do
     logInfo "Submitted expressions" [("machine", name), ("expression-count", show $ length vals)]
     res <- liftIO $ insertExpr conn chains name vals
@@ -138,7 +141,7 @@ since conn name index = do
     logInfo "Requested expressions" [("machine", name), ("from-index", show index)]
     liftIO $ Values <$> getSinceDB conn name index
 
-jsonOutputs :: Chains -> Text -> Handler [Maybe A.Value]
+jsonOutputs :: Chains Int -> Text -> Handler [Maybe A.Value]
 jsonOutputs st name = do
     chains <- liftIO . readMVar $ getChains st
     pure $ case Map.lookup name chains of
@@ -221,7 +224,7 @@ main = do
        <> header "radicle-server"
         )
 
-server :: Connection -> Chains -> Server ServerApi
+server :: Connection -> Chains Int -> Server ServerApi
 server conn chains = chainEndpoints :<|> jsonOutputs chains :<|> static
   where
     chainEndpoints chainName = submit conn chains chainName :<|> since conn chainName
