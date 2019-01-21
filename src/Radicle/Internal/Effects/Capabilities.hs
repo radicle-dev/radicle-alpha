@@ -24,10 +24,6 @@ import           System.IO
                  )
 import           System.Process
                  (CreateProcess, ProcessHandle, createProcess, waitForProcess)
-#ifdef ghcjs_HOST_OS
-import           GHCJS.DOM.XMLHttpRequest
-                 (getResponseText, newXMLHttpRequest, openSimple, send)
-#endif
 
 import           Radicle.Internal.Core
 
@@ -133,26 +129,11 @@ class (Monad m) => SetSubs m where
 
 class (Monad m) => ReadFile m where
     readFileS :: Text -> m (Either Text Text)  -- ^ Left error or Right contents
-#ifdef ghcjs_HOST_OS
-instance ReadFile (InputT IO) where
-    readFileS = lift . requestFile
-      where
-        requestFile :: Text -> IO (Either Text Text)
-        requestFile filename = do
-            req <- newXMLHttpRequest
-            openSimple req ("GET" :: Text) filename
-            send req
-            resp <- getResponseText req
-            pure $ case resp of
-                Nothing -> Left "no response from server"
-                Just v  -> Right v
-#else
 instance ReadFile (InputT IO) where
     readFileS = lift . readFileS
 instance ReadFile IO where
     readFileS fname = (Right . decodeUtf8With lenientDecode <$> BS.readFile (toS fname))
                         `catch` (\(e :: IOException) -> pure (Left (show e)))
-#endif
 instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
     readFileS = lift . readFileS
 
