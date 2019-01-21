@@ -10,12 +10,12 @@ import           Radicle
 data ReaderOrWriter = Reader | Writer
 
 data Chain id idx subs = Chain
-    { chainName      :: id
-    , chainState     :: Bindings (PrimFns Identity)
-    , chainEvalPairs :: Seq.Seq (Value, Value)
-    , chainLastIndex :: Maybe idx
-    , chainMode      :: ReaderOrWriter
-    , subscriptions  :: subs
+    { chainName         :: id
+    , chainState        :: Bindings (PrimFns Identity)
+    , chainEvalPairs    :: Seq.Seq (Value, Value)
+    , chainLastIndex    :: Maybe idx
+    , chainMode         :: ReaderOrWriter
+    , chainSubscription :: subs
     } deriving (Generic)
 
 -- For efficiency we might want keys to also be mvars, but efficiency doesn't
@@ -41,5 +41,5 @@ advanceChain :: Chain id idx subs -> [Value] -> Either (LangError Value) ([Value
 advanceChain chain vals =
   let (r_, newSt) = runIdentity $ runLang (chainState chain) $ traverse eval vals
   in case r_ of
-    Left e -> Left e
+    Left e  -> Left e
     Right r -> pure (r, newSt)

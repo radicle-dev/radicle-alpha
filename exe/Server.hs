@@ -113,6 +113,7 @@ loadState conn = do
                               , chainEvalPairs = pairs
                               , chainLastIndex = Just $ Seq.length pairs - 1
                               , chainMode = Writer
+                              , chainSubscription = ()
                               }
                 pure (name, c)
     chains' <- newMVar $ Map.fromList chainPairs

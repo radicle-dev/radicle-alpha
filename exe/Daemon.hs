@@ -7,7 +7,6 @@ import           Protolude hiding (fromStrict, option)
 import           Control.Monad.Except
 import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
-import qualified Data.Unique as Unique
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Network.HTTP.Types.URI as URL
@@ -89,40 +88,6 @@ server chains = machineEndpoints :<|> newMachine chains
   where
     machineEndpoints id = query chains id :<|> send chains id
 
--- * Subscriptions
-
-type MsgHandler = Message -> IO ()
-
-type RegisteredHandler = Unique.Unique
-
-newtype TopicSubscription = TopicSubscription
-  { handlers :: MVar (Map RegisteredHandler MsgHandler)
-  }
-
--- Given a machine ID, creates a subscription for that machine's
--- pubsub topic.
-initSubscription :: MachineId -> IO TopicSubscription
-initSubscription id = do
-    hdlrs <- newMVar Map.empty
-    _ <- forkIO (subscribeForever id (mainHdlr hdlrs))
-    pure $ TopicSubscription hdlrs
-  where
-    mainHdlr hdlrs msg = do
-      hs <- readMVar hdlrs
-      traverse_ ($ msg) (Map.elems hs)
-
--- Add a message handler to a topic subscription.
-addHandler :: TopicSubscription -> MsgHandler -> IO RegisteredHandler
-addHandler ts h = do
-  u <- Unique.newUnique
-  modifyMVar (handlers ts) (pure . (,()) . Map.insert u h)
-  pure u
-
--- Remove a message handler from a topic subscription.
-removeHandler :: TopicSubscription -> RegisteredHandler -> IO ()
-removeHandler ts u =
-  modifyMVar (handlers ts) (pure . (,()) . Map.delete u)
-
 -- * Endpoints
 
 -- | Create a new IPFS machine and initialise the daemon as as the
@@ -133,8 +98,10 @@ newMachine chains = do
   case id_ of
     Left err -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 err }
     Right id -> liftIO $ do
-      insertMachine chains (emptyMachine id Writer)
-      actAsWriter chains id
+      sub <- liftIO $ initSubscription id
+      let m = (emptyMachine id Writer sub)
+      insertMachine chains m
+      actAsWriter chains m
       -- TODO: check that we have persisted in config file that this
       -- daemon follows this machine.
       pure id
@@ -162,7 +129,7 @@ send chains id (Expressions jvs) = do
             New NewInputs{ nonce = Just nonce' } | nonce == nonce' -> True
             _ -> False
       -- TODO(james): decide what a good timeout is.
-      msg_ <- liftIO $ subscribeOne id 10000 isResponse
+      msg_ <- liftIO $ subscribeOne (chainSubscription m) 10000 isResponse
       case msg_ of
         Nothing -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 "The writer for this IPFS machine appears to be offline." }
         Just (New NewInputs{results = rs}) -> pure SendResult{ results = JsonValue <$> rs }
@@ -193,27 +160,36 @@ loadPinSubscribe chains id = do
         liftIO $ bumpPolling m'
         pure m'
 
--- Initialise the daemon service for this machine in reader mode.
+-- Initialise the daemon service for this machine in /reader mode/.
 initAsReader :: IpfsChains -> MachineId -> ExceptT Text IO IpfsChain
 initAsReader chains id = do
-  m <- loadMachine Reader chains id
-  liftIO $ actAsReader chains id
-  liftIO $ bumpPolling m
-  -- TODO: check that we have persisted in config file that this
-  -- daemon follows this machine.
-  pure m
+    m <- loadMachine Reader chains id
+    _ <- liftIO $ addHandler (chainSubscription m) onMsg
+    liftIO $ bumpPolling m
+    -- TODO: check that we have persisted in config file that this
+    -- daemon follows this machine.
+    pure m
+  where
+    onMsg = \case
+      New NewInputs{..} -> do
+        m_ <- lookupMachine chains id
+        case m_ of
+          Nothing -> panic "Subscribed for changes on a non-loaded machine!"
+          Just m -> runExceptT (refreshAsReader chains m) >> pure () -- TODO(james): log error somewhere
+      _ -> pure ()
 
 initAsWriter :: IpfsChains -> MachineId -> ExceptT Text IO IpfsChain
 initAsWriter chains id = do
   m <- loadMachine Writer chains id
-  liftIO $ actAsWriter chains id
+  liftIO $ actAsWriter chains m
   pure m
 
 -- Loads a machine from IPFS.
 loadMachine :: ReaderOrWriter -> IpfsChains -> MachineId -> ExceptT Text IO IpfsChain
 loadMachine mode chains id = do
   (idx, is) <- liftIO $ machineInputsFrom id Nothing
-  let m = emptyMachine id mode
+  sub <- liftIO $ initSubscription id
+  let m = emptyMachine id mode sub
   fst <$> addInputs chains m is (pure idx) (const (pure ()))
 
 -- Given a cached machine, loads updates from IPFS.
@@ -252,31 +228,16 @@ writeInputs chains chain is nonce =
 
 -- Subscribes the daemon to the machine's pubsub topic to listen for
 -- input requests.
-actAsWriter :: IpfsChains -> MachineId -> IO ()
-actAsWriter chains id = subscribeForever id onMsg
+actAsWriter :: IpfsChains -> IpfsChain -> IO ()
+actAsWriter chains m = addHandler (chainSubscription m) onMsg *> pure ()
   where
-    onMsg :: Message -> IO ()
+    id = chainName m
     onMsg = \case
       Req ReqInputs{..} -> do
         m_ <- lookupMachine chains id
         case m_ of
           Nothing -> panic "Daemon was setup as writer for a chain it hasn't laoded!"
-          Just m -> runExceptT (writeInputs chains m expressions (Just nonce)) >> pure () -- TODO(james): log error somewhere
-      _ -> pure ()
-
--- Subscribes the daemon to the machine's pubsub topic to listen for
--- new input notification, and also sets up polling.
-actAsReader :: IpfsChains -> MachineId -> IO ()
-actAsReader chains id = subscribeForever id onMsg
-  -- TODO(james): set up polling.
-  where
-    onMsg :: Message -> IO ()
-    onMsg = \case
-      New NewInputs{..} -> do
-        m_ <- lookupMachine chains id
-        case m_ of
-          Nothing -> panic "Subscribed for changes on a non-loaded machine!"
-          Just m -> runExceptT (refreshAsReader chains m) >> pure () -- TODO(james): log error somewhere
+          Just m' -> runExceptT (writeInputs chains m' expressions (Just nonce)) >> pure () -- TODO(james): log error somewhere
       _ -> pure ()
 
 refreshAsReader :: IpfsChains -> IpfsChain -> ExceptT Text IO IpfsChain
@@ -287,19 +248,20 @@ refreshAsReader chains m = do
 
 -- Do some high-freq polling for a while.
 bumpPolling :: IpfsChain -> IO ()
-bumpPolling = notImplemented
+bumpPolling _ = pure () -- TODO: polling
 
 -- TODO(james): rename to cacheMachine maybe
 insertMachine :: IpfsChains -> IpfsChain -> IO ()
 insertMachine chains chain = modifyMVar (getChains chains) $ \cs -> pure (Map.insert (chainName chain) chain cs, ())
 
-emptyMachine :: MachineId -> ReaderOrWriter -> IpfsChain
-emptyMachine id mode =
+emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IpfsChain
+emptyMachine id mode sub =
   Chain{ chainName = id
        , chainState = pureEnv
        , chainEvalPairs = mempty
        , chainLastIndex = Nothing
        , chainMode = mode
+       , chainSubscription = sub
        }
 
 -- TODO(james): There is no pinning anywhere.
