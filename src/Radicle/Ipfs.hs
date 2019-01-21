@@ -158,6 +158,7 @@ subscribe topic messageHandler = runResourceT $ do
             Aeson.Error err -> throwString err
             Aeson.Success a -> pure a
 
+-- | Publish a message to a topic.
 publish :: Text -> LByteString -> IO ()
 publish topic message = do
     let path = "pubsub/pub?arg=" <> topic

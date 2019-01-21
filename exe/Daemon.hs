@@ -4,7 +4,6 @@ module Daemon where
 
 import           Protolude hiding (fromStrict, option)
 
-import           Control.Monad.Except
 import           System.Directory (doesFileExist)
 import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
@@ -31,18 +30,6 @@ instance A.FromJSON MachineId
 instance FromHttpApiData MachineId where
   parseUrlPiece = Right . MachineId . toS . URL.urlDecode False . toS
   parseQueryParam = parseUrlPiece
-
-newtype JsonValue = JsonValue { jsonValue :: Value }
-
-instance A.FromJSON JsonValue where
-  parseJSON = A.withText "JsonValue" $ \t -> do
-      v <- case parse "[daemon]" t of
-        Left err -> fail $ "failed to parse Radicle expression: " <> show err
-        Right v  -> pure v
-      pure (JsonValue v)
-
-instance A.ToJSON JsonValue where
-  toJSON (JsonValue v) = A.String $ renderCompactPretty v
 
 newtype Expression = Expression { expression :: JsonValue }
   deriving (Generic)
@@ -95,6 +82,8 @@ data Follows = Follows
   { follows :: [(MachineId, ReaderOrWriter)]
   } deriving (Generic)
 
+-- TODO(james): write these by hand to make the file more
+-- human-readable.
 instance A.ToJSON Follows
 instance A.FromJSON Follows
 
@@ -198,16 +187,19 @@ send lock chains id (Expressions jvs) = do
       (_, rs) <- withErr err500 $ writeInputs chains m vs Nothing
       pure SendResult{ results = JsonValue <$> rs }
     Reader -> do
-      nonce <- liftIO $ UUID.uuid
+      nonce' <- liftIO $ UUID.uuid
       let isResponse = \case
-            New NewInputs{ nonce = Just nonce' } | nonce == nonce' -> True
+            New NewInputs{ nonce = Just nonce'' } | nonce'' == nonce' -> True
             _ -> False
       -- TODO(james): decide what a good timeout is.
       msg_ <- liftIO $ subscribeOne (chainSubscription m) 5000 isResponse
       case msg_ of
-        Nothing -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 "The writer for this IPFS machine appears to be offline." }
-        Just (New NewInputs{results = rs}) -> pure SendResult{ results = JsonValue <$> rs }
-        _ -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 "Error: didn't filter machine topic messages correctly." }
+        Nothing ->
+          throwError $ err500 { errBody = fromStrict $ encodeUtf8 "The writer for this IPFS machine appears to be offline." }
+        Just (New NewInputs{..}) ->
+          pure SendResult{..}
+        _ ->
+          throwError $ err500 { errBody = fromStrict $ encodeUtf8 "Error: didn't filter machine topic messages correctly." }
 
 -- * Helpers
 
@@ -301,7 +293,7 @@ addInputs chains m is getIdx after = case advanceChain m is of
 writeInputs :: IpfsChains -> IpfsChain -> [Value] -> Maybe Text -> ExceptT Error IO (IpfsChain, [Value])
 writeInputs chains chain is nonce =
   let id = chainName chain
-  in addInputs chains chain is (writeIpfs id is) (\rs -> publish id (New NewInputs{results = rs, ..}))
+  in addInputs chains chain is (writeIpfs id is) (\rs -> publish id (New NewInputs{results = JsonValue <$> rs, ..}))
 
 -- Subscribes the daemon to the machine's pubsub topic to listen for
 -- input requests.
@@ -314,7 +306,7 @@ actAsWriter chains m = addHandler (chainSubscription m) onMsg *> pure ()
         m_ <- lookupMachine chains id
         case m_ of
           Nothing -> logErr "Daemon was setup as writer for a chain it hasn't laoded!" [("machine_id", getMachineId id)]
-          Just m' -> logErrors (writeInputs chains m' expressions (Just nonce) >> pure ())
+          Just m' -> logErrors (writeInputs chains m' (jsonValue <$> expressions) (Just nonce) >> pure ())
       _ -> pure ()
 
 refreshAsReader :: IpfsChains -> IpfsChain -> ExceptT Error IO IpfsChain

@@ -1,5 +1,6 @@
 module Radicle.Daemon.Ipfs
   ( MachineId(..)
+  , JsonValue(..)
   , Message(..)
   , NewInputs(..)
   , ReqInputs(..)
@@ -16,51 +17,65 @@ module Radicle.Daemon.Ipfs
 
 import           Protolude
 
+import           Control.Monad.Fail
 import qualified Data.Aeson as Aeson
-import qualified Data.Unique as Unique
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Unique as Unique
 
-import           Radicle (Value)
+import           Radicle
 import qualified Radicle.Internal.MachineBackend.Ipfs as Ipfs
 import qualified Radicle.Internal.UUID as UUID
 import qualified Radicle.Ipfs as Ipfs
 
+newtype JsonValue = JsonValue { jsonValue :: Value }
+
+instance Aeson.FromJSON JsonValue where
+  parseJSON = Aeson.withText "JsonValue" $ \t -> do
+      v <- case parse "[daemon]" t of
+        Left err -> fail $ "failed to parse Radicle expression: " <> show err
+        Right v  -> pure v
+      pure (JsonValue v)
+
+instance Aeson.ToJSON JsonValue where
+  toJSON (JsonValue v) = Aeson.String $ renderCompactPretty v
 
 newtype MachineId = MachineId { getMachineId :: Text }
     deriving (Show, Eq, Ord, Generic)
 
 -- | Messages sent on a machine's IPFS pubsub topic.
 data Message = New NewInputs | Req ReqInputs
-    deriving (Show, Eq, Generic)
+    deriving (Generic)
 
+-- TODO(james): write these by hand to conform to the spec.
 instance Aeson.FromJSON Message
+instance Aeson.ToJSON Message
 
 -- | Message sent to signal a new input has been added to the machine.
 data NewInputs = NewInputs
   { nonce   :: Maybe Text
-  , results :: [Value]
-  } deriving (Show, Eq, Generic)
+  , results :: [JsonValue]
+  } deriving (Generic)
 
 instance Aeson.FromJSON NewInputs
+instance Aeson.ToJSON NewInputs
 
 -- | Message sent to request the writer to add an input to the
 -- machine.
 data ReqInputs = ReqInputs
   { nonce       :: Text
-  , expressions :: [Value]
-  } deriving (Show, Eq, Generic)
+  , expressions :: [JsonValue]
+  } deriving (Generic)
 
 instance Aeson.FromJSON ReqInputs
+instance Aeson.ToJSON ReqInputs
 
 writeIpfs :: MachineId -> [Value] -> IO Ipfs.MachineEntryIndex
 writeIpfs (MachineId id) vs = Ipfs.sendIpfs id (Seq.fromList vs)
 
--- | Publish a message on a machine's IPFS pubsub topic.
--- TODO(james): implement
+-- | Publish a 'Message' on a machine's IPFS pubsub topic.
 publish :: MachineId -> Message -> IO ()
-publish (MachineId id) msg =
-  putStrLn $ "[fake] publishing to: " <> id <> " : " <> show msg
+publish (MachineId id) msg = Ipfs.publish id (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
 subscribeForever :: MachineId -> (Message -> IO ()) -> IO ()
