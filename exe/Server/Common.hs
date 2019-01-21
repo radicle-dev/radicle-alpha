@@ -1,13 +1,18 @@
 module Server.Common where
 
-import           Protolude
+import           Protolude hiding (log)
 
+import qualified Data.Aeson as A
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 
 import           Radicle
 
 data ReaderOrWriter = Reader | Writer
+  deriving (Generic)
+
+instance A.ToJSON ReaderOrWriter
+instance A.FromJSON ReaderOrWriter
 
 data Chain id idx subs = Chain
     { chainName         :: id
@@ -28,14 +33,18 @@ newtype Chains id idx subs = Chains { getChains :: MVar (Map id (Chain id idx su
 -- and appended to the message.
 --
 -- @
---      logInfo "the message" [("foo", "5)]
+--      log "INFO" "the message" [("foo", "5)]
 --      -- prints "INFO   the message foo=5"
 -- @
-logInfo :: MonadIO m => Text -> [(Text, Text)] -> m ()
-logInfo msg dat = do
-    putStrLn $ "INFO   " <> msg <> datString
+log :: MonadIO m => Text -> Text -> [(Text, Text)] -> m ()
+log typ msg dat = do
+    putStrLn $ typ <> "  " <> msg <> datString
   where
     datString = T.intercalate "" $ map (\(key, val) -> " " <> key <> "=" <> val) dat
+
+logInfo, logErr :: MonadIO m => Text -> [(Text, Text)] -> m ()
+logInfo = log "INFO "
+logErr  = log "ERROR"
 
 advanceChain :: Chain id idx subs -> [Value] -> Either (LangError Value) ([Value], Bindings (PrimFns Identity))
 advanceChain chain vals =

@@ -135,6 +135,7 @@ executables:
     - mtl
     - containers
     - bytestring
+    - directory
     - http-types
     - optparse-applicative
     - servant-server

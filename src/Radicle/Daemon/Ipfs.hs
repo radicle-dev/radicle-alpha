@@ -27,7 +27,7 @@ import qualified Radicle.Internal.UUID as UUID
 import qualified Radicle.Ipfs as Ipfs
 
 
-newtype MachineId = MachineId Text
+newtype MachineId = MachineId { getMachineId :: Text }
     deriving (Show, Eq, Ord, Generic)
 
 -- | Messages sent on a machine's IPFS pubsub topic.
@@ -125,7 +125,7 @@ subscribeOne sub timeout pr = do
         msg | pr msg -> putMVar var (Just msg)
         _ -> pure ()
   h <- addHandler sub onMsg
-  _ <- forkIO (threadDelay timeout >> putMVar var Nothing)
+  _ <- forkIO (threadDelay (timeout * 1000) >> putMVar var Nothing)
   res <- readMVar var
   removeHandler sub h
   pure res
