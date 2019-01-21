@@ -99,18 +99,12 @@ executables:
     - bytestring
     - directory
     - optparse-applicative
-    when:
-      - condition: impl(ghcjs)
-        buildable: false
     ghc-options: -main-is RadicleExe
 
   radicle-server:
     main: Server.hs
     source-dirs: exe
     other-modules: [Server.DB]
-    when:
-      - condition: impl(ghcjs)
-        buildable: false
     dependencies:
     - radicle
     - aeson
@@ -126,40 +120,10 @@ executables:
     - wai-cors
     ghc-options: -main-is Server
 
-  radicle-client-ghcjs:
-    main: GHCJS.hs
-    source-dirs: exe
-    other-modules: []
-    dependencies:
-    - radicle
-    - ghcjs-base
-    - exceptions
-    - bytestring
-    - servant
-    - servant-client-ghcjs
-    - http-media
-    when:
-      - condition: impl(ghcjs)
-        then:
-          buildable: true
-          dependencies: ghcjs-dom
-        else:
-          buildable: false
-    # XXX(xla): We need to remove the debug linking as it produces output js of
-    # aroud 27MB.
-    # We force debug linking as without it we encounter a runtime exception
-    # in ghcjs due to the metadata initializer only supporting objects with up
-    # to 100
-    # fields: https://github.com/ghcjs/ghcjs/issues/498#issuecomment-230725647
-    ghc-options: -main-is GHCJS -debug
-
   radicle-doc:
     main: Doc.hs
     source-dirs: exe/
     other-modules: []
-    when:
-      - condition: impl(ghcjs)
-        buildable: false
     dependencies:
     - radicle
     - optparse-applicative
@@ -171,9 +135,6 @@ executables:
     main: ReferenceDoc.hs
     source-dirs: exe/
     other-modules: []
-    when:
-      - condition: impl(ghcjs)
-        buildable: false
     dependencies:
     - radicle
     - pandoc
@@ -187,9 +148,6 @@ executables:
     main: GithubIssues.hs
     source-dirs: exe/
     other-modules: []
-    when:
-      - condition: impl(ghcjs)
-        buildable: false
     dependencies:
     - radicle
     - containers
@@ -202,9 +160,6 @@ executables:
     main: Benchmarks.hs
     source-dirs: exe/
     other-modules: []
-    when:
-      - condition: impl(ghcjs)
-        buildable: false
     dependencies:
     - radicle
     - criterion
@@ -214,9 +169,6 @@ executables:
     main: Machines.hs
     source-dirs: exe/
     other-modules: []
-    when:
-      - condition: impl(ghcjs)
-        buildable: false
     dependencies:
     - radicle
     - uuid
