@@ -21,6 +21,12 @@ import           Radicle
 import           Radicle.Daemon.Ipfs
 import qualified Radicle.Internal.CLI as Local
 
+
+-- TODO(james): Check that the IPFS functions are doing all the
+-- necessary pinning.
+
+-- TODO(james): Polling.
+
 -- * Types
 
 instance A.ToJSON MachineId
@@ -88,19 +94,22 @@ followFile = Local.getRadicleFile "daemon-follows"
 
 type FollowFileLock = MVar ()
 
+withFollowFileLock :: FollowFileLock -> IO a -> IO a
+withFollowFileLock lock act = bracket
+  (takeMVar lock)
+  (const (putMVar lock ()))
+  (const act)
+
 writeFollowFile :: FollowFileLock -> IpfsChains -> IO ()
-writeFollowFile lock (Chains chainsVar) = do
-  _ <- takeMVar lock
+writeFollowFile lock (Chains chainsVar) = withFollowFileLock lock $ do
   ms <- takeMVar chainsVar
   ff <- followFile
   let fs = Follows $ second chainMode <$> Map.toList ms
   writeFile ff (toS $ A.encode fs)
-  putMVar lock ()
 
 readFollowFile :: FollowFileLock -> IO Follows
-readFollowFile lock = do
+readFollowFile lock = withFollowFileLock lock $ do
   ff <- followFile
-  _ <- takeMVar lock
   exists <- doesFileExist ff
   t <- if exists
     then readFile ff
@@ -108,7 +117,7 @@ readFollowFile lock = do
          in writeFile ff noFollows *> pure noFollows
   case A.decode (toS t) of
     Nothing -> panic $ "Invalid daemon-follow file: could not decode " <> toS ff
-    Just fs -> putMVar lock () *> pure fs
+    Just fs -> pure fs
 
 main :: IO ()
 main = do
@@ -195,7 +204,7 @@ send lock chains id (Expressions jvs) = do
         Just (New NewInputs{..}) ->
           pure SendResult{..}
         _ ->
-          throwError $ err500 { errBody = fromStrict $ encodeUtf8 "Error: didn't filter machine topic messages correctly." }
+          throwError $ err500 { errBody = fromStrict $ encodeUtf8 "Daemon error: didn't filter machine topic messages correctly." }
 
 -- * Helpers
 
@@ -329,8 +338,6 @@ emptyMachine id mode sub =
        , chainMode = mode
        , chainSubscription = sub
        }
-
--- TODO(james): There is no pinning anywhere.
 
 logErrors :: ExceptT Error IO () -> IO ()
 logErrors x = do
