@@ -13,10 +13,12 @@ module Radicle.Daemon.Ipfs
   , initSubscription
   , subscribeOne
   , addHandler
+  , Error(..)
   ) where
 
 import           Protolude
 
+import           Control.Exception.Safe
 import           Control.Monad.Fail
 import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as Map
@@ -27,6 +29,8 @@ import           Radicle
 import qualified Radicle.Internal.MachineBackend.Ipfs as Ipfs
 import qualified Radicle.Internal.UUID as UUID
 import qualified Radicle.Ipfs as Ipfs
+
+-- * Types
 
 newtype JsonValue = JsonValue { jsonValue :: Value }
 
@@ -70,16 +74,28 @@ data ReqInputs = ReqInputs
 instance Aeson.FromJSON ReqInputs
 instance Aeson.ToJSON ReqInputs
 
-writeIpfs :: MachineId -> [Value] -> IO Ipfs.MachineEntryIndex
-writeIpfs (MachineId id) vs = Ipfs.sendIpfs id (Seq.fromList vs)
+data Error
+  = InvalidInput (LangError Value)
+  | IpfsError Text
+  deriving (Show)
+
+-- * Ipfs helpers
+
+safeIpfs :: IO a -> ExceptT Error IO a
+safeIpfs io = ExceptT $ do
+  res <- liftIO $ tryAny $ io
+  pure $ first (IpfsError . toS . displayException) res
+
+writeIpfs :: MachineId -> [Value] -> ExceptT Error IO Ipfs.MachineEntryIndex
+writeIpfs (MachineId id) vs = safeIpfs $ Ipfs.sendIpfs id (Seq.fromList vs)
 
 -- | Publish a 'Message' on a machine's IPFS pubsub topic.
-publish :: MachineId -> Message -> IO ()
-publish (MachineId id) msg = Ipfs.publish id (Aeson.encode msg)
+publish :: MachineId -> Message -> ExceptT Error IO ()
+publish (MachineId id) msg = safeIpfs $ Ipfs.publish id (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
-subscribeForever :: MachineId -> (Message -> IO ()) -> IO ()
-subscribeForever (MachineId id) messageHandler =
+subscribeForever :: MachineId -> (Message -> IO ()) -> ExceptT Error IO ()
+subscribeForever (MachineId id) messageHandler = safeIpfs $
     Ipfs.subscribe topic pubsubHandler
   where
     topic = "radicle:machine:" <> id
@@ -88,8 +104,8 @@ subscribeForever (MachineId id) messageHandler =
             Nothing  -> putStrLn ("Cannot parse pubsub message" :: Text)
             Just msg -> messageHandler msg
 
-machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> IO (Ipfs.MachineEntryIndex, [Value])
-machineInputsFrom (MachineId id) = Ipfs.receiveIpfs id
+machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT Error IO (Ipfs.MachineEntryIndex, [Value])
+machineInputsFrom (MachineId id) = safeIpfs . Ipfs.receiveIpfs id
 
 createMachine :: MonadIO m => m (Either Text MachineId)
 createMachine = liftIO $ second MachineId <$> (Ipfs.ipfsMachineCreate =<< UUID.uuid)
@@ -107,10 +123,11 @@ newtype TopicSubscription = TopicSubscription
 -- | Given a machine ID, creates a subscription for that machine's
 -- pubsub topic. This allows adding and removing handlers for messages
 -- on that topic.
-initSubscription :: MachineId -> IO TopicSubscription
+initSubscription :: MachineId -> ExceptT Error IO TopicSubscription
 initSubscription id = do
-    hdlrs <- newMVar Map.empty
-    _ <- forkIO (subscribeForever id (mainHdlr hdlrs))
+    hdlrs <- liftIO $ newMVar Map.empty
+    -- TODO(james): propagate errors
+    _ <- liftIO $ forkIO (liftIO (runExceptT (subscribeForever id (mainHdlr hdlrs)) >> pure ()))
     pure $ TopicSubscription hdlrs
   where
     mainHdlr hdlrs msg = do

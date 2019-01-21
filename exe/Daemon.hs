@@ -47,10 +47,6 @@ newtype SendResult = SendResult
   { results :: [JsonValue]
   } deriving (A.ToJSON)
 
-data Error
-  = InvalidInput Text
-  deriving (Show)
-
 -- * API
 
 type Query = "query" :> ReqBody '[JSON] Expression  :> Post '[JSON] Expression
@@ -158,13 +154,13 @@ newMachine lock chains = do
   ll (show id_)
   case id_ of
     Left err -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 err }
-    Right id -> liftIO $ do
-      sub <- liftIO $ initSubscription id
-      ll "created sub.."
+    Right id -> daemonErr $ do
+      sub <- initSubscription id
       let m = (emptyMachine id Writer sub)
-      insertMachine chains m
-      actAsWriter chains m
-      writeFollowFile lock chains
+      liftIO $ do
+        insertMachine chains m
+        actAsWriter chains m
+        writeFollowFile lock chains
       pure id
 
 -- | Evaluate an expression.
@@ -184,7 +180,7 @@ send lock chains id (Expressions jvs) = do
   case chainMode m of
     Writer -> do
       let vs = jsonValue <$> jvs
-      (_, rs) <- withErr err500 $ writeInputs chains m vs Nothing
+      (_, rs) <- daemonErr $ writeInputs chains m vs Nothing
       pure SendResult{ results = JsonValue <$> rs }
     Reader -> do
       nonce' <- liftIO $ UUID.uuid
@@ -218,13 +214,14 @@ loadPinSubscribe lock chains id = do
     Nothing ->
       -- In this case we have not seen the machine before, se we must
       -- be a reader.
-      withErr err500 $ do m <- initAsReader chains id
-                          liftIO $ writeFollowFile lock chains
-                          pure m
+      daemonErr $ do
+        m <- initAsReader chains id
+        liftIO $ writeFollowFile lock chains
+        pure m
     Just m -> case chainMode m of
       Writer -> pure m
       Reader -> do
-        m' <- withErr err500 $ catchUpMachine chains m
+        m' <- daemonErr $ catchUpMachine chains m
         liftIO $ bumpPolling m'
         pure m'
 
@@ -256,15 +253,15 @@ initAsWriter chains id = do
 -- Loads a machine from IPFS.
 loadMachine :: ReaderOrWriter -> IpfsChains -> MachineId -> ExceptT Error IO IpfsChain
 loadMachine mode chains id = do
-  (idx, is) <- liftIO $ machineInputsFrom id Nothing
-  sub <- liftIO $ initSubscription id
+  (idx, is) <- machineInputsFrom id Nothing
+  sub <- initSubscription id
   let m = emptyMachine id mode sub
   fst <$> addInputs chains m is (pure idx) (const (pure ()))
 
 -- Given a cached machine, loads updates from IPFS.
 catchUpMachine :: IpfsChains -> IpfsChain -> ExceptT Error IO IpfsChain
 catchUpMachine chains m = do
-  (idx, is) <- liftIO $ machineInputsFrom (chainName m) (chainLastIndex m)
+  (idx, is) <- machineInputsFrom (chainName m) (chainLastIndex m)
   fst <$> addInputs chains m is (pure idx) (const (pure ()))
 
 -- Add inputs to a cached machine.
@@ -272,20 +269,20 @@ addInputs
   :: IpfsChains
   -> IpfsChain
   -> [Value]
-  -> IO MachineEntryIndex -- ^ Determine the new index.
-  -> ([Value] -> IO ())   -- ^ Performed after the chain is cached.
+  -> ExceptT Error IO MachineEntryIndex -- ^ Determine the new index.
+  -> ([Value] -> ExceptT Error IO ())   -- ^ Performed after the chain is cached.
   -> ExceptT Error IO (IpfsChain, [Value])
 addInputs chains m is getIdx after = case advanceChain m is of
-    Left err -> ExceptT $ pure $ Left $ InvalidInput (renderCompactPretty err)
+    Left err -> ExceptT $ pure $ Left $ InvalidInput err
     Right (rs, newState) -> do
-      idx <- liftIO getIdx
+      idx <- getIdx
       let news = Seq.fromList $ zip is rs
           m' = m { chainState = newState
                  , chainLastIndex = Just idx
                  , chainEvalPairs = chainEvalPairs m Seq.>< news
                  }
       liftIO $ insertMachine chains m'
-      liftIO (after rs)
+      after rs
       pure (m', rs)
 
 -- Write some inputs to a machine as the writer, sends out a
@@ -335,17 +332,16 @@ emptyMachine id mode sub =
 
 -- TODO(james): There is no pinning anywhere.
 
--- TODO(james): temporary fn
-withErr :: ServantErr -> ExceptT Error IO a -> Handler a
-withErr code x_ = do
-  x <- liftIO $ runExceptT x_
-  case x of
-    Left err -> throwError $ code { errBody = fromStrict $ encodeUtf8 (show err) }
-    Right y  -> pure y
-
 logErrors :: ExceptT Error IO () -> IO ()
 logErrors x = do
   e_ <- runExceptT x
   case e_ of
     Left e -> logErr "Error" [("err", show e)] -- TODO(james): format errors depending on error.
     Right _ -> pure ()
+
+daemonErr :: ExceptT Error IO a -> Handler a
+daemonErr = Handler . withExceptT mapErr
+  where
+    mapErr = \case
+      InvalidInput err -> err400 { errBody = fromStrict $ encodeUtf8 (renderPrettyDef err) }
+      IpfsError err -> err500 { errBody = toS err }
