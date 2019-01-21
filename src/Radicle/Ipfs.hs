@@ -20,6 +20,7 @@ module Radicle.Ipfs
     , nameResolve
 
     , PubsubMessage(..)
+    , publish
     , subscribe
     ) where
 
@@ -157,6 +158,10 @@ subscribe topic messageHandler = runResourceT $ do
             Aeson.Error err -> throwString err
             Aeson.Success a -> pure a
 
+publish :: Text -> LByteString -> IO ()
+publish topic message = do
+    let path = "pubsub/pub?arg=" <> topic
+    void $ ipfsHttpPost' path "data" message
 
 newtype KeyGenResponse = KeyGenResponse IpnsId
 
@@ -234,10 +239,18 @@ ipfsHttpPost
     -> LByteString -- ^ Payload argument
     -> IO a
 ipfsHttpPost path payloadArgName payload = do
-    url <- ipfsApiUrl path
-    res <- Wreq.post (toS url) (Wreq.partLBS payloadArgName payload) `catch` handleRequestException
+    res <- ipfsHttpPost' path payloadArgName payload
     jsonRes <- Wreq.asJSON res `catch` handleParseException path
     pure $ jsonRes ^. Wreq.responseBody
+
+ipfsHttpPost'
+    :: Text  -- ^ Path of the endpoint under "/api/v0/"
+    -> Text  -- ^ Name of the argument for payload
+    -> LByteString -- ^ Payload argument
+    -> IO (Wreq.Response LByteString)
+ipfsHttpPost' path payloadArgName payload = do
+    url <- ipfsApiUrl path
+    Wreq.post (toS url) (Wreq.partLBS payloadArgName payload) `catch` handleRequestException
 
 ipfsApiUrl :: Text -> IO Text
 ipfsApiUrl path = do
