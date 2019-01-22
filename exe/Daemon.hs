@@ -209,7 +209,7 @@ query id (Expression (JsonValue v)) = do
   case fst <$> runIdentity $ runLang (chainState m) $ eval v of
     Left err -> throwError (InvalidInput err)
     Right rv -> do
-      logInfo "Query was success:" [("result", renderCompactPretty rv)]
+      logInfo "Query success:" [("result", renderCompactPretty rv)]
       pure (Expression (JsonValue rv))
 
 -- | Write a new expression to an IPFS machine.
@@ -220,6 +220,7 @@ send id (Expressions jvs) = do
     Writer -> do
       let vs = jsonValue <$> jvs
       (_, rs) <- writeInputs m vs Nothing
+      logInfo "Send as writer success" []
       pure SendResult{ results = JsonValue <$> rs }
     Reader -> do
       nonce' <- liftIO $ UUID.uuid
@@ -227,10 +228,12 @@ send id (Expressions jvs) = do
             New NewInputs{ nonce = Just nonce'' } | nonce'' == nonce' -> True
             _ -> False
       -- TODO(james): decide what a good timeout is.
-      msg_ <- liftIO $ subscribeOne (chainSubscription m) 5000 isResponse
+      msg_ <- liftIO $ subscribeOne (chainSubscription m) 10000 isResponse
       case msg_ of
         Nothing -> throwError AckTimeout
-        Just (New NewInputs{..}) -> pure SendResult{..}
+        Just (New NewInputs{..}) -> do
+          logInfo "Send as writer success" []
+          pure SendResult{..}
         _ -> throwError $ DaemonError "Didn't filter machine topic messages correctly."
 
 -- * Helpers
