@@ -100,6 +100,19 @@ tests:
     - tasty-hunit
 
 executables:
+  rad:
+    main: Rad.hs
+    source-dirs: exe
+    other-modules: [Paths_radicle]
+    dependencies:
+    - directory
+    - unix
+    - text
+    when:
+      - condition: impl(ghcjs)
+        buildable: false
+    ghc-options: -main-is Rad -O3 -threaded
+
   radicle:
     main: RadicleExe.hs
     source-dirs: exe
