@@ -84,16 +84,23 @@ safeIpfs io = ExceptT $ do
 writeIpfs :: MachineId -> [Value] -> ExceptT Text IO Ipfs.MachineEntryIndex
 writeIpfs (MachineId id) vs = safeIpfs $ Ipfs.sendIpfs id (Seq.fromList vs)
 
+newtype Topic = Topic {getTopic :: Text}
+
+-- | The IPFS pubsub topic associated to a machine.
+machineTopic :: MachineId -> Topic
+machineTopic (MachineId id) = Topic ("radicle:machine:" <> id)
+
 -- | Publish a 'Message' on a machine's IPFS pubsub topic.
 publish :: MachineId -> Message -> ExceptT Text IO ()
-publish (MachineId id) msg = safeIpfs $ Ipfs.publish id (Aeson.encode msg)
+publish id msg = safeIpfs $ do
+  Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
 subscribeForever :: MachineId -> (Message -> IO ()) -> ExceptT Text IO ()
-subscribeForever (MachineId id) messageHandler = safeIpfs $
+subscribeForever id messageHandler = safeIpfs $ do
     Ipfs.subscribe topic pubsubHandler
   where
-    topic = "radicle:machine:" <> id
+    Topic topic = machineTopic id
     pubsubHandler Ipfs.PubsubMessage{..} =
         case Aeson.decodeStrict messageData of
             Nothing  -> putStrLn ("Cannot parse pubsub message" :: Text)

@@ -151,6 +151,7 @@ executables:
     - servant-server
     - text
     - warp
+    - async
     ghc-options: -main-is Daemon
 
   radicle-doc:
@@ -226,6 +227,7 @@ default-extensions:
 - LambdaCase
 - MultiParamTypeClasses
 - MultiWayIf
+- NamedFieldPuns
 - NoImplicitPrelude
 - OverloadedStrings
 - RankNTypes
