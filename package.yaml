@@ -11,6 +11,7 @@ extra-source-files:
 dependencies:
 - base >=4 && <5
 - protolude
+
 ghc-options:
   - -Wall
   - -Wcompat
@@ -93,6 +94,15 @@ tests:
     - doctest
     - Glob
     - hpack
+  e2e:
+    main: Main.hs
+    source-dirs:
+    - test/e2e
+    dependencies:
+    - process
+    - tasty
+    - tasty-discover
+    - tasty-hunit
 
 executables:
   radicle:
