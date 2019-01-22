@@ -19,7 +19,9 @@ import           Protolude
 
 import           Control.Exception.Safe
 import           Control.Monad.Fail
+import           Data.Aeson ((.:), (.=))
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as Aeson
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Unique as Unique
@@ -47,44 +49,71 @@ instance Aeson.ToJSON JsonValue where
 newtype MachineId = MachineId { getMachineId :: Text }
     deriving (Show, Eq, Ord, Generic)
 
+instance Aeson.ToJSONKey MachineId where
+  toJSONKey = Aeson.toJSONKeyText getMachineId
+instance Aeson.FromJSONKey MachineId where
+  fromJSONKey = Aeson.FromJSONKeyText MachineId
+instance Aeson.ToJSON MachineId where
+  toJSON (MachineId id) = Aeson.String id
+instance Aeson.FromJSON MachineId where
+  parseJSON js = MachineId <$> Aeson.parseJSON js
+
 -- | Messages sent on a machine's IPFS pubsub topic.
 data Message = New NewInputs | Req ReqInputs
-    deriving (Show, Generic)
 
--- TODO(james): write these by hand to conform to the spec.
-instance Aeson.FromJSON Message
-instance Aeson.ToJSON Message
+instance Aeson.FromJSON Message where
+  parseJSON = Aeson.withObject "Message" $ \o -> do
+    typ :: Text <- o .: "type"
+    case typ of
+      "new_inputs" -> do
+        nonce <- o .: "nonce"
+        results <- o .: "results"
+        pure $ New NewInputs{..}
+      "request_inputs" -> do
+        nonce <- o .: "nonce"
+        expressions <- o .: "expressions"
+        pure $ Req ReqInputs{..}
+      _ -> fail "Messages on a machine's pubsub topic must be of type 'new_inputs' or 'request_inputs'."
+
+instance Aeson.ToJSON Message where
+  toJSON = \case
+    New NewInputs{..} -> Aeson.object
+      [ "type" .= ("new_inputs" :: Text)
+      , "nonce" .= nonce
+      , "results" .= results
+      ]
+    Req ReqInputs{..} -> Aeson.object
+      [ "type" .= ("request_inputs" :: Text)
+      , "nonce" .= nonce
+      , "expressions" .= expressions
+      ]
 
 -- | Message sent to signal a new input has been added to the machine.
 data NewInputs = NewInputs
   { nonce   :: Maybe Text
   , results :: [JsonValue]
-  } deriving (Show, Generic)
+  }
 
-instance Aeson.FromJSON NewInputs
-instance Aeson.ToJSON NewInputs
-
--- | Message sent to request the writer to add an input to the
--- machine.
+-- | Message sent to request the writer add inputs to the machine.
 data ReqInputs = ReqInputs
   { nonce       :: Text
   , expressions :: [JsonValue]
-  } deriving (Show, Generic)
-
-instance Aeson.FromJSON ReqInputs
-instance Aeson.ToJSON ReqInputs
+  }
 
 -- * Ipfs helpers
 
 safeIpfs :: IO a -> ExceptT Text IO a
 safeIpfs io = ExceptT $ do
-  res <- liftIO $ tryAny $ io
+  res <- liftIO $ tryAny io
   pure $ first (toS . displayException) res
 
+-- | Write some inputs to an IPFS machine.
+-- TODO: we might want to make this safer by taking the expected head
+-- MachineEntryIndex as an argument.
 writeIpfs :: MachineId -> [Value] -> ExceptT Text IO Ipfs.MachineEntryIndex
 writeIpfs (MachineId id) vs = safeIpfs $ Ipfs.sendIpfs id (Seq.fromList vs)
 
-newtype Topic = Topic {getTopic :: Text}
+newtype Topic = Topic { getTopic :: Text }
 
 -- | The IPFS pubsub topic associated to a machine.
 machineTopic :: MachineId -> Topic
@@ -93,9 +122,11 @@ machineTopic (MachineId id) = Topic ("radicle:machine:" <> id)
 -- | Publish a 'Message' on a machine's IPFS pubsub topic.
 publish :: MachineId -> Message -> ExceptT Text IO ()
 publish id msg = safeIpfs $ do
+  liftIO $ putStrLn $ "pubsub pub " <> getMachineId id <> ": " <> toS (Aeson.encode msg)
   Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
+-- TODO(james): remove logging.
 subscribeForever :: MachineId -> (Message -> IO ()) -> ExceptT Text IO ()
 subscribeForever id messageHandler = safeIpfs $ do
     Ipfs.subscribe topic pubsubHandler
@@ -104,13 +135,17 @@ subscribeForever id messageHandler = safeIpfs $ do
     pubsubHandler Ipfs.PubsubMessage{..} =
         case Aeson.decodeStrict messageData of
             Nothing  -> putStrLn ("Cannot parse pubsub message" :: Text)
-            Just msg -> messageHandler msg
+            Just msg -> do
+              putStrLn $ "pubsub sub " <> getMachineId id <> ": " <> toS (Aeson.encode msg)
+              messageHandler msg
 
+-- | Get inputs of an IPFS machine from a certain index.
 machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT Text IO (Ipfs.MachineEntryIndex, [Value])
 machineInputsFrom (MachineId id) = safeIpfs . Ipfs.receiveIpfs id
 
-createMachine :: MonadIO m => m (Either Text MachineId)
-createMachine = liftIO $ second MachineId <$> (Ipfs.ipfsMachineCreate =<< UUID.uuid)
+-- | Create an IPFS machine and return its ID.
+createMachine :: ExceptT Text IO MachineId
+createMachine = ExceptT $ liftIO $ second MachineId <$> (Ipfs.ipfsMachineCreate =<< UUID.uuid)
 
 -- * Topic subscriptions
 
