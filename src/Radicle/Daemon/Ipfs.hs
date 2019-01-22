@@ -13,7 +13,6 @@ module Radicle.Daemon.Ipfs
   , initSubscription
   , subscribeOne
   , addHandler
-  , Error(..)
   ) where
 
 import           Protolude
@@ -74,27 +73,22 @@ data ReqInputs = ReqInputs
 instance Aeson.FromJSON ReqInputs
 instance Aeson.ToJSON ReqInputs
 
-data Error
-  = InvalidInput (LangError Value)
-  | IpfsError Text
-  deriving (Show)
-
 -- * Ipfs helpers
 
-safeIpfs :: IO a -> ExceptT Error IO a
+safeIpfs :: IO a -> ExceptT Text IO a
 safeIpfs io = ExceptT $ do
   res <- liftIO $ tryAny $ io
-  pure $ first (IpfsError . toS . displayException) res
+  pure $ first (toS . displayException) res
 
-writeIpfs :: MachineId -> [Value] -> ExceptT Error IO Ipfs.MachineEntryIndex
+writeIpfs :: MachineId -> [Value] -> ExceptT Text IO Ipfs.MachineEntryIndex
 writeIpfs (MachineId id) vs = safeIpfs $ Ipfs.sendIpfs id (Seq.fromList vs)
 
 -- | Publish a 'Message' on a machine's IPFS pubsub topic.
-publish :: MachineId -> Message -> ExceptT Error IO ()
+publish :: MachineId -> Message -> ExceptT Text IO ()
 publish (MachineId id) msg = safeIpfs $ Ipfs.publish id (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
-subscribeForever :: MachineId -> (Message -> IO ()) -> ExceptT Error IO ()
+subscribeForever :: MachineId -> (Message -> IO ()) -> ExceptT Text IO ()
 subscribeForever (MachineId id) messageHandler = safeIpfs $
     Ipfs.subscribe topic pubsubHandler
   where
@@ -104,7 +98,7 @@ subscribeForever (MachineId id) messageHandler = safeIpfs $
             Nothing  -> putStrLn ("Cannot parse pubsub message" :: Text)
             Just msg -> messageHandler msg
 
-machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT Error IO (Ipfs.MachineEntryIndex, [Value])
+machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT Text IO (Ipfs.MachineEntryIndex, [Value])
 machineInputsFrom (MachineId id) = safeIpfs . Ipfs.receiveIpfs id
 
 createMachine :: MonadIO m => m (Either Text MachineId)
@@ -123,7 +117,7 @@ newtype TopicSubscription = TopicSubscription
 -- | Given a machine ID, creates a subscription for that machine's
 -- pubsub topic. This allows adding and removing handlers for messages
 -- on that topic.
-initSubscription :: MachineId -> ExceptT Error IO TopicSubscription
+initSubscription :: MachineId -> ExceptT Text IO TopicSubscription
 initSubscription id = do
     hdlrs <- liftIO $ newMVar Map.empty
     -- TODO(james): propagate errors

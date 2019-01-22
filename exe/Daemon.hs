@@ -4,7 +4,6 @@ module Daemon where
 
 import           Protolude hiding (fromStrict, option)
 
-import           System.Directory (doesFileExist)
 import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map.Strict as Map
@@ -13,11 +12,12 @@ import qualified Network.HTTP.Types.URI as URL
 import           Network.Wai.Handler.Warp (run)
 import           Options.Applicative
 import           Servant
+import           System.Directory (doesFileExist)
 
 import qualified Radicle.Internal.UUID as UUID
 import           Server.Common
 
-import           Radicle
+import           Radicle hiding (Env)
 import           Radicle.Daemon.Ipfs
 import qualified Radicle.Internal.CLI as Local
 
@@ -53,6 +53,13 @@ newtype SendResult = SendResult
   { results :: [JsonValue]
   } deriving (A.ToJSON)
 
+data Error
+  = InvalidInput (LangError Value)
+  | IpfsError Text
+  | AckTimeout
+  | DaemonError Text
+  deriving (Show)
+
 -- * API
 
 type Query = "query" :> ReqBody '[JSON] Expression  :> Post '[JSON] Expression
@@ -68,7 +75,9 @@ daemonApi = Proxy
 -- * Main
 
 data Opts = Opts
-  { port :: Int }
+  { port       :: Int
+  , filePrefix :: Text
+  }
 
 opts :: Parser Opts
 opts = Opts
@@ -78,6 +87,13 @@ opts = Opts
        <> metavar "PORT"
        <> showDefault
        <> value 8909
+        )
+    <*> strOption
+        ( long "filePrefix"
+       <> help "file prefix"
+       <> metavar "PREFIX"
+       <> showDefault
+       <> value ""
         )
 
 data Follows = Follows
@@ -89,10 +105,19 @@ data Follows = Follows
 instance A.ToJSON Follows
 instance A.FromJSON Follows
 
-followFile :: IO FilePath
-followFile = Local.getRadicleFile "daemon-follows"
-
 type FollowFileLock = MVar ()
+
+data Env = Env
+  { followFileLock :: FollowFileLock
+  , followFile     :: FilePath
+  , machines       :: IpfsChains
+  }
+
+newtype Daemon a = Daemon { fromDaemon :: ExceptT Error (ReaderT Env IO) a }
+  deriving (Functor, Applicative, Monad, MonadError Error, MonadIO, MonadReader Env)
+
+runDaemon :: Env -> Daemon a -> IO (Either Error a)
+runDaemon env (Daemon x) = runReaderT (runExceptT x) env
 
 withFollowFileLock :: FollowFileLock -> IO a -> IO a
 withFollowFileLock lock act = bracket
@@ -100,16 +125,8 @@ withFollowFileLock lock act = bracket
   (const (putMVar lock ()))
   (const act)
 
-writeFollowFile :: FollowFileLock -> IpfsChains -> IO ()
-writeFollowFile lock (Chains chainsVar) = withFollowFileLock lock $ do
-  ms <- takeMVar chainsVar
-  ff <- followFile
-  let fs = Follows $ second chainMode <$> Map.toList ms
-  writeFile ff (toS $ A.encode fs)
-
-readFollowFile :: FollowFileLock -> IO Follows
-readFollowFile lock = withFollowFileLock lock $ do
-  ff <- followFile
+readFollowFileIO :: FollowFileLock -> FilePath -> IO Follows
+readFollowFileIO lock ff = withFollowFileLock lock $ do
   exists <- doesFileExist ff
   t <- if exists
     then readFile ff
@@ -121,75 +138,86 @@ readFollowFile lock = withFollowFileLock lock $ do
 
 main :: IO ()
 main = do
-    Opts port <- execParser allOpts
+    opts' <- execParser allOpts
     followFileLock <- newMVar ()
-    Follows follows <- readFollowFile followFileLock
-    chains <- Chains <$> newMVar Map.empty
-    initRes <- runExceptT $ traverse_ (init chains) follows
+    followFile <- Local.getRadicleFile (toS (filePrefix opts') <> "daemon-follows")
+    machines <- Chains <$> newMVar Map.empty
+    let env = Env{..}
+    Follows follows <- readFollowFileIO followFileLock followFile
+    initRes <- runDaemon env $ traverse_ init follows
     case initRes of
       Left err -> panic $ "Failed to initialise: " <> show err
       Right _ -> do
-        let app = serve daemonApi (server followFileLock chains)
-        logInfo "Start listening" [("port", show port)]
-        run port app
+        let app = serve daemonApi (server env)
+        logInfo "Start listening" [("port", show (port opts'))]
+        run (port opts') app
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
        <> progDesc "Run then radicle daemon"
        <> header "radicle-daemon"
         )
-    init chains (id, Reader) = initAsReader chains id
-    init chains (id, Writer) = initAsWriter chains id
+    init (id, Reader) = initAsReader id
+    init (id, Writer) = initAsWriter id
 
 type IpfsChain = Chain MachineId MachineEntryIndex TopicSubscription
 type IpfsChains = Chains MachineId MachineEntryIndex TopicSubscription
 
-server :: FollowFileLock -> IpfsChains -> Server DaemonApi
-server lock chains = machineEndpoints :<|> newMachine lock chains
+server :: Env -> Server DaemonApi
+server env = hoistServer daemonApi nt daemonServer
   where
-    machineEndpoints id = query lock chains id :<|> send lock chains id
+    daemonServer :: ServerT DaemonApi Daemon
+    daemonServer = machineEndpoints :<|> newMachine
+    machineEndpoints id = query id :<|> send id
+
+    nt :: Daemon a -> Handler a
+    nt d = do
+      x_ <- liftIO $ runDaemon env d
+      case x_ of
+        Left err -> throwError (toServantErr err)
+        Right x  -> pure x
+
+    toServantErr :: Error -> ServantErr
+    toServantErr = \case
+      InvalidInput err -> err400 { errBody = fromStrict $ encodeUtf8 (renderPrettyDef err) }
+      IpfsError err -> err500 { errBody = toS err }
+      DaemonError err -> err500 { errBody = toS err }
+      AckTimeout -> err504 { errBody = "The writer for this IPFS machine does not appear to be online." }
 
 -- * Endpoints
 
-ll :: MonadIO m => Text -> m ()
-ll = putStrLn
-
 -- | Create a new IPFS machine and initialise the daemon as as the
 -- /writer/.
-newMachine :: FollowFileLock -> IpfsChains -> Handler MachineId
-newMachine lock chains = do
-  ll "new machine.."
+newMachine :: Daemon MachineId
+newMachine = do
   id_ <- createMachine
-  ll (show id_)
   case id_ of
-    Left err -> throwError $ err500 { errBody = fromStrict $ encodeUtf8 err }
-    Right id -> daemonErr $ do
-      sub <- initSubscription id
+    Left err -> throwError (IpfsError err)
+    Right id -> do
+      sub <- ipfs $ initSubscription id
+      logInfo "Created new IPFS machine" [("id", getMachineId id)]
       let m = (emptyMachine id Writer sub)
-      liftIO $ do
-        insertMachine chains m
-        actAsWriter chains m
-        writeFollowFile lock chains
+      insertMachine m
+      actAsWriter m
+      writeFollowFile
       pure id
 
 -- | Evaluate an expression.
-query :: FollowFileLock -> IpfsChains -> MachineId -> Expression -> Handler Expression
-query lock chains id (Expression (JsonValue v)) = do
-  m <- loadPinSubscribe lock chains id
+query :: MachineId -> Expression -> Daemon Expression
+query id (Expression (JsonValue v)) = do
+  m <- loadPinSubscribe id
   case fst <$> runIdentity $ runLang (chainState m) $ eval v of
-    Left err -> throwError $ err400 { errBody = fromStrict $ encodeUtf8 (renderPrettyDef err) }
+    Left err -> throwError (InvalidInput err)
     Right rv -> pure (Expression (JsonValue rv))
 
 -- | Write a new expression to an IPFS machine.
-send :: FollowFileLock -> IpfsChains -> MachineId -> Expressions -> Handler SendResult
-send lock chains id (Expressions jvs) = do
-  ll "send"
-  m <- loadPinSubscribe lock chains id
-  ll "loaded machine"
+send :: MachineId -> Expressions -> Daemon SendResult
+send id (Expressions jvs) = do
+  m <- loadPinSubscribe id
   case chainMode m of
     Writer -> do
       let vs = jsonValue <$> jvs
-      (_, rs) <- daemonErr $ writeInputs chains m vs Nothing
+      (_, rs) <- writeInputs m vs Nothing
       pure SendResult{ results = JsonValue <$> rs }
     Reader -> do
       nonce' <- liftIO $ UUID.uuid
@@ -199,90 +227,113 @@ send lock chains id (Expressions jvs) = do
       -- TODO(james): decide what a good timeout is.
       msg_ <- liftIO $ subscribeOne (chainSubscription m) 5000 isResponse
       case msg_ of
-        Nothing ->
-          throwError $ err500 { errBody = fromStrict $ encodeUtf8 "The writer for this IPFS machine appears to be offline." }
-        Just (New NewInputs{..}) ->
-          pure SendResult{..}
-        _ ->
-          throwError $ err500 { errBody = fromStrict $ encodeUtf8 "Daemon error: didn't filter machine topic messages correctly." }
+        Nothing -> throwError AckTimeout
+        Just (New NewInputs{..}) -> pure SendResult{..}
+        _ -> throwError $ DaemonError "Didn't filter machine topic messages correctly."
 
 -- * Helpers
 
-lookupMachine :: (MonadIO m) => IpfsChains -> MachineId -> m (Maybe IpfsChain)
-lookupMachine chains id = do
-  cs <- liftIO $ readMVar (getChains chains)
+writeFollowFile :: Daemon ()
+writeFollowFile = do
+  lock <- asks followFileLock
+  Chains msVar <- asks machines
+  ff <- asks followFile
+  liftIO $ withFollowFileLock lock $ do
+    ms <- takeMVar msVar
+    let fs = Follows $ second chainMode <$> Map.toList ms
+    writeFile ff (toS $ A.encode fs)
+
+lookupMachine :: MachineId -> Daemon (Maybe IpfsChain)
+lookupMachine id = do
+  ms <- asks machines
+  cs <- liftIO $ readMVar (getChains ms)
   pure (Map.lookup id cs)
 
 -- | Given an 'MachineId', makes sure the machine state is materialised,
 -- makes sure the inputs are pinned and subscribes to the topic for
 -- updates. Returns the chain.
-loadPinSubscribe :: FollowFileLock -> IpfsChains -> MachineId -> Handler IpfsChain
-loadPinSubscribe lock chains id = do
-  m_ <- lookupMachine chains id
+loadPinSubscribe :: MachineId -> Daemon IpfsChain
+loadPinSubscribe id = do
+  m_ <- lookupMachine id
   case m_ of
     Nothing ->
       -- In this case we have not seen the machine before, se we must
       -- be a reader.
-      daemonErr $ do
-        m <- initAsReader chains id
-        liftIO $ writeFollowFile lock chains
-        pure m
+      do m <- initAsReader id
+         writeFollowFile
+         pure m
     Just m -> case chainMode m of
       Writer -> pure m
       Reader -> do
-        m' <- daemonErr $ catchUpMachine chains m
+        m' <- catchUpMachine m
         liftIO $ bumpPolling m'
         pure m'
 
 -- Initialise the daemon service for this machine in /reader mode/.
-initAsReader :: IpfsChains -> MachineId -> ExceptT Error IO IpfsChain
-initAsReader chains id = do
-    ll $ "Init as reader: " <> show id
-    m <- loadMachine Reader chains id
-    _ <- liftIO $ addHandler (chainSubscription m) onMsg
+initAsReader :: MachineId -> Daemon IpfsChain
+initAsReader id = do
+    m <- loadMachine Reader id
+    env <- ask
+    _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env onMsg)
+    logInfo "Following as reader" [("id", getMachineId id)]
     liftIO $ bumpPolling m
     pure m
   where
+    onMsg :: Message -> Daemon ()
     onMsg = \case
       New NewInputs{..} -> do
-        m_ <- lookupMachine chains id
+        m_ <- lookupMachine id
         case m_ of
-          Nothing ->
-            logErr "Subscribed for changes on a non-loaded machine" [("machine_id", getMachineId id)]
-          Just m  -> runExceptT (refreshAsReader chains m) >> pure ()
+          Nothing -> logErr "Subscribed for changes on a non-loaded machine" [("id", getMachineId id)]
+          Just m  -> refreshAsReader m >> pure ()
       _ -> pure ()
 
-initAsWriter :: IpfsChains -> MachineId -> ExceptT Error IO IpfsChain
-initAsWriter chains id = do
-  ll $ "Init as writer: " <> show id
-  m <- loadMachine Writer chains id
-  liftIO $ actAsWriter chains m
+daemonHandler :: Env -> (Message -> Daemon ()) -> Message -> IO ()
+daemonHandler env h msg = do
+  x_ <- runDaemon env (h msg)
+  case x_ of
+    Left err -> logDaemonError err
+    Right _  -> pure ()
+  where
+    logDaemonError err = logErr (show err) [] -- TODO: make betterer
+
+
+initAsWriter :: MachineId -> Daemon IpfsChain
+initAsWriter id = do
+  m <- loadMachine Writer id
+  actAsWriter m
+  logInfo "Acting as writer" [("id", getMachineId id)]
   pure m
 
 -- Loads a machine from IPFS.
-loadMachine :: ReaderOrWriter -> IpfsChains -> MachineId -> ExceptT Error IO IpfsChain
-loadMachine mode chains id = do
-  (idx, is) <- machineInputsFrom id Nothing
-  sub <- initSubscription id
+loadMachine :: ReaderOrWriter -> MachineId -> Daemon IpfsChain
+loadMachine mode id = do
+  (idx, is) <- ipfsInputsFrom id Nothing
+  sub <- ipfsSubscription id
   let m = emptyMachine id mode sub
-  fst <$> addInputs chains m is (pure idx) (const (pure ()))
+  fst <$> addInputs m is (pure idx) (const (pure ()))
 
 -- Given a cached machine, loads updates from IPFS.
-catchUpMachine :: IpfsChains -> IpfsChain -> ExceptT Error IO IpfsChain
-catchUpMachine chains m = do
-  (idx, is) <- machineInputsFrom (chainName m) (chainLastIndex m)
-  fst <$> addInputs chains m is (pure idx) (const (pure ()))
+catchUpMachine :: IpfsChain -> Daemon IpfsChain
+catchUpMachine m = do
+  (idx, is) <- ipfsInputsFrom (chainName m) (chainLastIndex m)
+  fst <$> addInputs m is (pure idx) (const (pure ()))
+
+ipfsInputsFrom :: MachineId -> Maybe MachineEntryIndex -> Daemon (MachineEntryIndex, [Value])
+ipfsInputsFrom id = ipfs . machineInputsFrom id
+
+ipfsSubscription :: MachineId -> Daemon TopicSubscription
+ipfsSubscription = ipfs . initSubscription
 
 -- Add inputs to a cached machine.
 addInputs
-  :: IpfsChains
-  -> IpfsChain
+  :: IpfsChain
   -> [Value]
-  -> ExceptT Error IO MachineEntryIndex -- ^ Determine the new index.
-  -> ([Value] -> ExceptT Error IO ())   -- ^ Performed after the chain is cached.
-  -> ExceptT Error IO (IpfsChain, [Value])
-addInputs chains m is getIdx after = case advanceChain m is of
-    Left err -> ExceptT $ pure $ Left $ InvalidInput err
+  -> Daemon MachineEntryIndex -- ^ Determine the new index.
+  -> ([Value] -> Daemon ())   -- ^ Performed after the chain is cached.
+  -> Daemon (IpfsChain, [Value])
+addInputs m is getIdx after = case advanceChain m is of
+    Left err -> Daemon $ ExceptT $ pure $ Left $ InvalidInput err
     Right (rs, newState) -> do
       idx <- getIdx
       let news = Seq.fromList $ zip is rs
@@ -290,34 +341,41 @@ addInputs chains m is getIdx after = case advanceChain m is of
                  , chainLastIndex = Just idx
                  , chainEvalPairs = chainEvalPairs m Seq.>< news
                  }
-      liftIO $ insertMachine chains m'
+      insertMachine m'
       after rs
       pure (m', rs)
 
 -- Write some inputs to a machine as the writer, sends out a
 -- 'NewInput' message.
-writeInputs :: IpfsChains -> IpfsChain -> [Value] -> Maybe Text -> ExceptT Error IO (IpfsChain, [Value])
-writeInputs chains chain is nonce =
-  let id = chainName chain
-  in addInputs chains chain is (writeIpfs id is) (\rs -> publish id (New NewInputs{results = JsonValue <$> rs, ..}))
+writeInputs :: IpfsChain -> [Value] -> Maybe Text -> Daemon (IpfsChain, [Value])
+writeInputs m is nonce = addInputs m is write pub
+  where
+    id = chainName m
+    write = ipfs $ writeIpfs id is
+    pub rs = ipfs $ publish id (New NewInputs{results = JsonValue <$> rs, ..})
+
+ipfs :: ExceptT Text IO a -> Daemon a
+ipfs = Daemon . mapExceptT (lift . fmap (first IpfsError))
 
 -- Subscribes the daemon to the machine's pubsub topic to listen for
 -- input requests.
-actAsWriter :: IpfsChains -> IpfsChain -> IO ()
-actAsWriter chains m = addHandler (chainSubscription m) onMsg *> pure ()
+actAsWriter :: IpfsChain -> Daemon ()
+actAsWriter m = do
+    env <- ask
+    liftIO $ addHandler (chainSubscription m) (daemonHandler env onMsg) *> pure ()
   where
     id = chainName m
     onMsg = \case
       Req ReqInputs{..} -> do
-        m_ <- lookupMachine chains id
+        m_ <- lookupMachine id
         case m_ of
-          Nothing -> logErr "Daemon was setup as writer for a chain it hasn't laoded!" [("machine_id", getMachineId id)]
-          Just m' -> logErrors (writeInputs chains m' (jsonValue <$> expressions) (Just nonce) >> pure ())
+          Nothing -> logErr "Daemon was setup as writer for a chain it hasn't laoded!" [("id", getMachineId id)]
+          Just m' -> writeInputs m' (jsonValue <$> expressions) (Just nonce) >> pure ()
       _ -> pure ()
 
-refreshAsReader :: IpfsChains -> IpfsChain -> ExceptT Error IO IpfsChain
-refreshAsReader chains m = do
-  m' <- catchUpMachine chains m
+refreshAsReader :: IpfsChain -> Daemon IpfsChain
+refreshAsReader m = do
+  m' <- catchUpMachine m
   liftIO $ bumpPolling m'
   pure m'
 
@@ -326,8 +384,10 @@ bumpPolling :: IpfsChain -> IO ()
 bumpPolling _ = pure () -- TODO: polling
 
 -- TODO(james): rename to cacheMachine maybe
-insertMachine :: IpfsChains -> IpfsChain -> IO ()
-insertMachine chains chain = modifyMVar (getChains chains) $ \cs -> pure (Map.insert (chainName chain) chain cs, ())
+insertMachine :: IpfsChain -> Daemon ()
+insertMachine chain = do
+  ms <- asks machines
+  liftIO $ modifyMVar (getChains ms) $ \cs -> pure (Map.insert (chainName chain) chain cs, ())
 
 emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IpfsChain
 emptyMachine id mode sub =
@@ -339,16 +399,11 @@ emptyMachine id mode sub =
        , chainSubscription = sub
        }
 
-logErrors :: ExceptT Error IO () -> IO ()
-logErrors x = do
-  e_ <- runExceptT x
-  case e_ of
-    Left e -> logErr "Error" [("err", show e)] -- TODO(james): format errors depending on error.
-    Right _ -> pure ()
-
-daemonErr :: ExceptT Error IO a -> Handler a
-daemonErr = Handler . withExceptT mapErr
-  where
-    mapErr = \case
-      InvalidInput err -> err400 { errBody = fromStrict $ encodeUtf8 (renderPrettyDef err) }
-      IpfsError err -> err500 { errBody = toS err }
+-- logErrors :: Daemon () -> IO ()
+-- logErrors e x = do
+--   e_ <- runDaemon e x
+--   case e_ of
+--     Left e -> logErr "Error" [("err", show e)] -- TODO(james): format
+--                                                -- errors depending on
+--                                                -- error type.
+--     Right _ -> pure ()
