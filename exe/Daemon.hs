@@ -187,7 +187,7 @@ newMachine = do
   insertMachine m
   actAsWriter m
   writeFollowFile
-  pure id  
+  pure id
 
 -- | Evaluate an expression.
 query :: MachineId -> Expression -> Daemon Expression

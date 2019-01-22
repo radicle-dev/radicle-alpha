@@ -126,18 +126,14 @@ publish id msg = safeIpfs $ do
   Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
--- TODO(james): remove logging.
-subscribeForever :: MachineId -> (Message -> IO ()) -> ExceptT Text IO ()
-subscribeForever id messageHandler = safeIpfs $ do
-    Ipfs.subscribe topic pubsubHandler
+subscribeForever :: MachineId -> (Message -> IO ()) -> IO ()
+subscribeForever id messageHandler = Ipfs.subscribe topic pubsubHandler
   where
     Topic topic = machineTopic id
     pubsubHandler Ipfs.PubsubMessage{..} =
         case Aeson.decodeStrict messageData of
             Nothing  -> putStrLn ("Cannot parse pubsub message" :: Text)
-            Just msg -> do
-              putStrLn $ "pubsub sub " <> getMachineId id <> ": " <> toS (Aeson.encode msg)
-              messageHandler msg
+            Just msg -> messageHandler msg
 
 -- | Get inputs of an IPFS machine from a certain index.
 machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT Text IO (Ipfs.MachineEntryIndex, [Value])
@@ -161,10 +157,9 @@ newtype TopicSubscription = TopicSubscription
 -- pubsub topic. This allows adding and removing handlers for messages
 -- on that topic.
 initSubscription :: MachineId -> ExceptT Text IO TopicSubscription
-initSubscription id = do
-    hdlrs <- liftIO $ newMVar Map.empty
-    -- TODO(james): propagate errors
-    _ <- liftIO $ forkIO (liftIO (runExceptT (subscribeForever id (mainHdlr hdlrs)) >> pure ()))
+initSubscription id = safeIpfs $ do
+    hdlrs <- newMVar Map.empty
+    _ <- async $ subscribeForever id (mainHdlr hdlrs)
     pure $ TopicSubscription hdlrs
   where
     mainHdlr hdlrs msg = do
@@ -183,10 +178,10 @@ removeHandler :: TopicSubscription -> RegisteredHandler -> IO ()
 removeHandler ts u =
   modifyMVar (handlers ts) (pure . (,()) . Map.delete u)
 
--- | Wait for a message which matches a predicate. Returns @Just msg@
--- where @msg@ is the first message passing the predicate if such a
--- message arrives before the specified amount of
--- milliseconds. Otherwise, returns @Nothing@.
+-- | Block while waiting for a message which matches a
+-- predicate. Returns @Just msg@ where @msg@ is the first message
+-- passing the predicate if such a message arrives before the
+-- specified amount of milliseconds. Otherwise, returns @Nothing@.
 subscribeOne :: TopicSubscription -> Int -> (Message -> Bool) -> IO (Maybe Message)
 subscribeOne sub timeout pr = do
   var <- newEmptyMVar
