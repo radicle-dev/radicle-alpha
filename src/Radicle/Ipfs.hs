@@ -117,7 +117,7 @@ newtype DagPutResponse
     = DagPutResponse CID
 
 dagPut :: ToJSON a => a -> IO DagPutResponse
-dagPut obj = ipfsHttpPost "dag/put?pin=true" "arg" (Aeson.encode obj)
+dagPut obj = ipfsHttpPost "dag/put" [("pin", "true")] "arg" (Aeson.encode obj)
 
 instance FromJSON DagPutResponse where
     parseJSON = Aeson.withObject "v0/dag/put response" $ \o -> do
@@ -175,12 +175,14 @@ ipfsHttpGet path params = do
 ipfsHttpPost
     :: FromJSON a
     => Text  -- ^ Path of the endpoint under "/api/v0/"
+    -> [(Text, Text)] -- ^ URL query parameters
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
     -> IO a
-ipfsHttpPost path payloadArgName payload = do
+ipfsHttpPost path params payloadArgName payload = do
+    let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
-    res <- Wreq.post (toS url) (Wreq.partLBS payloadArgName payload) `catch` handleRequestException
+    res <- Wreq.postWith opts (toS url) (Wreq.partLBS payloadArgName payload) `catch` handleRequestException
     jsonRes <- Wreq.asJSON res `catch` handleParseException path
     pure $ jsonRes ^. Wreq.responseBody
 
