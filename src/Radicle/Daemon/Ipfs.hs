@@ -32,6 +32,7 @@ import qualified Radicle.Ipfs as Ipfs
 -- * Types
 
 newtype JsonValue = JsonValue { jsonValue :: Value }
+  deriving (Show)
 
 instance Aeson.FromJSON JsonValue where
   parseJSON = Aeson.withText "JsonValue" $ \t -> do
@@ -48,7 +49,7 @@ newtype MachineId = MachineId { getMachineId :: Text }
 
 -- | Messages sent on a machine's IPFS pubsub topic.
 data Message = New NewInputs | Req ReqInputs
-    deriving (Generic)
+    deriving (Show, Generic)
 
 -- TODO(james): write these by hand to conform to the spec.
 instance Aeson.FromJSON Message
@@ -58,7 +59,7 @@ instance Aeson.ToJSON Message
 data NewInputs = NewInputs
   { nonce   :: Maybe Text
   , results :: [JsonValue]
-  } deriving (Generic)
+  } deriving (Show, Generic)
 
 instance Aeson.FromJSON NewInputs
 instance Aeson.ToJSON NewInputs
@@ -68,7 +69,7 @@ instance Aeson.ToJSON NewInputs
 data ReqInputs = ReqInputs
   { nonce       :: Text
   , expressions :: [JsonValue]
-  } deriving (Generic)
+  } deriving (Show, Generic)
 
 instance Aeson.FromJSON ReqInputs
 instance Aeson.ToJSON ReqInputs

@@ -208,7 +208,9 @@ query id (Expression (JsonValue v)) = do
   m <- loadPinSubscribe id
   case fst <$> runIdentity $ runLang (chainState m) $ eval v of
     Left err -> throwError (InvalidInput err)
-    Right rv -> pure (Expression (JsonValue rv))
+    Right rv -> do
+      logInfo "Query was success:" [("result", renderCompactPretty rv)]
+      pure (Expression (JsonValue rv))
 
 -- | Write a new expression to an IPFS machine.
 send :: MachineId -> Expressions -> Daemon SendResult
@@ -281,12 +283,14 @@ initAsReader id = do
   where
     onMsg :: Message -> Daemon ()
     onMsg = \case
-      New NewInputs{..} -> do
+      msg@(New NewInputs{..}) -> do
+        logMsg msg
         m_ <- lookupMachine id
         case m_ of
           Nothing -> logErr "Subscribed for changes on a non-loaded machine" [("id", getMachineId id)]
-          Just m  -> refreshAsReader m >> pure ()
-      _ -> pure ()
+          Just m -> refreshAsReader m >> pure ()
+      msg -> logMsg msg
+    logMsg m = logInfo "Got pubsub message" [("id", getMachineId id), ("message", show m)]
 
 daemonHandler :: Env -> (Message -> Daemon ()) -> Message -> IO ()
 daemonHandler env h msg = do
