@@ -29,7 +29,7 @@ import qualified Radicle.Internal.CLI as Local
 
 -- * Types
 
--- TODO(james): Decide if there is a protocol prefix
+-- TODO(james): Decide if there is a protocol prefix.
 instance FromHttpApiData MachineId where
   parseUrlPiece = Right . MachineId . toS . URL.urlDecode False . toS
   parseQueryParam = parseUrlPiece
@@ -109,23 +109,6 @@ newtype Daemon a = Daemon { fromDaemon :: ExceptT Error (ReaderT Env IO) a }
 
 runDaemon :: Env -> Daemon a -> IO (Either Error a)
 runDaemon env (Daemon x) = runReaderT (runExceptT x) env
-
-withFollowFileLock :: FollowFileLock -> IO a -> IO a
-withFollowFileLock lock act = bracket
-  (takeMVar lock)
-  (const (putMVar lock ()))
-  (const act)
-
-readFollowFileIO :: FollowFileLock -> FilePath -> IO Follows
-readFollowFileIO lock ff = withFollowFileLock lock $ do
-  exists <- doesFileExist ff
-  t <- if exists
-    then readFile ff
-    else let noFollows = toS (A.encode (Map.empty :: Follows))
-         in writeFile ff noFollows $> noFollows
-  case A.decode (toS t) of
-    Nothing -> panic $ "Invalid daemon-follow file: could not decode " <> toS ff
-    Just fs -> pure fs
 
 main :: IO ()
 main = do
@@ -207,7 +190,7 @@ send id (Expressions expressions) = do
     Writer -> do
       let vs = jsonValue <$> expressions
       (_, rs) <- writeInputs m vs Nothing
-      logInfo "Send as writer success" []
+      logInfo "Send as writer success" [("id", getMachineId id)]
       pure SendResult{ results = JsonValue <$> rs }
     Reader -> do
       nonce <- liftIO $ UUID.uuid
@@ -216,17 +199,33 @@ send id (Expressions expressions) = do
             _ -> False
       -- TODO(james): decide what a good timeout is.
       asyncMsg <- liftIO $ async $ subscribeOne (chainSubscription m) 4000 isResponse
-      logInfo "About to send message to writer" []
       ipfs $ publish id (Req ReqInputs{..})
       msg_ <- liftIO $ wait asyncMsg
       case msg_ of
         Nothing -> throwError AckTimeout
         Just (New NewInputs{results}) -> do
-          logInfo "Send as reader success" []
+          logInfo "Send as reader success" [("id", getMachineId id)]
           pure SendResult{..}
         _ -> throwError $ DaemonError "Didn't filter machine topic messages correctly."
 
 -- * Helpers
+
+withFollowFileLock :: FollowFileLock -> IO a -> IO a
+withFollowFileLock lock act = bracket
+  (takeMVar lock)
+  (const (putMVar lock ()))
+  (const act)
+
+readFollowFileIO :: FollowFileLock -> FilePath -> IO Follows
+readFollowFileIO lock ff = withFollowFileLock lock $ do
+  exists <- doesFileExist ff
+  t <- if exists
+    then readFile ff
+    else let noFollows = toS (A.encode (Map.empty :: Follows))
+         in writeFile ff noFollows $> noFollows
+  case A.decode (toS t) of
+    Nothing -> panic $ "Invalid daemon-follow file: could not decode " <> toS ff
+    Just fs -> pure fs
 
 writeFollowFile :: Daemon ()
 writeFollowFile = do
