@@ -43,7 +43,7 @@ And then we could use this module with different values of `VAT`:
 
     (import (make-taxes 2/10))
     ;; We also need to import `prelude/io` to be able to use `print!`
-    (import (file-module! "rad/prelude/io.rad") :unqualified)
+    (import (file-module! "prelude/io.rad") :unqualified)
 
     (print! (string-append "100 EUR + VAT is: " (show (taxes/add-VAT 100))))
 

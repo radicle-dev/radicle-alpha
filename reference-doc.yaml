@@ -81,6 +81,7 @@ primFns:
 - dict?
 # Modules
 - file-module!
+- find-module-file!
 - import
 # State and Environment
 - pure-state

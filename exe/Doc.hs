@@ -25,7 +25,7 @@ run f = do
     txt <- readFile f
     let extensions = def { readerExtensions = githubMarkdownExtensions }
     pand <- runIOorExplode $ readMarkdown extensions txt
-    let code = T.append "(load! \"rad/prelude.rad\")" (getCode pand)
+    let code = T.append "(load! (find-module-file! \"prelude.rad\"))" (getCode pand)
     res <- runLang (replBindings []) $ interpretMany (toS f) $ code
     case res of
         (Left err, _) -> die . toS $ "Error: " ++ show err

@@ -67,7 +67,7 @@ steps:
 
       stack test :doctest
       stack test :spec
-      stack exec -- radicle test/all.rad
+      RADPATH="$(pwd)/rad" stack exec -- radicle test/all.rad
 
   - id: "Lint (weeder)"
     waitFor: ["Build"]
@@ -87,7 +87,7 @@ steps:
       set -euxo pipefail
 
       mv docs/source/reference.rst oldref
-      stack exec radicle-ref-doc
+      RADPATH="$(pwd)/rad" stack exec radicle-ref-doc
       if ! (diff oldref docs/source/reference.rst); then
         echo "Reference docs are not checked in"
         exit 1
@@ -104,7 +104,7 @@ steps:
     - |
       set -euxo pipefail
 
-      stack exec radicle-doc docs/source/guide/Basics.lrad
+      RADPATH="$(pwd)/rad" stack exec radicle-doc docs/source/guide/Basics.lrad
 
   - id: "Build radicle-server image"
     waitFor:
@@ -171,6 +171,7 @@ steps:
     - |
       set -euxo pipefail
       export RAD_IPFS_API_URL=http://ipfs-test-network:5001
+      export RADPATH="$(pwd)/rad"
       stack test :e2e
       stack exec -- radicle test/machine-backends.rad radicle-server
 
