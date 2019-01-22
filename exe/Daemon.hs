@@ -214,24 +214,27 @@ query id (Expression (JsonValue v)) = do
 
 -- | Write a new expression to an IPFS machine.
 send :: MachineId -> Expressions -> Daemon SendResult
-send id (Expressions jvs) = do
+send id (Expressions expressions) = do
   m <- loadPinSubscribe id
   case chainMode m of
     Writer -> do
-      let vs = jsonValue <$> jvs
+      let vs = jsonValue <$> expressions
       (_, rs) <- writeInputs m vs Nothing
       logInfo "Send as writer success" []
       pure SendResult{ results = JsonValue <$> rs }
     Reader -> do
-      nonce' <- liftIO $ UUID.uuid
+      nonce <- liftIO $ UUID.uuid
       let isResponse = \case
-            New NewInputs{ nonce = Just nonce'' } | nonce'' == nonce' -> True
+            New NewInputs{ nonce = Just nonce' } | nonce' == nonce -> True
             _ -> False
       -- TODO(james): decide what a good timeout is.
-      msg_ <- liftIO $ subscribeOne (chainSubscription m) 10000 isResponse
+      asyncMsg <- liftIO $ async $ subscribeOne (chainSubscription m) 20000 isResponse
+      logInfo "About to send message to writer" []
+      ipfs $ publish id (Req ReqInputs{..})
+      msg_ <- liftIO $ wait asyncMsg
       case msg_ of
         Nothing -> throwError AckTimeout
-        Just (New NewInputs{..}) -> do
+        Just (New NewInputs{results}) -> do
           logInfo "Send as writer success" []
           pure SendResult{..}
         _ -> throwError $ DaemonError "Didn't filter machine topic messages correctly."
@@ -309,7 +312,6 @@ initAsWriter :: MachineId -> Daemon IpfsChain
 initAsWriter id = do
   m <- loadMachine Writer id
   actAsWriter m
-  logInfo "Acting as writer" [("id", getMachineId id)]
   pure m
 
 -- Loads a machine from IPFS.
@@ -370,6 +372,7 @@ actAsWriter :: IpfsChain -> Daemon ()
 actAsWriter m = do
     env <- ask
     liftIO $ addHandler (chainSubscription m) (daemonHandler env onMsg) *> pure ()
+    logInfo "Acting as writer" [("id", getMachineId id)]
   where
     id = chainName m
     onMsg = \case
