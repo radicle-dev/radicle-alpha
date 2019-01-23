@@ -9,10 +9,11 @@ import           Protolude
 import           Data.List (isPrefixOf)
 import           Data.String (String)
 import qualified Data.Text as T
+import           Data.Version (showVersion)
 import           System.Directory
 import qualified System.Posix.Process as Posix
 
-import           Paths_radicle (getBinDir)
+import           Paths_radicle (getBinDir, version)
 
 -- | All command filenames are prefixed with this.
 radPrefix :: String
@@ -26,7 +27,7 @@ runCommand [] = do
     putStrLn @Text "Available rad commands:"
     putStr $ T.unlines $ ["   " <> T.pack c | c <- cmds]
 runCommand ("version":_) =
-    putStrLn ("rad version 1.0" :: Text)
+    putStrLn ("rad version " <> toS (showVersion version) :: Text)
 runCommand ("help":_) =
     runCommand []
 runCommand ("--help":_) =
