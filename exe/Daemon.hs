@@ -26,8 +26,6 @@ import qualified Radicle.Internal.CLI as Local
 -- TODO(james): Check that the IPFS functions are doing all the
 -- necessary pinning.
 
--- TODO(james): There is no polling yet.
-
 -- * Types
 
 -- TODO(james): Decide if there is a protocol prefix.
@@ -122,6 +120,7 @@ main = do
     let env = Env{..}
     follows <- readFollowFileIO followFileLock followFile
     initRes <- runDaemon env $ traverse_ init (Map.toList follows)
+    _ <- liftIO $ forkIO $ runDaemon env initPolling >> pure () -- TODO(james): errors
     case initRes of
       Left err -> panic $ "Failed to initialise: " <> show err
       Right _ -> do
@@ -183,6 +182,7 @@ newMachine = do
 query :: MachineId -> Expression -> Daemon Expression
 query id (Expression (JsonValue v)) = do
   m <- checkMachineLoaded id
+  bumpPolling id
   case fst <$> runIdentity $ runLang (chainState m) $ eval v of
     Left err -> throwError (InvalidInput err)
     Right rv -> do
@@ -199,7 +199,10 @@ send id (Expressions expressions) = do
       rs <- writeInputs id vs Nothing
       logInfo "Send as writer success" [("id", getMachineId id)]
       pure SendResult{ results = JsonValue <$> rs }
-    Just (Reader, sub) -> requestInput sub
+    Just (Reader, sub) -> do
+      res <- requestInput sub
+      bumpPolling id
+      pure res
     Nothing -> do
       m <- initAsReader id
       requestInput (chainSubscription m)
@@ -219,7 +222,7 @@ send id (Expressions expressions) = do
           logInfo "Send as reader success" [("id", getMachineId id)]
           pure SendResult{..}
         _ -> throwError $ DaemonError "Didn't filter machine topic messages correctly."
-    machineMode :: Daemon (Maybe (ReaderOrWriter, TopicSubscription))
+
     machineMode = fmap (liftA2 (,) chainMode chainSubscription) <$> lookupMachine id
 
 -- * Helpers
@@ -268,7 +271,12 @@ checkMachineLoaded id = do
       pure m
     Just m -> case chainMode m of
       Writer -> pure m
-      Reader -> refreshAsReader id
+      Reader -> do
+        delta <- sinceLastUpdate m
+        -- If machine is half a second fresh, then return it.
+        if delta < 500
+          then pure m
+          else refreshAsReader id
 
 daemonHandler :: Env -> MachineId -> (Message -> Daemon ()) -> Message -> IO ()
 daemonHandler env id h msg = do
@@ -312,10 +320,12 @@ addInputs is getIdx after m =
     Left err -> Daemon $ ExceptT $ pure $ Left $ InvalidInput err
     Right (rs, newState) -> do
       idx <- getIdx
+      t <- liftIO $ Time.getSystemTime
       let news = Seq.fromList $ zip is rs
           m' = m { chainState = newState
                  , chainLastIndex = Just idx
                  , chainEvalPairs = chainEvalPairs m Seq.>< news
+                 , chainLastUpdated = t
                  }
       after rs
       pure (m', rs)
@@ -324,8 +334,9 @@ ipfs :: ExceptT Text IO a -> Daemon a
 ipfs = Daemon . mapExceptT (lift . fmap (first IpfsError))
 
 -- Do some high-freq polling for a while.
-bumpPolling :: IpfsMachine -> IO ()
-bumpPolling _ = pure () -- TODO(james):
+bumpPolling :: MachineId -> Daemon ()
+bumpPolling id = modifyMachine id $
+  \m' -> pure (m' { chainPolling = highFreq }, () )
 
 -- Insert a new machine into the cache. Errors if the machine is
 -- already cached.
@@ -370,9 +381,9 @@ emptyMachine id mode sub = do
             , chainPolling = highFreq
             }
 
--- TODO(james): decide on a polling frequency
+-- | High frequency polling lasts for 10 mins.
 highFreq :: Polling
-highFreq = HighFreq 10
+highFreq = HighFreq (10 * 1000)
 
 -- ** Reader
 
@@ -383,22 +394,23 @@ initAsReader id = do
     env <- ask
     _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env id onMsg)
     logInfo "Following as reader" [("id", getMachineId id)]
-    liftIO $ bumpPolling m
     pure m
   where
     onMsg :: Message -> Daemon ()
     onMsg = \case
-      New NewInputs{..} -> refreshAsReader id >> pure ()
+      New NewInputs{..} -> do
+        _ <- refreshAsReader id
+        bumpPolling id
       _ -> pure ()
 
 -- Freshen up a cached machine.
 refreshAsReader :: MachineId -> Daemon IpfsMachine
 refreshAsReader id = do
-  m <- modifyMachine id $ \m -> do
+  (m, n) <- modifyMachine id $ \m -> do
     (idx, is) <- ipfs $ machineInputsFrom (chainName m) (chainLastIndex m)
     (m', _) <- addInputs is (pure idx) (const (pure ())) m
-    pure (m', m')
-  liftIO $ bumpPolling m
+    pure (m', (m', length is))
+  logInfo "Refreshed as reader" [("id", getMachineId id), ("n", show n)]
   pure m
 
 -- ** Writer
@@ -434,36 +446,40 @@ writeInputs id is nonce = modifyMachine id $ addInputs is write pub
 
 poll :: Daemon ()
 poll = do
+    logInfo "Polling.." []
     msVar <- asks machines
     ms <- liftIO $ readMVar (getChains msVar)
-    t <- liftIO Time.getSystemTime
-    traverse_ (pollMachine t) ms
+    traverse_ pollMachine ms
   where
-    pollMachine :: Time.SystemTime -> IpfsMachine -> Daemon ()
-    pollMachine t Chain{chainMode = Reader, ..} = do
-      let delta = timeDelta chainLastUpdated t
+    pollMachine :: IpfsMachine -> Daemon ()
+    pollMachine m@Chain{chainMode = Reader, ..} = do
+      delta <- sinceLastUpdate m
+      logInfo "delta" [("delta", show delta)]
       let (shouldPoll, newPoll) =
             case chainPolling of              
               HighFreq more ->
-                let more' = delta - more
+                let more' = more - delta
                 in if more' > 0
                    then (True, HighFreq more')
                    else (False, LowFreq)
-              LowFreq -> (True, LowFreq)
-      if shouldPoll
-        then do _ <- refreshAsReader chainName
-                modifyMachine chainName $ \m ->
-                  pure (m { chainLastUpdated = t
-                          , chainPolling = newPoll
-                          }
-                       , ()
-                       )
-        else pure ()
-    pollMachine _ _ = pure ()
-    timeDelta (Time.MkSystemTime s _) (Time.MkSystemTime s' _) = s' - s
+              -- Low frequency polling is every 10 seconds.
+              LowFreq -> (delta > 10000, LowFreq)
+      when shouldPoll $ refreshAsReader chainName >> pure ()
+      modifyMachine chainName $ \m' -> pure (m' { chainPolling = newPoll }, () )
+    pollMachine _ = pure ()
+
+sinceLastUpdate :: IpfsMachine -> Daemon Int64
+sinceLastUpdate m = do
+    t <- liftIO Time.getSystemTime
+    pure $ timeDelta (chainLastUpdated m) t
+  where
+    timeDelta x y =
+      case (Time.truncateSystemTimeLeapSecond x, Time.truncateSystemTimeLeapSecond y) of
+        (Time.MkSystemTime s n, Time.MkSystemTime s' n') -> 1000 * (s' - s) + fromIntegral (n' - n) `div` 1000000
 
 initPolling :: Daemon ()
 initPolling = do
-  liftIO $ threadDelay 1000000
+  -- High frequency polling is every 2 seconds.
+  liftIO $ threadDelay 2000000
   poll
   initPolling

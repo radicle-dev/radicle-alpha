@@ -78,7 +78,7 @@ insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
         Nothing -> do
             logInfo "Creating new machine" [("machine", name)]
             t <- Time.getSystemTime
-            pure $ Chain name pureEnv mempty Nothing Writer () t
+            pure $ Chain name pureEnv mempty Nothing Writer () t LowFreq
         Just chain' -> pure chain'
     case advanceChain chain vals of
         Left e  -> do
@@ -118,6 +118,7 @@ loadState conn = do
                               , chainMode = Writer
                               , chainSubscription = ()
                               , chainLastUpdated = t
+                              , chainPolling = LowFreq
                               }
                 pure (name, c)
     chains' <- newMVar $ Map.fromList chainPairs
