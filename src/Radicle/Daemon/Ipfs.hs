@@ -17,7 +17,7 @@ module Radicle.Daemon.Ipfs
 
 import           Protolude
 
-import           Control.Exception.Safe
+import           Control.Exception.Safe hiding (bracket)
 import           Control.Monad.Fail
 import           Data.Aeson ((.:), (.=))
 import qualified Data.Aeson as Aeson
@@ -188,8 +188,7 @@ subscribeOne sub timeout pr = do
   let onMsg = \case
         msg | pr msg -> putMVar var (Just msg)
         _ -> pure ()
-  h <- addHandler sub onMsg
-  _ <- forkIO (threadDelay (timeout * 1000) >> putMVar var Nothing)
-  res <- readMVar var
-  removeHandler sub h
-  pure res
+  bracket
+    (addHandler sub onMsg)
+    (removeHandler sub)
+    (const $ forkIO (threadDelay (timeout * 1000) >> putMVar var Nothing) *> readMVar var)
