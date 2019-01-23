@@ -7,63 +7,65 @@
 (import prelude/validation :as 'validation)
 
 (def parse-failure
- (fn [error help]
-   (put-str! error)
-   (put-str! help)
-   (exit! 1)
- ))
+  "Prints the passed error message and help text and exits."
+  (fn [error help]
+    (put-str! error)
+    (put-str! help)
+    (exit! 1)))
 
- (def missing-arg-error
-   (fn [arg cmd]
-     (string-append "Missing argument \"" (show arg) "\" for command \"" cmd "\"")))
+(def missing-arg-error
+  (fn [arg cmd]
+    (string-append "Missing argument \"" (show arg) "\" for command \"" cmd "\"")))
 
- (def too-many-args-error
-   (fn [cmd]
-     (string-append "Too many arguments for command \"" cmd "\"")))
+(def too-many-args-error
+  (fn [cmd]
+    (string-append "Too many arguments for command \"" cmd "\"")))
 
 (def /cmd-2-opts
-  (fn [cmd chain-name opts valid-opts opts-map help]
+  "Matches a command `cmd` with one argument and an optional
+  combination of options from `valid-opts`."
+  (fn [cmd arg-1 opts valid-opts opts-map help]
     (fn [v]
       (match v
         [cmd] (parse-failure (string-append "Missing arguments for command " cmd) help)
         (/cons cmd (/cons 'c-n 'os)) (if (member? c-n valid-opts)
-                                       (parse-failure (missing-arg-error chain-name cmd) help)
-                                       [:just {chain-name c-n
+                                       (parse-failure (missing-arg-error arg-1 cmd) help)
+                                       [:just {arg-1 c-n
                                                opts    (opts-map os)}])
         _ :nothing))))
 
 (def /cmd-2
- (fn [cmd arg-1 arg-2 help]
-   ((validation/type :string) cmd)
-   ((validation/type :atom) arg-1)
-   ((validation/type :atom) arg-2)
-   (fn [value]
-     (match value
-            [cmd 'a-1 'a-2] (match-pat [arg-1 arg-2] [a-1 a-2])
-            [cmd _] (parse-failure (missing-arg-error arg-2 cmd) help)
-            [cmd] (parse-failure (missing-arg-error arg-1 cmd) help)
-            (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
-            _ :nothing)
-     )))
+  "Matches a command `cmd` with exactly two arguments."
+  (fn [cmd arg-1 arg-2 help]
+    ((validation/type :string) cmd)
+    ((validation/type :atom) arg-1)
+    ((validation/type :atom) arg-2)
+    (fn [value]
+      (match value
+        [cmd 'a-1 'a-2] (match-pat [arg-1 arg-2] [a-1 a-2])
+        [cmd _] (parse-failure (missing-arg-error arg-2 cmd) help)
+        [cmd] (parse-failure (missing-arg-error arg-1 cmd) help)
+        (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
+        _ :nothing))))
 
 (def /cmd-1
- (fn [cmd cmd-args-pat help]
-   ((validation/type :string) cmd)
-   ((validation/type :atom) cmd-args-pat)
-   (fn [value]
-     (match value
-       [cmd 'cmd-args] (match-pat cmd-args-pat cmd-args)
-       [cmd] (parse-failure (missing-arg-error cmd-args-pat cmd) help)
-       (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
-       _ :nothing)
-   )))
+  "Matches a command `cmd` with exactly one arguments."
+  (fn [cmd cmd-args-pat help]
+    ((validation/type :string) cmd)
+    ((validation/type :atom) cmd-args-pat)
+    (fn [value]
+      (match value
+        [cmd 'cmd-args] (match-pat cmd-args-pat cmd-args)
+        [cmd] (parse-failure (missing-arg-error cmd-args-pat cmd) help)
+        (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
+        _ :nothing))))
 
 (def /cmd-0
- (fn [cmd help]
-   ((validation/type :string) cmd)
-   (fn [value]
+  "Matches a command `cmd` with no other arguments."
+  (fn [cmd help]
+    ((validation/type :string) cmd)
+    (fn [value]
      (match value
        [cmd] [:just {}]
        (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
-       _ :nothing)
-   )))
+       _ :nothing))))
