@@ -204,3 +204,4 @@ language_extensions:
   - TypeFamilies
   - TypeOperators
   - NamedFieldPuns
+  - TypeApplications
