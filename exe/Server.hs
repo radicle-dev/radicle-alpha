@@ -8,6 +8,7 @@ import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Time.Clock.System as Time
 import           Database.PostgreSQL.Simple
                  (ConnectInfo(..), Connection, connect)
 import           Network.Wai.Handler.Warp (run)
@@ -76,7 +77,8 @@ insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
     chain <- case maybeChain of
         Nothing -> do
             logInfo "Creating new machine" [("machine", name)]
-            pure $ Chain name pureEnv mempty Nothing Writer ()
+            t <- Time.getSystemTime
+            pure $ Chain name pureEnv mempty Nothing Writer () t
         Just chain' -> pure chain'
     case advanceChain chain vals of
         Left e  -> do
@@ -108,12 +110,14 @@ loadState conn = do
                 logInfo "Failed to load machine" [("machine", name)]
                 panic $ show err
             (Right pairs, st') -> do
+                t <- Time.getSystemTime
                 let c = Chain { chainName = name
                               , chainState = st'
                               , chainEvalPairs = pairs
                               , chainLastIndex = Just $ Seq.length pairs - 1
                               , chainMode = Writer
                               , chainSubscription = ()
+                              , chainLastUpdated = t
                               }
                 pure (name, c)
     chains' <- newMVar $ Map.fromList chainPairs

@@ -2,7 +2,7 @@
 
 module Daemon where
 
-import           Protolude hiding (fromStrict, option)
+import           Protolude hiding (fromStrict, option, poll)
 
 import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
@@ -10,6 +10,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Network.HTTP.Types.URI as URL
 import           Network.Wai.Handler.Warp (run)
+import qualified Data.Time.Clock.System as Time
 import           Options.Applicative
 import           Servant
 import           System.Directory (doesFileExist)
@@ -172,7 +173,7 @@ newMachine = do
   id <- ipfs createMachine
   sub <- ipfs $ initSubscription id
   logInfo "Created new IPFS machine" [("id", getMachineId id)]
-  let m = emptyMachine id Writer sub
+  m <- liftIO $ emptyMachine id Writer sub
   insertNewMachine m
   actAsWriter m
   writeFollowFile
@@ -290,7 +291,7 @@ loadMachine :: ReaderOrWriter -> MachineId -> Daemon IpfsMachine
 loadMachine mode id = do
   (idx, is) <- ipfs $ machineInputsFrom id Nothing
   sub <- ipfs $ initSubscription id
-  let m = emptyMachine id mode sub
+  m <- liftIO $ emptyMachine id mode sub
   (m', _) <- addInputs is (pure idx) (const (pure ())) m
   insertNewMachine m'
   pure m'
@@ -356,15 +357,22 @@ modifyMachine id f = do
       Left err -> throwError err
       Right y-> pure y
 
-emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IpfsMachine
-emptyMachine id mode sub =
-  Chain{ chainName = id
-       , chainState = pureEnv
-       , chainEvalPairs = mempty
-       , chainLastIndex = Nothing
-       , chainMode = mode
-       , chainSubscription = sub
-       }
+emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IO IpfsMachine
+emptyMachine id mode sub = do
+  t <- Time.getSystemTime
+  pure Chain{ chainName = id
+            , chainState = pureEnv
+            , chainEvalPairs = mempty
+            , chainLastIndex = Nothing
+            , chainMode = mode
+            , chainSubscription = sub
+            , chainLastUpdated = t
+            , chainPolling = highFreq
+            }
+
+-- TODO(james): decide on a polling frequency
+highFreq :: Polling
+highFreq = HighFreq 10
 
 -- ** Reader
 
@@ -421,3 +429,41 @@ writeInputs id is nonce = modifyMachine id $ addInputs is write pub
   where
     write = ipfs $ writeIpfs id is
     pub rs = ipfs $ publish id (New NewInputs{results = JsonValue <$> rs, ..})
+
+-- * Polling
+
+poll :: Daemon ()
+poll = do
+    msVar <- asks machines
+    ms <- liftIO $ readMVar (getChains msVar)
+    t <- liftIO Time.getSystemTime
+    traverse_ (pollMachine t) ms
+  where
+    pollMachine :: Time.SystemTime -> IpfsMachine -> Daemon ()
+    pollMachine t Chain{chainMode = Reader, ..} = do
+      let delta = timeDelta chainLastUpdated t
+      let (shouldPoll, newPoll) =
+            case chainPolling of              
+              HighFreq more ->
+                let more' = delta - more
+                in if more' > 0
+                   then (True, HighFreq more')
+                   else (False, LowFreq)
+              LowFreq -> (True, LowFreq)
+      if shouldPoll
+        then do _ <- refreshAsReader chainName
+                modifyMachine chainName $ \m ->
+                  pure (m { chainLastUpdated = t
+                          , chainPolling = newPoll
+                          }
+                       , ()
+                       )
+        else pure ()
+    pollMachine _ _ = pure ()
+    timeDelta (Time.MkSystemTime s _) (Time.MkSystemTime s' _) = s' - s
+
+initPolling :: Daemon ()
+initPolling = do
+  liftIO $ threadDelay 1000000
+  poll
+  initPolling

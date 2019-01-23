@@ -143,6 +143,7 @@ executables:
     - warp
     - wai-extra
     - wai-cors
+    - time
     ghc-options: -main-is Server
 
   radicle-daemon:
@@ -161,7 +162,7 @@ executables:
     - servant-server
     - text
     - warp
-    - async
+    - time
     ghc-options: -main-is Daemon
 
   radicle-doc:

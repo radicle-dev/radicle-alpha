@@ -1,5 +1,6 @@
 module Server.Common
   ( ReaderOrWriter(..)
+  , Polling(..)
   , Chain(..)
   , Chains(..)
   , logInfo
@@ -12,11 +13,14 @@ import           Protolude hiding (log)
 import qualified Data.Aeson as A
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
+import qualified Data.Time.Clock.System as Time
 
 import           Radicle
 
 data ReaderOrWriter = Reader | Writer
   deriving (Generic)
+
+data Polling = HighFreq Int64 | LowFreq
 
 instance A.ToJSON ReaderOrWriter
 instance A.FromJSON ReaderOrWriter
@@ -28,6 +32,8 @@ data Chain id idx subs = Chain
     , chainLastIndex    :: Maybe idx
     , chainMode         :: ReaderOrWriter
     , chainSubscription :: subs
+    , chainLastUpdated  :: Time.SystemTime
+    , chainPolling      :: Polling
     } deriving (Generic)
 
 -- For efficiency we might want keys to also be mvars, but efficiency doesn't
