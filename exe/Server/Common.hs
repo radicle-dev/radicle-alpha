@@ -16,6 +16,7 @@ import qualified Data.Text as T
 import qualified Data.Time.Clock.System as Time
 
 import           Radicle
+import qualified Radicle.Internal.ConcurrentMap as CMap
 
 data ReaderOrWriter = Reader | Writer
   deriving (Generic)
@@ -36,9 +37,7 @@ data Chain id idx subs = Chain
     , chainPolling      :: Polling
     } deriving (Generic)
 
--- For efficiency we might want keys to also be mvars, but efficiency doesn't
--- matter for a test server.
-newtype Chains id idx subs = Chains { getChains :: MVar (Map id (Chain id idx subs)) }
+newtype Chains id idx subs = Chains { getChains :: CMap.CMap id (Chain id idx subs) }
 
 -- | Log a message to @stdout@.
 --

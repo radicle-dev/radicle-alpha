@@ -21,6 +21,7 @@ import           Server.Common
 import           Radicle hiding (Env)
 import           Radicle.Daemon.Ipfs
 import qualified Radicle.Internal.CLI as Local
+import qualified Radicle.Internal.ConcurrentMap as CMap
 
 
 -- TODO(james): Check that the IPFS functions are doing all the
@@ -116,7 +117,7 @@ main = do
     opts' <- execParser allOpts
     followFileLock <- newMVar ()
     followFile <- Local.getRadicleFile (toS (filePrefix opts') <> "daemon-follows")
-    machines <- Chains <$> newMVar Map.empty
+    machines <- Chains <$> CMap.empty
     let env = Env{..}
     follows <- readFollowFileIO followFileLock followFile
     initRes <- runDaemon env $ traverse_ init (Map.toList follows)
@@ -244,18 +245,17 @@ readFollowFileIO lock ff = withFollowFileLock lock $ do
 writeFollowFile :: Daemon ()
 writeFollowFile = do
   lock <- asks followFileLock
-  Chains msVar <- asks machines
+  Chains cMap <- asks machines
   ff <- asks followFile
   liftIO $ withFollowFileLock lock $ do
-    ms <- takeMVar msVar
+    ms <- CMap.nonAtomicRead cMap
     let fs = Map.fromList $ second chainMode <$> Map.toList ms
     writeFile ff (toS $ A.encode fs)
 
 lookupMachine :: MachineId -> Daemon (Maybe IpfsMachine)
 lookupMachine id = do
   msVar <- asks machines
-  ms <- liftIO $ readMVar (getChains msVar)
-  pure (Map.lookup id ms)
+  liftIO $ CMap.lookup id (getChains msVar)
 
 -- | Given an 'MachineId', makes sure the machine is in the cache and
 -- updated.
@@ -343,11 +343,10 @@ bumpPolling id = modifyMachine id $
 insertNewMachine :: IpfsMachine -> Daemon ()
 insertNewMachine m = do
     msVar <- asks machines
-    inserted <- liftIO $ modifyMVar (getChains msVar) $ \ms ->
-      if Map.member id ms
-      then pure (ms, False)
-      else pure (Map.insert id m ms, True)
-    if inserted then pure () else throwError MachineAlreadyCached
+    inserted_ <- liftIO $ CMap.insertNew id m (getChains msVar)
+    case inserted_ of
+      Just () -> pure ()
+      Nothing -> throwError MachineAlreadyCached
   where
     id = chainName m
 
