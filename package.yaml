@@ -108,9 +108,6 @@ executables:
     - directory
     - unix
     - text
-    when:
-      - condition: impl(ghcjs)
-        buildable: false
     ghc-options: -main-is Rad -O3 -threaded
 
   radicle:
