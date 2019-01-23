@@ -355,17 +355,15 @@ insertNewMachine m = do
 modifyMachine :: MachineId -> (IpfsMachine -> Daemon (IpfsMachine, a)) -> Daemon a
 modifyMachine id f = do
     env <- ask
-    res <- liftIO $ modifyMVar (getChains (machines env)) $ \ms ->
-      case Map.lookup id ms of
-        Nothing -> pure (ms, Left MachineNotCached)
-        Just m -> do
-          x <- runDaemon env (f m)
-          pure $ case x of
-            Left err -> (ms, Left err)
-            Right (m', y) -> (Map.insert id m' ms, Right y) 
+    res <- liftIO $ CMap.modifyExistingValue id (getChains (machines env)) $ \m -> do
+      x <- runDaemon env (f m)
+      pure $ case x of
+        Left err -> (m, Left err)
+        Right (m', y) -> (m', Right y)
     case res of
-      Left err -> throwError err
-      Right y-> pure y
+      Nothing -> throwError MachineNotCached
+      Just (Left err) -> throwError err
+      Just (Right y) -> pure y
 
 emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IO IpfsMachine
 emptyMachine id mode sub = do
@@ -445,9 +443,8 @@ writeInputs id is nonce = modifyMachine id $ addInputs is write pub
 
 poll :: Daemon ()
 poll = do
-    logInfo "Polling.." []
     msVar <- asks machines
-    ms <- liftIO $ readMVar (getChains msVar)
+    ms <- liftIO $ CMap.nonAtomicRead (getChains msVar)
     traverse_ pollMachine ms
   where
     pollMachine :: IpfsMachine -> Daemon ()

@@ -48,11 +48,11 @@ insertNew k v (CMap m_) = modifyMVar m_ $ \m ->
 
 -- | Atomically modifies a value associated to a key but only if it
 -- exists.
-modifyExistingValue :: Ord k => k -> (v -> IO v) -> CMap k v -> IO (Maybe ())
-modifyExistingValue k f (CMap m_) = do
+modifyExistingValue :: Ord k => k -> CMap k v -> (v -> IO (v, a)) -> IO (Maybe a)
+modifyExistingValue k (CMap m_) f = do
   m <- readMVar m_
   case Map.lookup k m of
     Nothing -> pure Nothing
     Just v_ -> do
-      modifyMVar_ v_ f
-      pure (Just ())
+      x <- modifyMVar v_ f
+      pure (Just x)
