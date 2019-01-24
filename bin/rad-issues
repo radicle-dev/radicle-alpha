@@ -3,6 +3,7 @@
 (load! "rad/prelude.rad")
 (load! "rad/monadic/issues.rad")
 (load! "rad/prelude/io-utils.rad")
+(load! "rad/prelude/cmd-parsing.rad")
 
 (import prelude/validation :as 'validation)
 
@@ -35,6 +36,10 @@
 
    If <chain-name> begins with 'http://', that URL will be used. Otherwise,
   " base-name " will be prepended to <chain-name>." ))
+
+(def cmd-parse-failure
+  (fn [error]
+    (parse-failure error help)))
 
 (def make-name
   (fn [chain]
@@ -215,49 +220,6 @@
 
 (init-file-dict! ".radicle-issues")
 
-(def cmd-parse-failure
-  (fn [error]
-    (put-str! error)
-    (put-str! help)
-    (exit! 1)
-  ))
-
-(def /cmd-1
-  (fn [cmd cmd-args-pat]
-    ((validation/type :string) cmd)
-    ((validation/type :atom) cmd-args-pat)
-    (fn [value]
-      (match value
-        [cmd 'cmd-args] (match-pat cmd-args-pat cmd-args)
-        [cmd] (cmd-parse-failure (string-append "Missing argument \"" (show cmd-args-pat) "\" for command \"" cmd "\""))
-        (/cons cmd _) (cmd-parse-failure (string-append "Too many arguments for command \"" cmd "\""))
-        _ :nothing)
-    )))
-
-(def /cmd-2
-  (fn [cmd arg-1 arg-2]
-    ((validation/type :string) cmd)
-    ((validation/type :atom) arg-1)
-    ((validation/type :atom) arg-2)
-    (fn [value]
-      (match value
-             [cmd 'a-1 'a-2] (match-pat [arg-1 arg-2] [a-1 a-2])
-             [cmd _] (cmd-parse-failure (string-append "Missing argument \"" (show arg-2) "\" for command \"" cmd "\""))
-             [cmd] (cmd-parse-failure (string-append "Missing argument \"" (show arg-1) "\" for command \"" cmd "\""))
-             (/cons cmd _) (cmd-parse-failure (string-append "Too many arguments for command \"" cmd "\""))
-             _ :nothing)
-      )))
-
-(def /cmd-0
-  (fn [cmd]
-    ((validation/type :string) cmd)
-    (fn [value]
-      (match value
-        [cmd] [:just {}]
-        (/cons cmd _) (cmd-parse-failure (string-append "Too many arguments for command \"" cmd "\""))
-        _ :nothing)
-    )))
-
 (def valid-list-options
   ["--new" "--open" "--closed"])
 
@@ -271,25 +233,18 @@
            os)))
 
 (def /list-cmd
-  (fn [ch-name opts]
-    (fn [v]
-      (match v
-             ["list"] (cmd-parse-failure "Missing arguments for command \"list\"")
-             (/cons "list" (/cons 'c-n 'os)) (if (member? c-n valid-list-options)
-                                               (cmd-parse-failure "Missing \"chain-name\" argument for command \"list\"")
-                                               [:just {ch-name c-n
-                                                       opts    (list-options os)}])
-             _ :nothing))))
+  (fn [chain-name opts]
+    (/cmd-2-opts "list" chain-name opts valid-list-options list-options help)))
 
 (def args (get-args!))
 (match args
   (/list-cmd 'chain-name 'options) (list-items chain-name options)
-  (/cmd-0 "names") (names)
-  (/cmd-1 "make-key" 'nick) (make-key nick)
-  (/cmd-1 "new" 'chain-name) (new-issue chain-name)
-  (/cmd-1 "create-chain" 'chain-name) (create-chain chain-name)
-  (/cmd-2 "close" 'issue-number 'chain-name) (close-issue issue-number chain-name)
-  (/cmd-0 "done") (mark-last-seen)
+  (/cmd-0 "names" help) (names)
+  (/cmd-1 "make-key" 'nick help) (make-key nick)
+  (/cmd-1 "new" 'chain-name help) (new-issue chain-name)
+  (/cmd-1 "create-chain" 'chain-name help) (create-chain chain-name)
+  (/cmd-2 "close" 'issue-number 'chain-name help) (close-issue issue-number chain-name)
+  (/cmd-0 "done" help) (mark-last-seen)
   ["help"] (put-str! help)
   ["-h"] (put-str! help)
   ["--help"] (put-str! help)
