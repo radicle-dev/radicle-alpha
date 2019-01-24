@@ -245,19 +245,20 @@
 
 (def pure-prelude-files
   "List of files which together define the pure prelude."
-  ["rad/prelude/basic.rad"
-   "rad/prelude/patterns.rad"
-   "rad/prelude/strings.rad"
-   "rad/prelude/dict.rad"
-   "rad/prelude/bool.rad"
-   "rad/prelude/maybe.rad"
-   "rad/prelude/list.rad"
-   "rad/prelude/set.rad"
-   "rad/prelude/ref.rad"
-   "rad/prelude/lens.rad"
-   "rad/prelude/state-machine.rad"
-   "rad/prelude/validation.rad"
-   "rad/prelude/util.rad"])
+  (map find-module-file!
+    ["prelude/basic.rad"
+     "prelude/patterns.rad"
+     "prelude/strings.rad"
+     "prelude/dict.rad"
+     "prelude/bool.rad"
+     "prelude/maybe.rad"
+     "prelude/list.rad"
+     "prelude/set.rad"
+     "prelude/ref.rad"
+     "prelude/lens.rad"
+     "prelude/state-machine.rad"
+     "prelude/validation.rad"
+     "prelude/util.rad"]))
 
 (def file-to-module
   "Make the text of a file into code for a module."
@@ -266,7 +267,7 @@
 
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new chain."
-  (<> [(file-to-module "rad/prelude/test-eval.rad")
+  (<> [(file-to-module (find-module-file! "prelude/test-eval.rad"))
        '(import prelude/test-eval '[eval tests] :unqualified)]
       (map file-to-module pure-prelude-files)))
 

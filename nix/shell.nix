@@ -13,7 +13,7 @@ in
 
 stdenv.mkDerivation {
     name = "radicle-dev";
-    buildInputs = [ ghc zlib glibcLocales python3 wget stack postgresql moreutils fzf]
+    buildInputs = [ ghc zlib glibcLocales python3 wget stack postgresql moreutils fzf docker_compose]
       ++ (if doc then [docstuffs postgresql] else [])
       ++ (if extras then [ vimPlugins.stylish-haskell haskellPackages.apply-refact hlint ] else []);
     LANG = "en_US.UTF-8";

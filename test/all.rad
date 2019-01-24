@@ -3,10 +3,10 @@
 ;; Run all tests defined in the prelude and print their results with
 ;; TAP. Exit with status code 1 if any of the tests fail.
 
-(load! "rad/tests/stub-primitives.rad")
-(load! "rad/prelude.rad")
-(load! "rad/monadic/issues.rad")
-(load! "rad/monadic/names.rad")
+(load! (find-module-file! "tests/stub-primitives.rad"))
+(load! (find-module-file! "prelude.rad"))
+(load! (find-module-file! "monadic/issues.rad"))
+(load! (find-module-file! "monadic/names.rad"))
 
 (import prelude/test)
 

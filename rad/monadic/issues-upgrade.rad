@@ -1,4 +1,4 @@
-(load! "rad/monadic/issues.rad")
+(load! (find-module-file! "monadic/issues.rad"))
 
 (import prelude/chain :unqualified)
 

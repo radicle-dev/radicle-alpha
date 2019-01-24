@@ -1,9 +1,9 @@
 #!/usr/bin/env radicle
 
-(load! "rad/prelude.rad")
-(load! "rad/monadic/issues.rad")
-(load! "rad/prelude/io-utils.rad")
-(load! "rad/prelude/cmd-parsing.rad")
+(load! (find-module-file! "prelude.rad"))
+(load! (find-module-file! "monadic/issues.rad"))
+(load! (find-module-file! "prelude/io-utils.rad"))
+(load! (find-module-file! "prelude/cmd-parsing.rad"))
 
 (import prelude/validation :as 'validation)
 
@@ -105,7 +105,7 @@
   (fn [chain options]
 
     (def chain-ref (make-chain-ref chain))
-    (load! "rad/monadic/names.rad")
+    (load! (find-module-file! "rad/monadic/names.rad"))
     (def names (ref (chain/load-chain! name-base)))
     (def add-username
       (fn [d]

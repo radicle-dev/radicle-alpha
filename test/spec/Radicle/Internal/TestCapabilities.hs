@@ -92,7 +92,7 @@ sourceFiles = do
     absPaths <- FP.find FP.always (FP.extension FP.==? ".rad") dir
     filesWithContent <- forM absPaths $ \absPath -> do
         contents <- readFile absPath
-        let path = drop (length dir + 1) absPath
+        let path = drop (length dir + 5) absPath
         pure (toS path, contents)
     pure $ Map.fromList filesWithContent
 
@@ -141,6 +141,11 @@ instance {-# OVERLAPPING #-} ReadFile TestLang where
     case Map.lookup fn fs of
         Just f  -> pure $ Right f
         Nothing -> throwErrorHere . OtherError $ "File not found: " <> fn
+
+instance {-# OVERLAPPING #-} FileModule TestLang where
+  fileModuleS fn = do
+    fs <- lift $ gets worldStateFiles
+    pure $ if Map.member fn fs then Just fn else Nothing
 
 instance Monad m => MonadRandom (StateT WorldState m) where
     getRandomBytes i = do
