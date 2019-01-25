@@ -2,9 +2,9 @@
  :doc "Functions for simulating remote chains."
  :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval
             updatable-eval update-chain! eval-fn-app send-prelude!
-            send-code! send! receive! install-remote-chain-fake]}
+            send-code! send! receive! install-remote-chain-fake send-signed-command!]}
 
-(import prelude/io '[read-file-values!] :as 'io)
+(import prelude/io '[read-file-value! read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/lens '[make-lens .. ... view set over @ @def] :unqualified)
 (import prelude/basic :unqualified)
@@ -280,3 +280,25 @@
   "Send code from a file to a remote chain."
   (fn [chain-id filename]
     (send! chain-id (io/read-file-values! filename))))
+
+(def sign-entity!
+  "Assumes a key pair is stored at `my-keys.rad`. Using that key pair, will sign a
+  dict by adding `:author` and `:signature` fields, so that it is valid
+  according to `validator/signed`, while also adding a `:nonce`."
+  (fn [e chain-id]
+    (def nonce (uuid!))
+    (def e_ (<> e {:chain-id chain-id
+                   :nonce    nonce}))
+    (def ks (io/read-file-value! (find-module-file! "../my-keys.rad")))
+    (def sig
+      (gen-signature! (lookup :private-key ks)
+                      (show e_)))
+    (<> e_
+        {:author    (lookup :public-key ks)
+         :signature sig})))
+
+(def send-signed-command!
+  "Send a command signed by the keys in `my-keys.rad`."
+  (fn [chain chain-id cmd payload]
+  (send! (lookup :url (read-ref chain))
+        [(list cmd (sign-entity! payload chain-id))])))
