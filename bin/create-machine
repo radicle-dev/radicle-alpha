@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if which jq 1>/dev/null 2>/dev/null; then
+  curl -sS -XPOST http://localhost:8909/v0/machines/new | jq --raw-output .
+else
+  curl -sS -XPOST http://localhost:8909/v0/machines/new
+fi
