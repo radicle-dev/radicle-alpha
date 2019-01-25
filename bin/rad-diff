@@ -14,10 +14,7 @@
 (def base-name "http://localhost:8000/chains/")
 
 (def make-name
-  (fn [chain]
-    (if (eq? (take 7 chain) "http://")
-        chain
-        (string-append base-name chain))))
+  (fn [chain] chain))
 
 (def make-chain-ref
   (fn [chain]

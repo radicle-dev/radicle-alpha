@@ -19,6 +19,7 @@
     (match id
       (/prefix "ipfs://" 'rest) (machine/ipfs/update! rest inputs)
       (/prefix "http://" _) (machine/eval-server/update! id inputs)
+      (/prefix "rad://" 'machine-id) (daemon/send! machine-id inputs)
       _ (throw 'unknown-machine-type (string-append "Cannot handle machine ID " id)))
   ))
 
@@ -74,6 +75,14 @@
 ;; eval-in-chain
 
 (def eval-in-chain
+  "Evaluates `expr` in the `chain` and returns a dict with the `:result` and the resulting `:chain`."
+  (fn [expr chain]
+    (match chain
+      { :daemon 'machine-id } { :result (daemon/query! machine-id expr) :chain chain }
+      _ eval-in-chain_ expr chain
+      )))
+
+(def eval-in-chain_
   "Evaluates `expr` in the `chain` and returns a dict with the `:result` and the resulting `:chain`."
   (fn [expr chain]
     (def chain-eval (view (.. (@ :state) (@var 'eval)) chain))
@@ -154,7 +163,10 @@
 (def load-chain!
   "Takes a `url`, and fetches the inputs of a remote chain and return a chain dictionary with the chain state."
   (fn [url]
-    (update-chain! (new-chain url))))
+    (match url
+      (/prefix "rad://" 'machine-id) { :daemon machine-id :url url }
+      _ (update-chain! (new-chain url))
+      )))
 
 ;; update-chain-ref!
 
