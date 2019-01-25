@@ -38,7 +38,8 @@ type ReplM m =
     , ReadFile (Lang m)
     , System m
     , GetEnv (Lang m) Value
-    , SetEnv (Lang m) Value )
+    , SetEnv (Lang m) Value
+    , FileModule (Lang m))
 
 instance MonadRandom (InputT IO) where
     getRandomBytes = liftIO . getRandomBytes
@@ -322,11 +323,28 @@ replPrimFns sysArgs = fromList $ allDocs $
         \ That is, the file is evaluated as if the code was wrapped in `(module ...)`."
       , oneArg "file-module!" $ \case
           String filename -> do
-            t_ <- fmap ignoreShebang <$> readFileS filename
+            ef <- fileModuleS filename
+            file <- case ef of
+                Nothing -> throwError . toLangError . OtherError $ "File not found in RADPATH: " <> filename
+                Just f -> pure f
+            t_ <- fmap ignoreShebang <$> readFileS file
             t <- hoistEither . first (toLangError . OtherError) $ t_
             vs <- readValues filename t
             createModule vs
           v -> throwErrorHere $ TypeError "file-module!" 0 TString v
+      )
+    , ( "find-module-file!"
+      , "Find a file according to radicle search path rules. These are: \
+        \ 1) If RADPATH is set, first search there; \
+        \ 2) If RADPATH is not set, search in the distribution directory \
+        \ 3) If the file is still not found, search in the current directory."
+      , oneArg "find-module-file!" $ \case
+          String filename -> do
+            t_ <- fileModuleS filename
+            case t_ of
+                Nothing -> throwError . toLangError . OtherError $ "File not found in RADPATH: " <> filename
+                Just t  -> pure $ String t
+          v -> throwErrorHere $ TypeError "find-module-file!" 0 TString v
       )
     ]
 

@@ -3,9 +3,12 @@
 
 ;; Create a remote issue chain. Returns a ref for the chain that you
 ;; can assign to a variable.
+{:module  'monadic/issues
+ :doc     "Functions for interacting with issues RSM"
+ :exports '[create-issues-chain!]}
 
 (import prelude/lens :unqualified)
-(import prelude/chain '[send-code! ]:unqualified)
+(import prelude/chain '[send-code!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
 
@@ -17,7 +20,7 @@
   "Create a remote issue chain with the given url."
   (fn [url]
     (chain/send-prelude! url)
-    (send-code! url "rad/monadic/issue-remote.rad")))
+    (send-code! url (find-module-file! "monadic/issue-remote.rad"))))
 
 (def sign-entity!
   "Assumes a key pair is stored at `my-keys.rad`. Using that key pair, will sign a

@@ -2,7 +2,6 @@
 --
 -- The intent is that any set of primops may wear on their sleaves (i.e.
 -- constraints) what effects they do.
-{-# LANGUAGE CPP #-}
 module Radicle.Internal.Effects.Capabilities where
 
 import           Protolude
@@ -10,9 +9,13 @@ import           Protolude
 import qualified Data.ByteString as BS
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
+import           Paths_radicle
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
+import           System.Directory (doesFileExist)
+import           System.Environment (lookupEnv)
 import           System.Exit (ExitCode)
+import           System.FilePath (splitSearchPath, (</>))
 import           System.IO
                  ( BufferMode(LineBuffering)
                  , hClose
@@ -137,8 +140,42 @@ instance ReadFile IO where
 instance {-# OVERLAPPABLE #-} ReadFile m => ReadFile (Lang m) where
     readFileS = lift . readFileS
 
+class (Monad m) => FileModule m where
+    fileModuleS :: Text -> m (Maybe Text)
+instance FileModule IO where
+    fileModuleS file = do
+        x <- findModule $ toS file
+        case x of
+            Nothing -> pure Nothing
+            Just f  -> pure . Just $ toS f
+instance FileModule (InputT IO) where
+    fileModuleS = lift . fileModuleS
+instance {-# OVERLAPPABLE #-} FileModule m => FileModule (Lang m) where
+    fileModuleS = lift . fileModuleS
+
 putStrLnS :: (Stdout m) => Text -> m ()
 putStrLnS t = putStrS t >> putStrS "\n"
 
 modifyEnvS :: (GetEnv m r, SetEnv m r) => (Env r -> Env r) -> m ()
 modifyEnvS f = getEnvS >>= setEnvS . f
+
+-- | Importing works as follows:
+--
+--    (1) If the RADPATH environment variable exists, search there
+--    (2) Otherwise search in data-dir
+--    (3) Finally we search in the current directory.
+--
+-- RADPATH should be a colon-separated list of directories (just like PATH).
+findModule :: FilePath -> IO (Maybe FilePath)
+findModule file = do
+    mrp <- lookupEnv "RADPATH"
+    radPathDirs <- case mrp of
+            Nothing -> (\x -> [x </> "rad"]) <$> getDataDir
+            Just rp -> pure $ splitSearchPath rp
+    let searchPath = radPathDirs ++ ["."]
+    let doFind xs = case xs of
+            [] -> pure Nothing
+            x:xs' -> do
+                exists <- doesFileExist (x </> file)
+                if exists then pure (Just $ x </> file) else doFind xs'
+    doFind searchPath

@@ -9,7 +9,7 @@ used in `match` expressions.
 Pattern matching is invoked as follows:
 
     ;; Just getting an import out of the way
-    (import (file-module! "rad/prelude/io.rad") :unqualified)
+    (import (file-module! "prelude/io.rad") :unqualified)
 
     (match 42
       'x (print! (string-append "x was: " (show x))))
@@ -17,9 +17,9 @@ Pattern matching is invoked as follows:
 That's not very interesting, but it's all we can do before we import some more
 patterns:
 
-    (import (file-module! "rad/prelude/test.rad") :unqualified)
-    (file-module! "rad/prelude/basic.rad")
-    (import (file-module! "rad/prelude/patterns.rad") :unqualified)
+    (import (file-module! "prelude/test.rad") :unqualified)
+    (file-module! "prelude/basic.rad")
+    (import (file-module! "prelude/patterns.rad") :unqualified)
 
 Now we can pattern match on vectors, numbers, dicts, etc. For example,
 evaluating:
@@ -69,7 +69,7 @@ These are the patterns that come included in the prelude:
 - The pattern `(/as x p)`, where `x` is an atom and `p` is a pattern, matches
   any values that `p` matches while also binding this value to `x` in the
   branch.
-  
+
 ## Binding variables
 
 Variables used in patterns must be quoted because patterns are themselves
@@ -77,12 +77,12 @@ evaluated. This means that if `x` is already bound to a value then it can be
 used in a pattern. For example:
 
     (def x 1)
-    
+
     (print!
       (match [2 2]
         [x       'y] (+ y y)
         [(+ x 1) 'y] (+ x y)))
-        
+
 will print the number `3`, that is, evaluate the second branch. This is because
 `(+ x 1)` evaluates to `2`, and so this matches the first `2` of the value `[2
 2]`.
@@ -179,5 +179,5 @@ Will print `"DANGER! powerful player Alice Smith with spell radius 134 is
 approaching!"`, but calling:
 
     (nearby bob)
-    
+
 will print `"A weak elf with only 55 health is nearby! Attack!"`.
