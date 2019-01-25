@@ -28,10 +28,4 @@
       - depends:
         # Required as compiler plugin
         - tasty-discover
-  - section:
-    - name: exe:radicle-daemon exe:radicle-server
-    - message:
-      # Will either move to lib or get rid of it entirely
-      - name: Module reused between components
-      - module: Server.Common
   

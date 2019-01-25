@@ -48,8 +48,9 @@ import           Servant
                  )
 
 import           Radicle
+import           Radicle.Daemon.Common
+import qualified Radicle.Internal.ConcurrentMap as CMap
 import           Radicle.Internal.MachineBackend.EvalServer
-import           Server.Common hiding (getChains)
 import           Server.DB
 
 -- * Types
@@ -65,17 +66,14 @@ type ServerApi
 serverApi :: Proxy ServerApi
 serverApi = Proxy
 
-type HttpChain = Chain Text Int ()
-
-newtype HttpChains = HttpChains { getChains :: MVar (Map Text HttpChain) }
+type HttpChains = Chains Text Int ()
 
 -- * Helpers
 
 -- | Returns the ID of the last inserted expression which is the chain
 -- length minus one.
 insertExpr :: Connection -> HttpChains -> Text -> [Value] -> IO (Either Text Int)
-insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
-    let maybeChain = Map.lookup name c
+insertExpr conn chains name vals = CMap.modifyValue name (getChains chains) $ \maybeChain -> do
     chain <- case maybeChain of
         Nothing -> do
             logInfo "Creating new machine" [("machine", name)]
@@ -85,7 +83,7 @@ insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
     case advanceChain chain vals of
         Left e  -> do
             logInfo "Submitted expressions failed to evaluate" [("machine", name)]
-            pure . (c ,) . Left $ renderPrettyDef e
+            pure (Nothing, Left $ renderPrettyDef e)
         Right (valsRes, newSt) -> do
              traverse_ (insertExprDB conn name) vals
              let news = Seq.fromList $ zip vals valsRes
@@ -95,7 +93,7 @@ insertExpr conn chains name vals = modifyMVar (getChains chains) $ \c -> do
                                 , chainEvalPairs = pairs
                                 , chainLastIndex = Just lastIndex
                                 }
-             pure (Map.insert name chain' c, Right lastIndex )
+             pure (Just chain', Right lastIndex)
 
 
 -- | Load the state from the DB, returning an MVar with resulting state
@@ -123,9 +121,10 @@ loadState conn = do
                               , chainPolling = LowFreq
                               }
                 pure (name, c)
-    chains' <- newMVar $ Map.fromList chainPairs
+    --chains' <- newMVar $ Map.fromList chainPairs
+    chains' <- CMap.fromMap $ Map.fromList chainPairs
     logInfo "Loaded machines into memory" [("machine-count", show $ length chainPairs)]
-    pure $ HttpChains chains'
+    pure $ Chains chains'
 
 
 -- * Handlers
@@ -152,8 +151,8 @@ since conn name index = do
 
 jsonOutputs :: HttpChains -> Text -> Handler [Maybe A.Value]
 jsonOutputs st name = do
-    chains <- liftIO . readMVar $ getChains st
-    pure $ case Map.lookup name chains of
+    maybeChain <- liftIO $ CMap.lookup name (getChains st)
+    pure $ case maybeChain of
         Nothing    -> []
         Just chain -> toList $ maybeJson . snd <$> chainEvalPairs chain
 

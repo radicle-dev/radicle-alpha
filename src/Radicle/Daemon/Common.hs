@@ -1,4 +1,4 @@
-module Server.Common
+module Radicle.Daemon.Common
   ( ReaderOrWriter(..)
   , Polling(..)
   , Chain(..)

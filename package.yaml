@@ -128,7 +128,7 @@ executables:
   radicle-server:
     main: Server.hs
     source-dirs: exe
-    other-modules: [Server.DB, Server.Common]
+    other-modules: [Server.DB]
     dependencies:
     - radicle
     - aeson
@@ -148,7 +148,7 @@ executables:
   radicle-daemon:
     main: Daemon.hs
     source-dirs: exe
-    other-modules: [Server.Common]
+    other-modules: []
     dependencies:
     - radicle
     - aeson

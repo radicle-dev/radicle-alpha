@@ -14,8 +14,8 @@ import           Options.Applicative
 import           Servant
 import           System.Directory (doesFileExist)
 
+import           Radicle.Daemon.Common
 import qualified Radicle.Internal.UUID as UUID
-import           Server.Common
 
 import           Radicle hiding (Env)
 import           Radicle.Daemon.HttpApi

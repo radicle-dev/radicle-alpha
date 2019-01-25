@@ -1,9 +1,11 @@
 module Radicle.Internal.ConcurrentMap
   ( empty
+  , fromMap
   , lookup
   , nonAtomicRead
   , insertNew
   , modifyExistingValue
+  , modifyValue
   , CMap
   ) where
 
@@ -21,6 +23,9 @@ newtype CMap k v = CMap (MVar (Map k (MVar v)))
 -- | Create a new empty 'CMap'.
 empty :: IO (CMap k v)
 empty = CMap <$> newMVar Map.empty
+
+fromMap :: Map k v -> IO (CMap k v)
+fromMap m = CMap <$> (traverse newMVar m >>= newMVar)
 
 -- | Atomically lookup a value.
 lookup :: Ord k => k -> CMap k v -> IO (Maybe v)
@@ -59,3 +64,20 @@ modifyExistingValue k (CMap m_) f = do
     Just v_ -> do
       x <- modifyMVar v_ f
       pure (Just x)
+
+-- | Atomically modifies the value associated to a key.
+modifyValue :: Ord k => k -> CMap k v -> (Maybe v -> IO (Maybe v, a)) -> IO a
+modifyValue k (CMap m_) f = modifyMVar m_ $ \m ->
+  case Map.lookup k m of
+    Nothing -> do
+      (maybev, x) <- f Nothing
+      case maybev of
+        Just v -> do
+          v_ <- newMVar v
+          pure (Map.insert k v_ m, x)
+        Nothing -> pure (m, x)
+    Just v_ -> modifyMVar v_ $ \v -> do
+      (maybev', x) <- f (Just v)
+      case maybev' of
+        Just v' -> pure (v', (m, x))
+        Nothing -> pure (v, (Map.delete k m, x))
