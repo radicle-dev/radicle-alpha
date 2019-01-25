@@ -18,6 +18,7 @@ import qualified Radicle.Internal.UUID as UUID
 import           Server.Common
 
 import           Radicle hiding (Env)
+import           Radicle.Daemon.HttpApi
 import           Radicle.Daemon.Ipfs
 import qualified Radicle.Internal.CLI as Local
 import qualified Radicle.Internal.ConcurrentMap as CMap
@@ -27,30 +28,6 @@ import qualified Radicle.Internal.ConcurrentMap as CMap
 -- necessary pinning.
 
 -- * Types
-
-instance FromHttpApiData MachineId where
-  parseUrlPiece = Right . MachineId . toS
-  parseQueryParam = parseUrlPiece
-
-newtype Expression = Expression { expression :: JsonValue }
-  deriving (Generic)
-
-instance A.ToJSON Expression
-instance A.FromJSON Expression
-
-newtype Expressions = Expressions { expressions :: [JsonValue] }
-  deriving (Generic)
-
-instance A.FromJSON Expressions
-instance A.ToJSON Expressions
-
-newtype SendResult = SendResult
-  { results :: [JsonValue]
-  } deriving (A.ToJSON)
-
-newtype NewResult = NewResult
-  { machineId :: MachineId
-  } deriving (A.ToJSON)
 
 data MachineError
   = InvalidInput (LangError Value)
@@ -66,18 +43,6 @@ data Error
   | CouldNotCreateMachine Text
 
 type Follows = Map MachineId ReaderOrWriter
-
--- * APIs
-
-type Query = "query" :> ReqBody '[JSON] Expression  :> Post '[JSON] Expression
-type Send  = "send"  :> ReqBody '[JSON] Expressions :> Post '[JSON] SendResult
-type New   = "new"   :> Post '[JSON] NewResult
-
-type DaemonApi =
-  "v0" :> "machines" :> ( Capture "machineId" MachineId :> ( Query :<|> Send ) :<|> New )
-
-daemonApi :: Proxy DaemonApi
-daemonApi = Proxy
 
 -- * Main
 

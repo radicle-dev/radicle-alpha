@@ -39,6 +39,7 @@ library:
   - haskeline
   - http-client
   - http-conduit
+  - http-types
   - ipld-cid
   - megaparsec
   - microlens
