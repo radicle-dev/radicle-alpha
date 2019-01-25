@@ -8,6 +8,7 @@ import           Options.Applicative
 import           System.Directory (doesFileExist)
 
 import           Radicle
+import           Radicle.Daemon.Client (daemonClientPrimFns)
 import           Radicle.Internal.Effects (exitCode)
 import           Radicle.Internal.MachineBackend.EvalServer
 import           Radicle.Internal.MachineBackend.Ipfs (ipfsPrimFns)
@@ -90,4 +91,4 @@ opts = Opts
 createBindings :: (MonadIO m, ReplM m) => [Text] -> IO (Bindings (PrimFns m))
 createBindings scriptArgs' = do
     evalServerPackendPrimFns <- createEvalServerBackendPrimFns
-    pure $ addPrimFns (replPrimFns scriptArgs' <> evalServerPackendPrimFns <> ipfsPrimFns) pureEnv
+    pure $ addPrimFns (replPrimFns scriptArgs' <> evalServerPackendPrimFns <> ipfsPrimFns <> daemonClientPrimFns) pureEnv
