@@ -39,7 +39,6 @@ library:
   - haskeline
   - http-client
   - http-conduit
-  - http-types
   - ipld-cid
   - megaparsec
   - microlens
@@ -157,7 +156,6 @@ executables:
     - containers
     - bytestring
     - directory
-    - http-types
     - optparse-applicative
     - servant-server
     - text

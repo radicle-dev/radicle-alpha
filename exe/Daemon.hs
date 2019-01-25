@@ -93,18 +93,19 @@ main = do
     follows <- readFollowFileIO followFileLock followFile
     initRes <- runDaemon env (init follows)
     case initRes of
-      Left err -> logDaemonError err
+      Left err -> logErr "Init failed" [] >> logDaemonError err
       Right _ -> do
-        polling <- async $ runDaemon env initPolling >> pure ()
+        polling <- async $ runDaemon env initPolling
         let app = serve daemonApi (server env)
         logInfo "Start listening" [("port", show (port opts'))]
         serv <- async $ run (port opts') app
         exc <- waitEitherCatchCancel polling serv
         case exc of
-          Left (Left err) -> logErr "Polling failed" [("error", toS (displayException err))]
-          Left _ -> logErr "Polling stopped! (This should not happen)" []
-          Right (Left err) -> logErr "Server failed" [("error", toS (displayException err))]
-          Right _ -> logErr "Server stopped! (This should not happen)" []
+          Left (Left err) -> logErr "Polling failed with an exception" [("error", toS (displayException err))]
+          Left (Right (Left err)) -> logErr "Polling failed" [] >> logDaemonError err
+          Left (Right (Right ())) -> logErr "Polling stopped (this should not happen)" []
+          Right (Left err) -> logErr "Server failed with an exception" [("error", toS (displayException err))]
+          Right (Right ()) -> logErr "Server stopped (this should not happen)" []
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
@@ -142,7 +143,7 @@ server env = hoistServer daemonApi nt daemonServer
 
 -- * Init
 
--- | Load machines according to follow file.
+-- | Initiate machines according to follow file.
 init :: Follows -> Daemon ()
 init follows = traverse_ initMachine (Map.toList follows)
   where

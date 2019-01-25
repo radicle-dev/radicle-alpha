@@ -241,9 +241,7 @@ ipfsHttpPost
     -> LByteString -- ^ Payload argument
     -> IO a
 ipfsHttpPost path params payloadArgName payload = do
-    let opts = Wreq.defaults & Wreq.params .~ params
-    url <- ipfsApiUrl path
-    res <- Wreq.postWith opts (toS url) (Wreq.partLBS payloadArgName payload) `catch` handleRequestException
+    res <- ipfsHttpPost' path params payloadArgName payload
     jsonRes <- Wreq.asJSON res `catch` handleParseException path
     pure $ jsonRes ^. Wreq.responseBody
 
