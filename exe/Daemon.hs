@@ -120,8 +120,7 @@ server :: Env -> Server DaemonApi
 server env = hoistServer daemonApi nt daemonServer
   where
     daemonServer :: ServerT DaemonApi Daemon
-    daemonServer = machineEndpoints :<|> newMachine
-    machineEndpoints id = query id :<|> send id
+    daemonServer = query :<|> send :<|> newMachine
 
     nt :: Daemon a -> Handler a
     nt d = do
