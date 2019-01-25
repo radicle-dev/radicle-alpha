@@ -205,3 +205,4 @@ language_extensions:
   - TypeOperators
   - NamedFieldPuns
   - TypeApplications
+  - ViewPatterns

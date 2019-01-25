@@ -246,3 +246,4 @@ default-extensions:
 - TupleSections
 - TypeFamilies
 - TypeOperators
+- ViewPatterns

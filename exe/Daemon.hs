@@ -31,16 +31,33 @@ import qualified Radicle.Internal.ConcurrentMap as CMap
 
 data MachineError
   = InvalidInput (LangError Value)
-  | IpfsError Text
+  | IpfsError IpfsError
   | AckTimeout
   | DaemonError Text
   | MachineAlreadyCached
   | MachineNotCached
-  deriving (Show)
 
 data Error
   = MachineError MachineId MachineError
   | CouldNotCreateMachine Text
+
+displayError :: Error -> (Text, [(Text,Text)])
+displayError = \case
+  CouldNotCreateMachine e -> ("Could not create IPFS machine", [("error", e)])
+  MachineError id e -> let mid = ("id", getMachineId id) in
+    case e of
+      InvalidInput err -> ("Invalid radicle input", [mid, ("error", renderCompactPretty err)])
+      DaemonError err -> ("Internal error", [mid, ("error", err)])
+      IpfsError e' -> case e' of
+        IpfsDaemonError err -> ("There was an error using IPFS", [mid, ("error", toS (displayException err))])
+        InternalError err -> ("Internal error", [mid, ("error", err)])
+        NetworkError err -> ("There was an error communicating with the IPFS daemon", [mid, ("error", err)])
+      AckTimeout -> ("The writer appears to be offline", [mid])
+      MachineAlreadyCached -> ("Tried to add already cached machine", [mid])
+      MachineNotCached -> ("Machine was not found in cache", [mid])
+
+logDaemonError :: MonadIO m => Error -> m ()
+logDaemonError (displayError -> (m, xs)) = logErr m xs
 
 type Follows = Map MachineId ReaderOrWriter
 
@@ -95,21 +112,20 @@ main = do
     case initRes of
       Left err -> logErr "Init failed" [] >> logDaemonError err
       Right _ -> do
-        polling <- async $ runDaemon env initPolling
+        polling <- async $ initPolling env
         let app = serve daemonApi (server env)
         logInfo "Start listening" [("port", show (port opts'))]
         serv <- async $ run (port opts') app
         exc <- waitEitherCatchCancel polling serv
         case exc of
           Left (Left err) -> logErr "Polling failed with an exception" [("error", toS (displayException err))]
-          Left (Right (Left err)) -> logErr "Polling failed" [] >> logDaemonError err
-          Left (Right (Right ())) -> logErr "Polling stopped (this should not happen)" []
+          Left (Right ()) -> logErr "Polling stopped (this should not happen)" []
           Right (Left err) -> logErr "Server failed with an exception" [("error", toS (displayException err))]
           Right (Right ()) -> logErr "Server stopped (this should not happen)" []
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
-       <> progDesc "Run then radicle daemon"
+       <> progDesc "Run the radicle daemon"
        <> header "radicle-daemon"
         )
 
@@ -130,16 +146,12 @@ server env = hoistServer daemonApi nt daemonServer
         Left err -> throwError (toServantErr err)
         Right x  -> pure x
 
-    toServantErr (MachineError _ e) = case e of
-      InvalidInput err -> err400 { errBody = fromStrict $ encodeUtf8 (renderPrettyDef err) }
-      IpfsError err -> err500 { errBody = toS err }
-      DaemonError err -> err500 { errBody = toS err }
+    toServantErr err@(MachineError _ e) = case e of
+      InvalidInput e' -> err400 { errBody = fromStrict $ encodeUtf8 (renderPrettyDef e') }
       AckTimeout -> err504 { errBody = "The writer for this IPFS machine does not appear to be online." }
-      MachineAlreadyCached -> internalError
-      MachineNotCached -> internalError
+      _ -> case displayError err of
+        (msg, _) -> err500 { errBody = toS msg }
     toServantErr (CouldNotCreateMachine err) = err500 { errBody = "Could not create IPFS machine: " <> toS err }
-
-    internalError = err500 { errBody = "Internal daemon error" }
 
 -- * Init
 
@@ -210,7 +222,7 @@ send id (Expressions expressions) = do
           pure SendResult{..}
         Right Nothing -> throwError $ MachineError id AckTimeout
         Right _ -> throwError $ MachineError id (DaemonError "Didn't filter machine topic messages correctly.")
-        Left err -> throwError $ MachineError id (IpfsError (toS (displayException err)))
+        Left err -> throwError $ MachineError id (DaemonError (toS (displayException err)))
 
     machineMode = fmap (liftA2 (,) chainMode chainSubscription) <$> lookupMachine id
 
@@ -260,7 +272,7 @@ checkMachineLoaded id = do
     Just m -> case chainMode m of
       Writer -> pure m
       Reader -> do
-        delta <- sinceLastUpdate m
+        delta <- liftIO $ sinceLastUpdate m
         -- If machine is half a second fresh, then return it.
         if delta < 500
           then pure m
@@ -273,17 +285,7 @@ daemonHandler env h msg = do
     Left err -> logDaemonError err
     Right _  -> pure ()
 
-logDaemonError :: MonadIO m => Error -> m ()
-logDaemonError (CouldNotCreateMachine err) = logErr "Could not create IPFS machine" [("error", err)]
-logDaemonError (MachineError id err) = case err of
-    InvalidInput e -> logErr "Invalid input" [mid, ("error", renderCompactPretty e)]
-    DaemonError e -> logErr e [mid]
-    IpfsError e -> logErr "There was an error using IPFS" [mid, ("error", e)]
-    AckTimeout -> logErr "The writer appears to be offline" [mid]
-    MachineAlreadyCached -> logErr "Tried to add already cached machine" [mid]
-    MachineNotCached -> logErr "Machine was not found in cache" [mid]
-  where
-    mid = ("id", getMachineId id)
+
 
 -- Loads a machine fresh from IPFS.
 loadMachine :: ReaderOrWriter -> MachineId -> Daemon IpfsMachine
@@ -321,7 +323,7 @@ addInputs is getIdx after m =
       after rs
       pure (m', rs)
 
-ipfs :: MachineId -> ExceptT Text IO a -> Daemon a
+ipfs :: MachineId -> ExceptT IpfsError IO a -> Daemon a
 ipfs id = Daemon . mapExceptT (lift . fmap (first (MachineError id . IpfsError)))
 
 -- Do some high-freq polling for a while.
@@ -440,7 +442,7 @@ poll = do
   where
     pollMachine :: IpfsMachine -> Daemon ()
     pollMachine m@Chain{chainMode = Reader, ..} = do
-      delta <- sinceLastUpdate m
+      delta <- liftIO $ sinceLastUpdate m
       let (shouldPoll, newPoll) =
             case chainPolling of
               HighFreq more ->
@@ -454,19 +456,23 @@ poll = do
       modifyMachine chainName $ \m' -> pure (m' { chainPolling = newPoll }, () )
     pollMachine _ = pure ()
 
-sinceLastUpdate :: IpfsMachine -> Daemon Int64
-sinceLastUpdate m = do
-    t <- liftIO Time.getSystemTime
-    pure $ timeDelta (chainLastUpdated m) t
+sinceLastUpdate :: IpfsMachine -> IO Int64
+sinceLastUpdate m = timeDelta (chainLastUpdated m) <$> Time.getSystemTime
   where
     timeDelta x y =
       case (trunc x, trunc y) of
         (Time.MkSystemTime s n, Time.MkSystemTime s' n') -> 1000 * (s' - s) + fromIntegral (n' - n) `div` 1000000
     trunc = Time.truncateSystemTimeLeapSecond
 
-initPolling :: Daemon ()
-initPolling = do
+initPolling :: Env -> IO ()
+initPolling env = do
   -- High frequency polling is every 2 seconds.
-  liftIO $ threadDelay 2000000
-  poll
-  initPolling
+  threadDelay 2000000
+  res <- runDaemon env poll
+  -- If polling encounters an error it should log it but continue.
+  -- Later we might detect some errors as critical and halt the
+  -- daemon.
+  case res of
+    Left err -> logDaemonError err
+    Right _  -> pure ()
+  initPolling env

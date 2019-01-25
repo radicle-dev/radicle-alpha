@@ -1,5 +1,6 @@
 module Radicle.Daemon.Ipfs
-  ( MachineId(..)
+  ( IpfsError(..)
+  , MachineId(..)
   , JsonValue(..)
   , Message(..)
   , NewInputs(..)
@@ -15,16 +16,18 @@ module Radicle.Daemon.Ipfs
   , addHandler
   ) where
 
-import           Protolude
+import           Protolude hiding (bracket, catches)
 
-import           Control.Exception.Safe hiding (bracket)
+import           Control.Exception.Safe
 import           Control.Monad.Fail
-import           Data.Aeson ((.:), (.=))
+import           Data.Aeson (decodeStrict, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Unique as Unique
+import qualified Network.HTTP.Client as Http
 
 import           Radicle
 import qualified Radicle.Internal.MachineBackend.Ipfs as Ipfs
@@ -57,6 +60,11 @@ instance Aeson.ToJSON MachineId where
   toJSON (MachineId id) = Aeson.String id
 instance Aeson.FromJSON MachineId where
   parseJSON js = MachineId <$> Aeson.parseJSON js
+
+data IpfsError
+  = IpfsDaemonError Ipfs.IpfsException
+  | InternalError Text
+  | NetworkError Text
 
 -- | Messages sent on a machine's IPFS pubsub topic.
 data Message = New NewInputs | Req ReqInputs
@@ -102,15 +110,26 @@ data ReqInputs = ReqInputs
 
 -- * Ipfs helpers
 
-safeIpfs :: IO a -> ExceptT Text IO a
-safeIpfs io = ExceptT $ do
-  res <- liftIO $ tryAny io
-  pure $ first (toS . displayException) res
+safeIpfs :: forall a. IO a -> ExceptT IpfsError IO a
+safeIpfs io = ExceptT $ liftIO $
+  catches (Right <$> io)
+    [ Handler $ pure . Left . IpfsDaemonError
+    , Handler httpHdlr
+    ]
+  where
+    httpHdlr e = pure $ Left $ case e of
+      Http.HttpExceptionRequest _
+        (Http.StatusCodeException _
+          (decodeStrict ->
+             Just (Aeson.Object (HashMap.lookup "Message" ->
+                     Just (Aeson.String msg))))) -> NetworkError msg
+      _ -> InternalError (toS (displayException e))
+
 
 -- | Write some inputs to an IPFS machine.
 -- TODO: we might want to make this safer by taking the expected head
 -- MachineEntryIndex as an argument.
-writeIpfs :: MachineId -> [Value] -> ExceptT Text IO Ipfs.MachineEntryIndex
+writeIpfs :: MachineId -> [Value] -> ExceptT IpfsError IO Ipfs.MachineEntryIndex
 writeIpfs (MachineId id) vs = safeIpfs $ Ipfs.sendIpfs id (Seq.fromList vs)
 
 newtype Topic = Topic { getTopic :: Text }
@@ -120,7 +139,7 @@ machineTopic :: MachineId -> Topic
 machineTopic (MachineId id) = Topic ("radicle:machine:" <> id)
 
 -- | Publish a 'Message' on a machine's IPFS pubsub topic.
-publish :: MachineId -> Message -> ExceptT Text IO ()
+publish :: MachineId -> Message -> ExceptT IpfsError IO ()
 publish id msg = safeIpfs $ do
   liftIO $ putStrLn $ "pubsub pub " <> getMachineId id <> ": " <> toS (Aeson.encode msg)
   Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
@@ -132,12 +151,12 @@ subscribeForever id messageHandler = Ipfs.subscribe topic pubsubHandler
     Topic topic = machineTopic id
     pubsubHandler Ipfs.PubsubMessage{..} = do
         liftIO $ putStrLn $ "pubsub sub " <> getMachineId id <> ": " <> toS messageData
-        case Aeson.decodeStrict messageData of
+        case decodeStrict messageData of
             Nothing  -> putStrLn ("Cannot parse pubsub message" :: Text)
             Just msg -> messageHandler msg
 
 -- | Get inputs of an IPFS machine from a certain index.
-machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT Text IO (Ipfs.MachineEntryIndex, [Value])
+machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT IpfsError IO (Ipfs.MachineEntryIndex, [Value])
 machineInputsFrom (MachineId id) = safeIpfs . Ipfs.receiveIpfs id
 
 -- | Create an IPFS machine and return its ID.
@@ -157,7 +176,7 @@ newtype TopicSubscription = TopicSubscription
 -- | Given a machine ID, creates a subscription for that machine's
 -- pubsub topic. This allows adding and removing handlers for messages
 -- on that topic.
-initSubscription :: MachineId -> ExceptT Text IO TopicSubscription
+initSubscription :: MachineId -> ExceptT IpfsError IO TopicSubscription
 initSubscription id = safeIpfs $ do
     hdlrs <- newMVar Map.empty
     _ <- async $ subscribeForever id (mainHdlr hdlrs)
