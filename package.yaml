@@ -60,7 +60,6 @@ library:
   - unordered-containers
   - uuid
   - wreq
-  - stm
 
 tests:
   spec:
@@ -82,7 +81,6 @@ tests:
     - serialise
     - string-qq
     - tasty
-    - tasty-discover
     - tasty-hunit
     - tasty-quickcheck
     - text
@@ -102,7 +100,6 @@ tests:
     dependencies:
     - process
     - tasty
-    - tasty-discover
     - tasty-hunit
 
 executables:
