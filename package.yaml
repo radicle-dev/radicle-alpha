@@ -101,6 +101,7 @@ tests:
     dependencies:
     - process
     - tasty
+    - tasty-discover
     - tasty-hunit
 
 executables:
