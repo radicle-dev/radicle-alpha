@@ -13,7 +13,9 @@ import qualified Data.Map.Strict as Map
 
 -- | A Map which offers atomic operations on the values associated to
 -- keys. Assumes that the values are independent of one another; does
--- not offer a consistent view over the values.
+-- not offer a consistent view over the values. Therefore this is best
+-- used when the keys uniquely identify the resources represented by
+-- the values.
 newtype CMap k v = CMap (MVar (Map k (MVar v)))
 
 -- | Create a new empty 'CMap'.
@@ -27,9 +29,9 @@ lookup k (CMap m_) = withMVar m_ $ \m -> do
      Nothing -> pure Nothing
      Just v_ -> pure <$> readMVar v_
 
--- | Non-atmoically read the contents of a 'CMap'.  Provides a
+-- | Non-atmoically read the contents of a 'CMap'. Provides a
 -- consistent shapshot of which keys were present at some
--- time. Howerver the values might be snapshotted at different times.
+-- time. However, the values might be snapshotted at different times.
 nonAtomicRead :: CMap k v -> IO (Map k v)
 nonAtomicRead (CMap m_) = do
   m <- readMVar m_
@@ -47,7 +49,8 @@ insertNew k v (CMap m_) = modifyMVar m_ $ \m ->
       pure (m', Just ())
 
 -- | Atomically modifies a value associated to a key but only if it
--- exists.
+-- exists. There is no guarantee the value is still associated with
+-- the same key, or any key, by the time the operation completes.
 modifyExistingValue :: Ord k => k -> CMap k v -> (v -> IO (v, a)) -> IO (Maybe a)
 modifyExistingValue k (CMap m_) f = do
   m <- readMVar m_

@@ -8,9 +8,9 @@ import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Time.Clock.System as Time
 import qualified Network.HTTP.Types.URI as URL
 import           Network.Wai.Handler.Warp (run)
-import qualified Data.Time.Clock.System as Time
 import           Options.Applicative
 import           Servant
 import           System.Directory (doesFileExist)
@@ -358,12 +358,12 @@ modifyMachine id f = do
     res <- liftIO $ CMap.modifyExistingValue id (getChains (machines env)) $ \m -> do
       x <- runDaemon env (f m)
       pure $ case x of
-        Left err -> (m, Left err)
+        Left err      -> (m, Left err)
         Right (m', y) -> (m', Right y)
     case res of
-      Nothing -> throwError MachineNotCached
+      Nothing         -> throwError MachineNotCached
       Just (Left err) -> throwError err
-      Just (Right y) -> pure y
+      Just (Right y)  -> pure y
 
 emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IO IpfsMachine
 emptyMachine id mode sub = do
@@ -452,7 +452,7 @@ poll = do
       delta <- sinceLastUpdate m
       logInfo "delta" [("delta", show delta)]
       let (shouldPoll, newPoll) =
-            case chainPolling of              
+            case chainPolling of
               HighFreq more ->
                 let more' = more - delta
                 in if more' > 0

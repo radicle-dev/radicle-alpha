@@ -49,7 +49,7 @@ import           Servant
 
 import           Radicle
 import           Radicle.Internal.MachineBackend.EvalServer
-import           Server.Common
+import           Server.Common hiding (getChains)
 import           Server.DB
 
 -- * Types
@@ -65,7 +65,9 @@ type ServerApi
 serverApi :: Proxy ServerApi
 serverApi = Proxy
 
-type HttpChains = Chains Text Int ()
+type HttpChain = Chain Text Int ()
+
+newtype HttpChains = HttpChains { getChains :: MVar (Map Text HttpChain) }
 
 -- * Helpers
 
@@ -123,7 +125,7 @@ loadState conn = do
                 pure (name, c)
     chains' <- newMVar $ Map.fromList chainPairs
     logInfo "Loaded machines into memory" [("machine-count", show $ length chainPairs)]
-    pure $ Chains chains'
+    pure $ HttpChains chains'
 
 
 -- * Handlers
