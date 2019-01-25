@@ -1,5 +1,6 @@
 module Radicle.Internal.CLI
-    ( getHistoryFile
+    ( getRadicleFile
+    , getHistoryFile
     )
 where
 
@@ -8,15 +9,18 @@ import           System.Directory
                  (XdgDirectory(..), createDirectoryIfMissing, getXdgDirectory)
 import           System.FilePath (takeDirectory)
 
--- | Location of the radicle history, usually
--- @~/.local/share/radicle/history@.
---
+-- | Location of a radicle related file.
 -- Creates the parent directory if it does not exist.
 --
 -- See 'getXdgDirectory' 'XdgData' for how @~/.local/share@ is
 -- determined.
-getHistoryFile :: IO FilePath
-getHistoryFile = do
-    file <- getXdgDirectory XdgData "radicle/history"
+getRadicleFile :: FilePath -> IO FilePath
+getRadicleFile name = do
+    file <- getXdgDirectory XdgData $ "radicle/" <> name
     createDirectoryIfMissing True (takeDirectory file)
     pure file
+
+-- | Location of the radicle history, usually
+-- @~/.local/share/radicle/history@.
+getHistoryFile :: IO FilePath
+getHistoryFile = getRadicleFile "history"
