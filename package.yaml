@@ -8,6 +8,12 @@ extra-source-files:
 - README.md
 - ChangeLog.md
 
+flags:
+  release:
+    description: "Only build targets required for release"
+    default: false
+    manual: true
+
 dependencies:
 - base >=4 && <5
 - protolude
@@ -63,6 +69,9 @@ library:
 
 tests:
   spec:
+    when:
+    - condition: flag(release)
+      buildable: false
     main: Main.hs
     source-dirs:
     - test/spec
@@ -94,6 +103,9 @@ tests:
     - Glob
     - hpack
   e2e:
+    when:
+    - condition: flag(release)
+      buildable: false
     main: Main.hs
     source-dirs:
     - test/e2e
@@ -126,6 +138,9 @@ executables:
     ghc-options: -main-is RadicleExe
 
   radicle-server:
+    when:
+    - condition: flag(release)
+      buildable: false
     main: Server.hs
     source-dirs: exe
     other-modules: [Server.DB]
@@ -164,6 +179,9 @@ executables:
     ghc-options: -main-is Daemon
 
   radicle-doc:
+    when:
+    - condition: flag(release)
+      buildable: false
     main: Doc.hs
     source-dirs: exe/
     other-modules: []
@@ -188,6 +206,9 @@ executables:
     ghc-options: -main-is ReferenceDoc
 
   radicle-github-issues:
+    when:
+    - condition: flag(release)
+      buildable: false
     main: GithubIssues.hs
     source-dirs: exe/
     other-modules: []
@@ -200,6 +221,9 @@ executables:
     ghc-options: -main-is GithubIssues
 
   radicle-benchmark:
+    when:
+    - condition: flag(release)
+      buildable: false
     main: Benchmarks.hs
     source-dirs: exe/
     other-modules: []
