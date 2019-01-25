@@ -130,7 +130,8 @@ subscribeForever :: MachineId -> (Message -> IO ()) -> IO ()
 subscribeForever id messageHandler = Ipfs.subscribe topic pubsubHandler
   where
     Topic topic = machineTopic id
-    pubsubHandler Ipfs.PubsubMessage{..} =
+    pubsubHandler Ipfs.PubsubMessage{..} = do
+        liftIO $ putStrLn $ "pubsub sub " <> getMachineId id <> ": " <> toS messageData
         case Aeson.decodeStrict messageData of
             Nothing  -> putStrLn ("Cannot parse pubsub message" :: Text)
             Just msg -> messageHandler msg
