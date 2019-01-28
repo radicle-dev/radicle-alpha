@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | The radicle-daemon; a long-running background process which
--- materialises the state of remote IPFS machines on the users PC, and
+-- materialises the state of remote IPFS machines on the user's PC, and
 -- writes to those IPFS machines the user is an owner of.
 --
 -- See
@@ -321,7 +321,7 @@ daemonHandler env h msg = do
 
 
 
--- Loads a machine fresh from IPFS.
+-- | Loads a machine fresh from IPFS.
 loadMachine :: ReaderOrWriter -> MachineId -> Daemon IpfsMachine
 loadMachine mode id = do
   (idx, is) <- ipfs id $ machineInputsFrom id Nothing
@@ -331,7 +331,7 @@ loadMachine mode id = do
   insertNewMachine m'
   pure m'
 
--- Add inputs to a cached machine.
+-- | Add inputs to a cached machine.
 addInputs
   :: [Value]
   -- ^ Inputs to add.
@@ -344,7 +344,7 @@ addInputs
   -- ^ Returns the updated machine and the results.
 addInputs is getIdx after m =
   case advanceChain m is of
-    Left err -> Daemon $ ExceptT $ pure $ Left $ MachineError (chainName m) (InvalidInput err)
+    Left err -> throwError $ MachineError (chainName m) (InvalidInput err)
     Right (rs, newState) -> do
       idx <- getIdx
       t <- liftIO $ Time.getSystemTime
@@ -366,7 +366,7 @@ bumpPolling id = do
   modifyMachine id $ \m' -> pure (m' { chainPolling = highFreq }, () )
   logInfo Debug "Reset to high-frequency polling" [("id", getMachineId id)]
 
--- Insert a new machine into the cache. Errors if the machine is
+-- | Insert a new machine into the cache. Errors if the machine is
 -- already cached.
 insertNewMachine :: IpfsMachine -> Daemon ()
 insertNewMachine m = do
@@ -378,7 +378,7 @@ insertNewMachine m = do
   where
     id = chainName m
 
--- Modify a machine that is already in the cache. Errors if the
+-- | Modify a machine that is already in the cache. Errors if the
 -- machine isn't in the cache already.
 modifyMachine :: MachineId -> (IpfsMachine -> Daemon (IpfsMachine, a)) -> Daemon a
 modifyMachine id f = do
@@ -412,7 +412,7 @@ highFreq = HighFreq (10 * 60 * 1000)
 
 -- ** Reader
 
--- Initialise the daemon service for this machine in /reader mode/.
+-- | Initialise the daemon service for this machine in /reader mode/.
 initAsReader :: MachineId -> Daemon IpfsMachine
 initAsReader id = do
     m <- loadMachine Reader id
@@ -428,7 +428,7 @@ initAsReader id = do
         bumpPolling id
       _ -> pure ()
 
--- Freshen up a cached machine.
+-- | Freshen up a cached machine.
 refreshAsReader :: MachineId -> Daemon IpfsMachine
 refreshAsReader id = do
   (m, n) <- modifyMachine id $ \m -> do
@@ -446,7 +446,7 @@ initAsWriter id = do
   actAsWriter m
   pure m
 
--- Subscribes the daemon to the machine's pubsub topic to listen for
+-- | Subscribes the daemon to the machine's pubsub topic to listen for
 -- input requests.
 actAsWriter :: IpfsMachine -> Daemon ()
 actAsWriter m = do
