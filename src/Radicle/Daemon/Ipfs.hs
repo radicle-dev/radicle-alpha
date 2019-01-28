@@ -96,6 +96,8 @@ data SubmitInputs = SubmitInputs
 
 -- * Ipfs helpers
 
+-- TODO: All the error handling w.r.t interactions with IPFS should be
+-- done in "Radicle.Ipfs".
 safeIpfs :: forall a. IO a -> ExceptT IpfsError IO a
 safeIpfs io = ExceptT $ liftIO $
   catches (Right <$> io)
@@ -130,14 +132,13 @@ publish id msg = safeIpfs $
   Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
-subscribeForever :: MachineId -> (Message -> IO ()) -> IO ()
+subscribeForever :: MachineId -> MsgHandler -> IO ()
 subscribeForever id messageHandler = Ipfs.subscribe topic pubsubHandler
   where
     Topic topic = machineTopic id
-    pubsubHandler Ipfs.PubsubMessage{..} =
-        case decodeStrict messageData of
-            Nothing  -> putStrLn ("Cannot parse pubsub message" :: Text)
-            Just msg -> messageHandler msg
+    pubsubHandler Ipfs.PubsubMessage{..} = messageHandler $ case decodeStrict messageData of
+      Just msg -> Right msg
+      Nothing -> Left (toS messageData)
 
 -- | Get inputs of an IPFS machine from a certain index.
 machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT IpfsError IO (Ipfs.MachineEntryIndex, [Value])
@@ -149,7 +150,7 @@ createMachine = ExceptT $ liftIO $ second MachineId <$> (Ipfs.ipfsMachineCreate 
 
 -- * Topic subscriptions
 
-type MsgHandler = Message -> IO ()
+type MsgHandler = Either Text Message -> IO ()
 
 type RegisteredHandler = Unique.Unique
 
@@ -186,12 +187,13 @@ removeHandler ts u =
 -- predicate. Returns @Just msg@ where @msg@ is the first message
 -- passing the predicate if such a message arrives before the
 -- specified amount of milliseconds. Otherwise, returns @Nothing@.
-subscribeOne :: TopicSubscription -> Int -> (Message -> Bool) -> IO (Maybe Message)
-subscribeOne sub timeout pr = do
+subscribeOne :: TopicSubscription -> Int -> (Message -> Bool) -> (Text -> IO ()) -> IO (Maybe Message)
+subscribeOne sub timeout pr badMsg = do
   var <- newEmptyMVar
   let onMsg = \case
-        msg | pr msg -> putMVar var (Just msg)
-        _ -> pure ()
+        Right msg | pr msg -> putMVar var (Just msg)
+        Right _ -> pure ()
+        Left bad -> badMsg bad
   bracket
     (addHandler sub onMsg)
     (removeHandler sub)

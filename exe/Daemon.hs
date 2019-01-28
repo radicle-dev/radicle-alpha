@@ -235,7 +235,7 @@ send id (SendRequest expressions) = do
       let isResponse = \case
             New InputsApplied{ nonce = Just nonce' } | nonce' == nonce -> True
             _ -> False
-      asyncMsg <- liftIO $ async $ subscribeOne sub 8000 isResponse -- Waits for 8 seconds.
+      asyncMsg <- liftIO $ async $ subscribeOne sub ackWaitTime isResponse (logNonDecodableMsg id)
       ipfs id $ publish id (Submit SubmitInputs{..})
       logInfo Debug
               "Sent input request to writer via pubsub"
@@ -258,6 +258,11 @@ send id (SendRequest expressions) = do
 
     machineMode = fmap (liftA2 (,) chainMode chainSubscription) <$> lookupMachine id
     prValues = T.intercalate "," . (renderCompactPretty <$>)
+
+-- | The amount of time a reader will wait for a response message from
+-- a writer; 8 seconds.
+ackWaitTime :: Int
+ackWaitTime = 8000
 
 -- * Helpers
 
@@ -311,14 +316,17 @@ checkMachineLoaded id = do
           then pure m
           else refreshAsReader id
 
-daemonHandler :: Env -> (Message -> Daemon ()) -> Message -> IO ()
-daemonHandler env h msg = do
+logNonDecodableMsg :: MachineId -> Text -> IO ()
+logNonDecodableMsg (MachineId id) bad =
+  Common.logInfo "Non-decodable message on machine's pubsub topic" [("id", id), ("message", bad)]
+
+daemonHandler :: Env -> MachineId -> (Message -> Daemon ()) -> Either Text Message -> IO ()
+daemonHandler _ id _ (Left bad) = logNonDecodableMsg id bad
+daemonHandler env _ h (Right msg) = do
   x_ <- runDaemon env (h msg)
   case x_ of
     Left err -> logDaemonError err
     Right _  -> pure ()
-
-
 
 -- | Loads a machine fresh from IPFS.
 loadMachine :: ReaderOrWriter -> MachineId -> Daemon IpfsMachine
@@ -416,7 +424,7 @@ initAsReader :: MachineId -> Daemon IpfsMachine
 initAsReader id = do
     m <- loadMachine Reader id
     env <- ask
-    _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env onMsg)
+    _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env id onMsg)
     logInfo Normal "Following as reader" [("id", getMachineId id)]
     pure m
   where
@@ -450,7 +458,7 @@ initAsWriter id = do
 actAsWriter :: IpfsMachine -> Daemon ()
 actAsWriter m = do
     env <- ask
-    _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env onMsg)
+    _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env id onMsg)
     logInfo Normal "Acting as writer" [("id", getMachineId id)]
   where
     id = chainName m
@@ -503,7 +511,7 @@ sinceLastUpdate m = timeDelta (chainLastUpdated m) <$> Time.getSystemTime
 initPolling :: Env -> IO ()
 initPolling env = do
   -- High frequency polling is half a second.
-  threadDelay 500000
+  threadDelay highFrequencyPollPeriod
   res <- runDaemon env poll
   -- If polling encounters an error it should log it but continue.
   -- Later we might detect some errors as critical and halt the
@@ -512,3 +520,7 @@ initPolling env = do
     Left err -> logDaemonError err
     Right _  -> pure ()
   initPolling env
+
+-- The amount of time between high-frequency polls.
+highFrequencyPollPeriod :: Int
+highFrequencyPollPeriod = 500000
