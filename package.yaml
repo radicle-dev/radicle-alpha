@@ -54,6 +54,8 @@ library:
   - serialise
   - servant
   - servant-client
+  - servant-swagger
+  - swagger2
   - template-haskell
   - text
   - time

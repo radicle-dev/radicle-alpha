@@ -18,6 +18,7 @@ import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
 import           Radicle.TH
 import           Text.Pandoc
+import qualified Radicle.Daemon.HttpApi as Daemon
 
 data Content = Content
   { intro             :: Text
@@ -43,6 +44,7 @@ main = do
     let env = bindingsEnv $ bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
     let rst = runPure (writeRST Default.def $ Pandoc nullMeta (doc content env)) `lPanic` "Couldn't generate RST"
     writeFile "docs/source/reference.rst" rst
+    writeFile "docs/source/daemon-api.yaml" (toS (encode Daemon.swagger))
   where
 
     doc :: Content -> Env Value -> [Block]

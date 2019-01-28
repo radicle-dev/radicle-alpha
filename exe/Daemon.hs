@@ -1,5 +1,12 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
+-- | The radicle-daemon; a long-running background process which
+-- materialises the state of remote IPFS machines on the users PC, and
+-- writes to those IPFS machines the user is an owner of.
+--
+-- See
+-- <https://github.com/oscoin/radicle/blob/master/rfcs/0003-radicle-daemon.rst
+-- the RFC>.
 module Daemon where
 
 import           Protolude hiding (fromStrict, option, poll)

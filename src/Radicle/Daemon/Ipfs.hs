@@ -37,7 +37,6 @@ import qualified Radicle.Ipfs as Ipfs
 -- * Types
 
 newtype JsonValue = JsonValue { jsonValue :: Value }
-  deriving (Show)
 
 instance Aeson.FromJSON JsonValue where
   parseJSON = Aeson.withText "JsonValue" $ \t -> do
