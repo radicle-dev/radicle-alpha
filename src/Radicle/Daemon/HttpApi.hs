@@ -58,9 +58,9 @@ type Send  = "send"  :> ReqBody '[JSON] Expressions :> Post '[JSON] SendResult
 type New   = "new"   :> Post '[JSON] NewResult
 
 type Machines = "machines" :> Capture "machineId" MachineId :> ( Query :<|> Send ) :<|> New
---type Docs = "docs" :> Get '[JSON] Swagger
+type Docs = "docs" :> Get '[JSON] Swagger
 
-type DaemonApi = "v0" :> Machines -- ( Machines :<|> Docs )
+type DaemonApi = "v0" :> ( Machines :<|> Docs )
 
 daemonApi :: Proxy DaemonApi
 daemonApi = Proxy

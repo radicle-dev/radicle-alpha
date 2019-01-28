@@ -15,13 +15,15 @@ import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Text as T
 import qualified Data.Time.Clock.System as Time
 import           Network.Wai.Handler.Warp (run)
 import           Options.Applicative
 import           Servant
 import           System.Directory (doesFileExist)
 
-import           Radicle.Daemon.Common
+import           Radicle.Daemon.Common hiding (logInfo)
+import qualified Radicle.Daemon.Common as Common
 import qualified Radicle.Internal.UUID as UUID
 
 import           Radicle hiding (Env)
@@ -74,6 +76,7 @@ data Opts = Opts
   { port       :: Int
   -- TODO(james): temporary, just for testing.
   , filePrefix :: Text
+  , debug      :: Bool
   }
 
 opts :: Parser Opts
@@ -92,13 +95,22 @@ opts = Opts
        <> showDefault
        <> value ""
         )
+    <*> switch
+        ( long "debug"
+       <> help "debug logging"
+       <> showDefault
+        )
 
 type FollowFileLock = MVar ()
+
+data LogLevel = Normal | Debug
+  deriving (Eq, Ord)
 
 data Env = Env
   { followFileLock :: FollowFileLock
   , followFile     :: FilePath
   , machines       :: IpfsMachines
+  , logLevel       :: LogLevel
   }
 
 newtype Daemon a = Daemon { fromDaemon :: ExceptT Error (ReaderT Env IO) a }
@@ -107,13 +119,20 @@ newtype Daemon a = Daemon { fromDaemon :: ExceptT Error (ReaderT Env IO) a }
 runDaemon :: Env -> Daemon a -> IO (Either Error a)
 runDaemon env (Daemon x) = runReaderT (runExceptT x) env
 
+logInfo :: LogLevel -> Text -> [(Text,Text)] -> Daemon ()
+logInfo l msg infos = do
+  l' <- asks logLevel
+  if l <= l'
+    then Common.logInfo msg infos
+    else pure ()
+
 main :: IO ()
 main = do
-    opts' <- execParser allOpts
+    Opts{..} <- execParser allOpts
     followFileLock <- newMVar ()
-    followFile <- Local.getRadicleFile (toS (filePrefix opts') <> "daemon-follows")
+    followFile <- Local.getRadicleFile (toS filePrefix <> "daemon-follows")
     machines <- Chains <$> CMap.empty
-    let env = Env{..}
+    let env = Env{ logLevel = if debug then Debug else Normal, ..}
     follows <- readFollowFileIO followFileLock followFile
     initRes <- runDaemon env (init follows)
     case initRes of
@@ -121,8 +140,8 @@ main = do
       Right _ -> do
         polling <- async $ initPolling env
         let app = serve daemonApi (server env)
-        logInfo "Start listening" [("port", show (port opts'))]
-        serv <- async $ run (port opts') app
+        Common.logInfo "Start listening" [("port", show port)]
+        serv <- async $ run port app
         exc <- waitEitherCatchCancel polling serv
         case exc of
           Left (Left err) -> logErr "Polling failed with an exception" [("error", toS (displayException err))]
@@ -143,7 +162,7 @@ server :: Env -> Server DaemonApi
 server env = hoistServer daemonApi nt daemonServer
   where
     daemonServer :: ServerT DaemonApi Daemon
-    daemonServer = machineEndpoints :<|> newMachine
+    daemonServer = (machineEndpoints :<|> newMachine) :<|> pure swagger
     machineEndpoints id = query id :<|> send id
 
     nt :: Daemon a -> Handler a
@@ -177,7 +196,7 @@ newMachine :: Daemon NewResult
 newMachine = do
     id <- create
     sub <- ipfs id $ initSubscription id
-    logInfo "Created new IPFS machine" [("id", getMachineId id)]
+    logInfo Normal "Created new IPFS machine" [("id", getMachineId id)]
     m <- liftIO $ emptyMachine id Writer sub
     insertNewMachine m
     actAsWriter m
@@ -194,7 +213,7 @@ query id (Expression (JsonValue v)) = do
   case fst <$> runIdentity $ runLang (chainState m) $ eval v of
     Left err -> throwError $ MachineError id (InvalidInput err)
     Right rv -> do
-      logInfo "Query success:" [("result", renderCompactPretty rv)]
+      logInfo Normal "Query success:" [("result", renderCompactPretty rv)]
       pure (Expression (JsonValue rv))
 
 -- | Write a new expression to an IPFS machine.
@@ -205,12 +224,9 @@ send id (Expressions expressions) = do
     Just (Writer, _) -> do
       let vs = jsonValue <$> expressions
       rs <- writeInputs id vs Nothing
-      logInfo "Send as writer success" [("id", getMachineId id)]
+      logInfo Normal "Send as writer success" [("id", getMachineId id)]
       pure SendResult{ results = JsonValue <$> rs }
-    Just (Reader, sub) -> do
-      res <- requestInput sub
-      bumpPolling id
-      pure res
+    Just (Reader, sub) -> requestInput sub
     Nothing -> do
       m <- initAsReader id
       requestInput (chainSubscription m)
@@ -220,18 +236,29 @@ send id (Expressions expressions) = do
       let isResponse = \case
             New NewInputs{ nonce = Just nonce' } | nonce' == nonce -> True
             _ -> False
-      asyncMsg <- liftIO $ async $ subscribeOne sub 4000 isResponse -- Waits for 4 seconds.
+      asyncMsg <- liftIO $ async $ subscribeOne sub 8000 isResponse -- Waits for 8 seconds.
       ipfs id $ publish id (Req ReqInputs{..})
+      logInfo Debug
+              "Sent input request to writer via pubsub"
+              [ ("id", getMachineId id)
+              , ("expressions", prValues expressions) ]
       msg_ <- liftIO $ waitCatch asyncMsg
       case msg_ of
         Right (Just (New NewInputs{results})) -> do
-          logInfo "Send as reader success" [("id", getMachineId id)]
+          logInfo Normal
+                 "Writer accepter input request"
+                 [ ("id", getMachineId id)
+                 , ("results", prValues results)
+                 ]
+          _ <- refreshAsReader id
+          bumpPolling id
           pure SendResult{..}
         Right Nothing -> throwError $ MachineError id AckTimeout
         Right _ -> throwError $ MachineError id (DaemonError "Didn't filter machine topic messages correctly.")
         Left err -> throwError $ MachineError id (DaemonError (toS (displayException err)))
 
     machineMode = fmap (liftA2 (,) chainMode chainSubscription) <$> lookupMachine id
+    prValues = T.intercalate "," . (renderCompactPretty . jsonValue <$>)
 
 -- * Helpers
 
@@ -335,8 +362,9 @@ ipfs id = Daemon . mapExceptT (lift . fmap (first (MachineError id . IpfsError))
 
 -- Do some high-freq polling for a while.
 bumpPolling :: MachineId -> Daemon ()
-bumpPolling id = modifyMachine id $
-  \m' -> pure (m' { chainPolling = highFreq }, () )
+bumpPolling id = do
+  modifyMachine id $ \m' -> pure (m' { chainPolling = highFreq }, () )
+  logInfo Debug "Reset to high-frequency polling" [("id", getMachineId id)]
 
 -- Insert a new machine into the cache. Errors if the machine is
 -- already cached.
@@ -390,7 +418,7 @@ initAsReader id = do
     m <- loadMachine Reader id
     env <- ask
     _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env onMsg)
-    logInfo "Following as reader" [("id", getMachineId id)]
+    logInfo Normal "Following as reader" [("id", getMachineId id)]
     pure m
   where
     onMsg :: Message -> Daemon ()
@@ -407,7 +435,7 @@ refreshAsReader id = do
     (idx, is) <- ipfs id $ machineInputsFrom (chainName m) (chainLastIndex m)
     (m', _) <- addInputs is (pure idx) (const (pure ())) m
     pure (m', (m', length is))
-  logInfo "Refreshed as reader" [("id", getMachineId id), ("n", show n)]
+  logInfo Debug "Refreshed as reader" [("id", getMachineId id), ("n", show n)]
   pure m
 
 -- ** Writer
@@ -424,7 +452,7 @@ actAsWriter :: IpfsMachine -> Daemon ()
 actAsWriter m = do
     env <- ask
     _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env onMsg)
-    logInfo "Acting as writer" [("id", getMachineId id)]
+    logInfo Normal "Acting as writer" [("id", getMachineId id)]
   where
     id = chainName m
     onMsg = \case
@@ -459,7 +487,9 @@ poll = do
                    else (False, LowFreq)
               -- Low frequency polling is every 10 seconds.
               LowFreq -> (delta > 10000, LowFreq)
-      when shouldPoll $ refreshAsReader chainName >> pure ()
+      when shouldPoll $ do
+        logInfo Debug "Polling.." [("id", getMachineId chainName)]
+        refreshAsReader chainName >> pure ()
       modifyMachine chainName $ \m' -> pure (m' { chainPolling = newPoll }, () )
     pollMachine _ = pure ()
 
@@ -473,8 +503,8 @@ sinceLastUpdate m = timeDelta (chainLastUpdated m) <$> Time.getSystemTime
 
 initPolling :: Env -> IO ()
 initPolling env = do
-  -- High frequency polling is every 2 seconds.
-  threadDelay 2000000
+  -- High frequency polling is half a second.
+  threadDelay 500000
   res <- runDaemon env poll
   -- If polling encounters an error it should log it but continue.
   -- Later we might detect some errors as critical and halt the

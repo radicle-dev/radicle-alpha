@@ -139,8 +139,7 @@ machineTopic (MachineId id) = Topic ("radicle:machine:" <> id)
 
 -- | Publish a 'Message' on a machine's IPFS pubsub topic.
 publish :: MachineId -> Message -> ExceptT IpfsError IO ()
-publish id msg = safeIpfs $ do
-  liftIO $ putStrLn $ "pubsub pub " <> getMachineId id <> ": " <> toS (Aeson.encode msg)
+publish id msg = safeIpfs $
   Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
@@ -148,8 +147,7 @@ subscribeForever :: MachineId -> (Message -> IO ()) -> IO ()
 subscribeForever id messageHandler = Ipfs.subscribe topic pubsubHandler
   where
     Topic topic = machineTopic id
-    pubsubHandler Ipfs.PubsubMessage{..} = do
-        liftIO $ putStrLn $ "pubsub sub " <> getMachineId id <> ": " <> toS messageData
+    pubsubHandler Ipfs.PubsubMessage{..} =
         case decodeStrict messageData of
             Nothing  -> putStrLn ("Cannot parse pubsub message" :: Text)
             Just msg -> messageHandler msg
