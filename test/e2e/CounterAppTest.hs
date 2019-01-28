@@ -44,7 +44,7 @@ test_counter_app = testCaseSteps "counter app" $ \step -> do
 -- tests with @test/docker-compose.yaml@.
 --
 -- Any trailing newlines are stripped from the output.
-runTestCommand :: FilePath -> [String] -> IO String
+runTestCommand :: (HasCallStack) => FilePath -> [String] -> IO String
 runTestCommand bin args = do
     env <- getEnvironment
     let procEnv = setDefault "RAD_IPFS_API_URL" "http://localhost:19301" env
