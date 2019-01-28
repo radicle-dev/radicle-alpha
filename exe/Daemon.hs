@@ -380,7 +380,7 @@ emptyMachine id mode sub = do
 
 -- | High frequency polling lasts for 10 mins.
 highFreq :: Polling
-highFreq = HighFreq (10 * 1000) -- TODO(james): put back to 10 mins.
+highFreq = HighFreq (10 * 60 * 1000)
 
 -- ** Reader
 

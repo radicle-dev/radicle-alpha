@@ -57,8 +57,10 @@ type Query = "query" :> ReqBody '[JSON] Expression  :> Post '[JSON] Expression
 type Send  = "send"  :> ReqBody '[JSON] Expressions :> Post '[JSON] SendResult
 type New   = "new"   :> Post '[JSON] NewResult
 
-type DaemonApi =
-  "v0" :> "machines" :> ( Capture "machineId" MachineId :> ( Query :<|> Send ) :<|> New )
+type Machines = "machines" :> Capture "machineId" MachineId :> ( Query :<|> Send ) :<|> New
+--type Docs = "docs" :> Get '[JSON] Swagger
+
+type DaemonApi = "v0" :> Machines -- ( Machines :<|> Docs )
 
 daemonApi :: Proxy DaemonApi
 daemonApi = Proxy
@@ -85,13 +87,20 @@ instance ToSchema Expressions
 instance ToSchema SendResult
 instance ToSchema NewResult
 
-swagger :: A.Value
-swagger = A.toJSON $
-  (toSwagger daemonApi) { _swaggerInfo = mempty { _infoTitle = "Radicle daemon"
-                                                , _infoDescription = Just desc
-                                                , _infoVersion = toS $ showVersion Radicle.version
-                                                } }
+instance ToSchema Swagger where
+  declareNamedSchema _ = pure $
+    NamedSchema (Just "Swagger") $
+      mempty { _schemaDescription = Just "This swagger spec."
+             , _schemaParamSchema = mempty { _paramSchemaType = SwaggerObject }}
+
+swagger :: Swagger
+swagger = swag { _swaggerInfo = inf }
   where
+    inf = mempty { _infoTitle = "Radicle daemon"
+                 , _infoDescription = Just desc
+                 , _infoVersion = toS $ showVersion Radicle.version
+                 }
+    swag = toSwagger daemonApi
     desc =
       "The radicle-daemon; a long-running background process which\
       \ materialises the state of remote IPFS machines on the users\
