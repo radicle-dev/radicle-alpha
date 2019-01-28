@@ -3,42 +3,42 @@
 usage() {
   cat <<USAGEDOC
 USAGE
-  $0 <chain> <cmd>
+  $0 <machine> <cmd>
 
-Initialize and interact with a simple counter chain.
+Initialize and interact with a simple counter machine.
 
-  <chain> init
-    Initializes the chain with a prelude that defines the counter semantics.
+  <machine> init
+    Initializes the machine with a prelude that defines the counter semantics.
 
-  <chain> get-value
+  <machine> get-value
     Prints the current value of the counter.
 
-  <chain> increment
+  <machine> increment
     Increments the value of the counter by one and prints it.
 
 EXAMPLE
 
-  > $0 my-chain-id init
-  > $0 my-chain-id get-value
+  > $0 my-machine-id init
+  > $0 my-machine-id get-value
   0
-  > $0 my-chain-id increment
+  > $0 my-machine-id increment
   1
-  > $0 my-chain-id get-value
+  > $0 my-machine-id get-value
   1
 
 USAGEDOC
   exit 1
 }
 
-chain=
+machine=
 cmd=
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h | --help ) usage;;
     * )
-      if [[ -z "$chain" ]]; then
-        chain=$1
+      if [[ -z "$machine" ]]; then
+        machine=$1
       elif [[ -z "$cmd" ]]; then
         cmd=$1
       else
@@ -49,8 +49,8 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-if [[ -z "$chain" ]]; then
-  echo "Argument <chain> is missing"
+if [[ -z "$machine" ]]; then
+  echo "Argument <machine> is missing"
   exit 1
 elif [[ -z "$cmd" ]]; then
   echo "Argument <cmd> is missing"
@@ -61,19 +61,19 @@ case "$cmd" in
   init )
     radicle - <<-SCRIPT
       (load! "rad/examples/counter.rad")
-      (counter/init-chain! "${chain}")
+      (counter/init-machine! "${machine}")
 SCRIPT
     ;;
   get-value )
     radicle - <<-SCRIPT
       (load! "rad/examples/counter.rad")
-      (counter/get-value "${chain}")
+      (counter/get-value "${machine}")
 SCRIPT
     ;;
   increment )
     radicle - <<-SCRIPT
       (load! "rad/examples/counter.rad")
-      (counter/increment! "${chain}")
+      (counter/increment! "${machine}")
 SCRIPT
     ;;
   * )
