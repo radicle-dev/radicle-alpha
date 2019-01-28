@@ -1,14 +1,12 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Radicle.Daemon.HttpApi
-    ( Query
-    , Send
-    , SendResult(..)
-    , NewResult(..)
-    , New
+    ( QueryRequest(..)
+    , QueryResponse(..)
+    , SendRequest(..)
+    , SendResponse(..)
+    , NewResponse(..)
     , DaemonApi
     , daemonApi
-    , Expressions(..)
-    , Expression(..)
     , swagger
     ) where
 
@@ -17,45 +15,51 @@ import           Protolude
 import qualified Data.Aeson as A
 import           Data.Swagger
 import           Data.Version (showVersion)
-import           Radicle.Daemon.Ipfs (JsonValue, MachineId(..))
+import           Radicle.Daemon.Ipfs (MachineId(..))
 import           Servant.API
 import           Servant.Swagger
 
+import Radicle
 import qualified Paths_radicle as Radicle
 
 instance FromHttpApiData MachineId where
   parseUrlPiece = Right . MachineId . toS
   parseQueryParam = parseUrlPiece
 
-newtype Expression = Expression { expression :: JsonValue }
+newtype QueryRequest = QueryRequest { expression :: Value }
   deriving (Generic)
 
-instance A.ToJSON Expression
-instance A.FromJSON Expression
+instance A.ToJSON QueryRequest
+instance A.FromJSON QueryRequest
 
-newtype Expressions = Expressions { expressions :: [JsonValue] }
+newtype QueryResponse = QueryResponse { result :: Value }
   deriving (Generic)
 
-instance A.FromJSON Expressions
-instance A.ToJSON Expressions
+instance A.ToJSON QueryResponse
+instance A.FromJSON QueryResponse
 
-newtype SendResult = SendResult
-  { results :: [JsonValue]
+newtype SendRequest = SendRequest { expressions :: [Value] }
+  deriving (Generic)
+
+instance A.FromJSON SendRequest
+
+newtype SendResponse = SendResponse
+  { results :: [Value]
   } deriving (Generic)
 
-instance A.ToJSON SendResult
+instance A.ToJSON SendResponse
 
-newtype NewResult = NewResult
+newtype NewResponse = NewResponse
   { machineId :: MachineId
   } deriving (Generic)
 
-instance A.ToJSON NewResult
+instance A.ToJSON NewResponse
 
 -- * APIs
 
-type Query = "query" :> ReqBody '[JSON] Expression  :> Post '[JSON] Expression
-type Send  = "send"  :> ReqBody '[JSON] Expressions :> Post '[JSON] SendResult
-type New   = "new"   :> Post '[JSON] NewResult
+type Query = "query" :> ReqBody '[JSON] QueryRequest :> Post '[JSON] QueryResponse
+type Send  = "send"  :> ReqBody '[JSON] SendRequest :> Post '[JSON] SendResponse
+type New   = "new"   :> Post '[JSON] NewResponse
 
 type Machines = "machines" :> Capture "machineId" MachineId :> ( Query :<|> Send ) :<|> New
 type Docs = "docs" :> Get '[JSON] Swagger
@@ -75,17 +79,17 @@ instance ToSchema MachineId where
       mempty { _schemaDescription = Just "The ID (i.e. IPNS name) of an IPFS machine."
              , _schemaParamSchema = toParamSchema pxy }
 
-instance ToSchema JsonValue where
+instance ToSchema Value where
   declareNamedSchema _ = pure $
     NamedSchema (Just "RadicleValue") $
       mempty { _schemaDescription = Just "A radicle value formatted according to radicle's S-expression syntax."
              , _schemaParamSchema = mempty {_paramSchemaType = SwaggerString } }
 
-instance ToSchema Expression
-instance ToSchema Expressions
-
-instance ToSchema SendResult
-instance ToSchema NewResult
+instance ToSchema QueryRequest
+instance ToSchema QueryResponse
+instance ToSchema SendRequest
+instance ToSchema SendResponse
+instance ToSchema NewResponse
 
 instance ToSchema Swagger where
   declareNamedSchema _ = pure $

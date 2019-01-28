@@ -192,7 +192,7 @@ init follows = traverse_ initMachine (Map.toList follows)
 
 -- | Create a new IPFS machine and initialise the daemon as as the
 -- /writer/.
-newMachine :: Daemon NewResult
+newMachine :: Daemon NewResponse
 newMachine = do
     id <- create
     sub <- ipfs id $ initSubscription id
@@ -201,31 +201,30 @@ newMachine = do
     insertNewMachine m
     actAsWriter m
     writeFollowFile
-    pure (NewResult id)
+    pure (NewResponse id)
   where
     create = Daemon $ mapExceptT (lift . fmap (first CouldNotCreateMachine)) $ createMachine
 
 -- | Evaluate an expression.
-query :: MachineId -> Expression -> Daemon Expression
-query id (Expression (JsonValue v)) = do
+query :: MachineId -> QueryRequest -> Daemon QueryResponse
+query id (QueryRequest v) = do
   m <- checkMachineLoaded id
   bumpPolling id
   case fst <$> runIdentity $ runLang (chainState m) $ eval v of
     Left err -> throwError $ MachineError id (InvalidInput err)
     Right rv -> do
       logInfo Normal "Query success:" [("result", renderCompactPretty rv)]
-      pure (Expression (JsonValue rv))
+      pure (QueryResponse rv)
 
 -- | Write a new expression to an IPFS machine.
-send :: MachineId -> Expressions -> Daemon SendResult
-send id (Expressions expressions) = do
+send :: MachineId -> SendRequest -> Daemon SendResponse
+send id (SendRequest expressions) = do
   mode_ <- machineMode
   case mode_ of
     Just (Writer, _) -> do
-      let vs = jsonValue <$> expressions
-      rs <- writeInputs id vs Nothing
+      results <- writeInputs id expressions Nothing
       logInfo Normal "Send as writer success" [("id", getMachineId id)]
-      pure SendResult{ results = JsonValue <$> rs }
+      pure SendResponse{..}
     Just (Reader, sub) -> requestInput sub
     Nothing -> do
       m <- initAsReader id
@@ -234,17 +233,17 @@ send id (Expressions expressions) = do
     requestInput sub = do
       nonce <- liftIO $ UUID.uuid
       let isResponse = \case
-            New NewInputs{ nonce = Just nonce' } | nonce' == nonce -> True
+            New InputsApplied{ nonce = Just nonce' } | nonce' == nonce -> True
             _ -> False
       asyncMsg <- liftIO $ async $ subscribeOne sub 8000 isResponse -- Waits for 8 seconds.
-      ipfs id $ publish id (Req ReqInputs{..})
+      ipfs id $ publish id (Submit SubmitInputs{..})
       logInfo Debug
               "Sent input request to writer via pubsub"
               [ ("id", getMachineId id)
               , ("expressions", prValues expressions) ]
       msg_ <- liftIO $ waitCatch asyncMsg
       case msg_ of
-        Right (Just (New NewInputs{results})) -> do
+        Right (Just (New InputsApplied{results})) -> do
           logInfo Normal
                  "Writer accepter input request"
                  [ ("id", getMachineId id)
@@ -252,13 +251,13 @@ send id (Expressions expressions) = do
                  ]
           _ <- refreshAsReader id
           bumpPolling id
-          pure SendResult{..}
+          pure SendResponse{..}
         Right Nothing -> throwError $ MachineError id AckTimeout
         Right _ -> throwError $ MachineError id (DaemonError "Didn't filter machine topic messages correctly.")
         Left err -> throwError $ MachineError id (DaemonError (toS (displayException err)))
 
     machineMode = fmap (liftA2 (,) chainMode chainSubscription) <$> lookupMachine id
-    prValues = T.intercalate "," . (renderCompactPretty . jsonValue <$>)
+    prValues = T.intercalate "," . (renderCompactPretty <$>)
 
 -- * Helpers
 
@@ -423,7 +422,7 @@ initAsReader id = do
   where
     onMsg :: Message -> Daemon ()
     onMsg = \case
-      New NewInputs{..} -> do
+      New InputsApplied{..} -> do
         _ <- refreshAsReader id
         bumpPolling id
       _ -> pure ()
@@ -456,7 +455,7 @@ actAsWriter m = do
   where
     id = chainName m
     onMsg = \case
-      Req ReqInputs{..} -> writeInputs id (jsonValue <$> expressions) (Just nonce) >> pure ()
+      Submit SubmitInputs{..} -> writeInputs id expressions (Just nonce) >> pure ()
       _ -> pure ()
 
 -- Write some inputs to a machine as the writer, sends out a
@@ -465,7 +464,7 @@ writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs id is nonce = modifyMachine id $ addInputs is write pub
   where
     write = ipfs id $ writeIpfs id is
-    pub rs = ipfs id $ publish id (New NewInputs{results = JsonValue <$> rs, ..})
+    pub results = ipfs id $ publish id (New InputsApplied{..})
 
 -- * Polling
 

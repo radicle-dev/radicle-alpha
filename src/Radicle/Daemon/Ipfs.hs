@@ -1,10 +1,9 @@
 module Radicle.Daemon.Ipfs
   ( IpfsError(..)
   , MachineId(..)
-  , JsonValue(..)
   , Message(..)
-  , NewInputs(..)
-  , ReqInputs(..)
+  , InputsApplied(..)
+  , SubmitInputs(..)
   , writeIpfs
   , publish
   , machineInputsFrom
@@ -36,18 +35,6 @@ import qualified Radicle.Ipfs as Ipfs
 
 -- * Types
 
-newtype JsonValue = JsonValue { jsonValue :: Value }
-
-instance Aeson.FromJSON JsonValue where
-  parseJSON = Aeson.withText "JsonValue" $ \t -> do
-      v <- case parse "[daemon]" t of
-        Left err -> fail $ "failed to parse Radicle expression: " <> show err
-        Right v  -> pure v
-      pure (JsonValue v)
-
-instance Aeson.ToJSON JsonValue where
-  toJSON (JsonValue v) = Aeson.String $ renderCompactPretty v
-
 newtype MachineId = MachineId { getMachineId :: Text }
     deriving (Show, Eq, Ord, Generic)
 
@@ -66,7 +53,7 @@ data IpfsError
   | NetworkError Text
 
 -- | Messages sent on a machine's IPFS pubsub topic.
-data Message = New NewInputs | Req ReqInputs
+data Message = New InputsApplied | Submit SubmitInputs
 
 instance Aeson.FromJSON Message where
   parseJSON = Aeson.withObject "Message" $ \o -> do
@@ -75,36 +62,36 @@ instance Aeson.FromJSON Message where
       "new_inputs" -> do
         nonce <- o .: "nonce"
         results <- o .: "results"
-        pure $ New NewInputs{..}
+        pure $ New InputsApplied{..}
       "request_inputs" -> do
         nonce <- o .: "nonce"
         expressions <- o .: "expressions"
-        pure $ Req ReqInputs{..}
+        pure $ Submit SubmitInputs{..}
       _ -> fail "Messages on a machine's pubsub topic must be of type 'new_inputs' or 'request_inputs'."
 
 instance Aeson.ToJSON Message where
   toJSON = \case
-    New NewInputs{..} -> Aeson.object
+    New InputsApplied{..} -> Aeson.object
       [ "type" .= ("new_inputs" :: Text)
       , "nonce" .= nonce
       , "results" .= results
       ]
-    Req ReqInputs{..} -> Aeson.object
+    Submit SubmitInputs{..} -> Aeson.object
       [ "type" .= ("request_inputs" :: Text)
       , "nonce" .= nonce
       , "expressions" .= expressions
       ]
 
 -- | Message sent to signal a new input has been added to the machine.
-data NewInputs = NewInputs
+data InputsApplied = InputsApplied
   { nonce   :: Maybe Text
-  , results :: [JsonValue]
+  , results :: [Value]
   }
 
 -- | Message sent to request the writer add inputs to the machine.
-data ReqInputs = ReqInputs
+data SubmitInputs = SubmitInputs
   { nonce       :: Text
-  , expressions :: [JsonValue]
+  , expressions :: [Value]
   }
 
 -- * Ipfs helpers

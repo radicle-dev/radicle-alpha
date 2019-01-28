@@ -402,18 +402,6 @@ isAtom :: Value -> Maybe Ident
 isAtom (Atom i) = pure i
 isAtom _        = Nothing
 
-instance A.FromJSON Value where
-  parseJSON = \case
-    A.Number n -> pure $ Number (toRational n)
-    A.String s -> pure $ String s
-    A.Array ls -> List . toList <$> traverse parseJSON ls
-    A.Bool b -> pure $ Boolean b
-    A.Null -> pure $ Keyword (Ident "null")
-    A.Object hm -> do
-      let kvs = HashMap.toList hm
-      vs <- traverse parseJSON (snd <$> kvs)
-      pure . Dict . Map.fromList $ zip (String . fst <$> kvs) vs
-
 -- | Convert a radicle `Value` into an 'aeson' value, if possible.
 --
 -- >>> import Data.Aeson (encode)
