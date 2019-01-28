@@ -24,6 +24,8 @@ services:
     image: eu.gcr.io/opensourcecoin/ipfs-test-network
     ports:
     - "19301:5001"
+    command:
+    - --enable-pubsub-experiment
 
 
 volumes:

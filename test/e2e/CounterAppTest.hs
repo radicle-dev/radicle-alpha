@@ -20,19 +20,18 @@ test_counter_app = testCaseSteps "counter app" $ \step -> do
         machineId <- runTestCommand "rad-machines" ["create"]
 
         step "Initialize machine"
-        let machineUrl = "ipfs://" <> machineId
-        void $ runTestCommand "examples/radicle-counter" [machineUrl, "init"]
+        void $ runTestCommand "examples/radicle-counter" [machineId, "init"]
 
-        initialValue <- runTestCommand "examples/radicle-counter" [machineUrl, "get-value"]
+        initialValue <- runTestCommand "examples/radicle-counter" [machineId, "get-value"]
         assertEqual "(get-value) on counter chain" "0" initialValue
 
         forM_ [(1::Int)..3] $ \i -> do
             step $ "Increment to " <> show i
 
-            valueInc <- runTestCommand "examples/radicle-counter" [machineUrl, "increment"]
+            valueInc <- runTestCommand "examples/radicle-counter" [machineId, "increment"]
             assertEqual "(increment) on counter chain" (show i) valueInc
 
-            valueGet <- runTestCommand "examples/radicle-counter" [machineUrl, "get-value"]
+            valueGet <- runTestCommand "examples/radicle-counter" [machineId, "get-value"]
             assertEqual "(get-value) on counter chain" (show i) valueGet
 
 -- | Run a command with the given arguments and return stdout.
