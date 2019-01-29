@@ -30,11 +30,11 @@ function save-cache() {
     # This file is not needed and unecessarily large
     rm -rf .stack/indices/Hackage/00-index.tar*
     tar czf $local_cache_archive .stack
-    gsutil -m cp $local_cache_archive "$remote_cache_hashed" || true
+    gsutil -m cp $local_cache_archive "$remote_cache_hashed"
   fi
 
   if [ "$BRANCH_NAME" = "master" ]; then
     echo "Setting master cache to current cache"
-    gsutil -m cp "$remote_cache_hashed" "$remote_cache_master" || true
+    gsutil -m cp "$remote_cache_hashed" "$remote_cache_master"
   fi
 }
