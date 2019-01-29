@@ -18,3 +18,8 @@
 (def primitive-stub-ref/read-file! (ref read-file!))
 (def read-file!
   (fn [path] ((read-ref primitive-stub-ref/read-file!) path)))
+
+;; find-module-file!
+(def primitive-stub-ref/find-module-file! (ref find-module-file!))
+(def find-module-file!
+  (fn [path] ((read-ref primitive-stub-ref/find-module-file!) path)))
