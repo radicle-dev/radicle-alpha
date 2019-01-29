@@ -51,7 +51,7 @@ data Error
 displayError :: Error -> (Text, [(Text,Text)])
 displayError = \case
   CouldNotCreateMachine e -> ("Could not create IPFS machine", [("error", e)])
-  MachineError id e -> let mid = ("id", getMachineId id) in
+  MachineError id e -> let mid = ("machine-id", getMachineId id) in
     case e of
       InvalidInput err -> ("Invalid radicle input", [mid, ("error", renderCompactPretty err)])
       DaemonError err -> ("Internal error", [mid, ("error", err)])
@@ -187,7 +187,7 @@ newMachine :: Daemon NewResponse
 newMachine = do
     id <- create
     sub <- ipfs id $ initSubscription id
-    logInfo Normal "Created new IPFS machine" [("id", getMachineId id)]
+    logInfo Normal "Created new IPFS machine" [("machine-id", getMachineId id)]
     m <- liftIO $ emptyMachine id Writer sub
     insertNewMachine m
     actAsWriter m
@@ -242,14 +242,14 @@ send id (SendRequest expressions) = do
       ipfs id $ publish id (Submit SubmitInputs{..})
       logInfo Debug
               "Sent input request to writer"
-              [ ("id", getMachineId id)
+              [ ("machine-id", getMachineId id)
               , ("expressions", prValues expressions) ]
       msg_ <- liftIO $ waitCatch asyncMsg
       case msg_ of
         Right (Just (New InputsApplied{results})) -> do
           logInfo Normal
                  "Writer accepted input request"
-                 [ ("id", getMachineId id)
+                 [ ("machine-id", getMachineId id)
                  , ("results", prValues results)
                  ]
           bumpPolling id
@@ -327,7 +327,7 @@ checkMachineLoaded id = do
 
 logNonDecodableMsg :: MachineId -> Text -> IO ()
 logNonDecodableMsg (MachineId id) bad =
-  Common.logInfo "Non-decodable message on machine's pubsub topic" [("id", id), ("message", bad)]
+  Common.logInfo "Non-decodable message on machine's pubsub topic" [("machine-id", id), ("message", bad)]
 
 daemonHandler :: Env -> MachineId -> (Message -> Daemon ()) -> Either Text Message -> IO ()
 daemonHandler _ id _ (Left bad) = logNonDecodableMsg id bad
@@ -376,11 +376,11 @@ addInputs is getIdx after m =
 ipfs :: MachineId -> ExceptT IpfsError IO a -> Daemon a
 ipfs id = Daemon . mapExceptT (lift . fmap (first (MachineError id . IpfsError)))
 
--- Do some high-freq polling for a while.
+-- | Do some high-freq polling for a while.
 bumpPolling :: MachineId -> Daemon ()
 bumpPolling id = do
   modifyMachine id $ \m' -> pure (m' { chainPolling = highFreq }, () )
-  logInfo Debug "Reset to high-frequency polling" [("id", getMachineId id)]
+  logInfo Debug "Reset to high-frequency polling" [("machine-id", getMachineId id)]
 
 -- | Insert a new machine into the cache. Errors if the machine is
 -- already cached.
@@ -424,14 +424,19 @@ emptyMachine id mode sub = do
 
 -- ** Reader
 
--- | Initialise the daemon service for this machine in /reader mode/.
+-- | Load a machine in /reader mode/ and return it.
+--
+-- Loads the machines input log from IPFS and listens for machine
+-- updates on pubsub.
+--
+-- The machine is added to the deamons machine cache.
 initAsReader :: MachineId -> Daemon IpfsMachine
 initAsReader id = do
     m <- loadMachine Reader id
     env <- ask
     _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env id onMsg)
-    logInfo Normal "Following as reader" [ ("id", getMachineId id)
-                                         , ("idx", show (chainLastIndex m)) ]
+    logInfo Normal "Following as reader" [ ("machine-id", getMachineId id)
+                                         , ("current-input-index", show (chainLastIndex m)) ]
     pure m
   where
     onMsg :: Message -> Daemon ()
@@ -444,7 +449,7 @@ initAsReader id = do
         bumpPolling id
       _ -> pure ()
 
--- | Freshen up a cached machine in in reader-mode.
+-- | Updates a machine in the cache with the new inputs pulled from IPFS.
 refreshAsReader :: MachineId -> Daemon IpfsMachine
 refreshAsReader id = modifyMachine id $ \m -> do
     let currentIdx = chainLastIndex m
@@ -453,16 +458,16 @@ refreshAsReader id = modifyMachine id $ \m -> do
       then do
         logInfo Debug
                 "Reader is already up to date"
-                [mid, ("idx",  show newIdx)]
+                [mid, ("input-index",  show newIdx)]
         pure (m, m)
       else do
         (m', _) <- addInputs is (pure newIdx) (const (pure ())) m
         logInfo Debug
                 "Updated reader"
-                [mid, ("n", show (length is)), ("idx",  show newIdx)]
+                [mid, ("n", show (length is)), ("input-index",  show newIdx)]
         pure (m', m')
   where
-    mid = ("id", getMachineId id)
+    mid = ("machine-id", getMachineId id)
 
 -- ** Writer
 
@@ -478,20 +483,24 @@ actAsWriter :: IpfsMachine -> Daemon ()
 actAsWriter m = do
     env <- ask
     _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env id onMsg)
-    logInfo Normal "Acting as writer" [("id", getMachineId id)]
+    logInfo Normal "Acting as writer" [("machine-id", getMachineId id)]
   where
     id = chainName m
     onMsg = \case
       Submit SubmitInputs{..} -> writeInputs id expressions (Just nonce) >> pure ()
       _ -> pure ()
 
--- Write some inputs to a machine as the writer, sends out a
--- 'InputsApplied' message.
+-- | Write and evaluate inputs in a machine we control.
+--
+-- Returns the outputs generated by evaluating the inputs.
+--
+-- Sends out a 'InputsApplied' message over pubsub that includes the
+-- outputs and the given nonce.
 writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs id is nonce = do
     (rs, idx) <- modifyMachine id $ addInputs is write pub
-    logInfo Debug "Wrote inputs to IPFS" [ ("id", getMachineId id)
-                                         , ("idx", show idx) ]
+    logInfo Debug "Wrote inputs to IPFS" [ ("machine-id", getMachineId id)
+                                         , ("new-input-index", show idx) ]
     pure rs
   where
     write = ipfs id $ writeIpfs id is
@@ -499,6 +508,7 @@ writeInputs id is nonce = do
 
 -- * Polling
 
+-- | Fetch and apply new inputs for all machines in reader mode.
 poll :: Daemon ()
 poll = do
     msVar <- asks machines
@@ -518,7 +528,7 @@ poll = do
               -- Low frequency polling is every 10 seconds.
               LowFreq -> (delta > lowFreqPollPeriod, LowFreq)
       when shouldPoll $ do
-        logInfo Debug "Polling.." [("id", getMachineId chainName)]
+        logInfo Debug "Polling.." [("machine-id", getMachineId chainName)]
         refreshAsReader chainName >> pure ()
       modifyMachine chainName $ \m' -> pure (m' { chainPolling = newPoll }, () )
     pollMachine _ = pure ()
@@ -533,7 +543,9 @@ sinceLastUpdate m = timeDelta (chainLastUpdated m) <$> Time.getSystemTime
         (Time.MkSystemTime s n, Time.MkSystemTime s' n') -> 1000 * (s' - s) + fromIntegral (n' - n) `div` 1000000
     trunc = Time.truncateSystemTimeLeapSecond
 
-initPolling :: Env -> IO ()
+-- | Polling loop that looks for changes on all loaded reader machines
+-- and updates them.
+initPolling :: Env -> IO Void
 initPolling env = do
   threadDelay (millisToMicros highFreqPollPeriod)
   res <- runDaemon env poll
