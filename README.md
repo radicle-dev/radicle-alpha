@@ -49,14 +49,23 @@ use `images/radicle-server/docker-compose.yaml`.
 
 You can run tests with `stack test`.
 
+The documentation is build with `make -C docs html`. Reference documentation for
+Radicle code must be regenerated with `stack run radicle-doc-ref` and checked
+into version control.
+
+### End-to-end Tests
+
 The end-to-end test suite is run with `stack test :e2e`. It requires you to
 start up an IPFS test network with
 
     docker-compose -f test/docker-compose.yaml up -d ipfs-test-network
 
-The documentation is build with `make -C docs html`. Reference documentation for
-Radicle code must be regenerated with `stack run radicle-doc-ref` and checked
-into version control.
+By default the end to end tests use the Radicle source files copied during
+`stack build`. To test changes to Radicle source files in `./rad` without
+running `stack build` run
+
+    RADPATH=./rad stack test :e2e
+
 
 ## Issues
 
