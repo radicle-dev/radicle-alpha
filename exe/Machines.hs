@@ -5,10 +5,10 @@ module Machines
 
 import           Protolude hiding (option)
 
-import qualified Data.UUID as UUID
-import qualified Data.UUID.V4 as UUID
+import           Control.Exception.Safe
+import qualified Network.HTTP.Client as HttpClient
 import           Options.Applicative
-import           Radicle.Internal.MachineBackend.Ipfs
+import qualified Radicle.Daemon.Client as Client
 
 data Command = CommandCreate
     deriving (Show, Eq)
@@ -25,11 +25,10 @@ programParserInfo =
 
 runCommand :: Command -> IO ()
 runCommand CommandCreate = do
-    label <- UUID.toText <$> UUID.nextRandom
-    result <- ipfsMachineCreate label
-    case result of
-        Left err        -> die (toS err)
-        Right machineId -> putStrLn machineId
+    httpManager <- HttpClient.newManager HttpClient.defaultManagerSettings
+    runExceptT (Client.newMachine httpManager) >>= \case
+        Left err -> throw err
+        Right (Client.MachineId machineId) -> putStrLn machineId
 
 main :: IO ()
 main = do

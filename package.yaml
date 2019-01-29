@@ -216,8 +216,9 @@ executables:
     other-modules: []
     dependencies:
     - radicle
-    - uuid
+    - http-client
     - optparse-applicative
+    - safe-exceptions
     ghc-options: -main-is Machines
 
 default-extensions:
