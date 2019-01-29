@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | The radicle-daemon; a long-running background process which
 -- materialises the state of remote IPFS machines on the user's PC, and
 -- writes to those IPFS machines the user is an owner of.
@@ -97,7 +95,7 @@ opts = Opts
         )
     <*> switch
         ( long "debug"
-       <> help "debug logging"
+       <> help "enable debug logging"
        <> showDefault
         )
 
@@ -118,13 +116,6 @@ newtype Daemon a = Daemon { fromDaemon :: ExceptT Error (ReaderT Env IO) a }
 
 runDaemon :: Env -> Daemon a -> IO (Either Error a)
 runDaemon env (Daemon x) = runReaderT (runExceptT x) env
-
-logInfo :: LogLevel -> Text -> [(Text,Text)] -> Daemon ()
-logInfo l msg infos = do
-  l' <- asks logLevel
-  if l <= l'
-    then Common.logInfo msg infos
-    else pure ()
 
 main :: IO ()
 main = do
@@ -205,7 +196,12 @@ newMachine = do
   where
     create = Daemon $ mapExceptT (lift . fmap (first CouldNotCreateMachine)) $ createMachine
 
--- | Evaluate an expression.
+-- | Evaluate an expression against a cached machine. The resulting
+-- state is always discarded, and the expression is never sent to the
+-- writer. Only used for local queries.
+--
+-- Hitting this endpoint will turn on high-frequency polling for a
+-- fixed amount of time.
 query :: MachineId -> QueryRequest -> Daemon QueryResponse
 query id (QueryRequest v) = do
   m <- checkMachineLoaded id
@@ -217,13 +213,20 @@ query id (QueryRequest v) = do
       pure (QueryResponse rv)
 
 -- | Write a new expression to an IPFS machine.
+--
+-- - If the daemon is the writer for the machine, it will write the
+--   new inputs to IPFS and then send out a notification on the
+--   machine's pubsub topic.
+--
+-- - If the daemon is a reader for the machine, it will request the
+--   machine's writer daemon to perform the write, and wait for an
+--   ack.
 send :: MachineId -> SendRequest -> Daemon SendResponse
 send id (SendRequest expressions) = do
   mode_ <- machineMode
   case mode_ of
     Just (Writer, _) -> do
       results <- writeInputs id expressions Nothing
-      logInfo Normal "Send as writer success" [("id", getMachineId id)]
       pure SendResponse{..}
     Just (Reader, sub) -> requestInput sub
     Nothing -> do
@@ -238,18 +241,17 @@ send id (SendRequest expressions) = do
       asyncMsg <- liftIO $ async $ subscribeOne sub ackWaitTime isResponse (logNonDecodableMsg id)
       ipfs id $ publish id (Submit SubmitInputs{..})
       logInfo Debug
-              "Sent input request to writer via pubsub"
+              "Sent input request to writer"
               [ ("id", getMachineId id)
               , ("expressions", prValues expressions) ]
       msg_ <- liftIO $ waitCatch asyncMsg
       case msg_ of
         Right (Just (New InputsApplied{results})) -> do
           logInfo Normal
-                 "Writer accepter input request"
+                 "Writer accepted input request"
                  [ ("id", getMachineId id)
                  , ("results", prValues results)
                  ]
-          _ <- refreshAsReader id
           bumpPolling id
           pure SendResponse{..}
         Right Nothing -> throwError $ MachineError id AckTimeout
@@ -259,12 +261,14 @@ send id (SendRequest expressions) = do
     machineMode = fmap (liftA2 (,) chainMode chainSubscription) <$> lookupMachine id
     prValues = T.intercalate "," . (renderCompactPretty <$>)
 
--- | The amount of time a reader will wait for a response message from
--- a writer; 8 seconds.
-ackWaitTime :: Int
-ackWaitTime = 8000
-
 -- * Helpers
+
+logInfo :: LogLevel -> Text -> [(Text,Text)] -> Daemon ()
+logInfo l msg infos = do
+  l' <- asks logLevel
+  if l <= l'
+    then Common.logInfo msg infos
+    else pure ()
 
 withFollowFileLock :: FollowFileLock -> IO a -> IO a
 withFollowFileLock lock = withMVar lock . const
@@ -310,8 +314,10 @@ checkMachineLoaded id = do
     Just m -> case chainMode m of
       Writer -> pure m
       Reader -> refreshAsReader id
-        -- For the moment we will just force a refresh for robustness.
-        
+        -- TODO(james): For the moment we will just force a
+        -- refresh. Later consider brining back the check to see if
+        -- the machine was very recently updated.
+
         -- do
         -- delta <- liftIO $ sinceLastUpdate m
         -- -- If machine is half a second fresh, then return it.
@@ -416,10 +422,6 @@ emptyMachine id mode sub = do
             , chainPolling = highFreq
             }
 
--- | High frequency polling lasts for 10 mins.
-highFreq :: Polling
-highFreq = HighFreq (10 * 60 * 1000)
-
 -- ** Reader
 
 -- | Initialise the daemon service for this machine in /reader mode/.
@@ -428,25 +430,39 @@ initAsReader id = do
     m <- loadMachine Reader id
     env <- ask
     _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env id onMsg)
-    logInfo Normal "Following as reader" [("id", getMachineId id)]
+    logInfo Normal "Following as reader" [ ("id", getMachineId id)
+                                         , ("idx", show (chainLastIndex m)) ]
     pure m
   where
     onMsg :: Message -> Daemon ()
     onMsg = \case
       New InputsApplied{..} -> do
         _ <- refreshAsReader id
+        -- TODO(james): decide if this should bump polling. If this is
+        -- a very active chain this will mean the polling is always
+        -- high-frequency.
         bumpPolling id
       _ -> pure ()
 
--- | Freshen up a cached machine.
+-- | Freshen up a cached machine in in reader-mode.
 refreshAsReader :: MachineId -> Daemon IpfsMachine
-refreshAsReader id = do
-  (m, n, idx) <- modifyMachine id $ \m -> do
-    (idx, is) <- ipfs id $ machineInputsFrom (chainName m) (chainLastIndex m)
-    (m', _) <- addInputs is (pure idx) (const (pure ())) m
-    pure (m', (m', length is, idx))
-  logInfo Debug "Refreshed as reader" [("id", getMachineId id), ("n", show n), ("idx",  show idx)]
-  pure m
+refreshAsReader id = modifyMachine id $ \m -> do
+    let currentIdx = chainLastIndex m
+    (newIdx, is) <- ipfs id $ machineInputsFrom (chainName m) currentIdx
+    if currentIdx == Just newIdx
+      then do
+        logInfo Debug
+                "Reader is already up to date"
+                [mid, ("idx",  show newIdx)]
+        pure (m, m)
+      else do
+        (m', _) <- addInputs is (pure newIdx) (const (pure ())) m
+        logInfo Debug
+                "Updated reader"
+                [mid, ("n", show (length is)), ("idx",  show newIdx)]
+        pure (m', m')
+  where
+    mid = ("id", getMachineId id)
 
 -- ** Writer
 
@@ -470,7 +486,7 @@ actAsWriter m = do
       _ -> pure ()
 
 -- Write some inputs to a machine as the writer, sends out a
--- 'NewInput' message.
+-- 'InputsApplied' message.
 writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs id is nonce = do
     (rs, idx) <- modifyMachine id $ addInputs is write pub
@@ -500,16 +516,16 @@ poll = do
                    then (True, HighFreq more')
                    else (False, LowFreq)
               -- Low frequency polling is every 10 seconds.
-              LowFreq -> (delta > 10000, LowFreq)
+              LowFreq -> (delta > lowFreqPollPeriod, LowFreq)
       when shouldPoll $ do
         logInfo Debug "Polling.." [("id", getMachineId chainName)]
         refreshAsReader chainName >> pure ()
       modifyMachine chainName $ \m' -> pure (m' { chainPolling = newPoll }, () )
     pollMachine _ = pure ()
 
--- | Returns the amount of time (in milliseconds) since the last time
--- the machine was updated.
-sinceLastUpdate :: IpfsMachine -> IO Int64
+-- | Returns the amount of time since the last time the machine was
+-- updated.
+sinceLastUpdate :: IpfsMachine -> IO Milliseconds
 sinceLastUpdate m = timeDelta (chainLastUpdated m) <$> Time.getSystemTime
   where
     timeDelta x y =
@@ -519,8 +535,7 @@ sinceLastUpdate m = timeDelta (chainLastUpdated m) <$> Time.getSystemTime
 
 initPolling :: Env -> IO ()
 initPolling env = do
-  -- High frequency polling is half a second.
-  threadDelay highFrequencyPollPeriod
+  threadDelay (millisToMicros highFreqPollPeriod)
   res <- runDaemon env poll
   -- If polling encounters an error it should log it but continue.
   -- Later we might detect some errors as critical and halt the
@@ -530,6 +545,27 @@ initPolling env = do
     Right _  -> pure ()
   initPolling env
 
--- The amount of time between high-frequency polls.
-highFrequencyPollPeriod :: Int
-highFrequencyPollPeriod = 500000
+-- * Timings
+
+type Milliseconds = Int64
+
+millisToMicros :: Milliseconds -> Int
+millisToMicros n = 1000 * fromIntegral n
+
+-- | High-frequency polling happens once every half-second.
+highFreqPollPeriod :: Milliseconds
+highFreqPollPeriod = 500
+
+-- | Low-frequency polling happens once every 10 seconds.
+lowFreqPollPeriod :: Milliseconds
+lowFreqPollPeriod = 10 * 1000
+
+-- | The amount of time a reader will wait for a response message from
+-- a writer: 8 seconds.
+ackWaitTime :: Milliseconds
+ackWaitTime = 8 * 1000
+
+-- | The amount of time a machine does high-frequency polling for
+-- before it returns to low-frequency polling: 10 minutes.
+highFreq :: Polling
+highFreq = HighFreq (10 * 60 * 1000)

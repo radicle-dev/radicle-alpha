@@ -187,7 +187,7 @@ removeHandler ts u =
 -- predicate. Returns @Just msg@ where @msg@ is the first message
 -- passing the predicate if such a message arrives before the
 -- specified amount of milliseconds. Otherwise, returns @Nothing@.
-subscribeOne :: TopicSubscription -> Int -> (Message -> Bool) -> (Text -> IO ()) -> IO (Maybe Message)
+subscribeOne :: TopicSubscription -> Int64 -> (Message -> Bool) -> (Text -> IO ()) -> IO (Maybe Message)
 subscribeOne sub timeout pr badMsg = do
   var <- newEmptyMVar
   let onMsg = \case
@@ -197,4 +197,4 @@ subscribeOne sub timeout pr badMsg = do
   bracket
     (addHandler sub onMsg)
     (removeHandler sub)
-    (const $ forkIO (threadDelay (timeout * 1000) >> putMVar var Nothing) *> readMVar var)
+    (const $ forkIO (threadDelay (fromIntegral timeout * 1000) >> putMVar var Nothing) *> readMVar var)
