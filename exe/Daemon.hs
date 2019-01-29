@@ -309,12 +309,15 @@ checkMachineLoaded id = do
       pure m
     Just m -> case chainMode m of
       Writer -> pure m
-      Reader -> do
-        delta <- liftIO $ sinceLastUpdate m
-        -- If machine is half a second fresh, then return it.
-        if delta < 500
-          then pure m
-          else refreshAsReader id
+      Reader -> refreshAsReader id
+        -- For the moment we will just force a refresh for robustness.
+        
+        -- do
+        -- delta <- liftIO $ sinceLastUpdate m
+        -- -- If machine is half a second fresh, then return it.
+        -- if delta < 500
+        --   then pure m
+        --   else refreshAsReader id
 
 logNonDecodableMsg :: MachineId -> Text -> IO ()
 logNonDecodableMsg (MachineId id) bad =
@@ -347,8 +350,8 @@ addInputs
   -> ([Value] -> Daemon ())
   -- ^ Performed after the chain is cached.
   -> IpfsMachine
-  -> Daemon (IpfsMachine, [Value])
-  -- ^ Returns the updated machine and the results.
+  -> Daemon (IpfsMachine, ([Value], MachineEntryIndex))
+  -- ^ Returns the updated machine, the results and the new index.
 addInputs is getIdx after m =
   case advanceChain m is of
     Left err -> throwError $ MachineError (chainName m) (InvalidInput err)
@@ -362,7 +365,7 @@ addInputs is getIdx after m =
                  , chainLastUpdated = t
                  }
       after rs
-      pure (m', rs)
+      pure (m', (rs, idx))
 
 ipfs :: MachineId -> ExceptT IpfsError IO a -> Daemon a
 ipfs id = Daemon . mapExceptT (lift . fmap (first (MachineError id . IpfsError)))
@@ -438,11 +441,11 @@ initAsReader id = do
 -- | Freshen up a cached machine.
 refreshAsReader :: MachineId -> Daemon IpfsMachine
 refreshAsReader id = do
-  (m, n) <- modifyMachine id $ \m -> do
+  (m, n, idx) <- modifyMachine id $ \m -> do
     (idx, is) <- ipfs id $ machineInputsFrom (chainName m) (chainLastIndex m)
     (m', _) <- addInputs is (pure idx) (const (pure ())) m
-    pure (m', (m', length is))
-  logInfo Debug "Refreshed as reader" [("id", getMachineId id), ("n", show n)]
+    pure (m', (m', length is, idx))
+  logInfo Debug "Refreshed as reader" [("id", getMachineId id), ("n", show n), ("idx",  show idx)]
   pure m
 
 -- ** Writer
@@ -469,7 +472,11 @@ actAsWriter m = do
 -- Write some inputs to a machine as the writer, sends out a
 -- 'NewInput' message.
 writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
-writeInputs id is nonce = modifyMachine id $ addInputs is write pub
+writeInputs id is nonce = do
+    (rs, idx) <- modifyMachine id $ addInputs is write pub
+    logInfo Debug "Wrote inputs to IPFS" [ ("id", getMachineId id)
+                                         , ("idx", show idx) ]
+    pure rs
   where
     write = ipfs id $ writeIpfs id is
     pub results = ipfs id $ publish id (New InputsApplied{..})
@@ -500,6 +507,8 @@ poll = do
       modifyMachine chainName $ \m' -> pure (m' { chainPolling = newPoll }, () )
     pollMachine _ = pure ()
 
+-- | Returns the amount of time (in milliseconds) since the last time
+-- the machine was updated.
 sinceLastUpdate :: IpfsMachine -> IO Int64
 sinceLastUpdate m = timeDelta (chainLastUpdated m) <$> Time.getSystemTime
   where
