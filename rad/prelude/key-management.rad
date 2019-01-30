@@ -1,0 +1,49 @@
+{:module 'prelude/key-management
+ :doc "Functions for key management."
+ :exports '[read-keys! create-keys! use-fake-keys]}
+
+(import prelude/io :as 'io)
+(import prelude/strings :as 'string)
+(import prelude/lens :unqualified)
+
+(def key-pair-mode (ref {:use-fake-key #f}))
+
+(def use-fake-keys
+  "Bypass reading the keys from `my-keys.rad`. This is intended for testing."
+  (fn []
+    (set-ref key-pair-mode (@ :use-fake-key) #t)
+    (set-ref key-pair-mode (@ :fake-key) (gen-key-pair! (default-ecc-curve)))))
+
+(def config-path
+  (fn []
+    (def xgd-config-home (string/unlines (io/shell-with-stdout! "echo $XDG_CONFIG_HOME" "")))
+    (if (eq? xgd-config-home "")
+      "~/.config"
+      xgd-config-home)))
+
+(def base-path (string-append (config-path) "/radicle"))
+
+(def get-path!
+  (fn []
+    (def resolved-base-path
+      (string/unlines
+        (io/shell-with-stdout! (string-append "echo " base-path) "")))
+    (string-append resolved-base-path "/my-keys.rad")))
+
+(def read-keys!
+  "Reads the keys stored in `my-keys.rad` or returns `:nothing` if the file
+  doesn't exist."
+  (fn []
+    (if (lookup :use-fake-key (read-ref key-pair-mode))
+      (lookup :fake-key (read-ref key-pair-mode))
+      (do (catch 'any
+           (io/read-file-value! (find-module-file! (get-path!)))
+         (fn [x] :nothing))))))
+
+(def create-keys!
+  "Creates a new key pair and stores it in `my-keys.rad`"
+  (fn []
+    (io/shell! (string-append "mkdir -p " (config-path)) "")
+    (io/shell! (string-append "mkdir -p " base-path) "")
+    (def kp (gen-key-pair! (default-ecc-curve)))
+    (io/write-file! (get-path!) (show kp))))

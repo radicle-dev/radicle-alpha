@@ -1,0 +1,21 @@
+#!/usr/bin/env radicle
+
+(load! (find-module-file! "prelude.rad"))
+(load! (find-module-file! "prelude/cmd-parsing.rad"))
+
+(import prelude/key-management :as 'key-mgmt)
+
+(def make-keys
+  (fn [] (key-mgmt/create-keys!)))
+
+(def safe-make-keys
+  (fn []
+    (match (key-mgmt/read-keys!)
+      :nothing  (make-keys)
+      _         (put-str! "The `my-keys.rad` file already exists.
+If you are sure that you want to replace your key pair, run `rad-create-keys --force`"))))
+
+(def args (get-args!))
+(match args
+  ["--force"] (make-keys)
+  []          (safe-make-keys))

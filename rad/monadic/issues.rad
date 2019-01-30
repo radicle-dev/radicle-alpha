@@ -11,6 +11,7 @@
 (import prelude/chain '[send-code! send-signed-command!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
+(import prelude/key-management '[use-fake-keys] :unqualified)
 
 (def radicle-issues-chain-id
   "The name of this chain."
@@ -174,9 +175,7 @@
  [:setup
   (do (chain/install-remote-chain-fake)
       (install-fake-clock)
-      (io/install-fake-filesystem!
-        { "../my-keys.rad" (show (gen-key-pair! (default-ecc-curve)))
-        })
+      (use-fake-keys)
       (def chain-name (string-append "http://foo"))
       (def chain (ref (chain/new-chain chain-name)))
       (create-issues-chain! chain-name)
