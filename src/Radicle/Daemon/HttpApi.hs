@@ -2,11 +2,18 @@
 module Radicle.Daemon.HttpApi
     ( QueryRequest(..)
     , QueryResponse(..)
+    , machineQueryEndpoint
+
     , SendRequest(..)
     , SendResponse(..)
+    , machineSendEndpoint
+
     , NewResponse(..)
+    , newMachineEndpoint
+
     , DaemonApi
     , daemonApi
+
     , swagger
     ) where
 
@@ -69,14 +76,26 @@ instance A.ToJSON NewResponse
 
 -- * APIs
 
-type Query = "query" :> ReqBody '[JSON] QueryRequest :> Post '[JSON] QueryResponse
-type Send  = "send"  :> ReqBody '[JSON] SendRequest :> Post '[JSON] SendResponse
-type New   = "new"   :> Post '[JSON] NewResponse
+type MachinesEndpoint t = "v0" :> "machines" :> t
+type MachineEndpoint t = MachinesEndpoint (Capture "machineId" MachineId :> t)
 
-type Machines = "machines" :> Capture "machineId" MachineId :> ( Query :<|> Send ) :<|> New
-type Docs = "docs" :> Get '[JSON] Swagger
+type MachineQueryEndpoint = MachineEndpoint ("query" :> ReqBody '[JSON] QueryRequest :> Post '[JSON] QueryResponse)
+machineQueryEndpoint :: Proxy MachineQueryEndpoint
+machineQueryEndpoint = Proxy
 
-type DaemonApi = "v0" :> ( Machines :<|> Docs )
+type MachineSendEndpoint = MachineEndpoint ("send" :> ReqBody '[JSON] SendRequest :> Post '[JSON] SendResponse)
+machineSendEndpoint :: Proxy MachineSendEndpoint
+machineSendEndpoint = Proxy
+
+type NewMachineEndpoint = MachinesEndpoint ("new" :> Post '[JSON] NewResponse)
+newMachineEndpoint :: Proxy NewMachineEndpoint
+newMachineEndpoint = Proxy
+
+type DaemonApi =
+         NewMachineEndpoint
+    :<|> MachineQueryEndpoint
+    :<|> MachineSendEndpoint
+    :<|> "v0" :> "docs" :> Get '[JSON] Swagger
 
 daemonApi :: Proxy DaemonApi
 daemonApi = Proxy
