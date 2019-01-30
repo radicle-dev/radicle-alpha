@@ -5,6 +5,7 @@ module Machines
 
 import           Protolude hiding (option)
 
+import           Control.Exception.Safe
 import           Options.Applicative
 import qualified Radicle.Daemon.Client as Client
 
@@ -23,8 +24,9 @@ programParserInfo =
 
 runCommand :: Command -> IO ()
 runCommand CommandCreate = do
-    Client.MachineId machineId <- Client.newMachine
-    putStrLn machineId
+    runExceptT Client.newMachine >>= \case
+        Left err -> throw err
+        Right (Client.MachineId machineId) -> putStrLn machineId
 
 main :: IO ()
 main = do
