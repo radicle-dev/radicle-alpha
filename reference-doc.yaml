@@ -144,6 +144,7 @@ modules:
 - prelude/set
 - prelude/ref
 - prelude/lens
+- prelude/key-management
 - prelude/chain
 - prelude/state-machine
 - prelude/validation

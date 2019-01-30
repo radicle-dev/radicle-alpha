@@ -1127,6 +1127,28 @@ Like ``set``, but for refs.
 
 Like ``over``, but for refs.
 
+``prelude/key-management``
+--------------------------
+
+Functions for key management.
+
+``(read-keys!)``
+~~~~~~~~~~~~~~~~
+
+Reads the keys stored in ``my-keys.rad`` or returns ``:nothing`` if the
+file doesn't exist.
+
+``(create-keys!)``
+~~~~~~~~~~~~~~~~~~
+
+Creates a new key pair and stores it in ``my-keys.rad``
+
+``(use-fake-keys)``
+~~~~~~~~~~~~~~~~~~~
+
+Bypass reading the keys from ``my-keys.rad``. This is intended for
+testing.
+
 ``prelude/chain``
 -----------------
 
