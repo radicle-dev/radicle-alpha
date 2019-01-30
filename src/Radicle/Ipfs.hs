@@ -13,26 +13,38 @@ module Radicle.Ipfs
 
     , DagPutResponse(..)
     , dagPut
-
     , dagGet
 
     , namePublish
     , NameResolveResponse(..)
     , nameResolve
+
+    , PubsubMessage(..)
+    , publish
+    , subscribe
     ) where
 
 import           Protolude hiding (TypeError, catch, try)
 
 import           Control.Exception.Safe
 import           Control.Monad.Fail
+import           Control.Monad.Trans.Resource
 import           Data.Aeson (FromJSON, ToJSON, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
+import qualified Data.ByteString.Multibase as Multibase
+import           Data.Conduit ((.|))
+import qualified Data.Conduit as C
+import qualified Data.Conduit.Attoparsec as C
+import qualified Data.Conduit.Combinators as C
 import           Data.IPLD.CID
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import           Lens.Micro ((.~), (^.))
 import           Network.HTTP.Client
                  (HttpException(..), HttpExceptionContent(..))
+import qualified Network.HTTP.Client as HTTP
+import qualified Network.HTTP.Conduit as HTTP
 import qualified Network.Wreq as Wreq
 import           System.Environment (lookupEnv)
 
@@ -102,6 +114,55 @@ addressFromText t =
 --------------------------------------------------------------------------
 -- * IPFS node API
 --------------------------------------------------------------------------
+
+data PubsubMessage = PubsubMessage
+    { messageTopicIDs :: [Text]
+    , messageData     :: ByteString
+    , messageFrom     :: ByteString
+    , messageSeqno    :: ByteString
+    } deriving (Eq, Show)
+
+instance FromJSON PubsubMessage where
+    parseJSON = Aeson.withObject "PubsubMessage" $ \o -> do
+        messageTopicIDs <- o .: "topicIDs"
+        Right messageData <- o .: "data" <&> T.encodeUtf8 <&> Multibase.decodeBase64
+        Right messageFrom <- o .: "from" <&> T.encodeUtf8 <&> Multibase.decodeBase64
+        Right messageSeqno <- o .: "seqno" <&> T.encodeUtf8 <&> Multibase.decodeBase64
+        pure PubsubMessage {..}
+
+-- | Subscribe to a topic and call @messageHandler@ on every message.
+-- The IO action blocks while we are subscribed. To stop subscription
+-- you need to kill the thread the subscription is running in.
+subscribe :: Text -> (PubsubMessage -> IO ()) -> IO ()
+subscribe topic messageHandler = runResourceT $ do
+    mgr <- liftIO $ HTTP.newManager HTTP.defaultManagerSettings
+    req <- HTTP.parseRequest "http://localhost:9301/api/v0/pubsub/sub" <&>
+        HTTP.setQueryString
+        [ ("arg", Just $ T.encodeUtf8 topic)
+        , ("encoding", Just "json")
+        , ("stream-channels", Just "true")
+        ]
+    body <- HTTP.responseBody <$> HTTP.http req mgr
+    C.runConduit $ body .| fromJSONC .| C.mapM_ (liftIO . messageHandler) .| C.sinkNull
+    pure ()
+  where
+    fromJSONC :: (MonadThrow m, Aeson.FromJSON a) => C.ConduitT ByteString a m ()
+    fromJSONC = jsonC .| C.mapM parseThrow
+
+    jsonC :: (MonadThrow m) => C.ConduitT ByteString Aeson.Value m ()
+    jsonC = C.peekForever (C.sinkParser Aeson.json >>= C.yield)
+
+    parseThrow :: (MonadThrow m, Aeson.FromJSON a) => Aeson.Value -> m a
+    parseThrow value = do
+        case Aeson.fromJSON value of
+            Aeson.Error err -> throwString err
+            Aeson.Success a -> pure a
+
+
+-- | Publish a message to a topic.
+publish :: Text -> LByteString -> IO ()
+publish topic message =
+    void $ ipfsHttpPost' "pubsub/pub" [("arg", topic)] "data" message
 
 newtype KeyGenResponse = KeyGenResponse IpnsId
 
@@ -180,11 +241,20 @@ ipfsHttpPost
     -> LByteString -- ^ Payload argument
     -> IO a
 ipfsHttpPost path params payloadArgName payload = do
-    let opts = Wreq.defaults & Wreq.params .~ params
-    url <- ipfsApiUrl path
-    res <- Wreq.postWith opts (toS url) (Wreq.partLBS payloadArgName payload) `catch` handleRequestException
+    res <- ipfsHttpPost' path params payloadArgName payload
     jsonRes <- Wreq.asJSON res `catch` handleParseException path
     pure $ jsonRes ^. Wreq.responseBody
+
+ipfsHttpPost'
+    :: Text  -- ^ Path of the endpoint under "/api/v0/"
+    -> [(Text, Text)] -- ^ URL query parameters
+    -> Text  -- ^ Name of the argument for payload
+    -> LByteString -- ^ Payload argument
+    -> IO (Wreq.Response LByteString)
+ipfsHttpPost' path params payloadArgName payload = do
+    let opts = Wreq.defaults & Wreq.params .~ params
+    url <- ipfsApiUrl path
+    Wreq.postWith opts (toS url) (Wreq.partLBS payloadArgName payload) `catch` handleRequestException
 
 ipfsApiUrl :: Text -> IO Text
 ipfsApiUrl path = do

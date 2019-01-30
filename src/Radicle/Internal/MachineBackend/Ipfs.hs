@@ -15,10 +15,7 @@
 --      }
 -- @
 --
-module Radicle.Internal.MachineBackend.Ipfs
-    ( ipfsPrimFns
-    , ipfsMachineCreate
-    ) where
+module Radicle.Internal.MachineBackend.Ipfs where
 
 import           Protolude hiding (TypeError, catch, try)
 
