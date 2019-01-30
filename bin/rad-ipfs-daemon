@@ -18,10 +18,10 @@ DOC
       "/ip4/35.187.83.104/tcp/4000/ipfs/QmQqaBdD5g9o4L6KEtjL1RJbTSbb9gxUWgSF7FBxBqwvjr" \
       "/ip4/35.187.83.104/tcp/4001/ipfs/QmVdMvYQL6WuC4uaKV39SpQfNMmEZptzf6hoXenkcHKozU"
   echo '{"radicle": true}' | ipfs dag put --pin
-fi
 
-ipfs config Addresses.API "/ip4/127.0.0.1/tcp/9301"
-ipfs config Addresses.Gateway "/ip4/127.0.0.1/tcp/9302"
-ipfs config --json Addresses.Swarm '["/ip4/0.0.0.0/tcp/9303", "/ip6/::/tcp/9303"]'
+  ipfs config Addresses.API "/ip4/127.0.0.1/tcp/9301"
+  ipfs config Addresses.Gateway "/ip4/127.0.0.1/tcp/9302"
+  ipfs config --json Addresses.Swarm '["/ip4/0.0.0.0/tcp/9303", "/ip6/::/tcp/9303"]'
+fi
 
 ipfs daemon --enable-pubsub-experiment "$@"
