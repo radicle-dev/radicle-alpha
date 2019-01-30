@@ -217,6 +217,7 @@ executables:
     dependencies:
     - radicle
     - optparse-applicative
+    - safe-exceptions
     ghc-options: -main-is Machines
 
 default-extensions:
