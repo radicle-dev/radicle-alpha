@@ -1130,7 +1130,10 @@ Like ``over``, but for refs.
 ``prelude/key-management``
 --------------------------
 
-Functions for key management.
+Providing functions for creating and reading key pairs for signing send
+commands. Per default, key pairs are stored in
+``$HOME/.config/radicle/my-keys.rad`` this can be adjusted by setting
+``$XDG_CONFIG_HOME``.
 
 ``(read-keys!)``
 ~~~~~~~~~~~~~~~~

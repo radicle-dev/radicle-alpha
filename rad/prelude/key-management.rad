@@ -1,5 +1,7 @@
 {:module 'prelude/key-management
- :doc "Functions for key management."
+ :doc "Providing functions for creating and reading key pairs for signing send
+ commands. Per default, key pairs are stored in `$HOME/.config/radicle/my-keys.rad`
+ this can be adjusted by setting `$XDG_CONFIG_HOME`."
  :exports '[read-keys! create-keys! use-fake-keys]}
 
 (import prelude/io :as 'io)
