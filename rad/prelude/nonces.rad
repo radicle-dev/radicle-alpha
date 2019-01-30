@@ -10,7 +10,20 @@
 (import prelude/set :as 'set)
 
 (def make-noncer
-  "Create a new noncer, which stores used nonces and allows validating that inputs are nonced."
+  "Create a new noncer, which stores used nonces and allows validating that
+   inputs are nonced, thus preventing replay attacks.
+
+   Use it like so:
+
+   ```
+   (def noncer (make-noncer))
+   (def uuid1 (uuid!))
+   (def uuid2 (uuid!))
+   (noncer [:use uuid1])
+   ((noncer :validator) uuid1) ;; validation fails, nonce already used
+   ((noncer :validator) uuid2) ;; validation succeeds
+   ```
+   "
   (fn []
     (def used-nonces (ref set/empty))
     (def unused? (fn [nonce] (not (set/member? nonce (read-ref used-nonces)))))
@@ -19,8 +32,7 @@
       (match expr
         :validator (validator/and [validator/uuid (validator/pred "Nonce already used" unused?)])
         [:use 'nonce] (use-nonce nonce)
-        _ (throw 'match-failure "expecting [:use <nonce] or :validate")
-))))
+        _ (throw 'match-failure "expecting [:use <nonce>] or :validate")))))
 
 (:test "make-noncer"
   [:setup

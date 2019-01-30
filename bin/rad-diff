@@ -1,7 +1,7 @@
 #!/usr/bin/env radicle
 
 ;; TODO:
-;;   - don't use make-chain-ref when we don't need loading
+;;   - don't use chain/make-chain-ref! when we don't need loading
 ;;   - handle parsing numbers in cmd-parsing/validation logic
 
 
@@ -12,17 +12,7 @@
 (load! (find-module-file! "prelude/cmd-parsing.rad"))
 (import prelude/validation :as 'validation)
 
-(def make-chain-ref
-  (fn [chain]
-    (ref (chain/load-chain! chain))))
-
-(def chain-name
-  (fn []
-    (lookup :id (first-rsm-of-type! (make-chain-ref (get-project-url!)) :rad-diff))))
-
-(def make-chain-ref
-  (fn [chain]
-    (ref (chain/load-chain! chain))))
+(def base-name (fn [] (get-rsm-of-type :rad-diff)))
 
 (def valid-list-options
   ["--new" "--pending" "--retracted" "--accepted" "--rejected" "--fancy"])
@@ -35,11 +25,11 @@
   "rad-diff - Radicle Diff CLI
 
    Usage:
-        rad-diff list <chain-name>" list-opts-help "
+        rad-diff list " list-opts-help "
         rad-diff create-chain <chain-name>
-        rad-diff propose <commit> <chain-name>
-        rad-diff [retract|accept|reject|show] <diff-no> <chain-name>
-        rad-diff comment <diff-no> <comment> <chain-name>
+        rad-diff propose <commit>
+        rad-diff [retract|accept|reject|show] <diff-no>
+        rad-diff comment <diff-no> <comment>
         rad-diff done
         rad-diff help
 
@@ -121,7 +111,7 @@
 (def checkout-diff!
   "Creates a new branch diff/<DIFF-ID> based on the DIFF, and switches to it."
   (fn [chain diff-no]
-    (def chain-ref (make-chain-ref chain))
+    (def chain-ref (chain/make-chain-ref! chain))
     (def diff (verify-diff-number diff-no chain-ref))
     (match (process! "git" ["checkout" "-b" (string-append "diff/" (show diff-no))] "")
       :ok (apply-patch! (lookup :patch diff))
@@ -156,7 +146,7 @@
                :author-name   author-name
                :author-email  author-email
                :patch         patch})
-    (simple-create-diff! (make-chain-ref chain) diff)
+    (simple-create-diff! (chain/make-chain-ref! chain) diff)
     (put-str! (string-append "Proposing " short-hash " to " chain))))
 
 ;; showing diffs
@@ -212,7 +202,7 @@
   option only recent items are shown. If `--fancy is passed, the list is opened
   via fzf."
   (fn [chain options]
-    (def chain-ref (make-chain-ref chain))
+    (def chain-ref (chain/make-chain-ref! chain))
 
     (def mk-key
       (fn [v]
@@ -270,7 +260,7 @@
   (fn [chain-name n]
     (if (number? n)
       (if (integral? n)
-        (do (def chain-ref (make-chain-ref chain-name))
+        (do (def chain-ref (chain/make-chain-ref! chain-name))
           (def diff (verify-diff-number n chain-ref))
           (put-str! (pretty-diff diff)))
         (cmd-parse-failure "Diff numbers must be whole numbers!"))
@@ -287,7 +277,7 @@
   (fn [chain-name n new-state]
     (if (number? n)
       (if (integral? n)
-        (do (def chain-ref (make-chain-ref chain-name))
+        (do (def chain-ref (chain/make-chain-ref! chain-name))
           (verify-diff-number n chain-ref)
           (simple-edit-diff! chain-ref n {:state new-state})
           (if (eq? new-state :accepted)
@@ -303,7 +293,7 @@
   (fn [chain-name n comment]
     (if (number? n)
       (if (integral? n)
-        (do (def chain-ref (make-chain-ref chain-name))
+        (do (def chain-ref (chain/make-chain-ref! chain-name))
           (verify-diff-number n chain-ref)
           (simple-add-comment! chain-ref n comment get-git-username!)
           (put-str! (string-append "Added comment to Diff " (show n))))

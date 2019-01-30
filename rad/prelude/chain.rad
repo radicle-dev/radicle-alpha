@@ -2,7 +2,7 @@
  :doc "Functions for simulating remote chains."
  :exports '[new-chain load-chain! eval-in-chain update-chain-ref! eval
             update-chain! send-prelude!  send-signed-command! sign-entity!
-            send-code! send! receive!  install-remote-chain-fake]}
+            send-code! send! receive! make-chain-ref! install-remote-chain-fake]}
 
 (import prelude/io '[read-file-value! read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
@@ -285,3 +285,8 @@
   (fn [chain chain-id cmd payload]
   (send! (lookup :url (read-ref chain))
         [(list cmd (sign-entity! payload chain-id))])))
+
+(def make-chain-ref!
+  "Makes a new ref containing the loaded chain."
+  (fn [chain]
+    (ref (chain/load-chain! chain))))
