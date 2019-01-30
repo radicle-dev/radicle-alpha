@@ -13,6 +13,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import           Data.Yaml hiding (Value)
 import           Radicle
+import qualified Radicle.Daemon.HttpApi as Daemon
 import           Radicle.Internal.Core
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
@@ -43,6 +44,7 @@ main = do
     let env = bindingsEnv $ bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
     let rst = runPure (writeRST Default.def $ Pandoc nullMeta (doc content env)) `lPanic` "Couldn't generate RST"
     writeFile "docs/source/reference.rst" rst
+    writeFile "docs/source/daemon-api.yaml" (toS (encode Daemon.swagger))
   where
 
     doc :: Content -> Env Value -> [Block]

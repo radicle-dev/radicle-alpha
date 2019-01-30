@@ -29,6 +29,8 @@ library:
   - aeson
   - ansi-terminal
   - bytestring
+  - conduit
+  - conduit-extra
   - containers
   - cryptonite
   - directory
@@ -36,19 +38,24 @@ library:
   - generics-eot
   - haskeline
   - http-client
+  - http-conduit
   - ipld-cid
   - megaparsec
   - microlens
   - mtl
+  - multibase
   - pointed
   - prettyprinter
   - prettyprinter-ansi-terminal
   - process
+  - resourcet
   - safe-exceptions
   - scientific
   - serialise
   - servant
   - servant-client
+  - servant-swagger
+  - swagger2
   - template-haskell
   - text
   - time
@@ -76,7 +83,6 @@ tests:
     - serialise
     - string-qq
     - tasty
-    - tasty-discover
     - tasty-hunit
     - tasty-quickcheck
     - text
@@ -138,7 +144,26 @@ executables:
     - warp
     - wai-extra
     - wai-cors
+    - time
     ghc-options: -main-is Server
+
+  radicle-daemon:
+    main: Daemon.hs
+    source-dirs: exe
+    other-modules: []
+    dependencies:
+    - radicle
+    - aeson
+    - mtl
+    - containers
+    - bytestring
+    - directory
+    - optparse-applicative
+    - servant-server
+    - text
+    - warp
+    - time
+    ghc-options: -main-is Daemon
 
   radicle-doc:
     main: Doc.hs
@@ -205,6 +230,7 @@ default-extensions:
 - DeriveFunctor
 - DeriveGeneric
 - DeriveTraversable
+- DuplicateRecordFields
 - FlexibleContexts
 - FlexibleInstances
 - FunctionalDependencies
@@ -212,6 +238,7 @@ default-extensions:
 - LambdaCase
 - MultiParamTypeClasses
 - MultiWayIf
+- NamedFieldPuns
 - NoImplicitPrelude
 - OverloadedStrings
 - RankNTypes
@@ -221,3 +248,4 @@ default-extensions:
 - TupleSections
 - TypeFamilies
 - TypeOperators
+- ViewPatterns
