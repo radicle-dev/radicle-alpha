@@ -5,6 +5,18 @@
 
 (import prelude/key-management :as 'key-mgmt)
 
+(def help
+  "rad-create-keys - Radicle Key Management CLI
+
+   Usage:
+        rad-create-keys [--force]
+        rad-create-keys help
+
+   Create a new key pair with `rad-create-keys`. If `--force` is appended, an
+   existing key pair file will be overwritten.
+   Per default, key pairs are stored in `$HOME/.config/radicle/my-keys.rad`
+   this can be adjusted by setting `$XDG_CONFIG_HOME`.")
+
 (def make-keys
   (fn [] (key-mgmt/create-keys!)))
 
@@ -18,4 +30,5 @@ If you are sure that you want to replace your key pair, run `rad-create-keys --f
 (def args (get-args!))
 (match args
   ["--force"] (make-keys)
-  []          (safe-make-keys))
+  []          (safe-make-keys)
+  _           (put-str! help))
