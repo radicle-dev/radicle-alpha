@@ -1207,6 +1207,11 @@ last input in ``inputs``. The ``index`` argument is either ``:nothing``
 in which case all inputs are fetched or ``[:just i]`` in which case all
 inputs following after the index ``i`` are fetched.
 
+``(make-chain-ref! chain)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Makes a new ref containing the loaded chain.
+
 ``(install-remote-chain-fake)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
