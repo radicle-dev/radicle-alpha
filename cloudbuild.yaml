@@ -170,8 +170,12 @@ steps:
     - "-c"
     - |
       set -euxo pipefail
+
       export RAD_IPFS_API_URL=http://ipfs-test-network:5001
       export RADPATH="$(pwd)/rad"
+
+      stack exec -- radicle-daemon &
+
       stack test :e2e
       stack exec -- radicle test/machine-backends.rad radicle-server
 
