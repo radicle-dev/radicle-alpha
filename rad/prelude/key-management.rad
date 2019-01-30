@@ -16,21 +16,19 @@
     (set-ref key-pair-mode (@ :use-fake-key) #t)
     (set-ref key-pair-mode (@ :fake-key) (gen-key-pair! (default-ecc-curve)))))
 
-(def config-path
+(def base-path
   (fn []
     (def xgd-config-home (string/unlines (io/shell-with-stdout! "echo $XDG_CONFIG_HOME" "")))
-    (if (eq? xgd-config-home "")
-      "~/.config"
-      xgd-config-home)))
+    (def home (string/unlines (io/shell-with-stdout! "echo $XDG_CONFIG_HOME" "")))
+    (def config-path
+      (if (eq? xgd-config-home "")
+        (string-append home "/.config")
+        xgd-config-home))
+    (string-append config-path "/radicle")))
 
-(def base-path (string-append (config-path) "/radicle"))
-
-(def get-path!
+(def key-path
   (fn []
-    (def resolved-base-path
-      (string/unlines
-        (io/shell-with-stdout! (string-append "echo " base-path) "")))
-    (string-append resolved-base-path "/my-keys.rad")))
+    (string-append (base-path) "/my-keys.rad")))
 
 (def read-keys!
   "Reads the keys stored in `my-keys.rad` or returns `:nothing` if the file
@@ -39,13 +37,12 @@
     (if (lookup :use-fake-key (read-ref key-pair-mode))
       (lookup :fake-key (read-ref key-pair-mode))
       (do (catch 'any
-           (io/read-file-value! (find-module-file! (get-path!)))
+           (io/read-file-value! (find-module-file! (key-path)))
          (fn [x] :nothing))))))
 
 (def create-keys!
   "Creates a new key pair and stores it in `my-keys.rad`"
   (fn []
-    (io/shell! (string-append "mkdir -p " (config-path)) "")
-    (io/shell! (string-append "mkdir -p " base-path) "")
+    (io/shell! (string-append "mkdir -p " (base-path)) "")
     (def kp (gen-key-pair! (default-ecc-curve)))
-    (io/write-file! (get-path!) (show kp))))
+    (io/write-file! (key-path) (show kp))))
