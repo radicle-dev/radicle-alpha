@@ -7,8 +7,9 @@
 (load! (find-module-file! "prelude/cmd-parsing.rad"))
 
 (import prelude/validation :as 'validation)
+(import prelude/chain :as 'chain)
 
-(def base-name (fn [] (get-rsm-of-type :rad-issues)))
+(def chain-name (fn [] (get-rsm-of-type! :rad-issues)))
 
 (def name-base "http://machines.radicle.xyz/chains/names")
 
@@ -94,7 +95,7 @@
 
     (def chain-ref (chain/make-chain-ref! chain))
     (load! (find-module-file! "monadic/names.rad"))
-    (def names (ref (chain/load-chain! name-base)))
+    (def names (chain/make-chain-ref! name-base))
     (def add-username
       (fn [d]
         (def n (catch
@@ -226,12 +227,12 @@
 
 (def args (get-args!))
 (match args
-  ["list"] (list-items (base-name) [])
+  ["list"] (list-items (chain-name) [])
   (/cmd-0 "names" help) (names)
   (/cmd-1 "make-key" 'nick help) (make-key nick)
-  (/cmd-0 "new" help) (new-issue (base-name))
+  (/cmd-0 "new" help) (new-issue (chain-name))
   (/cmd-1 "create-chain" 'chain-name help) (create-chain chain-name)
-  (/cmd-1 "close" 'issue-number help) (close-issue issue-number (base-name))
+  (/cmd-1 "close" 'issue-number help) (close-issue issue-number (chain-name))
   (/cmd-0 "done" help) (mark-last-seen)
   ["help"] (put-str! help)
   ["-h"] (put-str! help)
