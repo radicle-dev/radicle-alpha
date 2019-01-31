@@ -6,31 +6,25 @@
 (load! (find-module-file! "prelude/io-utils.rad"))
 
 (import prelude/validation :as 'validation)
-(import prelude/chain :as 'chain)
+(import prelude/machine :as 'machine)
 (import prelude/cmd-parsing :unqualified)
 
-(def chain-name (fn [] (get-rsm-of-type! :rad-issues)))
-
-(def name-base "http://machines.radicle.xyz/chains/names")
+(def machine-name (fn [] (get-rsm-of-type! :rad-issues)))
 
 (def help
   "rad-issues - Radicle issue CLI
 
    Usage:
         rad-issues list [--closed] [--open]
-        rad-issues [new|create-chain]
+        rad-issues new
         rad-issues close <issue-number>
         rad-issues make-key <nick>
-        rad-issues names
-        rad-issues create-chain <chain-name>
+        rad-issues create-machine
         rad-issues help
 
      list         - Select from issues to view or comment on
      new          - Create a new issue in $EDITOR
      close        - Close an issue
-     create-chain - Create a new issues chain
-     make-key     - Create a key-pair and register the name
-     names        - See all registered names
      help         - Print this help and exit
    ")
 
@@ -85,20 +79,14 @@
 
 (def list-items
   "Lists the recent items and uses an editor to add a relevant comment."
-  (fn [chain options]
+  (fn [machine options]
 
-    (def chain-ref (chain/make-chain-ref! chain))
-    (load! (find-module-file! "monadic/names.rad"))
-    (def names (chain/make-chain-ref! name-base))
     (def add-username
       (fn [d]
         (def n (catch
                    'any
                    (lookup :github-username d)
-                 (fn [x]
-                   (match (lookup-key names (lookup :author d))
-                          :nothing "???"
-                          'name    name))))
+                   (fn [_] "???")))
         (insert :username n d)))
 
     (def add-username-issue
@@ -122,7 +110,7 @@
     (def items
       (map mk-key
         (filter filt
-          (map (fn [i] {:issue i}) (reverse (values (list-issues chain-ref)))))))
+          (map (fn [i] {:issue i}) (reverse (values (list-issues machine)))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -146,23 +134,21 @@
                  (put-str!
                   (if (eq? added-comment "")
                     "Item was not updated."
-                    (do (simple-add-comment! chain-ref issue-number added-comment)
+                    (do (simple-add-comment! machine issue-number added-comment)
                         (string-append "Sent comment: " added-comment)))))
              _ (put-str! "No selection made.")))))
 
 (def close-issue
-  (fn [issue-number chain-name]
+  (fn [issue-number machine-name]
     (def n (read issue-number))
     (if (number? n)
       (if (integral? n)
-        (do (def chain-ref (ref (chain/new-chain chain-name)))
-            (simple-edit-issue! chain-ref n {:state :closed}))
+        (simple-edit-issue! machine n {:state :closed})
         (cmd-parse-failure "Issue numbers must be whole numbers!"))
       (cmd-parse-failure "To close an issue, please provide the issue number."))))
 
 (def new-issue
-  (fn [chain]
-    (def chain-ref (ref (chain/new-chain chain)))
+  (fn [machine]
     (def template
 ";; Issue template. An empty or invalid value will abort.
 {:title      \"Pick a title\"
@@ -171,24 +157,7 @@
 }
 ")
     (def i (read (edit-in-editor! template)))
-    (create-issue!
-         chain-ref (simple-issue i))))
-
-(def create-chain
-  (fn [chain]
-    (create-issues-chain! chain)))
-
-(def make-key
-  (fn [name]
-    (def kp (gen-key-pair! (default-ecc-curve)))
-    (write-file! "my-keys.rad" (show kp))
-    (load! (find-module-file! "monadic/names.rad"))
-    (add-name! name-base name (lookup :public-key kp))))
-
-(def names
-  (fn []
-    (load! (find-module-file! "monadic/names.rad"))
-    (print! (list-names name-base))))
+    (create-issue!  machine (simple-issue i))))
 
 (def valid-list-options
   ["--open" "--closed"])
@@ -208,12 +177,11 @@
 
 (def args (get-args!))
 (match args
-  (/list-cmd 'options) (list-items (chain-name) options)
-  (/cmd-0 "names" help) (names)
+  (/list-cmd 'options) (list-items (machine-name) options)
   (/cmd-1 "make-key" 'nick help) (make-key nick)
-  (/cmd-0 "new" help) (new-issue (chain-name))
-  (/cmd-1 "create-chain" 'chain-name help) (create-chain chain-name)
-  (/cmd-1 "close" 'issue-number help) (close-issue issue-number (chain-name))
+  (/cmd-0 "new" help) (new-issue (machine-name))
+  (/cmd-1 "create-machine" 'machine-name help) (create-machine machine-name)
+  (/cmd-1 "close" 'issue-number help) (close-issue issue-number (machine-name))
   ["help"] (put-str! help)
   ["-h"] (put-str! help)
   ["--help"] (put-str! help)

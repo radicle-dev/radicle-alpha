@@ -1,5 +1,5 @@
-;; Issue chain
-;; Meant to be sent to a chain with send-code!
+;; Issue machine
+;; Meant to be sent to a machine with send-code!
 
 (import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
@@ -11,10 +11,10 @@
 (import prelude/util :unqualified)
 (import prelude/lens :unqualified)
 (import prelude/nonces :unqualified)
-(import prelude/chain-remote '[make-updatable-eval] :unqualified)
+(import prelude/machine-remote '[make-updatable-eval] :unqualified)
 
-(def chain-id
-  "The name of this chain."
+(def machine-id
+  "The name of this machine."
   "monadic/radicle/issues")
 
 (def issues
@@ -39,7 +39,7 @@
 
 (def input-keys
   {:nonce      (noncer :validator)
-   :chain-id   (validator/= chain-id)})
+   :machine-id   (validator/= machine-id)})
 
 (def validator/time-created
   (validator/and
@@ -58,8 +58,8 @@
    {:modified-at validator/timestamp}))
 
 (def validator/input
-  "Checks that the input as a valid new *chain input*, that is, it has an unused
-  nonce, is marked with this chain name, and is signed."
+  "Checks that the input as a valid new *machine input*, that is, it has an unused
+  nonce, is marked with this machine name, and is signed."
   (validator/and
    [(validator/keys input-keys)
     validator/signed]))
@@ -157,7 +157,7 @@
   "After an entity input has been processed/verified, we no longer need some of
   the fields."
   (fn [e]
-    (delete-many [:chain-id :signature :nonce :issue-number] e)))
+    (delete-many [:machine-id :signature :nonce :issue-number] e)))
 
 (def fix-modified-at
   "Some inputs come in with a missing `:modified-at` key. If this is the case, we
@@ -217,7 +217,7 @@
           (def c_ (strip-input c))
           (over-issues (... [(@ n) (@ :comments) (@nth i)]) (merge-new c_))))))
 
-;; These are intended for clients to run locally with eval-in-chain
+;; These are intended for clients to run locally with eval-in-machine
 
 (def list-issues
   "List existing issues."
@@ -226,7 +226,7 @@
 ;; General logic
 
 (def commands
-  "The set of allowed chain commands."
+  "The set of allowed machine commands."
   {'create-issue create-issue
    'edit-issue   edit-issue
    'add-comment  add-comment
@@ -234,4 +234,3 @@
    'list-issues  list-issues})
 
 (def eval (make-updatable-eval commands))
-

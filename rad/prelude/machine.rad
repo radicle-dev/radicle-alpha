@@ -1,0 +1,234 @@
+{:module 'prelude/machine
+ :doc "Functions for simulating remote machines."
+ :exports '[eval updatable-eval eval-fn-app send-prelude! new-machine!
+            send-code! send! query! install-remote-machine-fake send-signed-command!]}
+
+(import prelude/io '[read-file-value! read-file-values!] :as 'io)
+(import prelude/ref '[modify-ref] :unqualified)
+(import prelude/lens '[make-lens .. ... view set over @ @def] :unqualified)
+(import prelude/basic :unqualified)
+(import prelude/io :unqualified)
+(import prelude/patterns :unqualified)
+(import prelude/strings :unqualified)
+(import prelude/seq :unqualified)
+(import prelude/key-management :as 'key-mgmt)
+
+(def primitive-stub-ref/send! (ref daemon/send!))
+(def send!
+  "Update a machine with the vector of `inputs` to evaluate. Returns a vector
+  with the evaluation results."
+  (fn [machine-id inputs] ((read-ref primitive-stub-ref/send!) machine-id inputs)))
+
+(def primitive-stub-ref/query! (ref daemon/query!))
+(def query!
+  "Send an expression to be evaluated on a machine. Does not alter the machine."
+  (fn [machine-id expr] ((read-ref primitive-stub-ref/query!) machine-id expr)))
+
+(def primitive-stub-ref/new-machine! (ref daemon/new-machine!))
+(def new-machine!
+  "Creates a new machine. Returns the machine name."
+  (fn [] ((read-ref primitive-stub-ref/new-machine!))))
+
+(def env-var
+  "A lens for variables in envs."
+  (fn [i]
+    (make-lens (fn [e] (get-binding i e))
+               (fn [v e] (set-binding i v e)))))
+
+(def @env
+  "A lens for env part of a machine state."
+  (make-lens state->env set-env))
+
+(def @var
+  "A lens for variables in machine states."
+  (fn [i]
+    (.. @env (env-var i))))
+
+
+(def new-fake-machine
+  "An empty fake machine, which does not use the daemon"
+  (pure-state))
+
+(def-rec eval-in-fake-machine
+  "Evaluates `expr` in the `machine` and returns a dict with the `:result` and the resulting `:machine`."
+  (fn [machine exprs]
+    (match exprs
+      [] {:machine machine :result []}
+      (/cons 'e 'es) (do
+                        (def machine-eval (view (@var 'eval) machine))
+                        (def x (machine-eval e machine))
+                        (def result (nth 0 x))
+                        (def new-state (nth 1 x))
+                        (modify-map :result
+                                    (fn [i] (cons result i))
+                                    (eval-in-fake-machine new-state es))))))
+
+(:test "eval-in-fake-machine"
+  [:setup
+    (do (def res1 (eval-in-fake-machine new-fake-machine '[(def x 3)]))
+        (def res (eval-in-fake-machine (lookup :machine res1) '[(+ x 2)])))
+  ]
+  [ (view (@ :result) res) ==> [5] ]
+)
+
+(def install-remote-machine-fake
+  "Install test doubles for the `send!`, `query!`, and `new-machine! primitives
+  that use a mutable dictionary to store RSMs. Requires
+  `rad/test/stub-primitives` to be loaded"
+  (fn []
+      (def remote-machines (ref {}))
+
+      (write-ref primitive-stub-ref/send!
+        (fn [name exprs]
+          (def m (lookup name (read-ref remote-machines)))
+          (def res (eval-in-fake-machine m exprs))
+          (modify-ref remote-machines (fn [rms] (insert name (lookup :machine res) rms)))
+          (lookup :result res)))
+
+      (write-ref primitive-stub-ref/query!
+        (fn [name expr]
+          (def machine (lookup name (read-ref remote-machines)))
+          (first (lookup :result (eval-in-fake-machine machine [expr])))))
+
+      (write-ref primitive-stub-ref/new-machine!
+        (fn []
+          (def name (uuid!))
+          (modify-ref remote-machines (fn [rm] (insert name new-fake-machine rm)))
+          name))
+  ))
+
+(:test "install-remote-machine-fake"
+  [:setup
+    (do (install-remote-machine-fake)
+        (def machine (new-machine!))
+        (def send-result (send! machine '[(def foo 5) foo]))
+  )]
+  [ send-result ==> [() 5] ]
+  [ (query! machine '(+ 1 foo)) ==> 6 ]
+)
+
+;; add-quit
+
+(def add-quit
+  "Adds a `:quit` command to `before-quit-eval`, which switches to `after-quit-state` (and to the eval in that state)"
+  (fn [after-quit-state before-quit-eval]
+    (fn [expr env]
+      (if (eq? expr :quit)
+          (list :ok after-quit-state)
+          (before-quit-eval expr env)))))
+
+;; enter-remote-machine!
+(def enter-remote-machine!
+  "Make the eval behave as that of a remote machine. The second param is the env to return to after `:quit`."
+  (fn [url env]
+    (def machine (load-machine! url))
+    (def machine-state (lookup :state machine))
+    (def mod-state1 (set (@var '_inputs) [] machine-state))
+    (def mod-state2 (set (@var '_cur-machine) (lookup :url machine) mod-state1))
+    (def mod-state3 (over (@var 'eval)
+                          (fn [x] (add-quit env x))
+                          mod-state2))
+    (list :ok mod-state3)))
+
+(def eval__ "The eval in place when `machine.rad` is loaded." eval)
+
+(def eval
+  "An eval in which one can use `(:enter-machine url)` to make the
+  eval behave as that of a remote machine, and `:send` to send all
+  enqueued expressions."
+  (fn [expr env]
+      (if (list? expr)
+          (cond
+            (eq? (first expr) :enter-machine)
+              (enter-remote-machine! (first (eval__ (nth 1 expr) env)) env)
+            :else (eval__ expr env))
+          (eval__ expr env))))
+
+(def eval-fn-app
+  "Given a state, a function, an argument and a callback, returns
+  the result of evaluating the function call on the arg in the given
+  state, while also calling the callback on the result."
+  (fn [state f arg cb]
+    (def exec (base-eval (list f (list 'quote arg)) state))
+    (cb (first exec))
+    exec))
+
+(def updatable-eval
+  "Given an evaluation function `f`, returns a new one which augments `f` with a new
+  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
+  (fn [sub-eval]
+    (fn [expr state]
+      (match expr
+             (/cons 'cmd _) (if (eq? cmd 'update)
+                              (base-eval (nth 1 expr) state)
+                              (sub-eval expr state))
+             _ (sub-eval expr state)))))
+
+(def pure-prelude-files
+  "List of files which together define the pure prelude."
+  (map find-module-file!
+    ["prelude/basic.rad"
+     "prelude/patterns.rad"
+     "prelude/strings.rad"
+     "prelude/dict.rad"
+     "prelude/bool.rad"
+     "prelude/maybe.rad"
+     "prelude/list.rad"
+     "prelude/set.rad"
+     "prelude/ref.rad"
+     "prelude/lens.rad"
+     "prelude/state-machine.rad"
+     "prelude/validation.rad"
+     "prelude/nonces.rad"
+     "prelude/machine-remote.rad"
+     "prelude/util.rad"]))
+
+(def file-to-module
+  "Make the text of a file into code for a module."
+  (fn [file]
+    (cons 'module (vec-to-list (io/read-file-values! file)))))
+
+(def pure-prelude-code
+  "Code for the pure prelude. Useful as the first inputs to a new machine."
+  (<> [(file-to-module (find-module-file! "prelude/test-eval.rad"))
+       '(import prelude/test-eval '[eval tests] :unqualified)]
+      (map file-to-module pure-prelude-files)))
+
+(def send-prelude!
+  "Send the pure prelude to a machine."
+  (fn [machine-id]
+    (send! machine-id pure-prelude-code)))
+
+(def send-code!
+  "Send code from a file to a remote machine."
+  (fn [machine-id filename]
+    (send! machine-id (io/read-file-values! filename))))
+
+(def get-keys!
+ (fn []
+   (match (key-mgmt/read-keys!)
+     :nothing (do (put-str! "Missing file: my-keys.rad
+Do `rad-create-keys` to create your own key pair and rerun your command.")
+                  (exit! 1))
+      'keys    keys)))
+
+(def sign-entity!
+  "Assumes a key pair is stored at `my-keys.rad`. Using that key pair, will sign a
+  dict by adding `:author` and `:signature` fields, so that it is valid
+  according to `validator/signed`, while also adding a `:nonce`."
+  (fn [e machine-id]
+    (def nonce (uuid!))
+    (def e_ (<> e {:machine-id machine-id
+                   :nonce    nonce}))
+    (def ks (get-keys!))
+    (def sig
+      (gen-signature! (lookup :private-key ks)
+                      (show e_)))
+    (<> e_
+        {:author    (lookup :public-key ks)
+         :signature sig})))
+
+(def send-signed-command!
+  "Send a command signed by the keys in `my-keys.rad`."
+  (fn [machine machine-id cmd payload]
+  (send! machine [(list cmd (sign-entity! payload machine-id))])))

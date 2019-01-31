@@ -13,6 +13,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import           Data.Yaml hiding (Value)
 import           Radicle
+import           Radicle.Daemon.Client (createDaemonClientPrimFns)
 import qualified Radicle.Daemon.HttpApi as Daemon
 import           Radicle.Internal.Core
 import qualified Radicle.Internal.Doc as Doc
@@ -33,13 +34,15 @@ instance FromJSON Content
 main :: IO ()
 main = do
     content <- decodeFileThrow "reference-doc.yaml"
+    daemonClientPrimFns <- createDaemonClientPrimFns
+    let bindings = addPrimFns (replPrimFns [] <> daemonClientPrimFns) pureEnv
     res_ <- interpret
                "reference-doc"
                (   "(do"
                 <> "(file-module! \"prelude/test-eval.rad\") (import prelude/test-eval '[eval tests] :unqualified)"
                 <> foldMap (\m -> "(file-module! \"" <> m <> ".rad\")") (modules content)
                 <> "(get-current-state))")
-               (replBindings [])
+               bindings
     let res = res_ `lPanic` "Error running the prelude."
     let env = bindingsEnv $ bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
     let rst = runPure (writeRST Default.def $ Pandoc nullMeta (doc content env)) `lPanic` "Couldn't generate RST"
