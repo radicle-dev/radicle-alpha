@@ -12,7 +12,7 @@
 (load! (find-module-file! "prelude/cmd-parsing.rad"))
 (import prelude/validation :as 'validation)
 
-(def base-name (fn [] (get-rsm-of-type :rad-diff)))
+(def chain-name (fn [] (get-rsm-of-type! :rad-diff)))
 
 (def valid-list-options
   ["--new" "--pending" "--retracted" "--accepted" "--rejected" "--fancy"])

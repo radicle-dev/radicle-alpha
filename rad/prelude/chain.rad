@@ -289,4 +289,4 @@
 (def make-chain-ref!
   "Makes a new ref containing the loaded chain."
   (fn [chain]
-    (ref (chain/load-chain! chain))))
+    (ref (load-chain! chain))))
