@@ -159,7 +159,9 @@ server env = hoistServer daemonApi nt daemonServer
     nt d = do
       x_ <- liftIO $ runDaemon env d
       case x_ of
-        Left err -> throwError (toServantErr err)
+        Left err -> do
+            logDaemonError err
+            throwError (toServantErr err)
         Right x  -> pure x
 
     toServantErr err@(MachineError _ e) = case e of
