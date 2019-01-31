@@ -8,10 +8,7 @@ import           Options.Applicative
 import           System.Directory (doesFileExist)
 
 import           Radicle
-import           Radicle.Daemon.Client (createDaemonClientPrimFns)
 import           Radicle.Internal.Effects (exitCode)
-import           Radicle.Internal.MachineBackend.EvalServer
-import           Radicle.Internal.MachineBackend.Ipfs (ipfsPrimFns)
 import           Radicle.Internal.Pretty (putPrettyAnsi)
 
 main :: IO ()
@@ -22,7 +19,7 @@ main = do
         then do
             src <- decodeUtf8With lenientDecode <$> BS.getContents
             let prog = interpretMany "[stdin]" src
-            bindings <- createBindings (toS <$> scriptArgs opts')
+            bindings <- createImpureBindings (toS <$> scriptArgs opts')
             (result, _state) <- runLang bindings prog
             case result of
                 Left (LangError _ (Exit n)) -> pure (exitCode n)
@@ -35,7 +32,7 @@ main = do
             hist <- case histFile opts' of
                 Nothing -> getHistoryFile
                 Just h  -> pure h
-            bindings <- createBindings (toS <$> scriptArgs opts')
+            bindings <- createImpureBindings (toS <$> scriptArgs opts')
             repl (Just hist) (toS $ sourceFile opts') src bindings
     exitWith code
   where
@@ -87,9 +84,3 @@ opts = Opts
            )
        ))
     <*> many (strArgument mempty)
-
-createBindings :: (MonadIO m, ReplM m) => [Text] -> IO (Bindings (PrimFns m))
-createBindings scriptArgs' = do
-    daemonClientPrimFns <- createDaemonClientPrimFns
-    evalServerPackendPrimFns <- createEvalServerBackendPrimFns
-    pure $ addPrimFns (replPrimFns scriptArgs' <> evalServerPackendPrimFns <> ipfsPrimFns <> daemonClientPrimFns) pureEnv

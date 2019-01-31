@@ -1,5 +1,5 @@
 ;; Project RSM
-;; Meant to be sent to a chain with send-code!
+;; Meant to be sent to a machine with send-code!
 
 (import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
@@ -12,7 +12,7 @@
 (import prelude/lens :unqualified)
 (import prelude/nonces :unqualified)
 (import prelude/set :as 'set)
-(import prelude/chain-remote '[make-updatable-eval] :unqualified)
+(import prelude/machine-remote '[make-updatable-eval] :unqualified)
 
 (def rsms
   "A url-based dict of RSMs."
@@ -41,7 +41,7 @@
 (def validator/input
   (validator/and
     [ (validator/keys {:nonce      (noncer :validator)
-                       :chain-id   (validator/= rsm-id)})
+                       :machine-id   (validator/= rsm-id)})
       validator/signed] ))
 
 (def add-rsm

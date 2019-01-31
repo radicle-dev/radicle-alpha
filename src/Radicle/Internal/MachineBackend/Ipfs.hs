@@ -26,10 +26,13 @@ import qualified Data.Aeson as Aeson
 import           Data.IPLD.CID
 import qualified Data.Text as T
 
-import           Radicle
 import           Radicle.Internal.Core
+import           Radicle.Internal.Identifier
 import           Radicle.Internal.MachineBackend.Interface
+import           Radicle.Internal.Parse
+import           Radicle.Internal.Pretty
 import qualified Radicle.Internal.PrimFns as PrimFns
+import           Radicle.Internal.Type
 import qualified Radicle.Ipfs as Ipfs
 
 -- | Primitive functions for the IPFS machine backend and the primitive

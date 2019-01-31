@@ -33,13 +33,14 @@ instance FromJSON Content
 main :: IO ()
 main = do
     content <- decodeFileThrow "reference-doc.yaml"
+    bindings <- createImpureBindings []
     res_ <- interpret
                "reference-doc"
                (   "(do"
                 <> "(file-module! \"prelude/test-eval.rad\") (import prelude/test-eval '[eval tests] :unqualified)"
                 <> foldMap (\m -> "(file-module! \"" <> m <> ".rad\")") (modules content)
                 <> "(get-current-state))")
-               (replBindings [])
+               bindings
     let res = res_ `lPanic` "Error running the prelude."
     let env = bindingsEnv $ bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
     let rst = runPure (writeRST Default.def $ Pandoc nullMeta (doc content env)) `lPanic` "Couldn't generate RST"

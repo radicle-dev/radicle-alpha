@@ -1,5 +1,5 @@
 (load! (find-module-file! "prelude.rad"))
-(import prelude/chain '[eval] :unqualified)
+(import prelude/machine '[eval] :unqualified)
 
 (def help
   "Default help text."
