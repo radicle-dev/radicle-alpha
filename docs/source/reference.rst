@@ -508,6 +508,26 @@ Reads a single line of input and returns it as a string.
 Evaluates the contents of a file. Each seperate radicle expression is
 ``eval``\ uated according to the current definition of ``eval``.
 
+``cd!``
+~~~~~~~
+
+Change the current working directory.
+
+``stdin!``
+~~~~~~~~~~
+
+A handle for standard in.
+
+``stdout!``
+~~~~~~~~~~~
+
+A handle for standard out.
+
+``stderr!``
+~~~~~~~~~~~
+
+A handle for standard error.
+
 ``read-file!``
 ~~~~~~~~~~~~~~
 
@@ -893,6 +913,11 @@ This requires the ``prelude/test/primitive-stub`` script to be loaded.
 Like ``process-with-stdout!``, but returns a vec
 ``[stdout stderr exitcode]``.
 
+``(prompt! prompt)``
+~~~~~~~~~~~~~~~~~~~~
+
+Ask for user input with a prompt.
+
 ``prelude/bool``
 ----------------
 
@@ -1137,30 +1162,29 @@ An eval in which one can use ``(:enter-chain url)`` to make the eval
 behave as that of a remote chain, and ``:send`` to send all enqueued
 expressions.
 
-``(updatable-eval sub-eval)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given an evaluation function ``f``, returns a new one which augments
-``f`` with a new command ``(update expr)`` which evaluates arbitrary
-expression using ``base-eval``.
-
 ``(update-chain! chain)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Takes a chain, and returns a new chain updated with the new expressions
 from the remote chain
 
-``(eval-fn-app state f arg cb)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a state, a function, an argument and a callback, returns the
-result of evaluating the function call on the arg in the given state,
-while also calling the callback on the result.
-
 ``(send-prelude! chain-id)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Send the pure prelude to a chain.
+
+``(send-signed-command! chain chain-id cmd payload)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send a command signed by the keys in ``my-keys.rad``.
+
+``(sign-entity! e chain-id)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Assumes a key pair is stored at ``my-keys.rad``. Using that key pair,
+will sign a dict by adding ``:author`` and ``:signature`` fields, so
+that it is valid according to ``validator/signed``, while also adding a
+``:nonce``.
 
 ``(send-code! chain-id filename)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1183,17 +1207,17 @@ last input in ``inputs``. The ``index`` argument is either ``:nothing``
 in which case all inputs are fetched or ``[:just i]`` in which case all
 inputs following after the index ``i`` are fetched.
 
+``(make-chain-ref! chain)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Makes a new ref containing the loaded chain.
+
 ``(install-remote-chain-fake)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Install test doubles for the ``send!`` and ``receive!`` primitives that
 use a mutable dictionary to store RSMs. Requires
 ``rad/test/stub-primitives`` to be loaded
-
-``(send-signed-command! chain chain-id cmd payload)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Send a command signed by the keys in ``my-keys.rad``.
 
 ``prelude/state-machine``
 -------------------------
@@ -1316,6 +1340,12 @@ author. The rest of the dict is turned into a string according to
 
 A validator which checks if a string is an ISO 8601 formatted
 Coordinated Universal Time (UTC) timestamp.
+
+``(string-of-max-length max-len)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A validator which checks that it's argument is a string and less than
+the specified length.
 
 ``prelude/util``
 ----------------

@@ -177,3 +177,4 @@ instance System (StateT WorldState IO) where
     hGetLineS = lift . hGetLineS
     hCloseS = lift . hCloseS
     openFileS a b = lift $ openFileS a b
+    setCurrentDirS = lift . setCurrentDirS

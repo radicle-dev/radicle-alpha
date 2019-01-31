@@ -113,13 +113,11 @@ replPrimFns sysArgs = fromList $ allDocs $
 
     , ( "apropos!"
       , "Prints documentation for all documented variables in scope."
-      , \case
-          [] -> do
+      , noArg "apropos!" $ do
             env <- gets bindingsEnv
             let docs = [ i <> "\n" <> doc | (Ident i, Just doc, _) <- toList env ]
             putStrS (T.intercalate "\n\n" docs)
             pure nil
-          xs -> throwErrorHere $ WrongNumberOfArgs "apropos!" 0 (length xs)
       )
 
     , ( "get-line!"
@@ -266,6 +264,18 @@ replPrimFns sysArgs = fromList $ allDocs $
                     , ("proc", toRad ph')
                     ]
       )
+    , ( "stdin!"
+      , "A handle for standard in."
+      , noArg "stdin!" $ pure $ Handle StdIn
+      )
+    , ( "stdout!"
+      , "A handle for standard out."
+      , noArg "stdout!" $ pure $ Handle StdIn
+      )
+    , ( "stderr!"
+      , "A handle for standard error."
+      , noArg "stderr!" $ pure $ Handle StdErr
+      )
     , ( "write-handle!"
       , "Write a string to the provided handle."
       , twoArg "write-handle!" $ \case
@@ -345,6 +355,14 @@ replPrimFns sysArgs = fromList $ allDocs $
                 Nothing -> throwError . toLangError . OtherError $ "File not found in RADPATH: " <> filename
                 Just t  -> pure $ String t
           v -> throwErrorHere $ TypeError "find-module-file!" 0 TString v
+      )
+    , ( "cd!"
+      , "Change the current working directory."
+      , oneArg "cd!" $ \case
+          String filename -> do
+              setCurrentDirS $ toS filename
+              pure $ Keyword $ Ident "ok"
+          v -> throwErrorHere $ TypeError "cd!" 0 TString v
       )
     ]
 

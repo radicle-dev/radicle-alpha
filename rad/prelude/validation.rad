@@ -4,7 +4,8 @@
    used for checking data before accepting it onto a chain."
  :exports
  '[= member and or type pred integral optional-key contains contains-all
-   contains-only key optional-keys keys every uuid signed timestamp]}
+   contains-only key optional-keys keys every uuid signed timestamp
+   string-of-max-length]}
 
 (import prelude/dict :unqualified)
 (import prelude/dict :as 'dict)
@@ -270,3 +271,12 @@
        [ (catch 'validation-failure
              (timestamp "12-12-2018T14:10:21Z")
            (fn [_] :ok)) ==> :ok ])
+
+(def string-of-max-length
+  "A validator which checks that it's argument is a string and less than the
+  specified length."
+  (fn [max-len]
+    (and
+     [(type :string)
+      (pred (string-append "< " (show max-len) " chars in length")
+            (fn [s] (< (length s) max-len)))])))

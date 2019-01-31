@@ -374,7 +374,7 @@ purePrimFns = fromList $ allDocs $
           (k, v, Dict m) ->
             if hashable k
             then pure . Dict $ Map.insert k v m
-            else throwErrorHere NonHashableKey
+            else throwErrorHere $ NonHashableKey k
           (_, _, v)      -> throwErrorHere $ TypeError "insert" 2 TDict v
       )
     , ( "delete"
@@ -719,7 +719,11 @@ data ImportQual = Unqualified | FullyQualified | Qualified Ident
 
 -- * Helpers
 
--- Many primFns have a single argument.
+noArg :: Monad m => Text -> Lang m Value -> [Value] -> Lang m Value
+noArg fname f = \case
+    [] -> f
+    xs -> throwErrorHere $ WrongNumberOfArgs fname 0 (length xs)
+
 oneArg :: Monad m => Text -> (Value -> Lang m Value) -> [Value] -> Lang m Value
 oneArg fname f = \case
   [x] -> f x

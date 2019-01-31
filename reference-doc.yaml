@@ -112,6 +112,10 @@ primFns:
 - put-str!
 - get-line!
 - load!
+- cd!
+- stdin!
+- stdout!
+- stderr!
 - read-file!
 - read-line-handle!
 - open-file!

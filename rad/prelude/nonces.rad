@@ -1,0 +1,59 @@
+{:module 'prelude/nonces
+ :doc "Functions for using nonces."
+ :exports '[make-noncer]}
+
+(import prelude/basic :unqualified)
+(import prelude/bool :unqualified)
+(import prelude/patterns :unqualified)
+(import prelude/ref :unqualified)
+(import prelude/validation :as 'validator)
+(import prelude/set :as 'set)
+
+(def make-noncer
+  "Create a new noncer, which stores used nonces and allows validating that
+   inputs are nonced, thus preventing replay attacks.
+
+   Use it like so:
+
+   ```
+   (def noncer (make-noncer))
+   (def uuid1 (uuid!))
+   (def uuid2 (uuid!))
+   (noncer [:use uuid1])
+   ((noncer :validator) uuid1) ;; validation fails, nonce already used
+   ((noncer :validator) uuid2) ;; validation succeeds
+   ```
+   "
+  (fn []
+    (def used-nonces (ref set/empty))
+    (def unused? (fn [nonce] (not (set/member? nonce (read-ref used-nonces)))))
+    (def use-nonce (fn [nonce] (modify-ref used-nonces (fn [s] (set/insert nonce s)))))
+    (fn [expr]
+      (match expr
+        :validator (validator/and [validator/uuid (validator/pred "Nonce already used" unused?)])
+        [:use 'nonce] (use-nonce nonce)
+        _ (throw 'match-failure "expecting [:use <nonce>] or :validate")))))
+
+(:test "make-noncer"
+  [:setup
+    (do
+      (def noncer (make-noncer))
+      (def n1 (uuid!))
+      (def n2 (uuid!))
+      (noncer [:use n1]))
+  ]
+
+  [ (catch
+      'validation-failure
+      ((noncer :validator) n1)
+      (fn [x] x)) ==> {:info "Did not satisfy predicate." :name "Nonce already used"}
+  ]
+
+  [ (eq? ((noncer :validator) n2) n2) ==> #t ]
+
+  [ (catch
+      'validation-failure
+      ((noncer :validator) "not a UUID")
+      (fn [x] x)) ==> {:info "Did not satisfy predicate." :name "valid UUID"}
+  ]
+)

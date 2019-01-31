@@ -3,10 +3,12 @@
 (import prelude/dict :unqualified)
 (import prelude/set :as 'set)
 (import prelude/ref :unqualified)
+(import prelude/nonces :unqualified)
 (import prelude/validation :as 'validator)
 (import prelude/patterns :unqualified)
 (import prelude/util :unqualified)
 (import prelude/lens :unqualified)
+(import prelude/chain-remote '[make-updatable-eval] :unqualified)
 
 (def chain-id
   "The name of this chain."
@@ -20,41 +22,15 @@
   "We use a stateful counter for giving diff numbers."
   (make-counter))
 
-(def used-nonces
-  "We keep track of the UUIDs which have been used as nonces in inputs."
-  (ref set/empty))
-
-(def unused-nonce?
-  "Check that a nonce has not been used already."
-  (fn [nonce]
-    (not (set/member? nonce (read-ref used-nonces)))))
-
-(def mark-used-nonce
-  "Mark a UUID as used."
-  (fn [nonce]
-    (modify-ref used-nonces (fn [s] (set/insert nonce s)))))
+(def noncer (make-noncer))
 
 (def set-diffs
   "A helper to set stuff in the diffs ref."
   (fn [l v]
     (set-ref diffs l v)))
 
-(def validator/nonce
-  "Validator for unused nonces."
-  (validator/and
-   [validator/uuid
-    (validator/pred "Nonce not already used" unused-nonce?)]))
-
-(def validator/text
-  "A validator for text."
-  (fn [max-len]
-    (validator/and
-     [(validator/type :string)
-      (validator/pred (string-append "< " (show max-len) " chars in length")
-                      (fn [s] (< (string-length s) max-len)))])))
-
 (def input-keys
-  {:nonce      validator/nonce
+  {:nonce      (noncer :validator)
    :chain-id   (validator/= chain-id)})
 
 (def validator/time-created
@@ -86,7 +62,7 @@
 
 (def comment-keys
   "A comment's body should be text that isn't too long."
-  {:body (validator/text 4000)})
+  {:body (validator/string-of-max-length 4000)})
 
 (def validator/full-comment
   (validator/keys comment-keys))
@@ -104,8 +80,8 @@
     validator/diff-reference]))
 
 (def diff-keys
-  {:title       (validator/text 100)
-   :description (validator/text 4000)
+  {:title       (validator/string-of-max-length 100)
+   :description (validator/string-of-max-length 4000)
    :patch       (validator/type :string)
    :state       (validator/member [:pending :retracted :accepted :rejected])
    :comments    (validator/every validator/full-comment)})
@@ -149,7 +125,7 @@
        (<> i
            {:number   n})))
     (set-diffs (@ n) i_)
-    (mark-used-nonce (lookup :nonce i))))
+    (noncer [:use (lookup :nonce i)])))
 
 (def over-diffs
   "A helper to modify stuff in the diff ref."
@@ -164,7 +140,7 @@
     (over-diffs
       (.. (@ (lookup :diff-number c)) (@ :comments))
       (fn [cs] (add-right c_ cs)))
-    (mark-used-nonce (lookup :nonce c))))
+    (noncer [:use (lookup :nonce c)])))
 
 (def merge-new
   (fn [new]
@@ -184,43 +160,9 @@
 
 (def commands
   "The set of allowed chain commands."
-  (ref
-   {'create-diff    create-diff
-    'list-diffs     list-diffs
-    'edit-diff      edit-diff
-    'add-comment  add-comment}))
+  {'create-diff    create-diff
+   'list-diffs     list-diffs
+   'edit-diff      edit-diff
+   'add-comment  add-comment})
 
-(def process-command
-  "Function that maps post-eval commands to existing functions"
-  (fn [expr]
-    (def command (first expr))
-    (def args    (rest expr))
-    (def do-this (lookup command (read-ref commands)))
-    (apply do-this args)))
-
-;; Move to eval-fn-app & updatable-eval from chain.rad to a pure file so it may
-;; be imported
-
-(def eval-fn-app
-  "Given a state, a function, an argument and a callback, returns
-  the result of evaluating the function call on the arg in the given
-  state, while also calling the callback on the result."
-  (fn [state f arg cb]
-    (def exec (base-eval (list f (list 'quote arg)) state))
-    (cb (first exec))
-    exec))
-
-(def updatable-eval
-  "Given an evaluation function `f`, returns a new one which augments `f` with a new
-  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
-  (fn [sub-eval]
-    (fn [expr state]
-      (match expr
-             (/cons 'cmd _) (if (eq? cmd 'update)
-                              (base-eval (nth 1 expr) state)
-                              (sub-eval expr state))
-             _ (sub-eval expr state)))))
-
-(def eval (updatable-eval
-    (fn [expr state]
-      (eval-fn-app state 'process-command expr (fn [x] x)))))
+(def eval (make-updatable-eval commands))

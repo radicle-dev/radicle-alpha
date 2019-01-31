@@ -1,0 +1,113 @@
+#!/usr/bin/env radicle
+
+(load! (find-module-file! "prelude.rad"))
+(load! (find-module-file! "monadic/issues.rad"))
+(load! (find-module-file! "monadic/diff.rad"))
+(load! (find-module-file! "monadic/project.rad"))
+(load! (find-module-file! "prelude/io-utils.rad"))
+(load! (find-module-file! "prelude/cmd-parsing.rad"))
+
+(import prelude/validation :as 'validation)
+
+(def help
+  "rad-project - Radicle project CLI
+
+   Usage:
+        rad-project init
+        rad-project show-id
+        rad-project checkout <PROJECT-ID>
+
+     init         - Initialize a new project
+     show-id      - Show the project id
+     checkout     - Checkout a project
+  ")
+
+(def base "http://localhost:8000/chains/")
+
+(def prompt-for-metadata!
+  (fn []
+    (def name (prompt! "? What's the name of your project: "))
+    (def desc (prompt! "? Briefly describe the project: "))
+    {:name name :description desc}))
+
+(def cid-of-empty-repo "QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
+
+(def init-git-ipfs-repo
+  "Creates a key for a repo. Sets the remote to that. Points the IPNS link to
+   the provided CID. Returns the remote."
+  (fn [orig-cid]
+    (def keyname (uuid!))
+    (def key
+      (unlines
+        (process-with-stdout!
+          "rad-ipfs"
+          ["key" "gen" "--type=ed25519" keyname]
+          "")))
+    (process-with-stdout!
+      "rad-ipfs"
+      ["name" "publish" "--key" key orig-cid]
+      "")
+    (def remote (string-append "ipfs://ipns/" key))
+    remote))
+
+(def checkout!
+  "Checkout a project."
+  (fn [project-url]
+    (def rsm (ref (chain/new-chain project-url)))
+    (fetch! rsm)
+    (def name (lookup :name (get-meta! rsm)))
+    (def origin (lookup :id (first-rsm-of-type! rsm :rad-repo)))
+    (put-str! name)
+    (process! "git" ["clone" origin name] "")
+    (cd! name)
+    (set-git-config! "rad.project.url" project-url)))
+
+(def new-or-forked-project!
+  "Create a new or forked project. If `maybe-upstream` is :nothing, creates a
+   new project. Otherwise, uses that as the url to fork from"
+  (fn [maybe-upstream]
+    ;; TODO: switch to IPFS
+    (def project-url (string-append base (uuid!)))
+    (def issues-url (string-append base (uuid!)))
+    (create-issues-chain! issues-url)
+    (def diff-url (string-append base (uuid!)))
+    (create-diffs-chain! diff-url)
+    (def meta (prompt-for-metadata!))
+    (process! "git" ["init"] "")
+    (def repo-url (match maybe-upstream
+      :nothing  (do
+                  (create-project! project-url meta)
+                  (init-git-ipfs-repo cid-of-empty-repo))
+      'upstream (do
+                  ;; TODO: make ipns origin point to same as ipns upstream
+                  (put-str! (<> "=> adding \"upstream\" remote: " upstream)
+                  (process! "git" ["remote" "add" "upstream" upstream] ""))
+                  (error "todo: get old meta"))))
+    (put-str! (string-append "=> adding \"origin\" remote: " repo-url))
+    (put-str! (string-append "=> project id: " project-url))
+    (process! "git" ["remote" "add" "origin" repo-url] "")
+    (def project-rsm (ref (chain/new-chain project-url)))
+    (add-rsm! project-rsm { :id repo-url :type :rad-repo })
+    (add-rsm! project-rsm { :id issues-url :type :rad-issues })
+    (add-rsm! project-rsm { :id diff-url :type :rad-diff })
+    (set-git-config! "rad.project.url" project-url)
+    (put-str! "=> project created!")))
+
+
+(def show-project-id
+  (fn []
+    (put-str! (string-append "=> " (get-project-url!)))
+    (put-str! "=> Share this project id for people to collaborate with you on your project.")))
+
+(def args (get-args!))
+;; TODO: use Merle's refactored cmd stuff
+(match args
+  (/cmd-0 "init" help) (new-or-forked-project! :nothing)
+  (/cmd-1 "fork" 'upstream help) (new-or-forked-project! upstream)
+  (/cmd-0 "show-id" help) (show-project-id)
+  (/cmd-1 "checkout" 'project-id help) (checkout! project-id)
+  ["help"] (put-str! help)
+  ["-h"] (put-str! help)
+  ["--help"] (put-str! help)
+  (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
+  [] (put-str! help))
