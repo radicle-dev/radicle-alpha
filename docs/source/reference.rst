@@ -1146,8 +1146,8 @@ file doesn't exist.
 
 Creates a new key pair and stores it in ``my-keys.rad``
 
-``(use-fake-keys)``
-~~~~~~~~~~~~~~~~~~~
+``(use-fake-keys!)``
+~~~~~~~~~~~~~~~~~~~~
 
 Bypass reading the keys from ``my-keys.rad``. This is intended for
 testing.
