@@ -1,26 +1,25 @@
-;; Helpers for setting up and interacting with issues chain (as defined in
+;; Helpers for setting up and interacting with the issues machine (as defined in
 ;; rad/monadic/issues-remote.rad)
-
-;; Create a remote issue chain. Returns a ref for the chain that you
-;; can assign to a variable.
 {:module  'monadic/issues
- :doc     "Functions for interacting with issues RSM"
- :exports '[create-issues-chain!]}
+ :doc     "Functions for interacting with issues machine"
+ :exports '[create-issues-machine!]}
 
 (import prelude/lens :unqualified)
-(import prelude/chain '[send-code!] :unqualified)
+(import prelude/machine '[send-code!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
 
-(def radicle-issues-chain-id
-  "The name of this chain."
+(def radicle-issues-machine-id
+  "The name of this machine."
   "monadic/radicle/issues")
 
-(def create-issues-chain!
-  "Create a remote issue chain with the given url."
-  (fn [url]
-    (chain/send-prelude! url)
-    (send-code! url (find-module-file! "monadic/issue-remote.rad"))))
+(def create-issues-machine!
+  "Create a remote issue machine with the given url."
+  (fn []
+    (def id (machine/new-machine!))
+    (machine/send-prelude! id)
+    (send-code! id (find-module-file! "monadic/issue-remote.rad"))
+    id))
 
 (def simple-issue
   "Create an open issue with no comments or labels."
@@ -44,44 +43,44 @@
 
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."
-  (fn [chain i]
-    (chain/send-signed-command! chain radicle-issues-chain-id 'create-issue i)))
+  (fn [machine i]
+    (machine/send-signed-command! machine radicle-issues-machine-id 'create-issue i)))
 
 (def add-comment!
   "Create a remote comment with the keys in `my-keys.rad`."
-  (fn [chain c]
-    (chain/send-signed-command! chain radicle-issues-chain-id 'add-comment c)))
+  (fn [machine c]
+    (machine/send-signed-command! machine radicle-issues-machine-id 'add-comment c)))
 
 (def edit-issue!
   "Edit a remote issue with the keys in `my-keys.rad`."
-  (fn [chain i]
-    (chain/send-signed-command! chain radicle-issues-chain-id 'edit-issue i)))
+  (fn [machine i]
+    (machine/send-signed-command! machine radicle-issues-machine-id 'edit-issue i)))
 
 (def edit-comment!
   "Edit a remote comment with the keys in `my-keys.rad`."
-  (fn [chain c]
-    (chain/send-signed-command! chain radicle-issues-chain-id 'edit-comment c)))
+  (fn [machine c]
+    (machine/send-signed-command! machine radicle-issues-machine-id 'edit-comment c)))
 
 (def simple-create-issue!
   "Create a remote issue with sensible defaults."
-  (fn [chain tit bod]
-    (create-issue! chain (simple-issue {:title tit :body bod}))))
+  (fn [machine tit bod]
+    (create-issue! machine (simple-issue {:title tit :body bod}))))
 
 (def simple-add-comment!
   "Create a remote comment."
-  (fn [chain in b]
-    (add-comment! chain (simple-comment in b))))
+  (fn [machine in b]
+    (add-comment! machine (simple-comment in b))))
 
 (def simple-edit-issue!
-  (fn [chain n i]
-    (edit-issue! chain
+  (fn [machine n i]
+    (edit-issue! machine
                  (<> {:issue-number n
                       :modified-at (now!)}
                      i))))
 
 (def simple-edit-comment!
-  (fn [chain n i c]
-    (edit-comment! chain
+  (fn [machine n i c]
+    (edit-comment! machine
                    (<> {:issue-number n
                         :comment-index i
                         :modified-at (now!)}
@@ -89,19 +88,14 @@
 
 (def list-issues
   "Return the full map of issues."
-  (fn [chain]
-    (lookup :result (chain/eval-in-chain '(list-issues) (read-ref chain)))))
-
-(def fetch!
-  "Update the locally cached state of the chain."
-  (fn [chain]
-    (chain/update-chain-ref! chain)))
+  (fn [machine]
+    (machine/query! machine '(list-issues))))
 
 (def import-github
   "Imports the github issues stored in file `githubissues.rad`. To create this
   file use the `radicle-github-issues` executable. Will add a note to all
   `:body`s that this is an imported entity."
-  (fn [chain]
+  (fn [machine]
     (def note-imported
       (fn [x]
         (insert
@@ -119,7 +113,7 @@
       (map
        (fn [i] (insert :modified-at (lookup :created-at i) (note-imported (note-comments i))))
        issues))
-    (map (fn [i] (create-issue! chain i)) imported)))
+    (map (fn [i] (create-issue! machine i)) imported)))
 
 (def short
   "Short render of an issue."
@@ -131,13 +125,13 @@
 
 (def list-last
   "Get the last `n` issues."
-  (fn [chain n]
-    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues chain))))
+  (fn [machine n]
+    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues machine))))
     (take n is)))
 
 (def recent-activity
-  "Returns the activity on the chain since a timestamp."
-  (fn [chain from]
+  "Returns the activity on the machine since a timestamp."
+  (fn [machine from]
     (def mod-at
       (fn [x]
         (unix-epoch
@@ -150,7 +144,7 @@
       (fn [xs]
         (sort-by (fn [x] (- 0 (mod-at x)))
                  xs)))
-    (def all-issues (values (list-issues chain)))
+    (def all-issues (values (list-issues machine)))
     (def is (map (fn [i]
                    {:activity    :new-issue
                     :modified-at (lookup :modified-at i)
@@ -170,36 +164,33 @@
     (most-recent-first (<> is cs))))
 
 (:test
- "The monadic issues chain works."
+ "The monadic issues machine works."
  [:setup
-  (do (chain/install-remote-chain-fake)
+  (do (machine/install-remote-machine-fake)
       (install-fake-clock)
       (io/install-fake-filesystem!
         { "../my-keys.rad" (show (gen-key-pair! (default-ecc-curve)))
         })
-      (def chain-name (string-append "http://foo"))
-      (def chain (ref (chain/new-chain chain-name)))
-      (create-issues-chain! chain-name)
-      (simple-create-issue! chain "title0" "body0")
-      (simple-create-issue! chain "title1" "body1")
-      (simple-add-comment! chain 0 "comment0")
-      (simple-add-comment! chain 1 "comment1")
-      (simple-edit-issue! chain 0 {:state :closed})
-      (simple-edit-comment! chain 0 0 {:body "comment0-edit"})
+      (def machine (create-issues-machine!))
+      (simple-create-issue! machine "title0" "body0")
+      (simple-create-issue! machine "title1" "body1")
+      (simple-add-comment! machine 0 "comment0")
+      (simple-add-comment! machine 1 "comment1")
+      (simple-edit-issue! machine 0 {:state :closed})
+      (simple-edit-comment! machine 0 0 {:body "comment0-edit"})
       (def last-checked-at (now!))
-      (simple-create-issue! chain "new" "new")
-      (simple-create-issue! chain "newer" "newer")
-      (simple-add-comment! chain 0 "new")
-      (fetch! chain)
-      (def is (list-issues chain))
-      (def new (recent-activity chain last-checked-at)))]
+      (simple-create-issue! machine "new" "new")
+      (simple-create-issue! machine "newer" "newer")
+      (simple-add-comment! machine 0 "new")
+      (def is (list-issues machine))
+      (def new (recent-activity machine last-checked-at)))]
  [ (length (seq is)) ==> 4 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
  [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment1" ]
  [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) is) ==> "comment0-edit" ]
  [ (short (first (values is))) ==> "0: title0" ]
- [ (short (first (list-last chain 1))) ==> "3: newer" ]
+ [ (short (first (list-last machine 1))) ==> "3: newer" ]
  [ (view (.. (@ 0) (@ :state)) is) ==> :closed ]
  [ (length new) ==> 3 ]
  [ (view (.. (@nth 0) (@ :activity)) new) ==> :new-comments ]

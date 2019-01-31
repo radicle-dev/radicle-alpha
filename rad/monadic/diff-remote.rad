@@ -8,8 +8,8 @@
 (import prelude/util :unqualified)
 (import prelude/lens :unqualified)
 
-(def chain-id
-  "The name of this chain."
+(def machine-id
+  "The name of this machine."
   "monadic/radicle/diffs")
 
 (def diffs
@@ -55,7 +55,7 @@
 
 (def input-keys
   {:nonce      validator/nonce
-   :chain-id   (validator/= chain-id)})
+   :machine-id   (validator/= machine-id)})
 
 (def validator/time-created
   (validator/and
@@ -74,8 +74,8 @@
    {:modified-at validator/timestamp}))
 
 (def validator/input
-  "Checks that the input as a valid new *chain input*, that is, it has an unused
-  nonce, is marked with this chain name, and is signed."
+  "Checks that the input as a valid new *machine input*, that is, it has an unused
+  nonce, is marked with this machine name, and is signed."
   (validator/and
    [(validator/keys input-keys)
     validator/signed]))
@@ -137,7 +137,7 @@
   "After an entity input has been processed/verified, we no longer need some of
   the fields."
   (fn [e]
-    (delete-many [:chain-id :signature :nonce :diff-number] e)))
+    (delete-many [:machine-id :signature :nonce :diff-number] e)))
 
 (def create-diff
   "Create an diff from a dict, checking that it is valid and storing it in `diffs`."
@@ -183,7 +183,7 @@
   (fn [] (read-ref diffs)))
 
 (def commands
-  "The set of allowed chain commands."
+  "The set of allowed machine commands."
   (ref
    {'create-diff    create-diff
     'list-diffs     list-diffs
@@ -198,7 +198,7 @@
     (def do-this (lookup command (read-ref commands)))
     (apply do-this args)))
 
-;; Move to eval-fn-app & updatable-eval from chain.rad to a pure file so it may
+;; Move to eval-fn-app & updatable-eval from machine.rad to a pure file so it may
 ;; be imported
 
 (def eval-fn-app

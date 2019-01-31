@@ -127,26 +127,6 @@ executables:
     - optparse-applicative
     ghc-options: -main-is RadicleExe
 
-  radicle-server:
-    main: Server.hs
-    source-dirs: exe
-    other-modules: [Server.DB]
-    dependencies:
-    - radicle
-    - aeson
-    - containers
-    - bytestring
-    - optparse-applicative
-    - postgresql-simple
-    - servant
-    - servant-server
-    - text
-    - warp
-    - wai-extra
-    - wai-cors
-    - time
-    ghc-options: -main-is Server
-
   radicle-daemon:
     main: Daemon.hs
     source-dirs: exe

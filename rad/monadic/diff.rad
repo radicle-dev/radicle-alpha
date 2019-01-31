@@ -1,19 +1,21 @@
 (load! (find-module-file! "prelude.rad"))
 
 (import prelude/lens :unqualified)
-(import prelude/chain '[send-code! ]:unqualified)
+(import prelude/machine '[send-code!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
 
-(def radicle-diff-chain-id
-  "The name of this chain."
+(def radicle-diff-machine-id
+  "The name of this machine."
   "monadic/radicle/diffs")
 
-(def create-diffs-chain!
-  "Create a remote diff chain with the given url."
-  (fn [url]
-    (chain/send-prelude! url)
-    (send-code! url (find-module-file! "monadic/diff-remote.rad"))))
+(def create-diffs-machine!
+  "Create a remote diff machine. Returns the machine id"
+  (fn []
+    (def id (machine/new-machine!))
+    (machine/send-prelude! id)
+    (send-code! id (find-module-file! "monadic/diff-remote.rad"))
+    id))
 
 (def simple-diff
   "Create an open diff with no comments or labels."
@@ -37,44 +39,44 @@
 
 (def edit-diff!
  "Edit a remote diff with the keys in `my-keys.rad`."
- (fn [chain i]
-   (chain/send-signed-command! chain radicle-diff-chain-id 'edit-diff i)))
+ (fn [machine i]
+   (machine/send-signed-command! machine radicle-diff-machine-id 'edit-diff i)))
 
 (def simple-edit-diff!
- (fn [chain n i]
-   (edit-diff! chain
+ (fn [machine n i]
+   (edit-diff! machine
                 (<> {:diff-number n
                      :modified-at (now!)}
                     i))))
 
 (def create-diff!
  "Create a new remote diff with the keys in `my-keys.rad`."
- (fn [chain i]
- (chain/send-signed-command! chain radicle-diff-chain-id 'create-diff i)))
+ (fn [machine i]
+ (machine/send-signed-command! machine radicle-diff-machine-id 'create-diff i)))
 
 (def add-comment!
   "Create a remote comment with the keys in `my-keys.rad`."
-  (fn [chain c]
-   (chain/send-signed-command! chain radicle-diff-chain-id 'add-comment c)))
+  (fn [machine c]
+   (machine/send-signed-command! machine radicle-diff-machine-id 'add-comment c)))
 
 (def simple-create-diff!
   "Create a remote diff with sensible defaults."
-  (fn [chain diff]
-    (create-diff! chain (simple-diff diff))))
+  (fn [machine diff]
+    (create-diff! machine (simple-diff diff))))
 
 (def simple-add-comment!
   "Create a remote comment."
-  (fn [chain n b name]
-    (add-comment! chain (simple-comment n b name))))
+  (fn [machine n b name]
+    (add-comment! machine (simple-comment n b name))))
 
 (def list-diffs
   "Return the full map of diffs."
-  (fn [chain]
-  (lookup :result (chain/eval-in-chain '(list-diffs) (read-ref chain)))))
+  (fn [machine]
+  (machine/query! machine '(list-diffs))))
 
 (def recent-activity
-  "Returns the activity on the chain since a timestamp."
-  (fn [chain from]
+  "Returns the activity on the machine since a timestamp."
+  (fn [machine from]
     (def mod-at
       (fn [x]
         (unix-epoch
@@ -87,7 +89,7 @@
       (fn [xs]
         (sort-by (fn [x] (- 0 (mod-at x)))
                  xs)))
-    (def all-diffs (values (list-diffs chain)))
+    (def all-diffs (values (list-diffs machine)))
     (def is (map (fn [i]
                    {:activity    :new-diff
                     :modified-at (lookup :modified-at i)
@@ -107,28 +109,25 @@
     (most-recent-first (<> is cs))))
 
 (:test
- "The monadic diffs chain works."
+ "The monadic diffs machine works."
  [:setup
-  (do (chain/install-remote-chain-fake)
+  (do (machine/install-remote-machine-fake)
       (install-fake-clock)
       (io/install-fake-filesystem!
         { "../my-keys.rad" (show (gen-key-pair! (default-ecc-curve)))
         })
-      (def chain-name "http://foo")
-      (def chain (ref (chain/new-chain chain-name)))
-      (create-diffs-chain! chain-name)
-      (simple-create-diff! chain {:title "title0" :description "desc0" :patch "patch0"})
-      (simple-create-diff! chain {:title "title1" :description "desc1" :patch "patch1"})
-      (simple-add-comment! chain 0 "comment0" "name0")
-      (simple-add-comment! chain 1 "comment1" "name1")
-      (simple-edit-diff! chain 0 {:state :accepted})
+      (def machine (create-diffs-machine!))
+      (simple-create-diff! machine {:title "title0" :description "desc0" :patch "patch0"})
+      (simple-create-diff! machine {:title "title1" :description "desc1" :patch "patch1"})
+      (simple-add-comment! machine 0 "comment0" "name0")
+      (simple-add-comment! machine 1 "comment1" "name1")
+      (simple-edit-diff! machine 0 {:state :accepted})
       (def t (now!))
-      (simple-create-diff! chain {:title "new" :description "new" :patch "new"})
-      (simple-create-diff! chain {:title "newer" :description "newer" :patch "newer"})
-      (simple-add-comment! chain 0 "new" "name0")
-      (chain/update-chain-ref! chain)
-      (def diffs (list-diffs chain))
-      (def new (recent-activity chain t)))]
+      (simple-create-diff! machine {:title "new" :description "new" :patch "new"})
+      (simple-create-diff! machine {:title "newer" :description "newer" :patch "newer"})
+      (simple-add-comment! machine 0 "new" "name0")
+      (def diffs (list-diffs machine))
+      (def new (recent-activity machine t)))]
    [ (length (seq diffs)) ==> 4 ]
    [ (view (.. (@ 0) (@ :title)) diffs) ==> "title0" ]
    [ (view (.. (@ 1) (@ :title)) diffs) ==> "title1" ]
