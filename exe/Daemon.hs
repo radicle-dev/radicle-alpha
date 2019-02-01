@@ -19,6 +19,7 @@ import           Network.Wai.Handler.Warp (run)
 import           Options.Applicative
 import           Servant
 import           System.Directory (doesFileExist)
+import           System.IO (BufferMode(..), hSetBuffering)
 
 import           Radicle.Daemon.Common hiding (logInfo)
 import qualified Radicle.Daemon.Common as Common
@@ -119,6 +120,7 @@ runDaemon env (Daemon x) = runReaderT (runExceptT x) env
 
 main :: IO ()
 main = do
+    hSetBuffering stdout LineBuffering
     Opts{..} <- execParser allOpts
     followFileLock <- newMVar ()
     followFile <- Local.getRadicleFile (toS filePrefix <> "daemon-follows")
