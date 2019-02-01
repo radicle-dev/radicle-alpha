@@ -14,6 +14,7 @@
 (file-module! "prelude/set.rad")
 (file-module! "prelude/ref.rad")
 (file-module! "prelude/lens.rad")
+(file-module! "prelude/key-management.rad")
 (file-module! "prelude/chain.rad")
 (file-module! "prelude/chain-remote.rad")
 (file-module! "prelude/state-machine.rad")

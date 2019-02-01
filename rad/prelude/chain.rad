@@ -12,6 +12,7 @@
 (import prelude/patterns :unqualified)
 (import prelude/strings :unqualified)
 (import prelude/seq :unqualified)
+(import prelude/key-management :as 'key-mgmt)
 
 (def base-send!
   "See documentation of `send!`"
@@ -264,6 +265,14 @@
   (fn [chain-id filename]
     (send! chain-id (io/read-file-values! filename))))
 
+(def get-keys!
+ (fn []
+   (match (key-mgmt/read-keys!)
+     :nothing (do (put-str! "Missing file: my-keys.rad
+Do `rad-create-keys` to create your own key pair and rerun your command.")
+                  (exit! 1))
+      'keys    keys)))
+
 (def sign-entity!
   "Assumes a key pair is stored at `my-keys.rad`. Using that key pair, will sign a
   dict by adding `:author` and `:signature` fields, so that it is valid
@@ -272,7 +281,7 @@
     (def nonce (uuid!))
     (def e_ (<> e {:chain-id chain-id
                    :nonce    nonce}))
-    (def ks (io/read-file-value! (find-module-file! "../my-keys.rad")))
+    (def ks (get-keys!))
     (def sig
       (gen-signature! (lookup :private-key ks)
                       (show e_)))
