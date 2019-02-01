@@ -124,7 +124,6 @@
     (process! "git" ["checkout" "master"] "")
     (match (apply-patch! (lookup :patch diff))
       :ok (do
-            (put-str! "ok!")
             (process! "git" ["push"] ""))
       _   (do
             (put-str! "Resolve any conflicts and then run 'git push'")
@@ -277,14 +276,21 @@
   (fn [chain-name n new-state]
     (if (number? n)
       (if (integral? n)
-        (do (def chain-ref (chain/make-chain-ref! chain-name))
+        (do
+          (def chain-ref (chain/make-chain-ref! chain-name))
+          (def edit-state-with-feedback!
+            (fn [message]
+              (simple-edit-diff! chain-ref n {:state new-state})
+              (put-str! message)))
           (verify-diff-number n chain-ref)
-          (simple-edit-diff! chain-ref n {:state new-state})
           (if (eq? new-state :accepted)
             (do
-              (push-diff! chain-ref n)
-              (put-str! (string-append "Diff " (show n) " has been " (pretty-state new-state) " and merged.")))
-            (put-str! (string-append "Diff " (show n) " has been " (pretty-state new-state)))))
+              (match (push-diff! chain-ref n)
+                :ok (edit-state-with-feedback!
+                      (string-append "Diff " (show n) " has been " (pretty-state new-state) " and merged."))
+                _   (exit! 1)))
+            (edit-state-with-feedback!
+              (string-append "Diff " (show n) " has been " (pretty-state new-state)))))
         (cmd-parse-failure "Diff numbers must be whole numbers!"))
     (cmd-parse-failure "To change the state, please provide the diff number."))))
 
