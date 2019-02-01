@@ -23,7 +23,30 @@ steps:
       stack config set system-ghc --global true
       stack config set install-ghc --global false
 
-      stack build stylish-haskell hlint weeder
+      stack build \
+        --no-terminal \
+        stylish-haskell hlint weeder
+
+      apt-get -qq update
+      apt-get -yqq install libpq-dev
+
+      stack build \
+        --no-terminal \
+        --dependencies-only
+
+  - id: "Save cache"
+    waitFor: ["Build deps"]
+    name: gcr.io/cloud-builders/gsutil
+    entrypoint: 'bash'
+    env:
+    - BRANCH_NAME=$BRANCH_NAME
+    args:
+    - '-c'
+    - |
+      set -euxo pipefail
+
+      source scripts/ci.sh
+      save-cache
 
   - id: "Format"
     name: 'haskell:8.6.3'
@@ -178,18 +201,3 @@ steps:
 
       stack test :e2e
       stack exec -- radicle test/machine-backends.rad radicle-server
-
-  - id: "Save cache"
-    waitFor:
-    - "Build"
-    name: gcr.io/cloud-builders/gsutil
-    env:
-    - BRANCH_NAME=$BRANCH_NAME
-    entrypoint: 'bash'
-    args:
-    - '-c'
-    - |
-      set -euxo pipefail
-
-      source scripts/ci.sh
-      save-cache
