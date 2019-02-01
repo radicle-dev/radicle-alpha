@@ -26,11 +26,9 @@
   (fn [cmd opts valid-opts opts-map help]
     (fn [v]
       (match v
-        [cmd] [:just {opts []}]
-        (/cons cmd (/cons 'c-n 'os)) (if (member? c-n valid-opts)
-                                       (parse-failure (missing-arg-error arg-1 cmd) help)
-                                       [:just {opts    (opts-map os)}])
-        _ :nothing))))
+        [cmd]           [:just {opts []}]
+        (/cons cmd 'os) [:just {opts (opts-map os)}]
+        _               :nothing))))
 
 (def /cmd-2-opts
   "Matches a command `cmd` with one argument and an optional
