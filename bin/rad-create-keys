@@ -17,7 +17,10 @@
    this can be adjusted by setting `$XDG_CONFIG_HOME`.")
 
 (def make-keys
-  (fn [] (key-mgmt/create-keys!)))
+  (fn []
+    (def key-path (key-mgmt/create-keys!))
+    (put-str! (string-append "Successfully created " key-path))
+    ))
 
 (def safe-make-keys
   (fn []
