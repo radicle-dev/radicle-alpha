@@ -1144,7 +1144,8 @@ file doesn't exist.
 ``(create-keys!)``
 ~~~~~~~~~~~~~~~~~~
 
-Creates a new key pair and stores it in ``my-keys.rad``
+Creates a new key pair and stores it in ``my-keys.rad``. Returns the
+full absolute path of the created file.
 
 ``(use-fake-keys!)``
 ~~~~~~~~~~~~~~~~~~~~

@@ -41,8 +41,10 @@
          (fn [x] :nothing))))))
 
 (def create-keys!
-  "Creates a new key pair and stores it in `my-keys.rad`"
+  "Creates a new key pair and stores it in `my-keys.rad`. Returns the
+  full absolute path of the created file."
   (fn []
     (io/shell! (string-append "mkdir -p " (base-path)) "")
     (def kp (gen-key-pair! (default-ecc-curve)))
-    (io/write-file! (key-path) (show kp))))
+    (io/write-file! (key-path) (show kp))
+    (key-path)))
