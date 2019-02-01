@@ -2,20 +2,27 @@
 module Radicle.Daemon.HttpApi
     ( QueryRequest(..)
     , QueryResponse(..)
+    , machineQueryEndpoint
+
     , SendRequest(..)
     , SendResponse(..)
+    , machineSendEndpoint
+
     , NewResponse(..)
+    , newMachineEndpoint
+
     , DaemonApi
     , daemonApi
+
     , swagger
+
+    , MachineId(..)
     ) where
 
-import qualified Prelude
 import           Protolude
 
-import           Data.Aeson ((.:))
+import           Data.Aeson ((.:), (.=))
 import qualified Data.Aeson as A
-import qualified Data.Aeson.Types as A
 import           Data.Swagger
 import           Data.Version (showVersion)
 import           Radicle.Daemon.Ipfs
@@ -26,57 +33,90 @@ import qualified Paths_radicle as Radicle
 import           Radicle
 
 instance FromHttpApiData MachineId where
-  parseUrlPiece = Right . MachineId . toS
-  parseQueryParam = parseUrlPiece
+    parseUrlPiece = Right . MachineId . toS
+    parseQueryParam = parseUrlPiece
 
-singleKey :: Prelude.String -> (a -> b) -> (A.Object -> A.Parser a) -> A.Value -> A.Parser b
-singleKey tyName c k = A.withObject tyName $ k >=> pure . c
+instance ToHttpApiData MachineId where
+    toUrlPiece (MachineId id) = id
 
 newtype QueryRequest = QueryRequest { expression :: Value }
   deriving (Generic)
 
 instance A.ToJSON QueryRequest where
-  toJSON = valueToJson . expression
+    toJSON QueryRequest{..} = A.object
+        [ "expression" .= valueToJson expression
+        ]
 instance A.FromJSON QueryRequest where
-  parseJSON = singleKey "QueryRequest" QueryRequest $ (.: "expression") >=> jsonToValue
+    parseJSON = A.withObject "QueryRequest" $ \o -> do
+        expression <- o .: "expression" >>= jsonToValue
+        pure $ QueryRequest {..}
 
 newtype QueryResponse = QueryResponse { result :: Value }
   deriving (Generic)
 
 instance A.ToJSON QueryResponse where
-  toJSON = valueToJson . result
+    toJSON QueryResponse{..} = A.object
+        [ "result" .= valueToJson result
+        ]
 instance A.FromJSON QueryResponse where
-  parseJSON = singleKey "QueryResponse" QueryResponse $ (.: "result") >=> jsonToValue
+    parseJSON = A.withObject "QueryResponse" $ \o -> do
+        result <- o .: "result" >>= jsonToValue
+        pure $ QueryResponse {..}
 
 newtype SendRequest = SendRequest { expressions :: [Value] }
   deriving (Generic)
 
 instance A.FromJSON SendRequest where
-  parseJSON = singleKey "SendRequest" SendRequest $ (.: "expressions") >=> traverse jsonToValue
+    parseJSON = A.withObject "SendRequest" $ \o -> do
+        expressions <- o .: "expressions" >>= traverse jsonToValue
+        pure $ SendRequest {..}
+instance A.ToJSON SendRequest where
+    toJSON SendRequest{..} = A.object
+        [ "expressions" .= map valueToJson expressions
+        ]
 
 newtype SendResponse = SendResponse
   { results :: [Value]
   } deriving (Generic)
 
+instance A.FromJSON SendResponse where
+    parseJSON = A.withObject "SendResponse" $ \o -> do
+        results <- o .: "results" >>= traverse jsonToValue
+        pure $ SendResponse {..}
 instance A.ToJSON SendResponse where
-  toJSON = A.toJSON . fmap valueToJson . (results :: SendResponse -> [Value])
+    toJSON SendResponse{..} = A.object
+        [ "results" .= map valueToJson results
+        ]
 
 newtype NewResponse = NewResponse
   { machineId :: MachineId
   } deriving (Generic)
 
 instance A.ToJSON NewResponse
+instance A.FromJSON NewResponse
 
 -- * APIs
 
-type Query = "query" :> ReqBody '[JSON] QueryRequest :> Post '[JSON] QueryResponse
-type Send  = "send"  :> ReqBody '[JSON] SendRequest :> Post '[JSON] SendResponse
-type New   = "new"   :> Post '[JSON] NewResponse
+type MachinesEndpoint t = "v0" :> "machines" :> t
+type MachineEndpoint t = MachinesEndpoint (Capture "machineId" MachineId :> t)
 
-type Machines = "machines" :> Capture "machineId" MachineId :> ( Query :<|> Send ) :<|> New
-type Docs = "docs" :> Get '[JSON] Swagger
+type MachineQueryEndpoint = MachineEndpoint ("query" :> ReqBody '[JSON] QueryRequest :> Post '[JSON] QueryResponse)
+machineQueryEndpoint :: Proxy MachineQueryEndpoint
+machineQueryEndpoint = Proxy
 
-type DaemonApi = "v0" :> ( Machines :<|> Docs )
+type MachineSendEndpoint = MachineEndpoint ("send" :> ReqBody '[JSON] SendRequest :> Post '[JSON] SendResponse)
+machineSendEndpoint :: Proxy MachineSendEndpoint
+machineSendEndpoint = Proxy
+
+type NewMachineEndpoint = MachinesEndpoint ("new" :> Post '[JSON] NewResponse)
+newMachineEndpoint :: Proxy NewMachineEndpoint
+newMachineEndpoint = Proxy
+
+type DaemonApi =
+         NewMachineEndpoint
+    :<|> MachineQueryEndpoint
+    :<|> MachineSendEndpoint
+    :<|> "v0" :> "docs" :> Get '[JSON] Swagger
 
 daemonApi :: Proxy DaemonApi
 daemonApi = Proxy

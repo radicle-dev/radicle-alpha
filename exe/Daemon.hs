@@ -153,8 +153,7 @@ server :: Env -> Server DaemonApi
 server env = hoistServer daemonApi nt daemonServer
   where
     daemonServer :: ServerT DaemonApi Daemon
-    daemonServer = (machineEndpoints :<|> newMachine) :<|> pure swagger
-    machineEndpoints id = query id :<|> send id
+    daemonServer = newMachine :<|> query :<|> send :<|> pure swagger
 
     nt :: Daemon a -> Handler a
     nt d = do
