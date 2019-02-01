@@ -17,17 +17,15 @@
   "rad-issues - Radicle issue CLI
 
    Usage:
-        rad-issues list [--closed] [--open] [--new]
+        rad-issues list [--closed] [--open]
         rad-issues [new|create-chain]
         rad-issues close <issue-number>
         rad-issues make-key <nick>
         rad-issues names
-        rad-issues done
         rad-issues create-chain <chain-name>
         rad-issues help
 
      list         - Select from issues to view or comment on
-     done         - Mark all issues as 'seen'
      new          - Create a new issue in $EDITOR
      close        - Close an issue
      create-chain - Create a new issues chain
@@ -39,10 +37,6 @@
 (def cmd-parse-failure
   (fn [error]
     (parse-failure error help)))
-
-(def mark-last-seen
-  (fn []
-    (write-file-key! ".radicle-issues" :last-mark-done (now!))))
 
 (def comment-divider "---")
 
@@ -115,16 +109,8 @@
     (def mk-key
       (fn [v]
         (match v
-               (/as 'a {:activity :new-issue
-                        :issue    {:number 'n
-                                   :title 'tit}})
-               [(string-append "[new] Issue " (show n) " - " tit) a]
-               (/as 'a {:activity :new-comments
-                        :issue    {:number 'n
-                                   :title 'tit}})
-               [(string-append "[new comments] Issue " (show n) " - " tit) a]
-               (/as 'i {:issue {:number 'n :title 'tit}})
-               [(string-append "Issue " (show n) " - " tit) i])))
+          (/as 'i {:issue {:number 'n :title 'tit}})
+            [(string-append "Issue " (show n) " - " tit) i])))
 
     (def filt
       (match [(lookup-default "open" #f options)
@@ -135,15 +121,12 @@
 
     (def items
       (map mk-key
-           (filter filt
-                   (match [(lookup-default "new" #f options) (read-file-key! ".radicle-issues" :last-mark-done)]
-                          [#t [:just 't]] (recent-activity chain-ref t)
-                          _               (map (fn [i] {:issue i})
-                                               (reverse (values (list-issues chain-ref))))))))
+        (filter filt
+          (map (fn [i] {:issue i}) (reverse (values (list-issues chain-ref)))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
-      (put-str! "No recent items!")
+      (put-str! "No issues!")
       (match (fzf-select-with-preview!
                (map first items)
                (fn [s] (pretty-issue (add-username-issue (lookup :issue (lookup s items-dict))))))
@@ -207,10 +190,8 @@
     (load! (find-module-file! "monadic/names.rad"))
     (print! (list-names name-base))))
 
-(init-file-dict! ".radicle-issues")
-
 (def valid-list-options
-  ["--new" "--open" "--closed"])
+  ["--open" "--closed"])
 
 (def list-options
   (fn [os]
@@ -233,7 +214,6 @@
   (/cmd-0 "new" help) (new-issue (chain-name))
   (/cmd-1 "create-chain" 'chain-name help) (create-chain chain-name)
   (/cmd-1 "close" 'issue-number help) (close-issue issue-number (chain-name))
-  (/cmd-0 "done" help) (mark-last-seen)
   ["help"] (put-str! help)
   ["-h"] (put-str! help)
   ["--help"] (put-str! help)

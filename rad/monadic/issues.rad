@@ -136,45 +136,10 @@
     (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues chain))))
     (take n is)))
 
-(def recent-activity
-  "Returns the activity on the chain since a timestamp."
-  (fn [chain from]
-    (def mod-at
-      (fn [x]
-        (unix-epoch
-         (lookup :modified-at x))))
-    (def u (unix-epoch from))
-    (def since
-      (fn [xs]
-        (filter (fn [x] (< u (mod-at x))) xs)))
-    (def most-recent-first
-      (fn [xs]
-        (sort-by (fn [x] (- 0 (mod-at x)))
-                 xs)))
-    (def all-issues (values (list-issues chain)))
-    (def is (map (fn [i]
-                   {:activity    :new-issue
-                    :modified-at (lookup :modified-at i)
-                    :issue       i})
-                 (since all-issues)))
-    (def cs
-      (cat-maybes
-       (map (fn [i]
-              (def xs (most-recent-first (since (lookup :comments i))))
-              (if (eq? xs [])
-                :nothing
-                [:just
-                 {:activity    :new-comments
-                  :modified-at (lookup :modified-at (first xs))
-                  :issue       i}]))
-            all-issues)))
-    (most-recent-first (<> is cs))))
-
 (:test
  "The monadic issues chain works."
  [:setup
   (do (chain/install-remote-chain-fake)
-      (install-fake-clock)
       (use-fake-keys!)
       (def chain-name (string-append "http://foo"))
       (def chain (ref (chain/new-chain chain-name)))
@@ -185,13 +150,11 @@
       (simple-add-comment! chain 1 "comment1")
       (simple-edit-issue! chain 0 {:state :closed})
       (simple-edit-comment! chain 0 0 {:body "comment0-edit"})
-      (def last-checked-at (now!))
       (simple-create-issue! chain "new" "new")
       (simple-create-issue! chain "newer" "newer")
       (simple-add-comment! chain 0 "new")
       (fetch! chain)
-      (def is (list-issues chain))
-      (def new (recent-activity chain last-checked-at)))]
+      (def is (list-issues chain)))]
  [ (length (seq is)) ==> 4 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
@@ -200,7 +163,4 @@
  [ (short (first (values is))) ==> "0: title0" ]
  [ (short (first (list-last chain 1))) ==> "3: newer" ]
  [ (view (.. (@ 0) (@ :state)) is) ==> :closed ]
- [ (length new) ==> 3 ]
- [ (view (.. (@nth 0) (@ :activity)) new) ==> :new-comments ]
- [ (view (... [(@nth 1) (@ :issue) (@ :title)]) new) ==> "newer" ]
 )
