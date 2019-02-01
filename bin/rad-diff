@@ -284,11 +284,10 @@
               (put-str! message)))
           (verify-diff-number n chain-ref)
           (if (eq? new-state :accepted)
-            (do
-              (match (push-diff! chain-ref n)
-                :ok (edit-state-with-feedback!
-                      (string-append "Diff " (show n) " has been " (pretty-state new-state) " and merged."))
-                _   (exit! 1)))
+            (match (push-diff! chain-ref n)
+              :ok (edit-state-with-feedback!
+                    (string-append "Diff " (show n) " has been " (pretty-state new-state) " and merged."))
+              _   (exit! 1))
             (edit-state-with-feedback!
               (string-append "Diff " (show n) " has been " (pretty-state new-state)))))
         (cmd-parse-failure "Diff numbers must be whole numbers!"))
