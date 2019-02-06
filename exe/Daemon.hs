@@ -179,6 +179,7 @@ init follows = traverse_ initMachine (Map.toList follows)
     initMachine (id, Reader) = catchError (initAsReader id $> ()) $ \err -> do
       let (msg, infos) = displayError err
       logErr ("Could not initiate reader-mode machine on startup: " <> msg) infos
+      insertNewMachine id UninitialisedReader
     initMachine (id, Writer) = initAsWriter id $> ()
 
 -- * Endpoints
@@ -191,7 +192,7 @@ newMachine = do
     sub <- ipfs id $ initSubscription id
     logInfo Normal "Created new IPFS machine" [("machine-id", getMachineId id)]
     m <- liftIO $ emptyMachine id Writer sub
-    insertNewMachine m
+    insertNewMachine id (Cached m)
     actAsWriter m
     writeFollowFile
     pure (Api.NewResponse id)
@@ -356,7 +357,7 @@ loadMachine mode id = do
   sub <- ipfs id $ initSubscription id
   m <- liftIO $ emptyMachine id mode sub
   (m', _) <- addInputs is (pure idx) (const (pure ())) m
-  insertNewMachine m'
+  insertNewMachine id (Cached m')
   pure m'
 
 -- | Add inputs to a cached machine.
@@ -394,15 +395,13 @@ bumpPolling id = do
 
 -- | Insert a new machine into the cache. Errors if the machine is
 -- already cached.
-insertNewMachine :: Machine -> Daemon ()
-insertNewMachine m = do
+insertNewMachine :: MachineId -> CachedMachine -> Daemon ()
+insertNewMachine id m = do
     msCMap <- asks machines
-    inserted_ <- liftIO $ CMap.insertNew id (Cached m) (getMachines msCMap)
+    inserted_ <- liftIO $ CMap.insertNew id m (getMachines msCMap)
     case inserted_ of
       Just () -> pure ()
       Nothing -> throwError (MachineError id MachineAlreadyCached)
-  where
-    id = machineId m
 
 -- | Modify a machine that is already in the cache. Errors if the
 -- machine isn't in the cache already.
