@@ -124,7 +124,7 @@ main = do
     Opts{..} <- execParser allOpts
     followFileLock <- newMVar ()
     followFile <- Local.getRadicleFile (toS filePrefix <> "daemon-follows")
-    machines <- Chains <$> CMap.empty
+    machines <- CachedMachines <$> CMap.empty
     let env = Env{ logLevel = if debug then Debug else Normal, ..}
     follows <- readFollowFileIO followFileLock followFile
     initRes <- runDaemon env (init follows)
@@ -290,7 +290,7 @@ readFollowFileIO lock ff = withFollowFileLock lock $ do
 writeFollowFile :: Daemon ()
 writeFollowFile = do
     lock <- asks followFileLock
-    Chains cMap <- asks machines
+    CachedMachines cMap <- asks machines
     ff <- asks followFile
     liftIO $ withFollowFileLock lock $ do
       ms <- CMap.nonAtomicRead cMap

@@ -39,7 +39,7 @@ data Machine = Machine
 
 data CachedMachine = UninitialisedReader | Cached Machine
 
-newtype CachedMachines = Chains { getMachines :: CMap.CMap MachineId CachedMachine }
+newtype CachedMachines = CachedMachines { getMachines :: CMap.CMap MachineId CachedMachine }
 
 -- | Log a message to @stdout@.
 --
