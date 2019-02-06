@@ -100,7 +100,6 @@
     (put-str! "=> Share this project id for people to collaborate with you on your project.")))
 
 (def args (get-args!))
-;; TODO: use Merle's refactored cmd stuff
 (match args
   (/cmd-0 "init" help) (new-or-forked-project! :nothing)
   (/cmd-1 "fork" 'upstream help) (new-or-forked-project! upstream)
@@ -109,5 +108,5 @@
   ["help"] (put-str! help)
   ["-h"] (put-str! help)
   ["--help"] (put-str! help)
-  (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
+  (/cons 'cmd _) (parse-failure (string-append "Unknown command: " cmd) help)
   [] (put-str! help))
