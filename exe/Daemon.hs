@@ -298,7 +298,7 @@ writeFollowFile = do
       writeFile ff (toS (A.encode fs))
   where
     mode UninitialisedReader = Reader
-    mode (Cached c) = machineMode c
+    mode (Cached c)          = machineMode c
 
 lookupMachine :: MachineId -> Daemon (Maybe CachedMachine)
 lookupMachine id = do
