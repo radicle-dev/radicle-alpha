@@ -59,6 +59,7 @@ displayError = \case
         IpfsDaemonError err -> ("There was an error using IPFS", [mid, ("error", toS (displayException err))])
         InternalError err -> ("Internal error", [mid, ("error", err)])
         NetworkError err -> ("There was an error communicating with the IPFS daemon", [mid, ("error", err)])
+        Timeout -> ("Timeout communicating with IPFS daemon", [mid])
       AckTimeout -> ("The writer appears to be offline", [mid])
       MachineAlreadyCached -> ("Tried to add already cached machine", [mid])
       MachineNotCached -> ("Machine was not found in cache", [mid])
@@ -261,13 +262,6 @@ send id (Api.SendRequest expressions) = do
         Right _ -> throwError $ MachineError id (DaemonError "Didn't filter machine topic messages correctly.")
         Left err -> throwError $ MachineError id (DaemonError (toS (displayException err)))
 
-    machineMode :: Daemon (Maybe (ReaderOrWriter, TopicSubscription))
-    machineMode =  --fmap (liftA2 (,) machineMode machineSubscription) <$> lookupMachine id
-      do m_ <- lookupMachine id
-         case m_ of
-           Nothing -> pure Nothing
-           Just (Cached m) -> pure $ Just (_, _)
-           Just UninitialisedReader -> pure Nothing
     prValues = T.intercalate "," . (renderCompactPretty <$>)
 
 -- * Helpers
@@ -395,7 +389,7 @@ ipfs id = Daemon . mapExceptT (lift . fmap (first (MachineError id . IpfsError))
 -- | Do some high-freq polling for a while.
 bumpPolling :: MachineId -> Daemon ()
 bumpPolling id = do
-  modifyCachedMachine id $ \m -> pure (m { machinePolling = highFreq }, () )
+  modifyMachine id $ \m -> pure (m { machinePolling = highFreq }, () )
   logInfo Debug "Reset to high-frequency polling" [("machine-id", getMachineId id)]
 
 -- | Insert a new machine into the cache. Errors if the machine is
@@ -410,31 +404,24 @@ insertNewMachine m = do
   where
     id = machineId m
 
--- | Modify a machine.
-modifyMachine :: MachineId -> (CachedMachine -> Daemon (CachedMachine, a)) -> Daemon a
+-- | Modify a machine that is already in the cache. Errors if the
+-- machine isn't in the cache already.
+modifyMachine :: forall a. MachineId -> (Machine -> Daemon (Machine, a)) -> Daemon a
 modifyMachine id f = do
     env <- ask
-    res <- liftIO $ CMap.modifyExistingValue id (getMachines (machines env)) (modMach env)
+    res <- liftIO $ CMap.modifyExistingValue id (getMachines (machines env)) (modCached env)
     case res of
       Nothing         -> throwError (MachineError id MachineNotCached)
       Just (Left err) -> throwError err
       Just (Right y)  -> pure y
   where
-    modMach env m = do
+    modCached :: Env -> CachedMachine -> IO (CachedMachine, Either Error a)
+    modCached _ u@UninitialisedReader = pure (u, Left (MachineError id MachineNotCached))
+    modCached env (Cached m) = do
       x <- runDaemon env (f m)
       pure $ case x of
-        Left err      -> (m, Left err)
-        Right (m', y) -> (m', Right y)
-
--- | Modify a machine that is already in the cache. Errors if the
--- machine isn't in the cache already.
-modifyCachedMachine :: MachineId -> (Machine -> Daemon (Machine, a)) -> Daemon a
-modifyCachedMachine id f = modifyMachine id modCached
-  where
-    modCached UninitialisedReader = throwError (MachineError id MachineNotCached)
-    modCached (Cached m) = do
-      (m', y) <- f m
-      pure (Cached m', y)
+        Left err      -> (Cached m, Left err)
+        Right (m', y) -> (Cached m', Right y)
 
 emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IO Machine
 emptyMachine id mode sub = do
@@ -478,7 +465,7 @@ initAsReader id = do
 -- | Updates a (already initialised) machine in the cache with new inputs pulled
 -- from IPFS.
 refreshAsReader :: MachineId -> Daemon Machine
-refreshAsReader id = modifyCachedMachine id refresh
+refreshAsReader id = modifyMachine id refresh
   where
     refresh m = do
       let currentIdx = machineLastIndex m
@@ -526,7 +513,7 @@ actAsWriter m = do
 -- outputs and the given nonce.
 writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs id is nonce = do
-    (rs, idx) <- modifyCachedMachine id (addInputs is write pub)
+    (rs, idx) <- modifyMachine id (addInputs is write pub)
     logInfo Debug "Wrote inputs to IPFS" [ ("machine-id", getMachineId id)
                                          , ("new-input-index", show idx) ]
     pure rs
@@ -559,7 +546,7 @@ poll = do
         when shouldPoll $ do
           logInfo Debug "Polling.." [("machine-id", getMachineId machineId)]
           refreshAsReader machineId >> pure ()
-        modifyCachedMachine machineId $ \m' -> pure (m' { machinePolling = newPoll }, ())
+        modifyMachine machineId $ \m' -> pure (m' { machinePolling = newPoll }, ())
       _ -> pure () -- Uninitialised readers are (for the moment) ignored.
 
 -- | Returns the amount of time since the last time the machine was
