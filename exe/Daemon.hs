@@ -463,7 +463,7 @@ newReader id = do
 initReaderNoFail :: MachineId -> Daemon ()
 initReaderNoFail id = catchError (initAsReader id $> ()) $ \err -> do
   let (msg, infos) = displayError err
-  logErr ("Could not initiate reader-mode machine on startup: " <> msg) infos
+  logErr "Could not initiate reader-mode machine on startup" $ ("init-error", msg) : infos
   t <- liftIO Time.getSystemTime
   insertNewMachine id (UninitialisedReader t)
 
