@@ -3,7 +3,7 @@ module Radicle.Internal.ConcurrentMap
   , fromMap
   , lookup
   , nonAtomicRead
-  , insertNew
+  , insert
   , modifyExistingValue
   , modifyValue
   , CMap
@@ -42,16 +42,12 @@ nonAtomicRead (CMap m_) = do
   m <- readMVar m_
   traverse readMVar m
 
--- | Atomically insert a key-value pair into a 'CMap' but only if the
--- key is not already a member.
-insertNew :: Ord k => k -> v -> CMap k v -> IO (Maybe ())
-insertNew k v (CMap m_) = modifyMVar m_ $ \m ->
-  if Map.member k m
-    then pure (m, Nothing)
-    else do
-      v_ <- newMVar v
-      let m' = Map.insert k v_ m
-      pure (m', Just ())
+-- | Atomically insert a key-value pair into a 'CMap'.
+insert :: Ord k => k -> v -> CMap k v -> IO ()
+insert k v (CMap m_) = modifyMVar m_ $ \m -> do
+  v_ <- newMVar v
+  let m' = Map.insert k v_ m
+  pure (m', ())
 
 -- | Atomically modifies a value associated to a key but only if it
 -- exists. There is no guarantee the value is still associated with

@@ -176,10 +176,7 @@ server env = hoistServer Api.daemonApi nt daemonServer
 init :: Follows -> Daemon ()
 init follows = traverse_ initMachine (Map.toList follows)
   where
-    initMachine (id, Reader) = catchError (initAsReader id $> ()) $ \err -> do
-      let (msg, infos) = displayError err
-      logErr ("Could not initiate reader-mode machine on startup: " <> msg) infos
-      insertNewMachine id UninitialisedReader
+    initMachine (id, Reader) = initReaderNoFail id
     initMachine (id, Writer) = initAsWriter id $> ()
 
 -- * Endpoints
@@ -228,16 +225,17 @@ send :: MachineId -> Api.SendRequest -> Daemon Api.SendResponse
 send id (Api.SendRequest expressions) = do
   cm_ <- lookupMachine id
   case cm_ of
-    Nothing -> newReader
-    Just UninitialisedReader -> newReader
+    Nothing -> do
+      m <- newReader id
+      requestInput (machineSubscription m)
+    Just (UninitialisedReader _) -> do
+      m <- initAsReader id
+      requestInput (machineSubscription m)
     Just (Cached Machine{ machineMode = Reader, ..}) -> requestInput machineSubscription
     Just (Cached Machine{ machineMode = Writer }) -> do
       results <- writeInputs id expressions Nothing
       pure Api.SendResponse{..}
   where
-    newReader = do
-      m <- initAsReader id
-      requestInput (machineSubscription m)
     requestInput sub = do
       nonce <- liftIO $ UUID.uuid
       let isResponse = \case
@@ -298,8 +296,8 @@ writeFollowFile = do
       let fs = mode <$> ms
       writeFile ff (toS (A.encode fs))
   where
-    mode UninitialisedReader = Reader
-    mode (Cached c)          = machineMode c
+    mode (UninitialisedReader _) = Reader
+    mode (Cached c)              = machineMode c
 
 lookupMachine :: MachineId -> Daemon (Maybe CachedMachine)
 lookupMachine id = do
@@ -312,13 +310,13 @@ checkMachineLoaded :: MachineId -> Daemon Machine
 checkMachineLoaded id = do
   m_ <- lookupMachine id
   case m_ of
-    Nothing ->
+    Nothing -> do
       -- In this case we have not seen the machine before so we act as
       -- a reader.
-      newReader
-    Just UninitialisedReader ->
+      newReader id
+    Just (UninitialisedReader _) ->
       -- We try to initialise the reader again.
-      newReader
+      initAsReader id
     Just (Cached m) -> case machineMode m of
       Writer -> pure m
       Reader -> refreshAsReader id
@@ -332,11 +330,6 @@ checkMachineLoaded id = do
         -- if delta < 500
         --   then pure m
         --   else refreshAsReader id
-  where
-    newReader = do
-      m <- initAsReader id
-      writeFollowFile
-      pure m
 
 logNonDecodableMsg :: MachineId -> Text -> IO ()
 logNonDecodableMsg (MachineId id) bad =
@@ -393,15 +386,11 @@ bumpPolling id = do
   modifyMachine id $ \m -> pure (m { machinePolling = highFreq }, () )
   logInfo Debug "Reset to high-frequency polling" [("machine-id", getMachineId id)]
 
--- | Insert a new machine into the cache. Errors if the machine is
--- already cached.
+-- | Insert a new machine into the cache.
 insertNewMachine :: MachineId -> CachedMachine -> Daemon ()
 insertNewMachine id m = do
     msCMap <- asks machines
-    inserted_ <- liftIO $ CMap.insertNew id m (getMachines msCMap)
-    case inserted_ of
-      Just () -> pure ()
-      Nothing -> throwError (MachineError id MachineAlreadyCached)
+    liftIO $ CMap.insert id m (getMachines msCMap)
 
 -- | Modify a machine that is already in the cache. Errors if the
 -- machine isn't in the cache already.
@@ -415,7 +404,7 @@ modifyMachine id f = do
       Just (Right y)  -> pure y
   where
     modCached :: Env -> CachedMachine -> IO (CachedMachine, Either Error a)
-    modCached _ u@UninitialisedReader = pure (u, Left (MachineError id MachineNotCached))
+    modCached _ u@(UninitialisedReader _) = pure (u, Left (MachineError id MachineNotCached))
     modCached env (Cached m) = do
       x <- runDaemon env (f m)
       pure $ case x of
@@ -460,6 +449,23 @@ initAsReader id = do
         -- high-frequency.
         bumpPolling id
       _ -> pure ()
+
+-- | Initiate a reader the daemon wasn't following before (adds it to the
+-- follow-file).
+newReader :: MachineId -> Daemon Machine
+newReader id = do
+  m <- initAsReader id
+  writeFollowFile
+  pure m
+
+-- | Try to initiate a reader, but don't fail in case of errors; just log a
+-- message.
+initReaderNoFail :: MachineId -> Daemon ()
+initReaderNoFail id = catchError (initAsReader id $> ()) $ \err -> do
+  let (msg, infos) = displayError err
+  logErr ("Could not initiate reader-mode machine on startup: " <> msg) infos
+  t <- liftIO Time.getSystemTime
+  insertNewMachine id (UninitialisedReader t)
 
 -- | Updates a (already initialised) machine in the cache with new inputs pulled
 -- from IPFS.
@@ -527,10 +533,11 @@ poll :: Daemon ()
 poll = do
     msVar <- asks machines
     ms <- liftIO $ CMap.nonAtomicRead (getMachines msVar)
-    traverse_ pollMachine ms
+    _ <- Map.traverseWithKey pollMachine ms
+    pure ()
   where
-    pollMachine :: CachedMachine -> Daemon ()
-    pollMachine = \case
+    pollMachine :: MachineId -> CachedMachine -> Daemon ()
+    pollMachine id = \case
       Cached m@Machine{ machineMode = Reader, .. } -> do
         delta <- liftIO $ sinceLastUpdate m
         let (shouldPoll, newPoll) =
@@ -546,17 +553,24 @@ poll = do
           logInfo Debug "Polling.." [("machine-id", getMachineId machineId)]
           refreshAsReader machineId >> pure ()
         modifyMachine machineId $ \m' -> pure (m' { machinePolling = newPoll }, ())
-      _ -> pure () -- Uninitialised readers are (for the moment) ignored.
+      UninitialisedReader t -> do
+        delta <- liftIO $ timeSince t
+        when (delta > lowFreqPollPeriod) $ initReaderNoFail id $> ()
+      _ -> pure () -- Writers don't require any polling.
 
 -- | Returns the amount of time since the last time the machine was
 -- updated.
 sinceLastUpdate :: Machine -> IO Milliseconds
-sinceLastUpdate m = timeDelta (machineLastUpdated m) <$> Time.getSystemTime
+sinceLastUpdate = timeSince . machineLastUpdated
+
+timeSince :: Time.SystemTime -> IO Milliseconds
+timeSince x = timeDelta x <$> Time.getSystemTime
   where
-    timeDelta x y =
-      case (trunc x, trunc y) of
-        (Time.MkSystemTime s n, Time.MkSystemTime s' n') -> 1000 * (s' - s) + fromIntegral (n' - n) `div` 1000000
-    trunc = Time.truncateSystemTimeLeapSecond
+    timeDelta a b =
+        case (trunc a, trunc b) of
+          (Time.MkSystemTime s n, Time.MkSystemTime s' n') -> 1000 * (s' - s) + fromIntegral (n' - n) `div` 1000000
+      where
+        trunc = Time.truncateSystemTimeLeapSecond
 
 -- | Polling loop that looks for changes on all loaded reader machines
 -- and updates them.

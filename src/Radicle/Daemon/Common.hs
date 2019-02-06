@@ -37,7 +37,7 @@ data Machine = Machine
     , machinePolling      :: Polling
     } deriving (Generic)
 
-data CachedMachine = UninitialisedReader | Cached Machine
+data CachedMachine = UninitialisedReader Time.SystemTime | Cached Machine
 
 newtype CachedMachines = CachedMachines { getMachines :: CMap.CMap MachineId CachedMachine }
 
