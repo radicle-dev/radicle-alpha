@@ -1,9 +1,10 @@
 {:module 'prelude/cmd-parsing
  :doc "Functions for parsing commands."
  :exports
- '[parse-failure /cmd-0 /cmd-1 /cmd-2 /cmd-2-opts]}
+ '[parse-failure /cmd-0 /cmd-1 /cmd-2 /cmd-1-opts]}
 
 (import prelude/validation :as 'validation)
+(import prelude/patterns :unqualified)
 
 (def parse-failure
   "Prints the passed error message and help text and exits."
@@ -22,26 +23,30 @@
 
 (def /cmd-1-opts
   "Matches a command `cmd` with one argument and an optional
-  combination of options from `valid-opts`."
-  (fn [cmd opts valid-opts opts-map help]
+  combination of options that are allowed by opts-map"
+  (fn [cmd opts opts-map]
     (fn [v]
       (match v
         [cmd]           [:just {opts []}]
         (/cons cmd 'os) [:just {opts (opts-map os)}]
         _               :nothing))))
 
-(def /cmd-2-opts
-  "Matches a command `cmd` with one argument and an optional
-  combination of options from `valid-opts`."
-  (fn [cmd arg-1 opts valid-opts opts-map help]
-    (fn [v]
-      (match v
-        [cmd] (parse-failure (string-append "Missing arguments for command " cmd) help)
-        (/cons cmd (/cons 'c-n 'os)) (if (member? c-n valid-opts)
-                                       (parse-failure (missing-arg-error arg-1 cmd) help)
-                                       [:just {arg-1 c-n
-                                               opts    (opts-map os)}])
-        _ :nothing))))
+(:test "/cmd-1-opts"
+  [:setup
+    (do
+      (def opts-map
+        (fn [opts]
+          (map
+            (fn [opt]
+              (if (elem? opt ["--new" "--old"])
+                (drop 2 opt)
+                "unknown filter")) opts))))]
+  [ ((/cmd-1-opts "list" 'opts opts-map) ["list"]) ==> [:just {opts []}]]
+  [ ((/cmd-1-opts "list" 'opts opts-map) ["no-list"]) ==> :nothing]
+  [ ((/cmd-1-opts "list" 'opts opts-map) ["list" "--old"]) ==> [:just {opts ["old"]}]]
+  [ ((/cmd-1-opts "list" 'opts opts-map) ["list" "--old" "--new"]) ==> [:just {opts ["old" "new"]}]]
+  [ ((/cmd-1-opts "list" 'opts opts-map) ["list" "--filter"]) ==> [:just {opts ["unknown filter"]}]]
+  [ ((/cmd-1-opts "list" 'opts opts-map) ["list" "--old" "--current"]) ==> [:just {opts ["old" "unknown filter"]}]])
 
 (def /cmd-2
   "Matches a command `cmd` with exactly two arguments."

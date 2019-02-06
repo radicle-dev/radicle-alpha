@@ -9,7 +9,8 @@
 (load! (find-module-file! "monadic/diff.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
 (load! (find-module-file! "monadic/project.rad"))
-(load! (find-module-file! "prelude/cmd-parsing.rad"))
+
+(import prelude/cmd-parsing :unqualified)
 (import prelude/validation :as 'validation)
 
 (def chain-name (fn [] (get-rsm-of-type! :rad-diff)))
@@ -314,7 +315,7 @@
 
 (def /list-cmd
   (fn [opts]
-    (/cmd-1-opts "list" opts valid-list-options list-options help)))
+    (/cmd-1-opts "list" opts list-options)))
 
 (def args (get-args!))
 (match args
