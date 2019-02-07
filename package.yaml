@@ -101,9 +101,14 @@ tests:
     - test/e2e
     dependencies:
     - process
+    - directory
+    - filepath
+    - safe-exceptions
     - tasty
     - tasty-discover
     - tasty-hunit
+    - temporary
+    - text
 
 executables:
   rad:
