@@ -16,7 +16,7 @@
 (def chain-name (fn [] (get-rsm-of-type! :rad-diff)))
 
 (def valid-list-options
-  ["--new" "--pending" "--retracted" "--accepted" "--rejected" "--fancy"])
+  ["--pending" "--retracted" "--accepted" "--rejected" "--fancy"])
 
 (def list-opts-help
   (foldl (fn [a opt] (string-append a " [" opt "]")) "" valid-list-options))
@@ -31,11 +31,9 @@
         rad-diff propose <commit>
         rad-diff [retract|accept|reject|show] <diff-no>
         rad-diff comment <diff-no> <comment>
-        rad-diff done
         rad-diff help
 
      list         - Select from diffs to view or comment on
-     done         - Mark all diffs as 'seen'
      propose      - Create a new diff in $EDITOR
      show         - Show a diff
      comment      - Shortcut for adding a comment
@@ -49,12 +47,6 @@
 (def cmd-parse-failure
   (fn [error]
     (parse-failure error help)))
-
-(def mark-last-seen
-  (fn []
-    (write-file-key! ".radicle-diffs" :last-mark-done (now!))))
-
-(init-file-dict! ".radicle-diffs")
 
 (def verify-diff-number
   (fn [diff-no chain-ref]
@@ -205,43 +197,31 @@
     (def chain-ref (chain/make-chain-ref! chain))
 
     (def mk-key
-      (fn [v]
-        (match v
-          (/as 'a {:activity :new-diff
-                   :diff     'diff})
-            [(string-append "[new/changed] " (pretty-headline diff)) a]
-          (/as 'a {:activity :new-comments
-                   :diff     'diff})
-            [(string-append "[new comments] " (pretty-headline diff)) a]
-          (/as 'i {:diff 'diff})
-            [(pretty-headline diff) i])))
+      (fn [diff] [(pretty-headline diff) diff]))
 
     (def filt
-      (match (filter (fn [opt] (not (elem? opt [:new :fancy]))) options)
+      (match (filter (fn [opt] (not (eq? opt :fancy))) options)
         []      (fn [x] #t)
-        _       (fn [x] (elem? (lookup :state (lookup :diff x)) options))))
+        _       (fn [x] (elem? (lookup :state x) options))))
 
   (def items
     (map mk-key
       (filter filt
-        (match [(elem? :new options) (read-file-key! ".radicle-diffs" :last-mark-done)]
-           [#t [:just 't]] (recent-activity chain-ref t)
-           _               (map (fn [i] {:diff i})
-                                (reverse (values (list-diffs chain-ref))))))))
+        (reverse (values (list-diffs chain-ref))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
-      (put-str! "No recent items!")
+      (put-str! "No diffs!")
       (if (elem? :fancy options)
         (match (fzf-select-with-preview!
                  (map first items)
-                 (fn [s] (pretty-diff (lookup :diff (lookup s items-dict)))))
+                 (fn [s] (pretty-diff (lookup s items-dict))))
                (/just 's)
                (do (def selected (lookup s items-dict))
-                   (def diff-number (match selected {:diff {:number 'n}} n))
+                   (def diff-number (match selected {:number 'n} n))
                    (def pretty-item
                      (add-comment-md
-                       (pretty-diff (lookup :diff selected))))
+                       (pretty-diff selected)))
                    (def edited-item (edit-in-editor! pretty-item))
                    (def added-comment
                      (string/unlines
@@ -328,7 +308,6 @@
   (/cmd-1 "reject" 'diff-no help) (edit-diff-state! (chain-name) (read diff-no) :rejected)
   ["comment" 'diff-no 'comment] (create-comment! (chain-name) (read diff-no) comment)
   (/cmd-0 "create-chain" help) (new-diff-chain! (chain-name))
-  (/cmd-0 "done" help) (mark-last-seen)
   ["help"] (put-str! help)
   ["-h"] (put-str! help)
   ["--help"] (put-str! help)
