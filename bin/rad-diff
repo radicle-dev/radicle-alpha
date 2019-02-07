@@ -199,18 +199,18 @@
     (def mk-key
       (fn [v]
         (match v
-          (/as 'i {:diff 'diff})
+          (/as 'i 'diff)
             [(pretty-headline diff) i])))
 
     (def filt
       (match (filter (fn [opt] (not (eq? opt :fancy))) options)
         []      (fn [x] #t)
-        _       (fn [x] (elem? (lookup :state (lookup :diff x)) options))))
+        _       (fn [x] (elem? (lookup :state x) options))))
 
   (def items
     (map mk-key
       (filter filt
-        (map (fn [i] {:diff i}) (reverse (values (list-diffs chain-ref)))))))
+        (reverse (values (list-diffs chain-ref))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -218,13 +218,13 @@
       (if (elem? :fancy options)
         (match (fzf-select-with-preview!
                  (map first items)
-                 (fn [s] (pretty-diff (lookup :diff (lookup s items-dict)))))
+                 (fn [s] (pretty-diff (lookup s items-dict))))
                (/just 's)
                (do (def selected (lookup s items-dict))
-                   (def diff-number (match selected {:diff {:number 'n}} n))
+                   (def diff-number (match selected {:number 'n} n))
                    (def pretty-item
                      (add-comment-md
-                       (pretty-diff (lookup :diff selected))))
+                       (pretty-diff selected)))
                    (def edited-item (edit-in-editor! pretty-item))
                    (def added-comment
                      (string/unlines
