@@ -177,6 +177,7 @@ instance FromJSON KeyGenResponse where
 newtype DagPutResponse
     = DagPutResponse CID
 
+-- | Put and pin a dag node.
 dagPut :: ToJSON a => a -> IO DagPutResponse
 dagPut obj = ipfsHttpPost "dag/put" [("pin", "true")] "arg" (Aeson.encode obj)
 
@@ -188,10 +189,21 @@ instance FromJSON DagPutResponse where
             Left _    -> fail "invalid CID"
             Right cid -> pure $ DagPutResponse cid
 
+newtype PinResponse = PinResponse [CID]
 
+instance FromJSON PinResponse where
+  parseJSON = Aeson.withObject "v0/pin/add response" $ \o -> do
+    cidTexts <- o .: "Pins"
+    case traverse cidFromText cidTexts of
+      Left _ -> fail "invalid CID"
+      Right cids -> pure $ PinResponse cids
+
+-- | Get and pin a DAG node.
 dagGet :: FromJSON a => Address -> IO a
 dagGet addr = do
-    result <- ipfsHttpGet "dag/get" [("arg", addressToText addr)]
+    let params = [("arg", addressToText addr)]
+    result <- ipfsHttpGet "dag/get" params
+    PinResponse _ <- ipfsHttpGet "pin/add" params
     case Aeson.fromJSON result of
         Aeson.Error _   -> throw $ IpfsException $ "Invalid machine log entry at " <> addressToText addr
         Aeson.Success a -> pure a
