@@ -73,45 +73,10 @@
   (fn [chain]
   (lookup :result (chain/eval-in-chain '(list-diffs) (read-ref chain)))))
 
-(def recent-activity
-  "Returns the activity on the chain since a timestamp."
-  (fn [chain from]
-    (def mod-at
-      (fn [x]
-        (unix-epoch
-         (lookup :modified-at x))))
-    (def u (unix-epoch from))
-    (def since
-      (fn [xs]
-        (filter (fn [x] (< u (mod-at x))) xs)))
-    (def most-recent-first
-      (fn [xs]
-        (sort-by (fn [x] (- 0 (mod-at x)))
-                 xs)))
-    (def all-diffs (values (list-diffs chain)))
-    (def is (map (fn [i]
-                   {:activity    :new-diff
-                    :modified-at (lookup :modified-at i)
-                    :diff        i})
-                 (since all-diffs)))
-    (def cs
-      (cat-maybes
-       (map (fn [i]
-              (def xs (most-recent-first (since (lookup :comments i))))
-              (if (eq? xs [])
-                :nothing
-                [:just
-                 {:activity    :new-comments
-                  :modified-at (lookup :modified-at (first xs))
-                  :diff        i}]))
-            all-diffs)))
-    (most-recent-first (<> is cs))))
-
 (:test
  "The monadic diffs chain works."
  [:setup
   (do (chain/install-remote-chain-fake)
-      (install-fake-clock)
       (use-fake-keys!)
       (def chain-name "http://foo")
       (def chain (ref (chain/new-chain chain-name)))
@@ -121,19 +86,12 @@
       (simple-add-comment! chain 0 "comment0" "name0")
       (simple-add-comment! chain 1 "comment1" "name1")
       (simple-edit-diff! chain 0 {:state :accepted})
-      (def t (now!))
-      (simple-create-diff! chain {:title "new" :description "new" :patch "new"})
-      (simple-create-diff! chain {:title "newer" :description "newer" :patch "newer"})
-      (simple-add-comment! chain 0 "new" "name0")
       (chain/update-chain-ref! chain)
-      (def diffs (list-diffs chain))
-      (def new (recent-activity chain t)))]
-   [ (length (seq diffs)) ==> 4 ]
+      (def diffs (list-diffs chain)))]
+   [ (length (seq diffs)) ==> 2 ]
    [ (view (.. (@ 0) (@ :title)) diffs) ==> "title0" ]
    [ (view (.. (@ 1) (@ :title)) diffs) ==> "title1" ]
+   [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) diffs) ==> "comment0" ]
    [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) diffs) ==> "comment1" ]
    [ (view (.. (@ 0) (@ :state)) diffs) ==> :accepted ]
-   [ (length new) ==> 3 ]
-   [ (view (.. (@nth 0) (@ :activity)) new) ==> :new-comments ]
-   [ (view (... [(@nth 1) (@ :diff) (@ :title)]) new) ==> "newer" ]
  )
