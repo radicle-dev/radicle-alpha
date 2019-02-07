@@ -197,10 +197,7 @@
     (def chain-ref (chain/make-chain-ref! chain))
 
     (def mk-key
-      (fn [v]
-        (match v
-          (/as 'i 'diff)
-            [(pretty-headline diff) i])))
+      (fn [diff] [(pretty-headline diff) diff]))
 
     (def filt
       (match (filter (fn [opt] (not (eq? opt :fancy))) options)
