@@ -5,9 +5,9 @@
 (load! (find-module-file! "monadic/diff.rad"))
 (load! (find-module-file! "monadic/project.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
-(load! (find-module-file! "prelude/cmd-parsing.rad"))
 
 (import prelude/validation :as 'validation)
+(import prelude/cmd-parsing :unqualified)
 
 (def help
   "rad-project - Radicle project CLI
