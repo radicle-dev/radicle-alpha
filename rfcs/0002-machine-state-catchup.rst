@@ -89,11 +89,6 @@ acquiring (and trusting) the stream of outputs from some source.
 With regards to the implementation, it may be possible to make use to
 RefSerialize_.
 
-Unresolved question
---------------------
-
-Unclear how challenging the code changes to the interpreter are.
-
 Implementation
 --------------
 
@@ -124,6 +119,22 @@ implementation is changed to accommodate a new representation of environments:
   maintaining the current ``parent`` environment and the definitions created in
   the current scope when evaluating such a scope.
 
+Unresolved question
+--------------------
+
+After a short experiment with implementing, the following arose:
+
+- First we got rid of the cyclicity rather easily by having recursive lambdas as
+  a special case in ``Value``.
+
+- There are quite a lot of decisions to be made with respect to how the
+  hierarchy of environments would work to maximise sharing. For example every
+  time a lambda is invoked a new environment with the argument bindings must be
+  created. Should this environment be put in ``sharedEnvs``? That's a lot of
+  noise, also since these are often so ephemeral, the question arises of when
+  they might be removed from ``sharedEnvs``. If we don't add these environments
+  to ``sharedEnvs`` then we could lose a lot of structural sharing.
+  
 References
 -----------
 
