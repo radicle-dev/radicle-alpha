@@ -191,10 +191,13 @@ instance FromJSON DagPutResponse where
 
 dagGet :: FromJSON a => Address -> IO a
 dagGet addr = do
-    result <- ipfsHttpGet "dag/get" [("arg", addressToText addr)]
+    let addrTxt = addressToText addr
+    result <- ipfsHttpGet "dag/get" [("arg", addrTxt)]
     case Aeson.fromJSON result of
         Aeson.Error _   -> throw $ IpfsException $ "Invalid machine log entry at " <> addressToText addr
-        Aeson.Success a -> pure a
+        Aeson.Success a -> do
+            () <- ipfsHttpGet "pin/add" [("arg", addrTxt), ("progress", "false")]
+            pure a
 
 namePublish :: IpnsId -> Address -> IO ()
 namePublish ipnsId addr = do
