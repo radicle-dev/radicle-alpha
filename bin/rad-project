@@ -60,7 +60,7 @@
     (put-str! name)
     (process! "git" ["clone" origin name] "")
     (cd! name)
-    (set-git-config! "rad.project.url" project-url)))
+    (set-git-config! "radicle.project-id" project-url)))
 
 (def new-or-forked-project!
   "Create a new or forked project. If `maybe-upstream` is :nothing, creates a
@@ -90,7 +90,7 @@
     (add-rsm! project-rsm { :id repo-url :type :rad-repo })
     (add-rsm! project-rsm { :id issues-url :type :rad-issues })
     (add-rsm! project-rsm { :id diff-url :type :rad-diff })
-    (set-git-config! "rad.project.url" project-url)
+    (set-git-config! "radicle.project-id" project-url)
     (put-str! "=> project created!")))
 
 
