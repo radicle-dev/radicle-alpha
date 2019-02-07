@@ -19,14 +19,23 @@ import           Radicle
 import           Radicle.Daemon.Ipfs
 import qualified Radicle.Internal.ConcurrentMap as CMap
 
+-- | Indicates if the daemon is the writer or a reader for this machine.
 data ReaderOrWriter = Reader | Writer
   deriving (Generic)
 
-data Polling = HighFreq Int64 | LowFreq
+data Polling
+  -- | Indicates that the daemon is performing high-frequency polling for this
+  -- machine. Includes the number of milliseconds for how long this will
+  -- continue being the case.
+  = HighFreq Int64
+  -- | Indicates that the daemon is only performing low-frequency polling for
+  -- this machine.
+  | LowFreq
 
 instance A.ToJSON ReaderOrWriter
 instance A.FromJSON ReaderOrWriter
 
+-- A Cached machine with an initialised state and pubsub subscription.
 data Machine = Machine
     { machineId           :: MachineId
     , machineState        :: Bindings (PrimFns Identity)
@@ -37,7 +46,12 @@ data Machine = Machine
     , machinePolling      :: Polling
     } deriving (Generic)
 
-data CachedMachine = UninitialisedReader Time.SystemTime | Cached Machine
+data CachedMachine
+  -- | A reader which could not be initialised (probably due to IPNS name not
+  -- resolving). Includes the time at which the last failed init was attempted.
+  = UninitialisedReader Time.SystemTime
+  -- | A cached machine with an active pubsub subscription.
+  | Cached Machine
 
 newtype CachedMachines = CachedMachines { getMachines :: CMap.CMap MachineId CachedMachine }
 
