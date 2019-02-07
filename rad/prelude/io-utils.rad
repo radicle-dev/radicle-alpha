@@ -36,7 +36,6 @@
   "Open `$EDITOR` on a file prepopulated with `orig`. Returns the contents of the edited file when the editor exits."
   (fn [orig]
     (def file (unlines (shell-with-stdout! "mktemp" "")))
-    (put-str! file)
     (write-file! file orig)
     (shell-no-stdin! (string-append "${EDITOR:-nano} " file) "")
     (read-file! file)))
