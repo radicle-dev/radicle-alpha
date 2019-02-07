@@ -62,6 +62,7 @@ data IpfsError
   = IpfsDaemonError Ipfs.IpfsException
   | InternalError Text
   | NetworkError Text
+  | Timeout
 
 -- | Messages sent on a machine's IPFS pubsub topic.
 data Message = New InputsApplied | Submit SubmitInputs
@@ -122,7 +123,8 @@ safeIpfs io = ExceptT $ liftIO $
           (decodeStrict ->
              Just (Aeson.Object (HashMap.lookup "Message" ->
                      Just (Aeson.String msg))))) -> NetworkError msg
-      _ -> InternalError (toS (displayException e))
+      Http.HttpExceptionRequest _ Http.ResponseTimeout -> InternalError (toS (displayException e))
+      _ -> Timeout
 
 
 -- | Write some inputs to an IPFS machine.

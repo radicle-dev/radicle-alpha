@@ -12,7 +12,6 @@ import           Protolude hiding (fromStrict, option, poll)
 import qualified Data.Aeson as A
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map.Strict as Map
-import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import qualified Data.Time.Clock.System as Time
 import           Network.Wai.Handler.Warp (run)
@@ -26,7 +25,7 @@ import qualified Radicle.Daemon.Common as Common
 import qualified Radicle.Internal.UUID as UUID
 
 import           Radicle hiding (Env)
-import           Radicle.Daemon.HttpApi
+import qualified Radicle.Daemon.HttpApi as Api
 import           Radicle.Daemon.Ipfs
 import qualified Radicle.Internal.CLI as Local
 import qualified Radicle.Internal.ConcurrentMap as CMap
@@ -60,6 +59,7 @@ displayError = \case
         IpfsDaemonError err -> ("There was an error using IPFS", [mid, ("error", toS (displayException err))])
         InternalError err -> ("Internal error", [mid, ("error", err)])
         NetworkError err -> ("There was an error communicating with the IPFS daemon", [mid, ("error", err)])
+        Timeout -> ("Timeout communicating with IPFS daemon", [mid])
       AckTimeout -> ("The writer appears to be offline", [mid])
       MachineAlreadyCached -> ("Tried to add already cached machine", [mid])
       MachineNotCached -> ("Machine was not found in cache", [mid])
@@ -108,7 +108,7 @@ data LogLevel = Normal | Debug
 data Env = Env
   { followFileLock :: FollowFileLock
   , followFile     :: FilePath
-  , machines       :: IpfsMachines
+  , machines       :: CachedMachines
   , logLevel       :: LogLevel
   }
 
@@ -124,7 +124,7 @@ main = do
     Opts{..} <- execParser allOpts
     followFileLock <- newMVar ()
     followFile <- Local.getRadicleFile (toS filePrefix <> "daemon-follows")
-    machines <- Chains <$> CMap.empty
+    machines <- CachedMachines <$> CMap.empty
     let env = Env{ logLevel = if debug then Debug else Normal, ..}
     follows <- readFollowFileIO followFileLock followFile
     initRes <- runDaemon env (init follows)
@@ -132,7 +132,7 @@ main = do
       Left err -> logErr "Init failed" [] >> logDaemonError err
       Right _ -> do
         polling <- async $ initPolling env
-        let app = serve daemonApi (server env)
+        let app = serve Api.daemonApi (server env)
         Common.logInfo "Start listening" [("port", show port)]
         serv <- async $ run port app
         exc <- waitEitherCatchCancel polling serv
@@ -148,14 +148,11 @@ main = do
        <> header "radicle-daemon"
         )
 
-type IpfsMachine = Chain MachineId MachineEntryIndex TopicSubscription
-type IpfsMachines = Chains MachineId MachineEntryIndex TopicSubscription
-
-server :: Env -> Server DaemonApi
-server env = hoistServer daemonApi nt daemonServer
+server :: Env -> Server Api.DaemonApi
+server env = hoistServer Api.daemonApi nt daemonServer
   where
-    daemonServer :: ServerT DaemonApi Daemon
-    daemonServer = newMachine :<|> query :<|> send :<|> pure swagger
+    daemonServer :: ServerT Api.DaemonApi Daemon
+    daemonServer = newMachine :<|> query :<|> send :<|> pure Api.swagger
 
     nt :: Daemon a -> Handler a
     nt d = do
@@ -179,23 +176,23 @@ server env = hoistServer daemonApi nt daemonServer
 init :: Follows -> Daemon ()
 init follows = traverse_ initMachine (Map.toList follows)
   where
-    initMachine (id, Reader) = initAsReader id
-    initMachine (id, Writer) = initAsWriter id
+    initMachine (id, Reader) = initReaderNoFail id
+    initMachine (id, Writer) = initAsWriter id $> ()
 
 -- * Endpoints
 
 -- | Create a new IPFS machine and initialise the daemon as as the
 -- /writer/.
-newMachine :: Daemon NewResponse
+newMachine :: Daemon Api.NewResponse
 newMachine = do
     id <- create
     sub <- ipfs id $ initSubscription id
     logInfo Normal "Created new IPFS machine" [("machine-id", getMachineId id)]
     m <- liftIO $ emptyMachine id Writer sub
-    insertNewMachine m
+    insertNewMachine id (Cached m)
     actAsWriter m
     writeFollowFile
-    pure (NewResponse id)
+    pure (Api.NewResponse id)
   where
     create = Daemon $ mapExceptT (lift . fmap (first CouldNotCreateMachine)) $ createMachine
 
@@ -205,15 +202,15 @@ newMachine = do
 --
 -- Hitting this endpoint will turn on high-frequency polling for a
 -- fixed amount of time.
-query :: MachineId -> QueryRequest -> Daemon QueryResponse
-query id (QueryRequest v) = do
+query :: MachineId -> Api.QueryRequest -> Daemon Api.QueryResponse
+query id (Api.QueryRequest v) = do
   m <- checkMachineLoaded id
   bumpPolling id
-  case fst <$> runIdentity $ runLang (chainState m) $ eval v of
+  case fst <$> runIdentity $ runLang (machineState m) $ eval v of
     Left err -> throwError $ MachineError id (InvalidInput err)
     Right rv -> do
       logInfo Normal "Query success:" [("result", renderCompactPretty rv)]
-      pure (QueryResponse rv)
+      pure (Api.QueryResponse rv)
 
 -- | Write a new expression to an IPFS machine.
 --
@@ -224,17 +221,20 @@ query id (QueryRequest v) = do
 -- - If the daemon is a reader for the machine, it will request the
 --   machine's writer daemon to perform the write, and wait for an
 --   ack.
-send :: MachineId -> SendRequest -> Daemon SendResponse
-send id (SendRequest expressions) = do
-  mode_ <- machineMode
-  case mode_ of
-    Just (Writer, _) -> do
-      results <- writeInputs id expressions Nothing
-      pure SendResponse{..}
-    Just (Reader, sub) -> requestInput sub
+send :: MachineId -> Api.SendRequest -> Daemon Api.SendResponse
+send id (Api.SendRequest expressions) = do
+  cm_ <- lookupMachine id
+  case cm_ of
     Nothing -> do
+      m <- newReader id
+      requestInput (machineSubscription m)
+    Just (UninitialisedReader _) -> do
       m <- initAsReader id
-      requestInput (chainSubscription m)
+      requestInput (machineSubscription m)
+    Just (Cached Machine{ machineMode = Reader, ..}) -> requestInput machineSubscription
+    Just (Cached Machine{ machineMode = Writer }) -> do
+      results <- writeInputs id expressions Nothing
+      pure Api.SendResponse{..}
   where
     requestInput sub = do
       nonce <- liftIO $ UUID.uuid
@@ -256,12 +256,11 @@ send id (SendRequest expressions) = do
                  , ("results", prValues results)
                  ]
           bumpPolling id
-          pure SendResponse{..}
+          pure Api.SendResponse{..}
         Right Nothing -> throwError $ MachineError id AckTimeout
         Right _ -> throwError $ MachineError id (DaemonError "Didn't filter machine topic messages correctly.")
         Left err -> throwError $ MachineError id (DaemonError (toS (displayException err)))
 
-    machineMode = fmap (liftA2 (,) chainMode chainSubscription) <$> lookupMachine id
     prValues = T.intercalate "," . (renderCompactPretty <$>)
 
 -- * Helpers
@@ -289,32 +288,36 @@ readFollowFileIO lock ff = withFollowFileLock lock $ do
 
 writeFollowFile :: Daemon ()
 writeFollowFile = do
-  lock <- asks followFileLock
-  Chains cMap <- asks machines
-  ff <- asks followFile
-  liftIO $ withFollowFileLock lock $ do
-    ms <- CMap.nonAtomicRead cMap
-    let fs = Map.fromList $ second chainMode <$> Map.toList ms
-    writeFile ff (toS $ A.encode fs)
+    lock <- asks followFileLock
+    CachedMachines cMap <- asks machines
+    ff <- asks followFile
+    liftIO $ withFollowFileLock lock $ do
+      ms <- CMap.nonAtomicRead cMap
+      let fs = mode <$> ms
+      writeFile ff (toS (A.encode fs))
+  where
+    mode (UninitialisedReader _) = Reader
+    mode (Cached c)              = machineMode c
 
-lookupMachine :: MachineId -> Daemon (Maybe IpfsMachine)
+lookupMachine :: MachineId -> Daemon (Maybe CachedMachine)
 lookupMachine id = do
-  msVar <- asks machines
-  liftIO $ CMap.lookup id (getChains msVar)
+  msCMap <- asks machines
+  liftIO $ CMap.lookup id (getMachines msCMap)
 
 -- | Given an 'MachineId', makes sure the machine is in the cache and
 -- updated.
-checkMachineLoaded :: MachineId -> Daemon IpfsMachine
+checkMachineLoaded :: MachineId -> Daemon Machine
 checkMachineLoaded id = do
   m_ <- lookupMachine id
   case m_ of
     Nothing -> do
       -- In this case we have not seen the machine before so we act as
       -- a reader.
-      m <- initAsReader id
-      writeFollowFile
-      pure m
-    Just m -> case chainMode m of
+      newReader id
+    Just (UninitialisedReader _) ->
+      -- We try to initialise the reader again.
+      initAsReader id
+    Just (Cached m) -> case machineMode m of
       Writer -> pure m
       Reader -> refreshAsReader id
         -- TODO(james): For the moment we will just force a
@@ -341,13 +344,13 @@ daemonHandler env _ h (Right msg) = do
     Right _  -> pure ()
 
 -- | Loads a machine fresh from IPFS.
-loadMachine :: ReaderOrWriter -> MachineId -> Daemon IpfsMachine
+loadMachine :: ReaderOrWriter -> MachineId -> Daemon Machine
 loadMachine mode id = do
   (idx, is) <- ipfs id $ machineInputsFrom id Nothing
   sub <- ipfs id $ initSubscription id
   m <- liftIO $ emptyMachine id mode sub
   (m', _) <- addInputs is (pure idx) (const (pure ())) m
-  insertNewMachine m'
+  insertNewMachine id (Cached m')
   pure m'
 
 -- | Add inputs to a cached machine.
@@ -358,20 +361,18 @@ addInputs
   -- ^ Determine the new index.
   -> ([Value] -> Daemon ())
   -- ^ Performed after the chain is cached.
-  -> IpfsMachine
-  -> Daemon (IpfsMachine, ([Value], MachineEntryIndex))
+  -> Machine
+  -> Daemon (Machine, ([Value], MachineEntryIndex))
   -- ^ Returns the updated machine, the results and the new index.
 addInputs is getIdx after m =
   case advanceChain m is of
-    Left err -> throwError $ MachineError (chainName m) (InvalidInput err)
+    Left err -> throwError $ MachineError (machineId m) (InvalidInput err)
     Right (rs, newState) -> do
       idx <- getIdx
       t <- liftIO $ Time.getSystemTime
-      let news = Seq.fromList $ zip is rs
-          m' = m { chainState = newState
-                 , chainLastIndex = Just idx
-                 , chainEvalPairs = chainEvalPairs m Seq.>< news
-                 , chainLastUpdated = t
+      let m' = m { machineState = newState
+                 , machineLastIndex = Just idx
+                 , machineLastUpdated = t
                  }
       after rs
       pure (m', (rs, idx))
@@ -382,48 +383,45 @@ ipfs id = Daemon . mapExceptT (lift . fmap (first (MachineError id . IpfsError))
 -- | Do some high-freq polling for a while.
 bumpPolling :: MachineId -> Daemon ()
 bumpPolling id = do
-  modifyMachine id $ \m' -> pure (m' { chainPolling = highFreq }, () )
+  modifyMachine id $ \m -> pure (m { machinePolling = highFreq }, () )
   logInfo Debug "Reset to high-frequency polling" [("machine-id", getMachineId id)]
 
--- | Insert a new machine into the cache. Errors if the machine is
--- already cached.
-insertNewMachine :: IpfsMachine -> Daemon ()
-insertNewMachine m = do
-    msVar <- asks machines
-    inserted_ <- liftIO $ CMap.insertNew id m (getChains msVar)
-    case inserted_ of
-      Just () -> pure ()
-      Nothing -> throwError (MachineError id MachineAlreadyCached)
-  where
-    id = chainName m
+-- | Insert a new machine into the cache.
+insertNewMachine :: MachineId -> CachedMachine -> Daemon ()
+insertNewMachine id m = do
+    msCMap <- asks machines
+    liftIO $ CMap.insert id m (getMachines msCMap)
 
 -- | Modify a machine that is already in the cache. Errors if the
 -- machine isn't in the cache already.
-modifyMachine :: MachineId -> (IpfsMachine -> Daemon (IpfsMachine, a)) -> Daemon a
+modifyMachine :: forall a. MachineId -> (Machine -> Daemon (Machine, a)) -> Daemon a
 modifyMachine id f = do
     env <- ask
-    res <- liftIO $ CMap.modifyExistingValue id (getChains (machines env)) $ \m -> do
-      x <- runDaemon env (f m)
-      pure $ case x of
-        Left err      -> (m, Left err)
-        Right (m', y) -> (m', Right y)
+    res <- liftIO $ CMap.modifyExistingValue id (getMachines (machines env)) (modCached env)
     case res of
       Nothing         -> throwError (MachineError id MachineNotCached)
       Just (Left err) -> throwError err
       Just (Right y)  -> pure y
+  where
+    modCached :: Env -> CachedMachine -> IO (CachedMachine, Either Error a)
+    modCached _ u@(UninitialisedReader _) = pure (u, Left (MachineError id MachineNotCached))
+    modCached env (Cached m) = do
+      x <- runDaemon env (f m)
+      pure $ case x of
+        Left err      -> (Cached m, Left err)
+        Right (m', y) -> (Cached m', Right y)
 
-emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IO IpfsMachine
+emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IO Machine
 emptyMachine id mode sub = do
   t <- Time.getSystemTime
-  pure Chain{ chainName = id
-            , chainState = pureEnv
-            , chainEvalPairs = mempty
-            , chainLastIndex = Nothing
-            , chainMode = mode
-            , chainSubscription = sub
-            , chainLastUpdated = t
-            , chainPolling = highFreq
-            }
+  pure Machine{ machineId = id
+              , machineState = pureEnv
+              , machineLastIndex = Nothing
+              , machineMode = mode
+              , machineSubscription = sub
+              , machineLastUpdated = t
+              , machinePolling = highFreq
+              }
 
 -- ** Reader
 
@@ -433,13 +431,13 @@ emptyMachine id mode sub = do
 -- updates on pubsub.
 --
 -- The machine is added to the deamons machine cache.
-initAsReader :: MachineId -> Daemon IpfsMachine
+initAsReader :: MachineId -> Daemon Machine
 initAsReader id = do
     m <- loadMachine Reader id
     env <- ask
-    _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env id onMsg)
+    _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env id onMsg)
     logInfo Normal "Following as reader" [ ("machine-id", getMachineId id)
-                                         , ("current-input-index", show (chainLastIndex m)) ]
+                                         , ("current-input-index", show (machineLastIndex m)) ]
     pure m
   where
     onMsg :: Message -> Daemon ()
@@ -452,29 +450,48 @@ initAsReader id = do
         bumpPolling id
       _ -> pure ()
 
--- | Updates a machine in the cache with the new inputs pulled from IPFS.
-refreshAsReader :: MachineId -> Daemon IpfsMachine
-refreshAsReader id = modifyMachine id $ \m -> do
-    let currentIdx = chainLastIndex m
-    (newIdx, is) <- ipfs id $ machineInputsFrom (chainName m) currentIdx
-    if currentIdx == Just newIdx
-      then do
-        logInfo Debug
-                "Reader is already up to date"
-                [mid, ("input-index",  show newIdx)]
-        pure (m, m)
-      else do
-        (m', _) <- addInputs is (pure newIdx) (const (pure ())) m
-        logInfo Debug
-                "Updated reader"
-                [mid, ("n", show (length is)), ("input-index",  show newIdx)]
-        pure (m', m')
+-- | Initiate a reader the daemon wasn't following before (adds it to the
+-- follow-file).
+newReader :: MachineId -> Daemon Machine
+newReader id = do
+  m <- initAsReader id
+  writeFollowFile
+  pure m
+
+-- | Try to initiate a reader, but don't fail in case of errors; just log a
+-- message.
+initReaderNoFail :: MachineId -> Daemon ()
+initReaderNoFail id = catchError (initAsReader id $> ()) $ \err -> do
+  let (msg, infos) = displayError err
+  logErr "Could not initiate reader-mode machine on startup" $ ("init-error", msg) : infos
+  t <- liftIO Time.getSystemTime
+  insertNewMachine id (UninitialisedReader t)
+
+-- | Updates a (already initialised) machine in the cache with new inputs pulled
+-- from IPFS.
+refreshAsReader :: MachineId -> Daemon Machine
+refreshAsReader id = modifyMachine id refresh
   where
+    refresh m = do
+      let currentIdx = machineLastIndex m
+      (newIdx, is) <- ipfs id $ machineInputsFrom (machineId m) currentIdx
+      if currentIdx == Just newIdx
+        then do
+          logInfo Debug
+                  "Reader is already up to date"
+                  [mid, ("input-index",  show newIdx)]
+          pure (m, m)
+        else do
+          (m', _) <- addInputs is (pure newIdx) (const (pure ())) m
+          logInfo Debug
+                  "Updated reader"
+                  [mid, ("n", show (length is)), ("input-index",  show newIdx)]
+          pure (m', m')
     mid = ("machine-id", getMachineId id)
 
 -- ** Writer
 
-initAsWriter :: MachineId -> Daemon IpfsMachine
+initAsWriter :: MachineId -> Daemon Machine
 initAsWriter id = do
   m <- loadMachine Writer id
   actAsWriter m
@@ -482,13 +499,13 @@ initAsWriter id = do
 
 -- | Subscribes the daemon to the machine's pubsub topic to listen for
 -- input requests.
-actAsWriter :: IpfsMachine -> Daemon ()
+actAsWriter :: Machine -> Daemon ()
 actAsWriter m = do
     env <- ask
-    _ <- liftIO $ addHandler (chainSubscription m) (daemonHandler env id onMsg)
+    _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env id onMsg)
     logInfo Normal "Acting as writer" [("machine-id", getMachineId id)]
   where
-    id = chainName m
+    id = machineId m
     onMsg = \case
       Submit SubmitInputs{..} -> writeInputs id expressions (Just nonce) >> pure ()
       _ -> pure ()
@@ -501,7 +518,7 @@ actAsWriter m = do
 -- outputs and the given nonce.
 writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs id is nonce = do
-    (rs, idx) <- modifyMachine id $ addInputs is write pub
+    (rs, idx) <- modifyMachine id (addInputs is write pub)
     logInfo Debug "Wrote inputs to IPFS" [ ("machine-id", getMachineId id)
                                          , ("new-input-index", show idx) ]
     pure rs
@@ -515,36 +532,45 @@ writeInputs id is nonce = do
 poll :: Daemon ()
 poll = do
     msVar <- asks machines
-    ms <- liftIO $ CMap.nonAtomicRead (getChains msVar)
-    traverse_ pollMachine ms
+    ms <- liftIO $ CMap.nonAtomicRead (getMachines msVar)
+    _ <- Map.traverseWithKey pollMachine ms
+    pure ()
   where
-    pollMachine :: IpfsMachine -> Daemon ()
-    pollMachine m@Chain{chainMode = Reader, ..} = do
-      delta <- liftIO $ sinceLastUpdate m
-      let (shouldPoll, newPoll) =
-            case chainPolling of
-              HighFreq more ->
-                let more' = more - delta
-                in if more' > 0
-                   then (True, HighFreq more')
-                   else (False, LowFreq)
-              -- Low frequency polling is every 10 seconds.
-              LowFreq -> (delta > lowFreqPollPeriod, LowFreq)
-      when shouldPoll $ do
-        logInfo Debug "Polling.." [("machine-id", getMachineId chainName)]
-        refreshAsReader chainName >> pure ()
-      modifyMachine chainName $ \m' -> pure (m' { chainPolling = newPoll }, () )
-    pollMachine _ = pure ()
+    pollMachine :: MachineId -> CachedMachine -> Daemon ()
+    pollMachine id = \case
+      Cached m@Machine{ machineMode = Reader, .. } -> do
+        delta <- liftIO $ sinceLastUpdate m
+        let (shouldPoll, newPoll) =
+              case machinePolling of
+                HighFreq more ->
+                  let more' = more - delta
+                  in if more' > 0
+                     then (True, HighFreq more')
+                     else (False, LowFreq)
+                -- Low frequency polling is every 10 seconds.
+                LowFreq -> (delta > lowFreqPollPeriod, LowFreq)
+        when shouldPoll $ do
+          logInfo Debug "Polling.." [("machine-id", getMachineId machineId)]
+          refreshAsReader machineId >> pure ()
+        modifyMachine machineId $ \m' -> pure (m' { machinePolling = newPoll }, ())
+      UninitialisedReader t -> do
+        delta <- liftIO $ timeSince t
+        when (delta > lowFreqPollPeriod) $ initReaderNoFail id $> ()
+      _ -> pure () -- Writers don't require any polling.
 
 -- | Returns the amount of time since the last time the machine was
 -- updated.
-sinceLastUpdate :: IpfsMachine -> IO Milliseconds
-sinceLastUpdate m = timeDelta (chainLastUpdated m) <$> Time.getSystemTime
+sinceLastUpdate :: Machine -> IO Milliseconds
+sinceLastUpdate = timeSince . machineLastUpdated
+
+timeSince :: Time.SystemTime -> IO Milliseconds
+timeSince x = timeDelta x <$> Time.getSystemTime
   where
-    timeDelta x y =
-      case (trunc x, trunc y) of
-        (Time.MkSystemTime s n, Time.MkSystemTime s' n') -> 1000 * (s' - s) + fromIntegral (n' - n) `div` 1000000
-    trunc = Time.truncateSystemTimeLeapSecond
+    timeDelta a b =
+        case (trunc a, trunc b) of
+          (Time.MkSystemTime s n, Time.MkSystemTime s' n') -> 1000 * (s' - s) + fromIntegral (n' - n) `div` 1000000
+      where
+        trunc = Time.truncateSystemTimeLeapSecond
 
 -- | Polling loop that looks for changes on all loaded reader machines
 -- and updates them.
