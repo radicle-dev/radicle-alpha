@@ -5,13 +5,19 @@
 
 (import prelude/validation :as 'validation)
 (import prelude/patterns :unqualified)
+(import prelude/lens :unqualified)
+
+(def parse-failure-mode (ref {:stub #f}))
 
 (def parse-failure
   "Prints the passed error message and help text and exits."
   (fn [error help]
-    (put-str! error)
-    (put-str! help)
-    (exit! 1)))
+    (if (lookup :stub (read-ref parse-failure-mode))
+      (string-append error " " help)
+      (do
+        (put-str! error)
+        (put-str! help)
+        (exit! 1)))))
 
 (def missing-arg-error
   (fn [arg cmd]
@@ -62,6 +68,15 @@
         (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
         _ :nothing))))
 
+(:test "/cmd-2"
+  [:setup
+   (do (set-ref parse-failure-mode (@ :stub) #t))]
+  [ ((/cmd-2 "cmd-2" 'arg-1 'arg-2 "help") ["cmd-2" "arg1" "arg2"]) ==> [:just {arg-1 "arg1" arg-2 "arg2"}]]
+  [ ((/cmd-2 "cmd-2" 'arg-1 'arg-2 "help") ["cmd-0"]) ==> :nothing]
+  [ ((/cmd-2 "cmd-2" 'arg-1 'arg-2 "help") ["cmd-2"]) ==> "Missing argument \"arg-1\" for command \"cmd-2\" help"]
+  [ ((/cmd-2 "cmd-2" 'arg-1 'arg-2 "help") ["cmd-2" 1]) ==> "Missing argument \"arg-2\" for command \"cmd-2\" help"]
+  [ ((/cmd-2 "cmd-2" 'arg-1 'arg-2 "help") ["cmd-2" 1 2 3]) ==> "Too many arguments for command \"cmd-2\" help"])
+
 (def /cmd-1
   "Matches a command `cmd` with exactly one arguments."
   (fn [cmd cmd-args-pat help]
@@ -74,6 +89,14 @@
         (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
         _ :nothing))))
 
+(:test "/cmd-1"
+  [:setup
+   (do (set-ref parse-failure-mode (@ :stub) #t))]
+  [ ((/cmd-1 "cmd-1" 'arg "help") ["cmd-1" "arg"]) ==> [:just {arg "arg"}]]
+  [ ((/cmd-1 "cmd-1" 'arg "help") ["cmd-0"]) ==> :nothing]
+  [ ((/cmd-1 "cmd-1" 'arg "help") ["cmd-1"]) ==> "Missing argument \"arg\" for command \"cmd-1\" help"]
+  [ ((/cmd-1 "cmd-1" 'arg "help") ["cmd-1" 1 2]) ==> "Too many arguments for command \"cmd-1\" help"])
+
 (def /cmd-0
   "Matches a command `cmd` with no other arguments."
   (fn [cmd help]
@@ -83,3 +106,10 @@
        [cmd] [:just {}]
        (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
        _ :nothing))))
+
+(:test "/cmd-0"
+  [:setup
+    (do (set-ref parse-failure-mode (@ :stub) #t))]
+  [ ((/cmd-0 "cmd-0" "help") ["cmd-0"]) ==> [:just {}]]
+  [ ((/cmd-0 "cmd-0" "help") ["cmd-1"]) ==> :nothing]
+  [ ((/cmd-0 "cmd-0" "help") ["cmd-0" 1]) ==> "Too many arguments for command \"cmd-0\" help"])
