@@ -45,14 +45,23 @@ The script `./scripts/ci-tests.sh` runs all tests that are run on CI. The script
 requires [`docker`][docker] and [`docker-compose`][docker-compose] to be
 installed for end-to-end tests.
 
+The documentation is build with `make -C docs html`. Reference documentation for
+Radicle code must be regenerated with `stack run radicle-doc-ref` and checked
+into version control.
+
+### End-to-end Tests
+
 The end-to-end test suite is run with `stack test :e2e`. It requires you to
 start up an IPFS test network with
 
     docker-compose -f test/docker-compose.yaml up -d ipfs-test-network
 
-The documentation is build with `make -C docs html`. Reference documentation for
-Radicle code must be regenerated with `stack run radicle-doc-ref` and checked
-into version control.
+If you use `docker-compose up` for the first time you will also need to
+initialize the IPFS test network with
+
+    echo '{"radicle": true}' | \
+      docker-compose -f test/docker-compose.yaml exec -T ipfs-test-network ipfs dag put
+
 
 ### Troubleshooting
 
