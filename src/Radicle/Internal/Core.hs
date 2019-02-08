@@ -433,6 +433,8 @@ maybeJson = \case
     String s -> pure $ A.String s
     Boolean b -> pure $ A.Bool b
     List ls -> toJSON <$> traverse maybeJson ls
+    Vec ls ->  toJSON <$> traverse maybeJson ls
+    Keyword (Ident s) -> pure $ A.String s
     Dict m -> do
       let kvs = Map.toList m
       ks <- traverse isStr (fst <$> kvs)
@@ -441,6 +443,7 @@ maybeJson = \case
     _ -> Nothing
   where
     isStr (String s) = pure s
+    isStr (Keyword (Ident s)) = pure s
     isStr _          = Nothing
 
 -- | The environment, which keeps all known bindings.
