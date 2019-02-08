@@ -69,26 +69,19 @@
 
 (def get-title!
   (fn [commit]
-    (string/unlines (process-with-stdout! "git" ["show" "-s" "--format=%s" commit] ""))))
+    (get-git-commit-data! "%s" commit)))
 
 (def get-description!
   (fn [commit]
-    (string/unlines (process-with-stdout! "git" ["show" "-s" "--format=%b" commit] ""))))
+    (get-git-commit-data! "%b" commit)))
 
 (def get-author-name!
   (fn [commit]
-    (string/unlines (process-with-stdout! "git" ["show" "-s" "--format=%aN" commit] ""))))
-
-(def get-author-email!
-  (fn [commit]
-    (string/unlines (process-with-stdout! "git" ["show" "-s" "--format=%aE" commit] ""))))
+    (get-git-commit-data! "%aN" commit)))
 
 (def get-short-hash!
   (fn [commit]
     (string/unlines (process-with-stdout! "git" ["rev-parse" "--short" commit] ""))))
-
-(def get-git-username!
-  (string/unlines (process-with-stdout! "git" ["config" "user.name"] "")))
 
 (def apply-patch!
   "Given a patch, apply it to the current branch"
