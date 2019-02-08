@@ -27,38 +27,11 @@ import qualified Radicle.Internal.UUID as UUID
 import           Radicle hiding (Env)
 import qualified Radicle.Daemon.HttpApi as Api
 import           Radicle.Daemon.Ipfs
+import           Radicle.Daemon.Monad
 import qualified Radicle.Internal.CLI as Local
 import qualified Radicle.Internal.ConcurrentMap as CMap
 
 -- * Types
-
-data MachineError
-  = InvalidInput (LangError Value)
-  | IpfsError IpfsError
-  | AckTimeout
-  | DaemonError Text
-  | MachineAlreadyCached
-  | MachineNotCached
-
-data Error
-  = MachineError MachineId MachineError
-  | CouldNotCreateMachine Text
-
-displayError :: Error -> (Text, [(Text,Text)])
-displayError = \case
-  CouldNotCreateMachine e -> ("Could not create IPFS machine", [("error", e)])
-  MachineError id e -> let mid = ("machine-id", getMachineId id) in
-    case e of
-      InvalidInput err -> ("Invalid radicle input", [mid, ("error", renderCompactPretty err)])
-      DaemonError err -> ("Internal error", [mid, ("error", err)])
-      IpfsError e' -> case e' of
-        IpfsDaemonError err -> ("There was an error using IPFS", [mid, ("error", toS (displayException err))])
-        InternalError err -> ("Internal error", [mid, ("error", err)])
-        NetworkError err -> ("There was an error communicating with the IPFS daemon", [mid, ("error", err)])
-        Timeout -> ("Timeout communicating with IPFS daemon", [mid])
-      AckTimeout -> ("The writer appears to be offline", [mid])
-      MachineAlreadyCached -> ("Tried to add already cached machine", [mid])
-      MachineNotCached -> ("Machine was not found in cache", [mid])
 
 logDaemonError :: MonadIO m => Error -> m ()
 logDaemonError (displayError -> (m, xs)) = logErr m xs
@@ -95,24 +68,6 @@ opts = Opts
        <> help "enable debug logging"
        <> showDefault
         )
-
-type FollowFileLock = MVar ()
-
-data LogLevel = Normal | Debug
-  deriving (Eq, Ord)
-
-data Env = Env
-  { followFileLock :: FollowFileLock
-  , followFile     :: FilePath
-  , machines       :: CachedMachines
-  , logLevel       :: LogLevel
-  }
-
-newtype Daemon a = Daemon { fromDaemon :: ExceptT Error (ReaderT Env IO) a }
-  deriving (Functor, Applicative, Monad, MonadError Error, MonadIO, MonadReader Env)
-
-runDaemon :: Env -> Daemon a -> IO (Either Error a)
-runDaemon env (Daemon x) = runReaderT (runExceptT x) env
 
 main :: IO ()
 main = do
@@ -181,7 +136,7 @@ init follows = traverse_ initMachine (Map.toList follows)
 -- /writer/.
 newMachine :: Daemon Api.NewResponse
 newMachine = do
-    id <- create
+    id <- liftExceptT CouldNotCreateMachine createMachine
     sub <- ipfs id $ initSubscription id
     logInfo Normal "Created new IPFS machine" [("machine-id", getMachineId id)]
     m <- liftIO $ emptyMachine id Writer sub
@@ -189,8 +144,6 @@ newMachine = do
     actAsWriter m
     writeFollowFile
     pure (Api.NewResponse id)
-  where
-    create = Daemon $ mapExceptT (lift . fmap (first CouldNotCreateMachine)) $ createMachine
 
 -- | Evaluate an expression against a cached machine. The resulting
 -- state is always discarded, and the expression is never sent to the
@@ -374,7 +327,7 @@ addInputs is getIdx after m =
       pure (m', (rs, idx))
 
 ipfs :: MachineId -> ExceptT IpfsError IO a -> Daemon a
-ipfs id = Daemon . mapExceptT (lift . fmap (first (MachineError id . IpfsError)))
+ipfs id = liftExceptT (MachineError id . IpfsError)
 
 -- | Do some high-freq polling for a while.
 bumpPolling :: MachineId -> Daemon ()
