@@ -8,8 +8,9 @@ Primitive functions
 -------------------
 
 Primitive functions are those that are built into the compiler. They are
-available on all chains but may be shadowed by later definitions. Those
-that end in a ``!`` are only available locally, not on 'pure' chains.
+available on all machines but may be shadowed by later definitions.
+Those that end in a ``!`` are only available locally, not on 'pure'
+chains.
 
 ``*``
 ~~~~~
