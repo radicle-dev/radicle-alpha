@@ -9,9 +9,11 @@ module Test.E2ESupport
 
     , testCaseSteps
     , runTestCommand
+    , runTestCommand'
 
     , TestTree
     , assertEqual
+    , assertContains
     ) where
 
 import           Prelude (String, unwords)
@@ -77,6 +79,17 @@ testCaseSteps name mkTest =
 
 assertEqual :: (HasCallStack, MonadIO m, Eq a, Show a) => Text -> a -> a -> m ()
 assertEqual msg a a' = liftIO $ HUnit.assertEqual (toS msg) a a'
+
+assertFailure :: (HasCallStack, MonadIO m) => Text -> m a
+assertFailure msg = liftIO $ HUnit.assertFailure $ toS msg
+
+-- | @assertContains str substr@ throws as assertion error if @substr@ is not
+-- contained in @str@
+assertContains :: (HasCallStack, MonadIO m) => Text -> Text -> m ()
+assertContains str substr =
+    if substr `T.isInfixOf` str
+    then pure ()
+    else assertFailure $ "\"" <> substr <> "\" is not contained in \"" <> str <> "\""
 
 -- * Run commands
 
