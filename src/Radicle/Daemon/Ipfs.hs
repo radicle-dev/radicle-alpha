@@ -65,6 +65,7 @@ data IpfsError
   | IpfsDaemonErrMsg Text
   | IpfsDaemonNoErrMsg
   | Timeout
+--  | InternalError Text
 
 -- | Messages sent on a machine's IPFS pubsub topic.
 data Message = New InputsApplied | Submit SubmitInputs
