@@ -1,7 +1,8 @@
 {:module 'prelude/machine
  :doc "Functions for simulating remote machines."
  :exports '[eval updatable-eval eval-fn-app send-prelude! new-machine!
-            send-code! send! query! install-remote-machine-fake send-signed-command!]}
+            send-code! send! query! install-remote-machine-fake send-signed-command!
+            catch-daemon!]}
 
 (import prelude/io '[read-file-value! read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
@@ -195,4 +196,11 @@ Do `rad-create-keys` to create your own key pair and rerun your command.")
 (def send-signed-command!
   "Send a command signed by the keys in `my-keys.rad`."
   (fn [machine machine-id cmd payload]
-  (send! machine [(list cmd (sign-entity! payload machine-id))])))
+    (send! machine [(list cmd (sign-entity! payload machine-id))])))
+
+(def catch-daemon!
+  "Catches all `radicle-daemon` related errors and just prints them out to the
+  user."
+  (fn [f]
+    (catch 'daemon-error (f)
+      (fn [e] (put-str! (lookup :info e))))))

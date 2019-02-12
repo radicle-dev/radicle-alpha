@@ -56,22 +56,22 @@
     (def name (lookup :name (get-meta! project)))
     (def origin (lookup :id (first-rsm-of-type! project :rad-repo)))
     (match (process! "test" ["-d" name] "")
-      :ok (do
-            (put-str! (string-append
-                        "The directory \"" name "\" already exists.\n"
-                        "Refusing to continue."))
-            (exit! 1))
-      _   (put-str! name))
+           :ok (do
+                 (put-str! (string-append
+                            "The directory \"" name "\" already exists.\n"
+                            "Refusing to continue."))
+                 (exit! 1))
+           _   (put-str! name))
     (match (process! "git" ["clone" origin name] "")
-      :ok (cd! name)
-      _   (do
-            (put-str! (string-append
-                        "The repo is currently not available. "
-                        "Cloning \"" name "\" from \"" origin "\" failed.\n"
-                        "This may be because you have no internet connection, "
-                        "or the IPNS link is stale, or because no online node "
-                        "with the data could be found."))
-            (exit! 1)))
+           :ok (cd! name)
+           _   (do
+                 (put-str! (string-append
+                            "The repo is currently not available. "
+                            "Cloning \"" name "\" from \"" origin "\" failed.\n"
+                            "This may be because you have no internet connection, "
+                            "or the IPNS link is stale, or because no online node "
+                            "with the data could be found."))
+                 (exit! 1)))
     (set-git-config! "radicle.project-id" project-url)))
 
 (def new-project!
@@ -101,12 +101,15 @@
     (put-str! "=> Share this project id for people to collaborate with you on your project.")))
 
 (def args (get-args!))
-(match args
-  (/cmd-0 "init" help) (new-project!)
-  (/cmd-0 "show-id" help) (show-project-id)
-  (/cmd-1 "checkout" 'project-id help) (checkout! project-id)
-  ["help"] (put-str! help)
-  ["-h"] (put-str! help)
-  ["--help"] (put-str! help)
-  (/cons 'cmd _) (parse-failure (string-append "Unknown command: " cmd) help)
-  [] (put-str! help))
+
+(machine/catch-daemon!
+ (fn []
+   (match args
+          (/cmd-0 "init" help) (new-project!)
+          (/cmd-0 "show-id" help) (show-project-id)
+          (/cmd-1 "checkout" 'project-id help) (checkout! project-id)
+          ["help"] (put-str! help)
+          ["-h"] (put-str! help)
+          ["--help"] (put-str! help)
+          (/cons 'cmd _) (parse-failure (string-append "Unknown command: " cmd) help)
+          [] (put-str! help))))

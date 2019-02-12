@@ -111,6 +111,8 @@ wrapServantError :: Monad m => ExceptT Servant.ServantError m a -> Lang m a
 wrapServantError action = do
     result <- lift $ runExceptT action
     case result of
-        Left (Servant.FailureResponse response) -> throwErrorHere $ OtherError $ toS $ Servant.responseBody response
-        Left e -> throwErrorHere $ OtherError $ toS $ displayException e
+        Left (Servant.FailureResponse response) -> throwErrorHere $ DaemonError $ toS $ Servant.responseBody response
+        Left e -> case e of
+          Servant.ConnectionError _ -> throwErrorHere $ DaemonError "Could not connect to radicle-daemon. Most likely it is not running. Please start it with 'radicle-daemon'."
+          _ -> throwErrorHere $ DaemonError $ toS $ displayException e
         Right value -> pure value

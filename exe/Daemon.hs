@@ -10,7 +10,6 @@ module Daemon where
 import           Protolude hiding (fromStrict, option, poll)
 
 import qualified Data.Aeson as A
-import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Time.Clock.System as Time
@@ -24,7 +23,7 @@ import           Radicle.Daemon.Common hiding (logInfo)
 import qualified Radicle.Daemon.Common as Common
 import qualified Radicle.Internal.UUID as UUID
 
-import           Radicle hiding (Env)
+import           Radicle hiding (Env, DaemonError)
 import qualified Radicle.Daemon.HttpApi as Api
 import           Radicle.Daemon.Ipfs
 import           Radicle.Daemon.Monad
@@ -123,12 +122,16 @@ server env = hoistServer Api.daemonApi nt daemonServer
             throwError (toServantErr err)
         Right x  -> pure x
 
-    toServantErr err@(MachineError _ e) = case e of
-      InvalidInput e' -> err400 { errBody = fromStrict $ encodeUtf8 (renderPrettyDef e') }
-      AckTimeout -> err504 { errBody = "The writer for this IPFS machine does not appear to be online." }
-      _ -> case displayError err of
-        (msg, _) -> err500 { errBody = toS msg }
-    toServantErr (CouldNotCreateMachine err) = err500 { errBody = "Could not create IPFS machine: " <> toS err }
+    toServantErr err = errCode { errBody = toS bod }
+      where
+        (msg, infos) = displayError err
+        bod = msg <> ":" <> T.concat ["\n  " <> k <> ": " <> v | (k,v) <- infos]
+        errCode = case err of
+          MachineError _ e -> case e of
+            InvalidInput _ -> err400
+            AckTimeout -> err504
+            _ -> err500
+          CouldNotCreateMachine _ -> err500
 
 -- * Init
 

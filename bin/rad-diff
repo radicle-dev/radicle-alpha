@@ -286,18 +286,22 @@
     (/cmd-opts "list" opts cmd-options help)))
 
 (def args (get-args!))
-(match args
-  (/list-cmd 'options) (list-items (machine-name) options)
-  (/cmd-1 "propose" 'commit help) (new-diff! (machine-name) commit)
-  (/cmd-1 "checkout" 'diff-no help) (checkout-diff! (machine-name) (read diff-no))
-  (/cmd-1 "show" 'diff-no help) (show-diff! (machine-name) (read diff-no))
-  (/cmd-1 "retract" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :retracted)
-  (/cmd-1 "accept" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :accepted)
-  (/cmd-1 "reject" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :rejected)
-  ["comment" 'diff-no 'comment] (create-comment! (machine-name) (read diff-no) comment)
-  (/cmd-0 "create-machine" help) (new-diff-machine! (machine-name))
-  ["help"] (put-str! help)
-  ["-h"] (put-str! help)
-  ["--help"] (put-str! help)
-  (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
-  [] (put-str! help))
+
+(machine/catch-daemon!
+ (fn []
+   (match args
+          (/list-cmd 'options) (list-items (machine-name) options)
+          (/cmd-1 "propose" 'commit help) (new-diff! (machine-name) commit)
+          (/cmd-1 "checkout" 'diff-no help) (checkout-diff! (machine-name) (read diff-no))
+          (/cmd-1 "show" 'diff-no help) (show-diff! (machine-name) (read diff-no))
+          (/cmd-1 "retract" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :retracted)
+          (/cmd-1 "accept" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :accepted)
+          (/cmd-1 "reject" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :rejected)
+          ["comment" 'diff-no 'comment] (create-comment! (machine-name) (read diff-no) comment)
+          (/cmd-0 "create-machine" help) (new-diff-machine! (machine-name))
+          ["help"] (put-str! help)
+          ["-h"] (put-str! help)
+          ["--help"] (put-str! help)
+          (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
+          [] (put-str! help))))
+

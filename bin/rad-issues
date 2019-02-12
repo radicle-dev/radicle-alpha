@@ -180,14 +180,17 @@
     (/cmd-opts "list" opts cmd-options help)))
 
 (def args (get-args!))
-(match args
-  (/list-cmd 'options) (list-items (machine-name) options)
-  (/cmd-1 "make-key" 'nick help) (make-key nick)
-  (/cmd-0 "new" help) (new-issue (machine-name))
-  (/cmd-1 "create-machine" 'machine-name help) (create-machine machine-name)
-  (/cmd-1 "close" 'issue-number help) (close-issue issue-number (machine-name))
-  ["help"] (put-str! help)
-  ["-h"] (put-str! help)
-  ["--help"] (put-str! help)
-  (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
-  [] (put-str! help))
+
+(machine/catch-daemon!
+ (fn []
+   (match args
+          (/list-cmd 'options) (list-items (machine-name) options)
+          (/cmd-1 "make-key" 'nick help) (make-key nick)
+          (/cmd-0 "new" help) (new-issue (machine-name))
+          (/cmd-1 "create-machine" 'machine-name help) (create-machine machine-name)
+          (/cmd-1 "close" 'issue-number help) (close-issue issue-number (machine-name))
+          ["help"] (put-str! help)
+          ["-h"] (put-str! help)
+          ["--help"] (put-str! help)
+          (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
+          [] (put-str! help))))
