@@ -117,6 +117,7 @@ instance PrettyV r => PrettyV (LangErrorData r) where
             <+> "has exports which are not defined:"
             <+> sep (prettyV . asValue . Atom <$> is)
         OtherError t -> "Error:" <+> pretty t
+        DaemonError t -> "Daemon error:" <+> pretty t
         SpecialForm f t -> "Error using special form" <+> pretty f <> ":" <+> pretty t <> "."
         ParseError t -> "Parser error:" <+> pretty (errorBundlePretty t)
         Exit code -> "Exit with code " <+> pretty code

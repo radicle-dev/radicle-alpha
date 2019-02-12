@@ -52,25 +52,25 @@ data MachineError
   | IpfsError IpfsError
   | AckTimeout
   | DaemonError Text
-  | MachineAlreadyCached
   | MachineNotCached
 
 data Error
   = MachineError MachineId MachineError
-  | CouldNotCreateMachine Text
+  | CouldNotCreateMachine IpfsError
 
 displayError :: Error -> (Text, [(Text,Text)])
 displayError = \case
-  CouldNotCreateMachine e -> ("Could not create IPFS machine", [("error", e)])
+  CouldNotCreateMachine (ipfsErr -> (msg, infos)) -> ("Could not create IPFS machine", ("message", msg) : infos)
   MachineError id e -> let mid = ("machine-id", getMachineId id) in
     case e of
-      InvalidInput err -> ("Invalid radicle input", [mid, ("error", renderCompactPretty err)])
-      DaemonError err -> ("Internal error", [mid, ("error", err)])
-      IpfsError e' -> case e' of
-        IpfsDaemonError err -> ("There was an error using IPFS", [mid, ("error", toS (displayException err))])
-        InternalError err -> ("Internal error", [mid, ("error", err)])
-        NetworkError err -> ("There was an error communicating with the IPFS daemon", [mid, ("error", err)])
-        Timeout -> ("Timeout communicating with IPFS daemon", [mid])
-      AckTimeout -> ("The writer appears to be offline", [mid])
-      MachineAlreadyCached -> ("Tried to add already cached machine", [mid])
+      InvalidInput err -> ("Invalid radicle input", [mid, ("radicle-error", renderCompactPretty err)])
+      IpfsError (ipfsErr -> (msg, infos)) -> (msg, mid : infos)
+      AckTimeout -> ("The machine owner appears to be offline", [mid])
       MachineNotCached -> ("Machine was not found in cache", [mid])
+      DaemonError err -> ("Internal error", [mid, ("error", err)])
+  where
+    ipfsErr = \case
+      IpfsDaemonErrMsg err -> ("The IPFS daemon returned an error", [("ipfs-error", err)])
+      IpfsDaemonException exc -> ("There was an error using the IPFS daemon", [("ipfs-error", toS (displayException exc))])
+      IpfsDaemonNoErrMsg -> ("There was an unknown error using IPFS", [])
+      Timeout -> ("Timeout communicating with IPFS daemon", [])

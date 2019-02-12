@@ -100,12 +100,15 @@
     (put-str! "=> Share this project id for people to collaborate with you on your project.")))
 
 (def args (get-args!))
-(match args
-  (/cmd-0 "init" help) (new-project!)
-  (/cmd-0 "show-id" help) (show-project-id)
-  (/cmd-1 "checkout" 'project-id help) (checkout! project-id)
-  ["help"] (put-str! help)
-  ["-h"] (put-str! help)
-  ["--help"] (put-str! help)
-  (/cons 'cmd _) (parse-failure (string-append "Unknown command: " cmd) help)
-  [] (put-str! help))
+
+(machine/catch-daemon!
+ (fn []
+   (match args
+          (/cmd-0 "init" help) (new-project!)
+          (/cmd-0 "show-id" help) (show-project-id)
+          (/cmd-1 "checkout" 'project-id help) (checkout! project-id)
+          ["help"] (put-str! help)
+          ["-h"] (put-str! help)
+          ["--help"] (put-str! help)
+          (/cons 'cmd _) (parse-failure (string-append "Unknown command: " cmd) help)
+          [] (put-str! help))))
