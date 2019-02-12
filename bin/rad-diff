@@ -1,10 +1,5 @@
 #!/usr/bin/env radicle
 
-;; TODO:
-;;   - don't use chain/make-chain-ref! when we don't need loading
-;;   - handle parsing numbers in cmd-parsing/validation logic
-
-
 (load! (find-module-file! "prelude.rad"))
 (load! (find-module-file! "monadic/diff.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
@@ -13,7 +8,7 @@
 (import prelude/cmd-parsing :unqualified)
 (import prelude/validation :as 'validation)
 
-(def chain-name (fn [] (get-rsm-of-type! :rad-diff)))
+(def machine-name (fn [] (get-rsm-of-type! :rad-diff)))
 
 (def valid-list-options
   ["--pending" "--retracted" "--accepted" "--rejected" "--fancy"])
@@ -27,7 +22,6 @@
 
    Usage:
         rad-diff list " list-opts-help "
-        rad-diff create-chain <chain-name>
         rad-diff propose <commit>
         rad-diff [retract|accept|reject|show] <diff-no>
         rad-diff comment <diff-no> <comment>
@@ -40,7 +34,6 @@
      retract      - Retract your own diff
      accept       - Accept a diff
      reject       - Reject a diff
-     create-chain - Create a new diffs chain
      help         - Print this help and exit
   "))
 
@@ -49,8 +42,8 @@
     (parse-failure error help)))
 
 (def verify-diff-number
-  (fn [diff-no chain-ref]
-    (match (lookup-default diff-no #f (list-diffs chain-ref))
+  (fn [diff-no machine]
+    (match (lookup-default diff-no #f (list-diffs machine))
       #f         (do
                    (put-str! (string-append "DIFF " (show diff-no) " does not exist."))
                    (exit! 1))
@@ -103,17 +96,16 @@
 
 (def checkout-diff!
   "Creates a new branch diff/<DIFF-ID> based on the DIFF, and switches to it."
-  (fn [chain diff-no]
-    (def chain-ref (chain/make-chain-ref! chain))
-    (def diff (verify-diff-number diff-no chain-ref))
+  (fn [machine diff-no]
+    (def diff (verify-diff-number diff-no machine))
     (match (process! "git" ["checkout" "-b" (string-append "diff/" (show diff-no))] "")
       :ok (apply-patch! (lookup :patch diff))
       _   (put-str! (string-append "Command 'git checkout -b diff/" (show diff-no) "' failed")))))
 
 (def push-diff!
   "Merges the DIFF to master, and pushes the changes."
-  (fn [chain-ref diff-no]
-    (def diff (verify-diff-number diff-no chain-ref))
+  (fn [machine diff-no]
+    (def diff (verify-diff-number diff-no machine))
     (process! "git" ["checkout" "master"] "")
     (match (apply-patch! (lookup :patch diff))
       :ok (do
@@ -123,8 +115,8 @@
             (exit! 1)))))
 
 (def new-diff!
-  "Creates a new diff on `chain` with a patch from the given `commit`."
-  (fn [chain commit]
+  "Creates a new diff on `machine` with a patch from the given `commit`."
+  (fn [machine commit]
     (verify-commit commit)
     (def patch (get-patch! commit))
     (def author-name (get-author-name! commit))
@@ -138,8 +130,8 @@
                :author-name   author-name
                :author-email  author-email
                :patch         patch})
-    (simple-create-diff! (chain/make-chain-ref! chain) diff)
-    (put-str! (string-append "Proposing " short-hash " to " chain))))
+    (simple-create-diff! machine diff)
+    (put-str! (string-append "Proposing " short-hash " to " machine))))
 
 ;; showing diffs
 
@@ -193,8 +185,7 @@
   "Lists all diffs and filters them by `options`. If `--new` is passed as an
   option only recent items are shown. If `--fancy is passed, the list is opened
   via fzf."
-  (fn [chain options]
-    (def chain-ref (chain/make-chain-ref! chain))
+  (fn [machine options]
 
     (def mk-key
       (fn [diff] [(pretty-headline diff) diff]))
@@ -207,7 +198,7 @@
   (def items
     (map mk-key
       (filter filt
-        (reverse (values (list-diffs chain-ref))))))
+        (reverse (values (list-diffs machine))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -230,42 +221,36 @@
                    (put-str!
                     (if (eq? added-comment "")
                       "Item was not updated."
-                      (do (simple-add-comment! chain-ref diff-number added-comment get-git-username!)
+                      (do (simple-add-comment! machine diff-number added-comment get-git-username!)
                           (string-append "Sent comment: " added-comment)))))
                _ (put-str! "No selection made."))
          (map (fn [d] (put-str! (first d))) items)))))
 
 (def show-diff!
   "Shows a single DIFF `n`"
-  (fn [chain-name n]
+  (fn [machine n]
     (if (number? n)
       (if (integral? n)
-        (do (def chain-ref (chain/make-chain-ref! chain-name))
-          (def diff (verify-diff-number n chain-ref))
+        (do
+          (def diff (verify-diff-number n machine))
           (put-str! (pretty-diff diff)))
         (cmd-parse-failure "Diff numbers must be whole numbers!"))
       (cmd-parse-failure "To show a diff, please provide the diff number."))))
 
-(def new-diff-chain!
-  "Create a new DIFF chain with the given URL"
-  (fn [chain-name]
-    (create-diffs-chain! chain-name)))
-
 (def edit-diff-state!
   "Edit the state of a DIFF. If the new state is `:accepted` the DIFF is then
   also merged to master and the changes pushed."
-  (fn [chain-name n new-state]
+  (fn [machine n new-state]
     (if (number? n)
       (if (integral? n)
         (do
-          (def chain-ref (chain/make-chain-ref! chain-name))
           (def edit-state-with-feedback!
             (fn [message]
-              (simple-edit-diff! chain-ref n {:state new-state})
+              (simple-edit-diff! machine n {:state new-state})
               (put-str! message)))
-          (verify-diff-number n chain-ref)
+          (verify-diff-number n machine)
           (if (eq? new-state :accepted)
-            (match (push-diff! chain-ref n)
+            (match (push-diff! machine n)
               :ok (edit-state-with-feedback!
                     (string-append "Diff " (show n) " has been " (pretty-state new-state) " and merged."))
               _   (exit! 1))
@@ -276,12 +261,12 @@
 
 (def create-comment!
   "Add a new `comment` to DIFF."
-  (fn [chain-name n comment]
+  (fn [machine n comment]
     (if (number? n)
       (if (integral? n)
-        (do (def chain-ref (chain/make-chain-ref! chain-name))
-          (verify-diff-number n chain-ref)
-          (simple-add-comment! chain-ref n comment get-git-username!)
+        (do
+          (verify-diff-number n machine)
+          (simple-add-comment! machine n comment get-git-username!)
           (put-str! (string-append "Added comment to Diff " (show n))))
         (cmd-parse-failure "Diff numbers must be whole numbers!"))
     (cmd-parse-failure "To create a comment, please provide the diff number."))))
@@ -299,15 +284,15 @@
 
 (def args (get-args!))
 (match args
-  (/list-cmd 'options) (list-items (chain-name) options)
-  (/cmd-1 "propose" 'commit help) (new-diff! (chain-name) commit)
-  (/cmd-1 "checkout" 'diff-no help) (checkout-diff! (chain-name) (read diff-no))
-  (/cmd-1 "show" 'diff-no help) (show-diff! (chain-name) (read diff-no))
-  (/cmd-1 "retract" 'diff-no help) (edit-diff-state! (chain-name) (read diff-no) :retracted)
-  (/cmd-1 "accept" 'diff-no help) (edit-diff-state! (chain-name) (read diff-no) :accepted)
-  (/cmd-1 "reject" 'diff-no help) (edit-diff-state! (chain-name) (read diff-no) :rejected)
-  ["comment" 'diff-no 'comment] (create-comment! (chain-name) (read diff-no) comment)
-  (/cmd-0 "create-chain" help) (new-diff-chain! (chain-name))
+  (/list-cmd 'options) (list-items (machine-name) options)
+  (/cmd-1 "propose" 'commit help) (new-diff! (machine-name) commit)
+  (/cmd-1 "checkout" 'diff-no help) (checkout-diff! (machine-name) (read diff-no))
+  (/cmd-1 "show" 'diff-no help) (show-diff! (machine-name) (read diff-no))
+  (/cmd-1 "retract" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :retracted)
+  (/cmd-1 "accept" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :accepted)
+  (/cmd-1 "reject" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :rejected)
+  ["comment" 'diff-no 'comment] (create-comment! (machine-name) (read diff-no) comment)
+  (/cmd-0 "create-machine" help) (new-diff-machine! (machine-name))
   ["help"] (put-str! help)
   ["-h"] (put-str! help)
   ["--help"] (put-str! help)

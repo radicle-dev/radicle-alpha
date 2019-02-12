@@ -8,8 +8,9 @@ Primitive functions
 -------------------
 
 Primitive functions are those that are built into the compiler. They are
-available on all chains but may be shadowed by later definitions. Those
-that end in a ``!`` are only available locally, not on 'pure' chains.
+available on all machines but may be shadowed by later definitions.
+Those that end in a ``!`` are only available locally, not on 'pure'
+machines.
 
 ``*``
 ~~~~~
@@ -1153,97 +1154,68 @@ full absolute path of the created file.
 Bypass reading the keys from ``my-keys.rad``. This is intended for
 testing.
 
-``prelude/chain``
------------------
+``prelude/machine``
+-------------------
 
-Functions for simulating remote chains.
+Functions for simulating remote machines.
 
-``(new-chain url)``
-~~~~~~~~~~~~~~~~~~~
-
-Return an empty chain dictionary with the given url.
-
-``(load-chain! url)``
+``(eval expr state)``
 ~~~~~~~~~~~~~~~~~~~~~
 
-Takes a ``url``, and fetches the inputs of a remote chain and return a
-chain dictionary with the chain state.
+Evaluation function that adds :test macro to register tests.
 
-``(eval-in-chain expr chain)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Evaluates ``expr`` in the ``chain`` and returns a dict with the
-``:result`` and the resulting ``:chain``.
-
-``(update-chain-ref! chain-ref)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Update ``chain-ref`` containing a chain with the new expressions from
-the remote chain
-
-``(eval expr env)``
-~~~~~~~~~~~~~~~~~~~
-
-An eval in which one can use ``(:enter-chain url)`` to make the eval
-behave as that of a remote chain, and ``:send`` to send all enqueued
-expressions.
-
-``(update-chain! chain)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Takes a chain, and returns a new chain updated with the new expressions
-from the remote chain
-
-``(send-prelude! chain-id)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Send the pure prelude to a chain.
-
-``(send-signed-command! chain chain-id cmd payload)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Send a command signed by the keys in ``my-keys.rad``.
-
-``(sign-entity! e chain-id)``
+``(updatable-eval sub-eval)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Assumes a key pair is stored at ``my-keys.rad``. Using that key pair,
-will sign a dict by adding ``:author`` and ``:signature`` fields, so
-that it is valid according to ``validator/signed``, while also adding a
-``:nonce``.
+Given an evaluation function ``f``, returns a new one which augments
+``f`` with a new command ``(update expr)`` which evaluates arbitrary
+expression using ``base-eval``.
 
-``(send-code! chain-id filename)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(eval-fn-app state f arg cb)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Send code from a file to a remote chain.
+Given a state, a function, an argument and a callback, returns the
+result of evaluating the function call on the arg in the given state,
+while also calling the callback on the result.
+
+``(send-prelude! machine-id)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send the pure prelude to a machine.
+
+``(new-machine!)``
+~~~~~~~~~~~~~~~~~~
+
+Creates a new machine. Returns the machine name.
+
+``(send-code! machine-id filename)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send code from a file to a remote machine.
 
 ``(send! machine-id inputs)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Update a machine with the vector of ``inputs`` to evaluate. Returns an
-index that identifies that last input. This index can be passed to
-``receive!``
+Update a machine with the vector of ``inputs`` to evaluate. Returns a
+vector with the evaluation results.
 
-``(receive! machine-id index)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(query! machine-id expr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Get inputs from a machine. Returns a ``[index inputs]`` pair where
-``inputs`` is a vector of expressions and ``index`` is the index of the
-last input in ``inputs``. The ``index`` argument is either ``:nothing``
-in which case all inputs are fetched or ``[:just i]`` in which case all
-inputs following after the index ``i`` are fetched.
+Send an expression to be evaluated on a machine. Does not alter the
+machine.
 
-``(make-chain-ref! chain)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(install-remote-machine-fake)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Makes a new ref containing the loaded chain.
+Install test doubles for the ``send!``, ``query!``, and
+``new-machine! primitives that use a mutable dictionary to store RSMs. Requires``\ rad/test/stub-primitives\`
+to be loaded
 
-``(install-remote-chain-fake)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(send-signed-command! machine machine-id cmd payload)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Install test doubles for the ``send!`` and ``receive!`` primitives that
-use a mutable dictionary to store RSMs. Requires
-``rad/test/stub-primitives`` to be loaded
+Send a command signed by the keys in ``my-keys.rad``.
 
 ``prelude/state-machine``
 -------------------------

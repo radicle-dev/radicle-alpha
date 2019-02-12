@@ -19,9 +19,11 @@ import qualified Network.HTTP.Client as HttpClient
 import qualified Servant.Client as Servant
 import           System.Environment
 
-import           Radicle
 import           Radicle.Daemon.HttpApi
+import           Radicle.Internal.Core
+import           Radicle.Internal.Identifier
 import qualified Radicle.Internal.PrimFns as PrimFns
+import           Radicle.Internal.Type
 
 
 -- | Constraints for all client functions

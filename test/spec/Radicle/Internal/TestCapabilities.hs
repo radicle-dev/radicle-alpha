@@ -81,7 +81,8 @@ runPureCode code =
 runCodeWithWorld :: WorldState -> Text -> IO (Either (LangError Value) Value, [Text])
 runCodeWithWorld ws code = do
     let prog = interpretMany "[test]" code
-    (result, ws') <- runStateT (fst <$> runLang testBindings prog) ws
+    bindings <- testBindings
+    (result, ws') <- runStateT (fst <$> runLang bindings prog) ws
     pure $ (result, worldStateStdout ws')
 
 -- | Loads the content for all radicle sources in the "./rad" folder.
@@ -97,8 +98,8 @@ sourceFiles = do
     pure $ Map.fromList filesWithContent
 
 -- | Bindings with REPL and client stuff mocked.
-testBindings :: Bindings (PrimFns (StateT WorldState IO))
-testBindings = addPrimFns memoryMachineBackendPrimFns (replBindings [])
+testBindings :: IO (Bindings (PrimFns (StateT WorldState IO)))
+testBindings = addPrimFns memoryMachineBackendPrimFns <$> createImpureBindings []
 
 -- | Provides a fake implementation of the @eval-server" machine
 -- backend that store chains in a 'Map' in the 'WorldState'.

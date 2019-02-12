@@ -30,8 +30,10 @@ import qualified Data.Sequence as Seq
 import qualified Data.Unique as Unique
 import qualified Network.HTTP.Client as Http
 
-import           Radicle
+import           Radicle.Internal.Core
 import qualified Radicle.Internal.MachineBackend.Ipfs as Ipfs
+import           Radicle.Internal.Parse
+import           Radicle.Internal.Pretty
 import qualified Radicle.Internal.UUID as UUID
 import qualified Radicle.Ipfs as Ipfs
 

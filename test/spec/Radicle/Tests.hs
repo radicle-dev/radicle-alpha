@@ -836,19 +836,6 @@ test_cbor =
                     <> "\nGot\n\t" <> show got
             counterexample info $ got == expected
 
-test_macros :: [TestTree]
-test_macros =
-    [ testCase ":enter-chain keeps old bindings" $ do
-        let input = [ "(def x 0)"
-                    , "(:enter-chain \"http://blah\")"
-                    , "(def x 1)"
-                    , ":quit"
-                    , "x"
-                    ]
-        assertReplInteraction input ["0"]
-    ]
-
-
 -- * Utils
 
 kw :: Text -> Value

@@ -1,7 +1,7 @@
 ;; Helpers for setting up and interacting with project RSMs
 
 (import prelude/lens :unqualified)
-(import prelude/chain '[send-code! send-signed-command! make-chain-ref!] :unqualified)
+(import prelude/machine '[send-code! send-signed-command! new-machine!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
 (import prelude/key-management '[use-fake-keys!] :unqualified)
@@ -21,70 +21,70 @@
 
 (def set-meta!
   "Set the metadata for a project"
-  (fn [chain i]
-    (send-signed-command! chain rsm-id 'set-meta i)))
+  (fn [machine i]
+    (send-signed-command! machine rsm-id 'set-meta i)))
 
 (def get-meta!
   "Get the metadata for a project"
-  (fn [chain]
-    (lookup :result (chain/eval-in-chain '(get-meta) (read-ref chain)))))
+  (fn [machine]
+    (machine/query! machine '(get-meta))))
 
 (def create-project!
   "Create a remote project RSM with the given url."
-  (fn [url meta]
-    (chain/send-prelude! url)
-    (send-code! url (find-module-file! "monadic/project-remote.rad"))
-    (set-meta! (ref {:url url}) meta)))
+  (fn [meta]
+    (def id (new-machine!))
+    (machine/send-prelude! id)
+    (send-code! id (find-module-file! "monadic/project-remote.rad"))
+    (set-meta! id meta)
+    id))
 
 (def add-rsm!
   "Add a new RSM to the project."
-  (fn [chain i]
-    (send-signed-command! chain rsm-id 'add-rsm i)))
+  (fn [machine i]
+    (send-signed-command! machine rsm-id 'add-rsm i)))
 
 (def list-rsms!
   "List RMSs of the project."
-  (fn [chain]
-    (lookup :result (chain/eval-in-chain '(list-rsms) (read-ref chain)))))
+  (fn [machine]
+    (machine/query! machine '(list-rsms))))
 
 (def add-issues-rsm!
-  (fn [chain id]
-    (add-rsm! chain { :id id :type :rad-issues })))
+  (fn [machine id]
+    (add-rsm! machine { :id id :type :rad-issues })))
 
 (def add-diff-rsm!
-  (fn [chain id]
-    (add-rsm! chain { :id id :type :rad-diff })))
+  (fn [machine id]
+    (add-rsm! machine { :id id :type :rad-diff })))
 
 (def add-repo-rsm!
-  (fn [chain id]
-    (add-rsm! chain { :id id :type :rad-repo })))
+  (fn [machine id]
+    (add-rsm! machine { :id id :type :rad-repo })))
 
 (def first-rsm-of-type!
-  (fn [chain typ]
-    (first (filter (fn [x] (eq? (lookup :type x) typ)) (list-rsms! chain)))))
+  (fn [machine typ]
+    (first (filter (fn [x] (eq? (lookup :type x) typ)) (list-rsms! machine)))))
 
 (def get-rsm-of-type!
   "Gets the project via get-project-url, and looks in the project for an RSM
    of the specified type. The `:id` of the first matching RSM is returned."
   (fn [rsm-type]
-    (lookup :id (first-rsm-of-type! (make-chain-ref! (get-project-url!)) rsm-type))))
+    (lookup :id (first-rsm-of-type! (get-project-url!) rsm-type))))
 
-(:test "The monadic project chain works."
+(:test "The monadic project machine works."
 
  [:setup
-  (do (chain/install-remote-chain-fake)
+  (do (machine/install-remote-machine-fake)
       (install-fake-clock)
       (use-fake-keys!)
-      (def chain-name "http://bar")
-      (def chain (ref (chain/new-chain chain-name)))
-      (create-project! chain-name { :name "test" :description "test project"})
-      (add-issues-rsm! chain "a")
-      (add-diff-rsm! chain "b")
-      (add-repo-rsm! chain "c")
-      (fetch! chain))
+      (def machine-name "http://bar")
+      (def machine (create-project! {:name "test" :description "test project"}))
+      (add-issues-rsm! machine "a")
+      (add-diff-rsm! machine "b")
+      (add-repo-rsm! machine "c"))
   ]
 
-  [ (get-meta! chain) ==> { :name "test" :description "test project" }]
-  [ (lookup :id (first-rsm-of-type! chain :rad-issues)) ==> "a" ]
-  [ (lookup :id (first-rsm-of-type! chain :rad-diff)) ==> "b" ]
-  [ (lookup :id (first-rsm-of-type! chain :rad-repo)) ==> "c" ]
+  [ (get-meta! machine) ==> { :name "test" :description "test project" }]
+  [ (lookup :id (first-rsm-of-type! machine :rad-issues)) ==> "a" ]
+  [ (lookup :id (first-rsm-of-type! machine :rad-diff)) ==> "b" ]
+  [ (lookup :id (first-rsm-of-type! machine :rad-repo)) ==> "c" ]
 )

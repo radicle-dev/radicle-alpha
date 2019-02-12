@@ -30,7 +30,7 @@ import           Servant.API
 import           Servant.Swagger
 
 import qualified Paths_radicle as Radicle
-import           Radicle
+import           Radicle.Internal.Core
 
 instance FromHttpApiData MachineId where
     parseUrlPiece = Right . MachineId . toS

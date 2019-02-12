@@ -1,4 +1,4 @@
-{:module 'prelude/chain-remote
+{:module 'prelude/machine-remote
  :doc "Functions for writing remote RSMs"
  :exports '[make-updatable-eval]}
 

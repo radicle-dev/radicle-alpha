@@ -84,6 +84,7 @@ module Radicle
     , replPrimFns
     , addPrimFns
     , ReplM
+    , createImpureBindings
 
     -- * CLI
     , getHistoryFile
