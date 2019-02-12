@@ -14,6 +14,7 @@ module Radicle.Ipfs
     , DagPutResponse(..)
     , dagPut
     , dagGet
+    , pinAdd
 
     , namePublish
     , NameResolveResponse(..)
@@ -198,12 +199,14 @@ instance FromJSON PinResponse where
       Left _     -> fail "invalid CID"
       Right cids -> pure $ PinResponse cids
 
--- | Get and pin a DAG node.
+-- | Pin objects to local storage.
+pinAdd :: Address -> IO PinResponse
+pinAdd addr = ipfsHttpGet "pin/add" [("arg", addressToText addr)]
+
+-- | Get a dag node.
 dagGet :: FromJSON a => Address -> IO a
 dagGet addr = do
-    let params = [("arg", addressToText addr)]
-    result <- ipfsHttpGet "dag/get" params
-    PinResponse _ <- ipfsHttpGet "pin/add" params
+    result <- ipfsHttpGet "dag/get" [("arg", addressToText addr)]
     case Aeson.fromJSON result of
         Aeson.Error _   -> throw $ IpfsException $ "Invalid machine log entry at " <> addressToText addr
         Aeson.Success a -> pure a
