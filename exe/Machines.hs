@@ -6,7 +6,6 @@ module Machines
 import           Protolude hiding (option)
 
 import           Control.Exception.Safe
-import qualified Network.HTTP.Client as HttpClient
 import           Options.Applicative
 import qualified Radicle.Daemon.Client as Client
 
@@ -25,8 +24,8 @@ programParserInfo =
 
 runCommand :: Command -> IO ()
 runCommand CommandCreate = do
-    httpManager <- HttpClient.newManager HttpClient.defaultManagerSettings
-    runExceptT (Client.newMachine httpManager) >>= \case
+    client <- Client.newClient
+    runExceptT (Client.newMachine client) >>= \case
         Left err -> throw err
         Right (Client.MachineId machineId) -> putStrLn machineId
 
