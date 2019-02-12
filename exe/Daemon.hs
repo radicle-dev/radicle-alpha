@@ -30,10 +30,6 @@ import           Radicle.Daemon.Ipfs
 import qualified Radicle.Internal.CLI as Local
 import qualified Radicle.Internal.ConcurrentMap as CMap
 
-
--- TODO(james): Check that the IPFS functions are doing all the
--- necessary pinning.
-
 -- * Types
 
 data MachineError

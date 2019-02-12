@@ -127,7 +127,7 @@ safeIpfs io = ExceptT $ liftIO $
       _ -> Timeout
 
 
--- | Write some inputs to an IPFS machine.
+-- | Write and pin some inputs to an IPFS machine.
 -- TODO: we might want to make this safer by taking the expected head
 -- MachineEntryIndex as an argument.
 writeIpfs :: MachineId -> [Value] -> ExceptT IpfsError IO Ipfs.MachineEntryIndex
@@ -153,7 +153,7 @@ subscribeForever id messageHandler = Ipfs.subscribe topic pubsubHandler
       Just msg -> Right msg
       Nothing  -> Left (toS messageData)
 
--- | Get inputs of an IPFS machine from a certain index.
+-- | Get and pin inputs of an IPFS machine from a certain index.
 machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT IpfsError IO (Ipfs.MachineEntryIndex, [Value])
 machineInputsFrom (MachineId id) = safeIpfs . Ipfs.receiveIpfs id
 

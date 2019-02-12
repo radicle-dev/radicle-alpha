@@ -92,6 +92,7 @@ ipfsMachineBackend =
                 pure $ first (toS . displayException) res
         }
 
+-- | Write and pin a sequence of expressions to a machine.
 sendIpfs :: Text -> Seq Value -> IO MachineEntryIndex
 sendIpfs ipnsId values = do
     Ipfs.NameResolveResponse cid <- Ipfs.nameResolve ipnsId
@@ -99,6 +100,8 @@ sendIpfs ipnsId values = do
     Ipfs.namePublish ipnsId $ Ipfs.AddressIpfs newEntryCid
     pure $ MachineEntryIndex newEntryCid
 
+-- | Get a sequence of expressions from a machine, starting from an entry
+-- index. Pins the received expressions.
 receiveIpfs :: Ipfs.IpnsId -> Maybe MachineEntryIndex -> IO (MachineEntryIndex, [Value])
 receiveIpfs ipnsId maybeFrom = do
     let MachineEntryIndex fromCid = fromMaybe (MachineEntryIndex emtpyMachineCid) maybeFrom
@@ -111,7 +114,9 @@ receiveIpfs ipnsId maybeFrom = do
         if cid == fromCid || cid == emtpyMachineCid
         then pure []
         else do
-            entry <- Ipfs.dagGet (Ipfs.AddressIpfs cid)
+            let addr = Ipfs.AddressIpfs cid
+            entry <- Ipfs.dagGet addr
+            _ <- Ipfs.pinAdd addr
             rest <- getBlocks (entryPrevious entry) fromCid
             pure $ rest <> entryExpressions entry
 
