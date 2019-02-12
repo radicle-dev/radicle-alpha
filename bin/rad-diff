@@ -85,31 +85,48 @@
 
 (def apply-patch!
   "Given a patch, apply it to the current branch"
-  (fn [patch]
+  (fn [patch msg]
     (def file (unlines (shell-with-stdout! "mktemp" "")))
     (put-str! file)
     (write-file! file patch)
-    (process! "git" ["am" file] "")))
+    (process-git-with-exit! ["am" file] msg)))
 
 (def checkout-diff!
   "Creates a new branch diff/<DIFF-ID> based on the DIFF, and switches to it."
   (fn [machine diff-no]
     (def diff (verify-diff-number diff-no machine))
-    (match (process! "git" ["checkout" "-b" (string-append "diff/" (show diff-no))] "")
-      :ok (apply-patch! (lookup :patch diff))
-      _   (put-str! (string-append "Command 'git checkout -b diff/" (show diff-no) "' failed")))))
+    (process-git-with-exit!
+      ["checkout" "-b" (string-append "diff/" (show diff-no))]
+      (string-append "Creating and switching to branch diff/" (show diff-no) "' failed."))
+    (apply-patch!
+      (lookup :patch diff)
+      (string-append
+        "Applying the patch failed.\n"
+        "Resolve any conflicts and run 'git am --continue', \n"
+        "or 'git am --abort' to abort."))))
 
 (def push-diff!
   "Merges the DIFF to master, and pushes the changes."
   (fn [machine diff-no]
     (def diff (verify-diff-number diff-no machine))
-    (process! "git" ["checkout" "master"] "")
-    (match (apply-patch! (lookup :patch diff))
-      :ok (do
-            (process! "git" ["push"] ""))
-      _   (do
-            (put-str! "Resolve any conflicts and then run 'git push'")
-            (exit! 1)))))
+    (process-git-with-exit!
+      ["checkout" "master"]
+      (string-append
+        "Checkout branch master failed.\n"
+        "Refusing to continue."))
+    (apply-patch!
+      (lookup :patch diff)
+      (string-append
+        "Applying the patch failed.\n"
+        "Resolve any conflicts and and then run 'git push', \n"
+        "or 'git am --abort' to abort."))
+    (process-git-with-exit!
+      ["push"]
+      (string-append
+        "Pushing the diff failed.\n"
+        "This may be because you have no internet connection, "
+        "you are not authorized to push to origin, "
+        "or the remote is currently not reachable."))))
 
 (def new-diff!
   "Creates a new diff on `machine` with a patch from the given `commit`."
