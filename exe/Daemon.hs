@@ -23,7 +23,7 @@ import           Radicle.Daemon.Common hiding (logInfo)
 import qualified Radicle.Daemon.Common as Common
 import qualified Radicle.Internal.UUID as UUID
 
-import           Radicle hiding (Env, DaemonError)
+import           Radicle hiding (DaemonError, Env)
 import qualified Radicle.Daemon.HttpApi as Api
 import           Radicle.Daemon.Ipfs
 import           Radicle.Daemon.Monad
@@ -129,8 +129,8 @@ server env = hoistServer Api.daemonApi nt daemonServer
         errCode = case err of
           MachineError _ e -> case e of
             InvalidInput _ -> err400
-            AckTimeout -> err504
-            _ -> err500
+            AckTimeout     -> err504
+            _              -> err500
           CouldNotCreateMachine _ -> err500
 
 -- * Init

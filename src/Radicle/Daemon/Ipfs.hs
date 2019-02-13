@@ -165,7 +165,7 @@ createMachine :: ExceptT IpfsError IO MachineId
 createMachine = do
   id_ <- safeIpfs $ second MachineId <$> (Ipfs.ipfsMachineCreate =<< UUID.uuid)
   case id_ of
-    Left e -> throwError (IpfsDaemonErrMsg e)
+    Left e   -> throwError (IpfsDaemonErrMsg e)
     Right id -> pure id
 
 -- * Topic subscriptions
