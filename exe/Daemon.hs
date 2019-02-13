@@ -29,6 +29,7 @@ import           Radicle.Daemon.Ipfs
 import           Radicle.Daemon.Monad
 import qualified Radicle.Internal.CLI as Local
 import qualified Radicle.Internal.ConcurrentMap as CMap
+import qualified Radicle.Ipfs as Ipfs
 
 -- * Types
 
@@ -148,8 +149,8 @@ init follows = traverse_ initMachine (Map.toList follows)
 -- /writer/.
 newMachine :: Daemon Api.NewResponse
 newMachine = do
-    id <- liftExceptT CouldNotCreateMachine createMachine
-    sub <- ipfs id $ initSubscription id
+    id <- createMachine `ipfs` CouldNotCreateMachine
+    sub <- machineIpfs id $ initSubscription id
     logInfo Normal "Created new IPFS machine" [("machine-id", getMachineId id)]
     m <- liftIO $ emptyMachine id Writer sub
     insertNewMachine id (Cached m)
@@ -205,15 +206,15 @@ send id (Api.SendRequest expressions) = do
       let isResponse = \case
             New InputsApplied{ nonce = Just nonce' } | nonce' == nonce -> True
             _ -> False
-      asyncMsg <- liftIO $ async $ subscribeOne sub ackWaitTime isResponse (logNonDecodableMsg id)
-      ipfs id $ publish id (Submit SubmitInputs{..})
+      asyncMsg <- machineIpfs id $ async $ subscribeOne sub ackWaitTime isResponse (logNonDecodableMsg id)
+      machineIpfs id $ publish id (Submit SubmitInputs{..})
       logInfo Debug
               "Sent input request to writer"
               [ ("machine-id", getMachineId id)
               , ("expressions", prValues expressions) ]
-      msg_ <- liftIO $ waitCatch asyncMsg
+      msg_ <- machineIpfs id $ wait asyncMsg
       case msg_ of
-        Right (Just (New InputsApplied{results})) -> do
+        Just (New InputsApplied{results}) -> do
           logInfo Normal
                  "Writer accepted input request"
                  [ ("machine-id", getMachineId id)
@@ -221,9 +222,9 @@ send id (Api.SendRequest expressions) = do
                  ]
           bumpPolling id
           pure Api.SendResponse{..}
-        Right Nothing -> throwError $ MachineError id AckTimeout
-        Right _ -> throwError $ MachineError id (DaemonError "Didn't filter machine topic messages correctly.")
-        Left err -> throwError $ MachineError id (DaemonError (toS (displayException err)))
+        Just _ -> throwError $ MachineError id (DaemonError "Didn't filter machine topic messages correctly.")
+        Nothing -> throwError $ MachineError id AckTimeout
+
 
     prValues = T.intercalate "," . (renderCompactPretty <$>)
 
@@ -299,6 +300,8 @@ logNonDecodableMsg :: MachineId -> Text -> IO ()
 logNonDecodableMsg (MachineId id) bad =
   Common.logInfo "Non-decodable message on machine's pubsub topic" [("machine-id", id), ("message", bad)]
 
+-- | Turns a 'Daemon' subscription handler into an IO one. Errors which are
+-- encountered in a subscription handler are just logged.
 daemonHandler :: Env -> MachineId -> (Message -> Daemon ()) -> Either Text Message -> IO ()
 daemonHandler _ id _ (Left bad) = logNonDecodableMsg id bad
 daemonHandler env _ h (Right msg) = do
@@ -310,8 +313,8 @@ daemonHandler env _ h (Right msg) = do
 -- | Loads a machine fresh from IPFS.
 loadMachine :: ReaderOrWriter -> MachineId -> Daemon Machine
 loadMachine mode id = do
-  (idx, is) <- ipfs id $ machineInputsFrom id Nothing
-  sub <- ipfs id $ initSubscription id
+  (idx, is) <- machineIpfs id $ machineInputsFrom id Nothing
+  sub <- machineIpfs id $ initSubscription id
   m <- liftIO $ emptyMachine id mode sub
   (m', _) <- addInputs is (pure idx) (const (pure ())) m
   insertNewMachine id (Cached m')
@@ -341,8 +344,17 @@ addInputs is getIdx after m =
       after rs
       pure (m', (rs, idx))
 
-ipfs :: MachineId -> ExceptT IpfsError IO a -> Daemon a
-ipfs id = liftExceptT (MachineError id . IpfsError)
+-- | Run some IPFS IO.
+ipfs :: IO a -> (Ipfs.IpfsException -> Error) -> Daemon a
+ipfs io err = do
+  res <- liftIO $ (Right <$> io) `catch` \(e :: Ipfs.IpfsException) -> pure (Left e)
+  case res of
+    Left e  -> throwError (err e)
+    Right x -> pure x
+
+-- | Run some IPFS IO related to a specific machine.
+machineIpfs :: MachineId -> IO a -> Daemon a
+machineIpfs id io = ipfs io (MachineError id . IpfsError)
 
 -- | Do some high-freq polling for a while.
 bumpPolling :: MachineId -> Daemon ()
@@ -438,7 +450,7 @@ refreshAsReader id = modifyMachine id refresh
   where
     refresh m = do
       let currentIdx = machineLastIndex m
-      (newIdx, is) <- ipfs id $ machineInputsFrom (machineId m) currentIdx
+      (newIdx, is) <- machineIpfs id $ machineInputsFrom (machineId m) currentIdx
       if currentIdx == Just newIdx
         then do
           logInfo Debug
@@ -487,8 +499,8 @@ writeInputs id is nonce = do
                                          , ("new-input-index", show idx) ]
     pure rs
   where
-    write = ipfs id $ writeIpfs id is
-    pub results = ipfs id $ publish id (New InputsApplied{..})
+    write = machineIpfs id $ writeIpfs id is
+    pub results = machineIpfs id $ publish id (New InputsApplied{..})
 
 -- * Polling
 

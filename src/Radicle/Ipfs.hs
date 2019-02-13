@@ -25,7 +25,7 @@ module Radicle.Ipfs
     , subscribe
     ) where
 
-import           Protolude hiding (TypeError, catch, try)
+import           Protolude hiding (TypeError, catch, catches, try)
 
 import           Control.Exception.Safe
 import           Control.Monad.Fail
@@ -38,6 +38,7 @@ import           Data.Conduit ((.|))
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Attoparsec as C
 import qualified Data.Conduit.Combinators as C
+import qualified Data.HashMap.Strict as HashMap
 import           Data.IPLD.CID
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -45,26 +46,46 @@ import           Lens.Micro ((.~), (^.))
 import           Network.HTTP.Client
                  (HttpException(..), HttpExceptionContent(..))
 import qualified Network.HTTP.Client as HTTP
+import qualified Network.HTTP.Client as Http
 import qualified Network.HTTP.Conduit as HTTP
 import qualified Network.Wreq as Wreq
 import           System.Environment (lookupEnv)
 
 data IpfsException
-    = IpfsException Text
-    -- | JSON response from the IPFS Api cannot be parsed. First
-    -- argument is the request path, second argument the JSON parsing
-    -- error
-    | IpfsExceptionInvalidResponse Text Text
-    -- | The IPFS daemon is not running.
-    | IpfsExceptionNoDaemon
-    deriving (Show, Eq)
+  = IpfsException Text
+  | IpfsExceptionErrResp Text
+  | IpfsExceptionErrRespNoMsg
+  -- | The request to the IPFS daemon timed out.
+  | IpfsExceptionTimeout
+  -- | JSON response from the IPFS Api cannot be parsed. First
+  -- argument is the request path, second argument the JSON parsing
+  -- error
+  | IpfsExceptionInvalidResponse Text Text
+  -- | The IPFS daemon is not running.
+  | IpfsExceptionNoDaemon
+  deriving (Show)
 
 instance Exception IpfsException where
-    displayException (IpfsException msg) = "ipfs: " <> toS msg
-    displayException IpfsExceptionNoDaemon = "ipfs: Daemon not reachable, run 'rad ipfs daemon"
-    displayException (IpfsExceptionInvalidResponse url _) = "ipfs: Cannot parse IPFS daemon response for " <> toS url
+    displayException = \case
+      IpfsException msg -> "ipfs: " <> toS msg
+      IpfsExceptionNoDaemon -> "ipfs: Daemon not reachable, run 'rad ipfs daemon'"
+      IpfsExceptionInvalidResponse url _ -> "ipfs: Cannot parse IPFS daemon response for " <> toS url
+      IpfsExceptionTimeout -> "ipfs: Daemon took too long to respond"
+      IpfsExceptionErrResp msg -> "ipfs: " <> toS msg
+      IpfsExceptionErrRespNoMsg -> "ipfs: filed with no error message"
 
-
+-- | Turn HTTP exceptions into 'IpfsException's.
+catchHttp :: forall a. IO a -> IO a
+catchHttp io = catch io httpHdlr
+  where
+    httpHdlr = \case
+      Http.HttpExceptionRequest _
+        (Http.StatusCodeException _
+          (Aeson.decodeStrict ->
+             Just (Aeson.Object (HashMap.lookup "Message" ->
+                     Just (Aeson.String msg))))) -> throw (IpfsExceptionErrResp msg)
+      Http.HttpExceptionRequest _ Http.ResponseTimeout -> throw IpfsExceptionTimeout
+      _ -> throw IpfsExceptionErrRespNoMsg
 
 -- | Given a CID @"abc...def"@ it returns a IPLD link JSON object
 -- @{"/": "abc...def"}@.
@@ -135,7 +156,7 @@ instance FromJSON PubsubMessage where
 -- The IO action blocks while we are subscribed. To stop subscription
 -- you need to kill the thread the subscription is running in.
 subscribe :: Text -> (PubsubMessage -> IO ()) -> IO ()
-subscribe topic messageHandler = runResourceT $ do
+subscribe topic messageHandler = catchHttp $ runResourceT $ do
     mgr <- liftIO $ HTTP.newManager HTTP.defaultManagerSettings
     req <- HTTP.parseRequest "http://localhost:9301/api/v0/pubsub/sub" <&>
         HTTP.setQueryString
@@ -163,12 +184,12 @@ subscribe topic messageHandler = runResourceT $ do
 -- | Publish a message to a topic.
 publish :: Text -> LByteString -> IO ()
 publish topic message =
-    void $ ipfsHttpPost' "pubsub/pub" [("arg", topic)] "data" message
+    catchHttp $ void $ ipfsHttpPost' "pubsub/pub" [("arg", topic)] "data" message
 
 newtype KeyGenResponse = KeyGenResponse IpnsId
 
 keyGen :: Text -> IO KeyGenResponse
-keyGen name = ipfsHttpGet "key/gen" [("arg", name), ("type", "ed25519")]
+keyGen name = catchHttp $ ipfsHttpGet "key/gen" [("arg", name), ("type", "ed25519")]
 
 instance FromJSON KeyGenResponse where
     parseJSON = Aeson.withObject "ipfs key/gen" $ \o ->
@@ -180,7 +201,7 @@ newtype DagPutResponse
 
 -- | Put and pin a dag node.
 dagPut :: ToJSON a => a -> IO DagPutResponse
-dagPut obj = ipfsHttpPost "dag/put" [("pin", "true")] "arg" (Aeson.encode obj)
+dagPut obj = catchHttp $ ipfsHttpPost "dag/put" [("pin", "true")] "arg" (Aeson.encode obj)
 
 instance FromJSON DagPutResponse where
     parseJSON = Aeson.withObject "v0/dag/put response" $ \o -> do
@@ -201,18 +222,18 @@ instance FromJSON PinResponse where
 
 -- | Pin objects to local storage.
 pinAdd :: Address -> IO PinResponse
-pinAdd addr = ipfsHttpGet "pin/add" [("arg", addressToText addr)]
+pinAdd addr = catchHttp $ ipfsHttpGet "pin/add" [("arg", addressToText addr)]
 
 -- | Get a dag node.
 dagGet :: FromJSON a => Address -> IO a
-dagGet addr = do
+dagGet addr = catchHttp $ do
     result <- ipfsHttpGet "dag/get" [("arg", addressToText addr)]
     case Aeson.fromJSON result of
         Aeson.Error _   -> throw $ IpfsException $ "Invalid machine log entry at " <> addressToText addr
         Aeson.Success a -> pure a
 
 namePublish :: IpnsId -> Address -> IO ()
-namePublish ipnsId addr = do
+namePublish ipnsId addr = catchHttp $ do
     _ :: Aeson.Value <- ipfsHttpGet "name/publish" [("arg", addressToText addr), ("key", ipnsId)]
     pure ()
 
@@ -221,7 +242,7 @@ newtype NameResolveResponse
     = NameResolveResponse CID
 
 nameResolve :: IpnsId -> IO NameResolveResponse
-nameResolve ipnsId = ipfsHttpGet "name/resolve" [("arg", ipnsId), ("recursive", "true")]
+nameResolve ipnsId = catchHttp $ ipfsHttpGet "name/resolve" [("arg", ipnsId), ("recursive", "true")]
 
 instance FromJSON NameResolveResponse where
     parseJSON = Aeson.withObject "v0/name/resolve response" $ \o -> do
