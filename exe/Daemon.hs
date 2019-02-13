@@ -69,7 +69,8 @@ opts = Opts
        <> showDefault
         )
 
-main :: IO ()
+-- We use 'Void' to enforce the use of 'exitFailure'
+main :: IO Void
 main = do
     hSetBuffering stdout LineBuffering
     Opts{..} <- execParser allOpts
@@ -80,7 +81,9 @@ main = do
     follows <- readFollowFileIO followFileLock followFile
     initRes <- runDaemon env (init follows)
     case initRes of
-      Left err -> logErr "Init failed" [] >> logDaemonError err
+      Left err -> do
+        logDaemonError err
+        exitFailure
       Right _ -> do
         polling <- async $ initPolling env
         let app = serve Api.daemonApi (server env)
@@ -88,10 +91,16 @@ main = do
         serv <- async $ run port app
         exc <- waitEitherCatchCancel polling serv
         case exc of
-          Left (Left err) -> logErr "Polling failed with an exception" [("error", toS (displayException err))]
+          Left (Left err) -> do
+            logErr "Polling failed with an exception" [("error", toS (displayException err))]
+            exitFailure
           Left (Right void') -> absurd void'
-          Right (Left err) -> logErr "Server failed with an exception" [("error", toS (displayException err))]
-          Right (Right ()) -> logErr "Server stopped (this should not happen)" []
+          Right (Left err) -> do
+            logErr "Server failed with an exception" [("error", toS (displayException err))]
+            exitFailure
+          Right (Right ()) -> do
+            logErr "Server stopped (this should not happen)" []
+            exitFailure
   where
     allOpts = info (opts <**> helper)
         ( fullDesc
