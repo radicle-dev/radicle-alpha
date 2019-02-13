@@ -7,6 +7,17 @@
 
 set -eo pipefail
 
+vendored_ipfs=/usr/lib/radicle/bin/ipfs
+if which ipfs >/dev/null 2>/dev/null; then
+  ipfs=ipfs
+elif [ -f "$vendored_ipfs" ]; then
+  ipfs=$vendored_ipfs
+else
+  echo "ERROR: Command not found: ipfs" 1>&2
+  echo "To install IPFS follow the instructions here: https://docs.ipfs.io/introduction/install/" 1>&2
+  exit 1
+fi
+
 if [ -n "$RAD_IPFS_API_URL" ]; then
   api_url=$(echo "$RAD_IPFS_API_URL" | sed -n -E \
     -e "s/^http:\/\/([a-zA-Z0-9_\.\-]+):([0-9]{1,5})/\/dns4\/\1\/tcp\/\2/;tprint" \
@@ -21,4 +32,4 @@ else
   api_url="/ip4/127.0.0.1/tcp/9301"
 fi
 
-IPFS_PATH=${IPFS_PATH:-"$HOME/.local/share/radicle/ipfs"} exec ipfs --api "$api_url" "$@"
+IPFS_PATH=${IPFS_PATH:-"$HOME/.local/share/radicle/ipfs"} exec $ipfs --api "$api_url" "$@"

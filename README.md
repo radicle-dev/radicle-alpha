@@ -85,6 +85,17 @@ with the output of `docker-machine ip`.
 You can reset the test daemon’s machine configuration by removing the file
 `/tmp/radicle-machines.json`.
 
+### Packaging
+
+Packages can be built with the `./packaging/build-package.sh` script. Run it
+with `-h` for more information. The script requires [`fpm`][fpm].
+
+On CI a Debian package is built for every commit and uploaded to
+`http://static.radicle.xyz/releases`. The package uses the commit hash as the
+version.
+
+[fpm]: https://github.com/jordansissel/fpm
+
 ### Troubleshooting
 
 Your local machine might build binaries that are incompatible with the
