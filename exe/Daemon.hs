@@ -158,7 +158,7 @@ query id (Api.QueryRequest v) = do
   case fst <$> runIdentity $ runLang (machineState m) $ eval v of
     Left err -> throwError $ MachineError id (InvalidInput err)
     Right rv -> do
-      logInfo Normal "Query success:" [("result", renderCompactPretty rv)]
+      logInfo Normal "Handled query" [("machine-id", getMachineId id)]
       pure (Api.QueryResponse rv)
 
 -- | Write a new expression to an IPFS machine.
@@ -182,6 +182,9 @@ send id (Api.SendRequest expressions) = do
       requestInput (machineSubscription m)
     Just (Cached Machine{ machineMode = Reader, ..}) -> requestInput machineSubscription
     Just (Cached Machine{ machineMode = Writer }) -> do
+      logInfo Normal "Applying input"
+        [ ("machine-id", getMachineId id)
+        ]
       results <- writeInputs id expressions Nothing
       pure Api.SendResponse{..}
   where
