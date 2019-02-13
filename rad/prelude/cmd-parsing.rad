@@ -51,19 +51,23 @@
         (def parse-arg
           (fn [opt args]
             (def opt-key (lookup :key opt))
+            (def valid-args-help
+              (string-append "Valid arguments: " (intercalate ", "(lookup :possible-values opt))))
             (match args
               (/cons 'val 'rest)
                   (if (elem? val (lookup :possible-values opt))
                     (modify-map opt-key (fn [x] (cons val x)) (parse-cli rest))
                     (do
                       (if (starts-with? val "-")
-                        (parse-failure (string-append "Missing argument for option \"" (show opt-key) "\".") help)
+                        (parse-failure
+                          (string-append "Missing argument for option \"" (show opt-key) "\". " valid-args-help) help)
                         (parse-failure
                           (string-append
                             "Invalid argument \"" val "\" for option \"" (show opt-key) "\". "
-                            "Valid options: " (intercalate ", "(lookup :possible-values opt)))
+                            valid-args-help)
                           help))))
-              []  (parse-failure (string-append "Missing argument for option \"" (show opt-key) "\".") help)
+              []  (parse-failure
+                    (string-append "Missing argument for option \"" (show opt-key) "\". " valid-args-help) help)
               )))
         (def parse-opt
           (fn [opt rest]
@@ -101,9 +105,9 @@
   [(/cmd ["list" "--state" "prop" "-s" "acc"] ) ==> [:just {opts {:state ["prop" "acc"] :fancy #f}}]]
   [(catch-for-testing /cmd ["list" "--invalid" "prop"] ) ==> "Invalid option \"--invalid\" for command list. help"]
   [(catch-for-testing /cmd ["list" "prop"] ) ==> "Invalid option \"prop\" for command list. help"]
-  [(catch-for-testing /cmd ["list" "--state" "invalid"] ) ==> "Invalid argument \"invalid\" for option \":state\". help"]
-  [(catch-for-testing /cmd ["list" "--state"] ) ==> "Missing argument for option \":state\". help"]
-  [(catch-for-testing /cmd ["list" "--state" "--fancy"] ) ==> "Missing argument for option \":state\". help"])
+  [(catch-for-testing /cmd ["list" "--state" "invalid"] ) ==> "Invalid argument \"invalid\" for option \":state\". Valid arguments: acc, prop help"]
+  [(catch-for-testing /cmd ["list" "--state"] ) ==> "Missing argument for option \":state\". Valid arguments: acc, prop help"]
+  [(catch-for-testing /cmd ["list" "--state" "--fancy"] ) ==> "Missing argument for option \":state\". Valid arguments: acc, prop help"])
 
 (def /cmd-2
   "Matches a command `cmd` with exactly two arguments."
