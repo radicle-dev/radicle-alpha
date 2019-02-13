@@ -12,15 +12,13 @@
 (def valid-states
   ["pending" "retracted" "accepted" "rejected"])
 
-(def status-opts ["--filter-by-state" "--state" "-s"])
+(def status-opts ["-s" "--state" "--filter-by-state" ])
 
 (def list-opts-help
   (string-append
     "[("
     (string/intercalate " | " status-opts)
-    ") ("
-    (string/intercalate " | " valid-states)
-    ")] [--fancy]"))
+    ") <state>] [--fancy]"))
 
 (def help
   (string-append
@@ -29,7 +27,7 @@
    Usage:
         rad-diff list " list-opts-help "
         rad-diff propose <commit>
-        rad-diff [retract|accept|reject|show] <diff-no>
+        rad-diff [retract | accept | reject | show] <diff-no>
         rad-diff comment <diff-no> <comment>
         rad-diff help
 

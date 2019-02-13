@@ -18,9 +18,7 @@
   (string-append
     "[("
     (string/intercalate " | " status-opts)
-    ") ("
-    (string/intercalate " | " valid-states)
-    ")] [--fancy]"))
+    ") <state>] [--fancy]"))
 
 (def help
   (string-append

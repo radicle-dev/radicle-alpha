@@ -9,6 +9,7 @@
 (import prelude/patterns :unqualified)
 (import prelude/lens :unqualified)
 (import prelude/seq :unqualified)
+(import prelude/strings :unqualified)
 
 (def parse-failure-mode (ref {:stub #f}))
 
@@ -57,7 +58,11 @@
                     (do
                       (if (starts-with? val "-")
                         (parse-failure (string-append "Missing argument for option \"" (show opt-key) "\".") help)
-                        (parse-failure (string-append "Invalid argument \"" val "\" for option \"" (show opt-key) "\".") help))))
+                        (parse-failure
+                          (string-append
+                            "Invalid argument \"" val "\" for option \"" (show opt-key) "\". "
+                            "Valid options: " (intercalate ", "(lookup :possible-values opt)))
+                          help))))
               []  (parse-failure (string-append "Missing argument for option \"" (show opt-key) "\".") help)
               )))
         (def parse-opt
