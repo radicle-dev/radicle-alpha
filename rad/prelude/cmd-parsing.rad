@@ -8,6 +8,7 @@
 (import prelude/validation :as 'validation)
 (import prelude/patterns :unqualified)
 (import prelude/lens :unqualified)
+(import prelude/seq :unqualified)
 
 (def parse-failure-mode (ref {:stub #f}))
 
@@ -34,23 +35,30 @@
   `opt-match` matches the options to the keys of `multi-ops`. `multi-ops` is a
   dict of option-keys with multiple arguments. If no options are passed, the
   `default` is returned."
-  (fn [cmd opts multi-opts opt-match default help]
+  (fn [cmd opts cmd-opts help]
+    (def default
+      (dict-from-seq
+        (map (fn [opt] (list (lookup :key opt) (lookup :default opt))) cmd-opts)))
     (def-rec parse-cli
-      (fn [args default]
+      (fn [args]
         (def parse-arg
-          (fn [name args]
+          (fn [opt args]
+            (def opt-key (lookup :key opt))
             (match args
               (/cons 'val 'rest)
-                  (if (elem? val (lookup name multi-opts))
-                    (modify-map name (fn [x] (cons (read (string-append ":" val)) x)) (parse-cli rest default))
-                    (parse-failure (string-append "Invalid argument " val " for option " (show name) ".") help))
-              []  (parse-failure (string-append "Missing argument for option " (show name) ".") help)
+                  (if (elem? val (lookup :possible-values opt))
+                    (modify-map opt-key (fn [x] (cons val x)) (parse-cli rest))
+                    (parse-failure (string-append "Invalid argument " val " for option " (show opt-key) ".") help))
+              []  (parse-failure (string-append "Missing argument for option " (show opt-key) ".") help)
               )))
         (def parse-opt
           (fn [opt rest]
-            (def option (opt-match opt))
-            (if (eq? (lookup-maybe option multi-opts) :nothing)
-              (insert option #t (parse-cli rest default))
+            (def option
+              (match (filter (fn [x] (elem? opt (lookup :options x))) cmd-opts)
+                []    (parse-failure (string-append "Invalid option " opt " for command list.") help)
+                'filt (first filt)))
+            (if (eq? (lookup :type option) :flag)
+              (insert (lookup :key option) #t (parse-cli rest))
               (parse-arg option rest))))
         (match args
           /nil                default
@@ -58,28 +66,24 @@
     (fn [v]
       (match v
         [cmd]           [:just {opts default}]
-        (/cons cmd 'os) [:just {opts (parse-cli os default)}]
+        (/cons cmd 'os) [:just {opts (parse-cli os)}]
         _               :nothing))))
 
 (:test "/cmd-opts"
   [:setup
     (do
       (def help "help")
-      (def multi-opts {:state ["acc" "prop"]})
-      (def default {:state [] :fancy #f})
-      (def opt-match
-        (fn [opt]
-          (match opt
-            "--filter-by-state" :state
-            "--state"           :state
-            "-s"                :state
-            "--fancy"           :fancy
-            'invalid            (parse-failure (string-append "Invalid option " invalid " for command list.") help)))))]
-  [((/cmd-opts "list" 'opts multi-opts opt-match default help) ["list"] ) ==> [:just {opts {:state [] :fancy #f}}]]
-  [((/cmd-opts "list" 'opts multi-opts opt-match default help) ["list" "--fancy"] ) ==> [:just {opts {:state [] :fancy #t}}]]
-  [((/cmd-opts "list" 'opts multi-opts opt-match default help) ["list" "--state" "acc"] ) ==> [:just {opts {:state [:acc] :fancy #f}}]]
-  [((/cmd-opts "list" 'opts multi-opts opt-match default help) ["list" "--fancy" "-s" "acc"] ) ==> [:just {opts {:state [:acc] :fancy #t}}]]
-  [((/cmd-opts "list" 'opts multi-opts opt-match default help) ["list" "--state" "prop" "-s" "acc"] ) ==> [:just {opts {:state [:prop :acc] :fancy #f}}]])
+      (def cmd-opts
+        [
+          { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values ["acc" "prop"] :default []}
+          { :key :fancy :type :flag :options ["--fancy"] :default #f }
+        ])
+      (def /cmd (/cmd-opts "list" 'opts cmd-opts help)))]
+  [(/cmd ["list"] ) ==> [:just {opts {:state [] :fancy #f}}]]
+  [(/cmd ["list" "--fancy"] ) ==> [:just {opts {:state [] :fancy #t}}]]
+  [(/cmd ["list" "--state" "acc"] ) ==> [:just {opts {:state ["acc"] :fancy #f}}]]
+  [(/cmd ["list" "--fancy" "-s" "acc"] ) ==> [:just {opts {:state ["acc"] :fancy #t}}]]
+  [(/cmd ["list" "--state" "prop" "-s" "acc"] ) ==> [:just {opts {:state ["prop" "acc"] :fancy #f}}]])
 
 (def /cmd-2
   "Matches a command `cmd` with exactly two arguments."

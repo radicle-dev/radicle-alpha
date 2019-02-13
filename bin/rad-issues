@@ -12,12 +12,23 @@
 
 (def valid-states ["open" "closed"])
 
+(def status-opts ["--filter-by-state" "--state" "-s"])
+
+(def list-opts-help
+  (string-append
+    "[("
+    (string/intercalate " | " status-opts)
+    ") ("
+    (string/intercalate " | " valid-states)
+    ")] [--fancy]"))
+
 (def help
+  (string-append
   "rad-issues - Radicle issue CLI
 
    Usage:
-        rad-issues list [--filter-by-state | --state | -s <state>]
-        rad-issues [new]
+        rad-issues list " list-opts-help "
+        rad-issues new
         rad-issues close <issue-number>
         rad-issues make-key <nick>
         rad-issues create-machine
@@ -27,7 +38,7 @@
      new          - Create a new issue in $EDITOR
      close        - Close an issue
      help         - Print this help and exit
-   ")
+   "))
 
 (def cmd-parse-failure
   (fn [error]
@@ -102,7 +113,7 @@
             [(string-append "Issue " (show n) " - " tit) i])))
 
     (def filt
-      (match (lookup :state options)
+      (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
         []      (fn [x] #t)
         'args   (fn [x] (elem? (lookup :state (lookup :issue x)) args))))
 
@@ -160,25 +171,15 @@
     (def i (read (edit-in-editor! template)))
     (create-issue!  machine (simple-issue i))))
 
-(def valid-list-options
-  ["--open" "--closed"])
-
-(def opts-match
-  (fn [opt]
-   (match opt
-     "--filter-by-state" :state
-     "--state"           :state
-     "-s"                :state
-     "--fancy"           :fancy
-     'invalid            (parse-failure (string-append "Invalid option " invalid " for command list.") help))))
-
-(def opt-args {:state valid-states})
-
-(def opts-default {:state [] :fancy #f})
+(def cmd-options
+  [
+    { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values valid-states :default []}
+    { :key :fancy :type :flag :options ["--fancy"] :default #f }
+  ])
 
 (def /list-cmd
   (fn [opts]
-    (/cmd-opts "list" opts opt-args opts-match opts-default help)))
+    (/cmd-opts "list" opts cmd-options help)))
 
 (def args (get-args!))
 (match args
