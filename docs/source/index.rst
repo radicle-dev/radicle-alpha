@@ -12,7 +12,6 @@ radicle
    guide/index.rst
    guide/GettingStarted.rst
    guide/Basics.lrad
-   guide/Chains.lrad
    guide/DataValidation.rst
    guide/Testing.rst
    guide/Issues.lrad

@@ -60,5 +60,4 @@ how to allow for future changes to the chain.
   Basics.lrad
   Modules.lrad
   PatternMatching.lrad
-  Chains.lrad
   DataValidation.rst
