@@ -16,11 +16,15 @@
   "Prints the passed error message and help text and exits."
   (fn [error help]
     (if (lookup :stub (read-ref parse-failure-mode))
-      (string-append error " " help)
+      (throw 'invalid-input (string-append error " " help))
       (do
         (put-str! error)
         (put-str! help)
         (exit! 1)))))
+
+(def catch-for-testing
+  (fn [cmd opts]
+    (catch 'invalid-input (cmd opts) (fn [x] x))))
 
 (def missing-arg-error
   (fn [arg cmd]
@@ -31,10 +35,12 @@
     (string-append "Too many arguments for command \"" cmd "\"")))
 
 (def /cmd-opts
-  "Matches the command `cmd` and a combination of optional parameters, where
-  `opt-match` matches the options to the keys of `multi-ops`. `multi-ops` is a
-  dict of option-keys with multiple arguments. If no options are passed, the
-  `default` is returned."
+  "Matches the command `cmd` and a combination of options `opt`. The options
+  need to be one of `:options` of the dicts in `cmd-opts`. In that list each
+  possible option is represented by the keys `:key`, `:default`, `:options` and
+  `:type`. Types can be `:flag` (boolean) or `:multi-opt` (can occur more than
+  once in a command, a list of valid options is passed with `:possible-values`).
+  If `opt` is empty, the default for each `cmd-opts` is returned. "
   (fn [cmd opts cmd-opts help]
     (def default
       (dict-from-seq
@@ -48,14 +54,17 @@
               (/cons 'val 'rest)
                   (if (elem? val (lookup :possible-values opt))
                     (modify-map opt-key (fn [x] (cons val x)) (parse-cli rest))
-                    (parse-failure (string-append "Invalid argument " val " for option " (show opt-key) ".") help))
-              []  (parse-failure (string-append "Missing argument for option " (show opt-key) ".") help)
+                    (do
+                      (if (starts-with? val "-")
+                        (parse-failure (string-append "Missing argument for option \"" (show opt-key) "\".") help)
+                        (parse-failure (string-append "Invalid argument \"" val "\" for option \"" (show opt-key) "\".") help))))
+              []  (parse-failure (string-append "Missing argument for option \"" (show opt-key) "\".") help)
               )))
         (def parse-opt
           (fn [opt rest]
             (def option
               (match (filter (fn [x] (elem? opt (lookup :options x))) cmd-opts)
-                []    (parse-failure (string-append "Invalid option " opt " for command list.") help)
+                []    (parse-failure (string-append "Invalid option \"" opt "\" for command list.") help)
                 'filt (first filt)))
             (if (eq? (lookup :type option) :flag)
               (insert (lookup :key option) #t (parse-cli rest))
@@ -72,6 +81,7 @@
 (:test "/cmd-opts"
   [:setup
     (do
+      (set-ref parse-failure-mode (@ :stub) #t)
       (def help "help")
       (def cmd-opts
         [
@@ -83,7 +93,12 @@
   [(/cmd ["list" "--fancy"] ) ==> [:just {opts {:state [] :fancy #t}}]]
   [(/cmd ["list" "--state" "acc"] ) ==> [:just {opts {:state ["acc"] :fancy #f}}]]
   [(/cmd ["list" "--fancy" "-s" "acc"] ) ==> [:just {opts {:state ["acc"] :fancy #t}}]]
-  [(/cmd ["list" "--state" "prop" "-s" "acc"] ) ==> [:just {opts {:state ["prop" "acc"] :fancy #f}}]])
+  [(/cmd ["list" "--state" "prop" "-s" "acc"] ) ==> [:just {opts {:state ["prop" "acc"] :fancy #f}}]]
+  [(catch-for-testing /cmd ["list" "--invalid" "prop"] ) ==> "Invalid option \"--invalid\" for command list. help"]
+  [(catch-for-testing /cmd ["list" "prop"] ) ==> "Invalid option \"prop\" for command list. help"]
+  [(catch-for-testing /cmd ["list" "--state" "invalid"] ) ==> "Invalid argument \"invalid\" for option \":state\". help"]
+  [(catch-for-testing /cmd ["list" "--state"] ) ==> "Missing argument for option \":state\". help"]
+  [(catch-for-testing /cmd ["list" "--state" "--fancy"] ) ==> "Missing argument for option \":state\". help"])
 
 (def /cmd-2
   "Matches a command `cmd` with exactly two arguments."
@@ -101,12 +116,14 @@
 
 (:test "/cmd-2"
   [:setup
-   (do (set-ref parse-failure-mode (@ :stub) #t))]
-  [ ((/cmd-2 "cmd-2" 'arg-1 'arg-2 "help") ["cmd-2" "arg1" "arg2"]) ==> [:just {arg-1 "arg1" arg-2 "arg2"}]]
-  [ ((/cmd-2 "cmd-2" 'arg-1 'arg-2 "help") ["cmd-0"]) ==> :nothing]
-  [ ((/cmd-2 "cmd-2" 'arg-1 'arg-2 "help") ["cmd-2"]) ==> "Missing argument \"arg-1\" for command \"cmd-2\" help"]
-  [ ((/cmd-2 "cmd-2" 'arg-1 'arg-2 "help") ["cmd-2" 1]) ==> "Missing argument \"arg-2\" for command \"cmd-2\" help"]
-  [ ((/cmd-2 "cmd-2" 'arg-1 'arg-2 "help") ["cmd-2" 1 2 3]) ==> "Too many arguments for command \"cmd-2\" help"])
+   (do
+     (set-ref parse-failure-mode (@ :stub) #t)
+     (def /cmd (/cmd-2 "cmd-2" 'arg-1 'arg-2 "help")))]
+  [ (/cmd ["cmd-2" "arg1" "arg2"]) ==> [:just {arg-1 "arg1" arg-2 "arg2"}]]
+  [ (/cmd ["cmd-0"]) ==> :nothing]
+  [ (catch-for-testing /cmd ["cmd-2"]) ==> "Missing argument \"arg-1\" for command \"cmd-2\" help"]
+  [ (catch-for-testing /cmd ["cmd-2" 1]) ==> "Missing argument \"arg-2\" for command \"cmd-2\" help"]
+  [ (catch-for-testing /cmd ["cmd-2" 1 2 3]) ==> "Too many arguments for command \"cmd-2\" help"])
 
 (def /cmd-1
   "Matches a command `cmd` with exactly one arguments."
@@ -122,11 +139,13 @@
 
 (:test "/cmd-1"
   [:setup
-   (do (set-ref parse-failure-mode (@ :stub) #t))]
-  [ ((/cmd-1 "cmd-1" 'arg "help") ["cmd-1" "arg"]) ==> [:just {arg "arg"}]]
-  [ ((/cmd-1 "cmd-1" 'arg "help") ["cmd-0"]) ==> :nothing]
-  [ ((/cmd-1 "cmd-1" 'arg "help") ["cmd-1"]) ==> "Missing argument \"arg\" for command \"cmd-1\" help"]
-  [ ((/cmd-1 "cmd-1" 'arg "help") ["cmd-1" 1 2]) ==> "Too many arguments for command \"cmd-1\" help"])
+   (do
+     (set-ref parse-failure-mode (@ :stub) #t)
+     (def /cmd (/cmd-1 "cmd-1" 'arg "help")))]
+  [ (/cmd ["cmd-1" "arg"]) ==> [:just {arg "arg"}]]
+  [ (/cmd ["cmd-0"]) ==> :nothing]
+  [ (catch-for-testing /cmd ["cmd-1"]) ==> "Missing argument \"arg\" for command \"cmd-1\" help"]
+  [ (catch-for-testing /cmd ["cmd-1" 1 2]) ==> "Too many arguments for command \"cmd-1\" help"])
 
 (def /cmd-0
   "Matches a command `cmd` with no other arguments."
@@ -140,7 +159,9 @@
 
 (:test "/cmd-0"
   [:setup
-    (do (set-ref parse-failure-mode (@ :stub) #t))]
-  [ ((/cmd-0 "cmd-0" "help") ["cmd-0"]) ==> [:just {}]]
-  [ ((/cmd-0 "cmd-0" "help") ["cmd-1"]) ==> :nothing]
-  [ ((/cmd-0 "cmd-0" "help") ["cmd-0" 1]) ==> "Too many arguments for command \"cmd-0\" help"])
+    (do
+      (set-ref parse-failure-mode (@ :stub) #t)
+      (def /cmd (/cmd-0 "cmd-0" "help")))]
+  [ (/cmd ["cmd-0"]) ==> [:just {}]]
+  [ (/cmd ["cmd-1"]) ==> :nothing]
+  [ (catch-for-testing /cmd ["cmd-0" 1]) ==> "Too many arguments for command \"cmd-0\" help"])
