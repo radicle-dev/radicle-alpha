@@ -1217,6 +1217,12 @@ to be loaded
 
 Send a command signed by the keys in ``my-keys.rad``.
 
+``(catch-daemon! f)``
+~~~~~~~~~~~~~~~~~~~~~
+
+Catches all ``radicle-daemon`` related errors and just prints them out
+to the user.
+
 ``prelude/state-machine``
 -------------------------
 

@@ -141,7 +141,6 @@ executables:
     - aeson
     - mtl
     - containers
-    - bytestring
     - directory
     - optparse-applicative
     - servant-server

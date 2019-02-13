@@ -65,7 +65,6 @@ data IpfsError
   | IpfsDaemonErrMsg Text
   | IpfsDaemonNoErrMsg
   | Timeout
---  | InternalError Text
 
 -- | Messages sent on a machine's IPFS pubsub topic.
 data Message = New InputsApplied | Submit SubmitInputs
@@ -163,10 +162,10 @@ machineInputsFrom (MachineId id) = safeIpfs . Ipfs.receiveIpfs id
 -- | Create an IPFS machine and return its ID.
 createMachine :: ExceptT IpfsError IO MachineId
 createMachine = do
-  id_ <- safeIpfs $ second MachineId <$> (Ipfs.ipfsMachineCreate =<< UUID.uuid)
+  id_ <- safeIpfs $ Ipfs.ipfsMachineCreate =<< UUID.uuid
   case id_ of
     Left e   -> throwError (IpfsDaemonErrMsg e)
-    Right id -> pure id
+    Right id -> pure (MachineId id)
 
 -- * Topic subscriptions
 
