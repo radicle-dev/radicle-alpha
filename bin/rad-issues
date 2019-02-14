@@ -28,8 +28,6 @@
         rad-issues list " list-opts-help "
         rad-issues new
         rad-issues close <issue-number>
-        rad-issues make-key <nick>
-        rad-issues create-machine
         rad-issues help
 
      list         - Select from issues to view or comment on
@@ -93,10 +91,7 @@
 
     (def add-username
       (fn [d]
-        (def n (catch
-                   'any
-                   (lookup :github-username d)
-                   (fn [_] "???")))
+        (def n (lookup-default :github-username (lookup-default :git-username "???" d) d))
         (insert :username n d)))
 
     (def add-username-issue
@@ -107,18 +102,18 @@
     (def mk-key
       (fn [v]
         (match v
-          (/as 'i {:issue {:number 'n :title 'tit}})
+          (/as 'i {:number 'n :title 'tit})
             [(string-append "Issue " (show n) " - " tit) i])))
 
     (def filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
         []      (fn [x] #t)
-        'args   (fn [x] (elem? (lookup :state (lookup :issue x)) args))))
+        'args   (fn [x] (elem? (lookup :state x) args))))
 
     (def items
       (map mk-key
         (filter filt
-          (map (fn [i] {:issue i}) (reverse (values (list-issues machine)))))))
+          (reverse (values (list-issues machine))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -126,15 +121,14 @@
       (if (lookup :fancy options)
         (match (fzf-select-with-preview!
                  (map first items)
-                 (fn [s] (pretty-issue (add-username-issue (lookup :issue (lookup s items-dict))))))
+                 (fn [s] (pretty-issue (add-username-issue (lookup s items-dict)))))
                (/just 's)
                (do (def selected (lookup s items-dict))
-                   (def issue-number (match selected {:issue {:number 'n}} n))
+                   (def issue-number (match selected {:number 'n} n))
                    (def pretty-item
                      (add-comment-md
                       (pretty-issue
-                       (add-username-issue
-                        (lookup :issue selected)))))
+                       (add-username-issue selected))))
                    (def edited-item (edit-in-editor! pretty-item))
                    (def added-comment
                      (string/unlines
@@ -143,7 +137,7 @@
                    (put-str!
                     (if (eq? added-comment "")
                       "Item was not updated."
-                      (do (simple-add-comment! machine issue-number added-comment)
+                      (do (simple-add-comment! machine issue-number added-comment (get-git-username!))
                           (string-append "Sent comment: " added-comment)))))
                _ (put-str! "No selection made."))
         (map (fn [d] (put-str! (first d))) items)))))
@@ -167,7 +161,8 @@
 }
 ")
     (def i (read (edit-in-editor! template)))
-    (create-issue!  machine (simple-issue i))))
+    (def author {:git-username (get-git-username!)})
+    (create-issue!  machine (simple-issue (<> i author)))))
 
 (def cmd-options
   [
@@ -185,9 +180,7 @@
  (fn []
    (match args
           (/list-cmd 'options) (list-items (machine-name) options)
-          (/cmd-1 "make-key" 'nick help) (make-key nick)
           (/cmd-0 "new" help) (new-issue (machine-name))
-          (/cmd-1 "create-machine" 'machine-name help) (create-machine machine-name)
           (/cmd-1 "close" 'issue-number help) (close-issue issue-number (machine-name))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
