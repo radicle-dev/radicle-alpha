@@ -27,9 +27,6 @@ steps:
         --no-terminal \
         stylish-haskell hlint weeder
 
-      apt-get -qq update
-      apt-get -yqq install libpq-dev
-
       stack build \
         --no-terminal \
         --dependencies-only
@@ -66,9 +63,6 @@ steps:
     - '-c'
     - |
       set -euxo pipefail
-
-      apt-get -qq update
-      apt-get -yqq install libpq-dev
 
       stack build \
         --no-terminal \
