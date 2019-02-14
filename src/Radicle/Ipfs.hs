@@ -66,17 +66,19 @@ data IpfsException
   deriving (Show)
 
 instance Exception IpfsException where
-    displayException = \case
-      IpfsException msg -> "ipfs: " <> toS msg
-      IpfsExceptionNoDaemon -> "ipfs: Daemon not reachable, run 'rad ipfs daemon'"
-      IpfsExceptionInvalidResponse url _ -> "ipfs: Cannot parse IPFS daemon response for " <> toS url
-      IpfsExceptionTimeout -> "ipfs: Daemon took too long to respond"
-      IpfsExceptionErrResp msg -> "ipfs: " <> toS msg
-      IpfsExceptionErrRespNoMsg -> "ipfs: filed with no error message"
+    displayException e = "ipfs: " <> case e of
+      IpfsException msg -> toS msg
+      IpfsExceptionNoDaemon -> "Cannot connect to " <> name
+      IpfsExceptionInvalidResponse url _ -> "Cannot parse " <> name <> " response for " <> toS url
+      IpfsExceptionTimeout -> name <> " took too long to respond"
+      IpfsExceptionErrResp msg -> toS msg
+      IpfsExceptionErrRespNoMsg -> name <> " failed with no error message"
+      where
+        name = "Radicle IPFS daemon"
 
 -- | Turn HTTP exceptions into 'IpfsException's.
-catchHttp :: forall a. IO a -> IO a
-catchHttp io = catch io httpHdlr
+mapHttpException :: forall a. IO a -> IO a
+mapHttpException io = catch io httpHdlr
   where
     httpHdlr = \case
       Http.HttpExceptionRequest _
@@ -156,7 +158,7 @@ instance FromJSON PubsubMessage where
 -- The IO action blocks while we are subscribed. To stop subscription
 -- you need to kill the thread the subscription is running in.
 subscribe :: Text -> (PubsubMessage -> IO ()) -> IO ()
-subscribe topic messageHandler = catchHttp $ runResourceT $ do
+subscribe topic messageHandler = runResourceT $ do
     mgr <- liftIO $ HTTP.newManager HTTP.defaultManagerSettings
     req <- HTTP.parseRequest "http://localhost:9301/api/v0/pubsub/sub" <&>
         HTTP.setQueryString
@@ -184,12 +186,12 @@ subscribe topic messageHandler = catchHttp $ runResourceT $ do
 -- | Publish a message to a topic.
 publish :: Text -> LByteString -> IO ()
 publish topic message =
-    catchHttp $ void $ ipfsHttpPost' "pubsub/pub" [("arg", topic)] "data" message
+     void $ ipfsHttpPost' "pubsub/pub" [("arg", topic)] "data" message
 
 newtype KeyGenResponse = KeyGenResponse IpnsId
 
 keyGen :: Text -> IO KeyGenResponse
-keyGen name = catchHttp $ ipfsHttpGet "key/gen" [("arg", name), ("type", "ed25519")]
+keyGen name = ipfsHttpGet "key/gen" [("arg", name), ("type", "ed25519")]
 
 instance FromJSON KeyGenResponse where
     parseJSON = Aeson.withObject "ipfs key/gen" $ \o ->
@@ -201,7 +203,7 @@ newtype DagPutResponse
 
 -- | Put and pin a dag node.
 dagPut :: ToJSON a => a -> IO DagPutResponse
-dagPut obj = catchHttp $ ipfsHttpPost "dag/put" [("pin", "true")] "arg" (Aeson.encode obj)
+dagPut obj = ipfsHttpPost "dag/put" [("pin", "true")] "arg" (Aeson.encode obj)
 
 instance FromJSON DagPutResponse where
     parseJSON = Aeson.withObject "v0/dag/put response" $ \o -> do
@@ -222,18 +224,18 @@ instance FromJSON PinResponse where
 
 -- | Pin objects to local storage.
 pinAdd :: Address -> IO PinResponse
-pinAdd addr = catchHttp $ ipfsHttpGet "pin/add" [("arg", addressToText addr)]
+pinAdd addr = ipfsHttpGet "pin/add" [("arg", addressToText addr)]
 
 -- | Get a dag node.
 dagGet :: FromJSON a => Address -> IO a
-dagGet addr = catchHttp $ do
+dagGet addr = do
     result <- ipfsHttpGet "dag/get" [("arg", addressToText addr)]
     case Aeson.fromJSON result of
         Aeson.Error _   -> throw $ IpfsException $ "Invalid machine log entry at " <> addressToText addr
         Aeson.Success a -> pure a
 
 namePublish :: IpnsId -> Address -> IO ()
-namePublish ipnsId addr = catchHttp $ do
+namePublish ipnsId addr = do
     _ :: Aeson.Value <- ipfsHttpGet "name/publish" [("arg", addressToText addr), ("key", ipnsId)]
     pure ()
 
@@ -242,7 +244,7 @@ newtype NameResolveResponse
     = NameResolveResponse CID
 
 nameResolve :: IpnsId -> IO NameResolveResponse
-nameResolve ipnsId = catchHttp $ ipfsHttpGet "name/resolve" [("arg", ipnsId), ("recursive", "true")]
+nameResolve ipnsId = ipfsHttpGet "name/resolve" [("arg", ipnsId), ("recursive", "true")]
 
 instance FromJSON NameResolveResponse where
     parseJSON = Aeson.withObject "v0/name/resolve response" $ \o -> do
@@ -262,7 +264,7 @@ ipfsHttpGet
     => Text  -- ^ Path of the endpoint under "/api/v0/"
     -> [(Text, Text)] -- ^ URL query parameters
     -> IO a
-ipfsHttpGet path params = do
+ipfsHttpGet path params = mapHttpException $ do
     let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
     res <- Wreq.getWith opts (toS url) `catch` handleRequestException
@@ -276,7 +278,7 @@ ipfsHttpPost
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
     -> IO a
-ipfsHttpPost path params payloadArgName payload = do
+ipfsHttpPost path params payloadArgName payload = mapHttpException $ do
     res <- ipfsHttpPost' path params payloadArgName payload
     jsonRes <- Wreq.asJSON res `catch` handleParseException path
     pure $ jsonRes ^. Wreq.responseBody

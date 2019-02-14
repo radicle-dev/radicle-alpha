@@ -206,7 +206,7 @@ send id (Api.SendRequest expressions) = do
       let isResponse = \case
             New InputsApplied{ nonce = Just nonce' } | nonce' == nonce -> True
             _ -> False
-      asyncMsg <- machineIpfs id $ async $ subscribeOne sub ackWaitTime isResponse (logNonDecodableMsg id)
+      asyncMsg <- liftIO $ async $ subscribeOne sub ackWaitTime isResponse (logNonDecodableMsg id)
       machineIpfs id $ publish id (Submit SubmitInputs{..})
       logInfo Debug
               "Sent input request to writer"
