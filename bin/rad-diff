@@ -235,7 +235,7 @@
                    (put-str!
                     (if (eq? added-comment "")
                       "Item was not updated."
-                      (do (simple-add-comment! machine diff-number added-comment get-git-username!)
+                      (do (simple-add-comment! machine diff-number added-comment (get-git-username!))
                           (string-append "Sent comment: " added-comment)))))
                _ (put-str! "No selection made."))
          (map (fn [d] (put-str! (first d))) items)))))
@@ -280,7 +280,7 @@
       (if (integral? n)
         (do
           (verify-diff-number n machine)
-          (simple-add-comment! machine n comment get-git-username!)
+          (simple-add-comment! machine n comment (get-git-username!))
           (put-str! (string-append "Added comment to Diff " (show n))))
         (cmd-parse-failure "Diff numbers must be whole numbers!"))
     (cmd-parse-failure "To create a comment, please provide the diff number."))))
