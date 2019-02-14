@@ -62,16 +62,15 @@
                         "Refusing to continue."))
             (exit! 1))
       _   (put-str! name))
-    (match (process! "git" ["clone" origin name] "")
-      :ok (cd! name)
-      _   (do
-            (put-str! (string-append
-                        "The repo is currently not available. "
-                        "Cloning \"" name "\" from \"" origin "\" failed.\n"
-                        "This may be because you have no internet connection, "
-                        "or the IPNS link is stale, or because no online node "
-                        "with the data could be found."))
-            (exit! 1)))
+    (process-git-with-exit!
+      ["clone" origin name]
+      (string-append
+        "The repo is currently not available. "
+        "Cloning \"" name "\" from \"" origin "\" failed.\n"
+        "This may be because you have no internet connection, "
+        "or the IPNS link is stale, or because no online node "
+        "with the data could be found."))
+    (cd! name)
     (set-git-config! "radicle.project-id" project-url)))
 
 (def new-project!
