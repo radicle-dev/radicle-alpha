@@ -8,6 +8,7 @@
 (import prelude/patterns :unqualified)
 (import prelude/util :unqualified)
 (import prelude/lens :unqualified)
+(import prelude/auth '[make-simple-auth] :unqualified)
 (import prelude/machine-remote '[make-updatable-eval] :unqualified)
 
 (def machine-id
@@ -23,6 +24,16 @@
   (make-counter))
 
 (def noncer (make-noncer))
+
+(def auth (make-simple-auth '[admin]))
+
+(def add-admin
+  "Add an admin to the diff machine. If the auth is initialized, only an admin
+  is allowed to do so. Otherwise, this initializes the auth."
+  (fn [pub-key]
+    ((auth [:allowed 'admin]) pub-key)
+    (auth [:add-to 'admin pub-key])
+    (auth [:initialize])))
 
 (def set-diffs
   "A helper to set stuff in the diffs ref."
@@ -107,6 +118,17 @@
    [validator/input
     validator/time-modified
     validator/diff-reference
+    (validator/or
+      [(validator/pred "edit author == original author"
+                      (fn [c]
+                        (match c
+                               {:issue-number 'n
+                                :comment-index 'i
+                                :author 'a}
+                               (eq? (view-ref issues (... [(@ n) (@ :comments) (@nth i) (@ :author)]))
+                                    a))))
+       (auth [:allowed 'admin])
+      ])
     (validator/contains-only (edit-keys (keys diff-keys)))]))
 
 (def strip-input
@@ -163,6 +185,7 @@
   {'create-diff    create-diff
    'list-diffs     list-diffs
    'edit-diff      edit-diff
-   'add-comment  add-comment})
+   'add-comment    add-comment
+   'add-admin      add-admin})
 
 (def eval (make-updatable-eval commands))

@@ -11,6 +11,7 @@
 (import prelude/util :unqualified)
 (import prelude/lens :unqualified)
 (import prelude/nonces :unqualified)
+(import prelude/auth '[make-simple-auth] :unqualified)
 (import prelude/machine-remote '[make-updatable-eval] :unqualified)
 
 (def machine-id
@@ -26,6 +27,8 @@
   (make-counter))
 
 (def noncer (make-noncer))
+
+(def auth (make-simple-auth '[admin]))
 
 (def set-issues
   "A helper to set stuff in the issues ref."
@@ -232,5 +235,6 @@
    'add-comment  add-comment
    'edit-comment edit-comment
    'list-issues  list-issues})
+
 
 (def eval (make-updatable-eval commands))
