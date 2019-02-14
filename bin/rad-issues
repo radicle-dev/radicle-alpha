@@ -7,15 +7,25 @@
 
 (import prelude/validation :as 'validation)
 (import prelude/machine :as 'machine)
-(import prelude/cmd-parsing :unqualified)
 
 (def machine-name (fn [] (get-rsm-of-type! :rad-issues)))
 
+(def valid-states ["open" "closed"])
+
+(def status-opts ["--filter-by-state" "--state" "-s"])
+
+(def list-opts-help
+  (string-append
+    "[("
+    (string/intercalate " | " status-opts)
+    ") <state>] [--fancy]"))
+
 (def help
+  (string-append
   "rad-issues - Radicle issue CLI
 
    Usage:
-        rad-issues list [--closed] [--open]
+        rad-issues list " list-opts-help "
         rad-issues new
         rad-issues close <issue-number>
         rad-issues make-key <nick>
@@ -26,7 +36,7 @@
      new          - Create a new issue in $EDITOR
      close        - Close an issue
      help         - Print this help and exit
-   ")
+   "))
 
 (def cmd-parse-failure
   (fn [error]
@@ -101,11 +111,9 @@
             [(string-append "Issue " (show n) " - " tit) i])))
 
     (def filt
-      (match [(lookup-default "open" #f options)
-              (lookup-default "closed" #f options)]
-             [#t #f] (fn [x] (eq? (lookup :state (lookup :issue x)) :open))
-             [#f #t] (fn [x] (eq? (lookup :state (lookup :issue x)) :closed))
-             _       (fn [x] #t)))
+      (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
+        []      (fn [x] #t)
+        'args   (fn [x] (elem? (lookup :state (lookup :issue x)) args))))
 
     (def items
       (map mk-key
@@ -115,28 +123,30 @@
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
       (put-str! "No issues!")
-      (match (fzf-select-with-preview!
-               (map first items)
-               (fn [s] (pretty-issue (add-username-issue (lookup :issue (lookup s items-dict))))))
-             (/just 's)
-             (do (def selected (lookup s items-dict))
-                 (def issue-number (match selected {:issue {:number 'n}} n))
-                 (def pretty-item
-                   (add-comment-md
-                    (pretty-issue
-                     (add-username-issue
-                      (lookup :issue selected)))))
-                 (def edited-item (edit-in-editor! pretty-item))
-                 (def added-comment
-                   (string/unlines
-                    (take-while (fn [x] (not (eq? x comment-divider)))
-                                (string/lines edited-item))))
-                 (put-str!
-                  (if (eq? added-comment "")
-                    "Item was not updated."
-                    (do (simple-add-comment! machine issue-number added-comment)
-                        (string-append "Sent comment: " added-comment)))))
-             _ (put-str! "No selection made.")))))
+      (if (lookup :fancy options)
+        (match (fzf-select-with-preview!
+                 (map first items)
+                 (fn [s] (pretty-issue (add-username-issue (lookup :issue (lookup s items-dict))))))
+               (/just 's)
+               (do (def selected (lookup s items-dict))
+                   (def issue-number (match selected {:issue {:number 'n}} n))
+                   (def pretty-item
+                     (add-comment-md
+                      (pretty-issue
+                       (add-username-issue
+                        (lookup :issue selected)))))
+                   (def edited-item (edit-in-editor! pretty-item))
+                   (def added-comment
+                     (string/unlines
+                      (take-while (fn [x] (not (eq? x comment-divider)))
+                                  (string/lines edited-item))))
+                   (put-str!
+                    (if (eq? added-comment "")
+                      "Item was not updated."
+                      (do (simple-add-comment! machine issue-number added-comment)
+                          (string-append "Sent comment: " added-comment)))))
+               _ (put-str! "No selection made."))
+        (map (fn [d] (put-str! (first d))) items)))))
 
 (def close-issue
   (fn [issue-number machine-name]
@@ -159,21 +169,15 @@
     (def i (read (edit-in-editor! template)))
     (create-issue!  machine (simple-issue i))))
 
-(def valid-list-options
-  ["--open" "--closed"])
-
-(def list-options
-  (fn [os]
-    (foldr (fn [o acc]
-             (if (member? o valid-list-options)
-               (insert (drop 2 o) #t acc)
-               (cmd-parse-failure (string-append "Invalid list option: " o))))
-           {}
-           os)))
+(def cmd-options
+  [
+    { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values valid-states :default []}
+    { :key :fancy :type :flag :options ["--fancy"] :default #f }
+  ])
 
 (def /list-cmd
   (fn [opts]
-    (/cmd-1-opts "list" opts list-options)))
+    (/cmd-opts "list" opts cmd-options help)))
 
 (def args (get-args!))
 (match args

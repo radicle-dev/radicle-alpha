@@ -5,16 +5,20 @@
 (load! (find-module-file! "prelude/io-utils.rad"))
 (load! (find-module-file! "monadic/project.rad"))
 
-(import prelude/cmd-parsing :unqualified)
 (import prelude/validation :as 'validation)
 
 (def machine-name (fn [] (get-rsm-of-type! :rad-diff)))
 
-(def valid-list-options
-  ["--pending" "--retracted" "--accepted" "--rejected" "--fancy"])
+(def valid-states
+  ["pending" "retracted" "accepted" "rejected"])
+
+(def status-opts ["-s" "--state" "--filter-by-state" ])
 
 (def list-opts-help
-  (foldl (fn [a opt] (string-append a " [" opt "]")) "" valid-list-options))
+  (string-append
+    "[("
+    (string/intercalate " | " status-opts)
+    ") <state>] [--fancy]"))
 
 (def help
   (string-append
@@ -23,7 +27,7 @@
    Usage:
         rad-diff list " list-opts-help "
         rad-diff propose <commit>
-        rad-diff [retract|accept|reject|show] <diff-no>
+        rad-diff [retract | accept | reject | show] <diff-no>
         rad-diff comment <diff-no> <comment>
         rad-diff help
 
@@ -191,9 +195,9 @@
       (fn [diff] [(pretty-headline diff) diff]))
 
     (def filt
-      (match (filter (fn [opt] (not (eq? opt :fancy))) options)
+      (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
         []      (fn [x] #t)
-        _       (fn [x] (elem? (lookup :state x) options))))
+        'args   (fn [x] (elem? (lookup :state x) args))))
 
   (def items
     (map mk-key
@@ -203,7 +207,7 @@
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
       (put-str! "No diffs!")
-      (if (elem? :fancy options)
+      (if (lookup :fancy options)
         (match (fzf-select-with-preview!
                  (map first items)
                  (fn [s] (pretty-diff (lookup s items-dict))))
@@ -271,16 +275,15 @@
         (cmd-parse-failure "Diff numbers must be whole numbers!"))
     (cmd-parse-failure "To create a comment, please provide the diff number."))))
 
-(def list-options
-  (fn [os]
-    (map (fn [o]
-             (if (member? o valid-list-options)
-               (read (string-append ":" (drop 2 o)))
-               (cmd-parse-failure (string-append "Invalid list option: " o)))) os)))
+(def cmd-options
+  [
+    { :key :state :type :multi-opt :options status-opts :possible-values valid-states :default []}
+    { :key :fancy :type :flag :options ["--fancy"] :default #f }
+  ])
 
 (def /list-cmd
   (fn [opts]
-    (/cmd-1-opts "list" opts list-options)))
+    (/cmd-opts "list" opts cmd-options help)))
 
 (def args (get-args!))
 (match args

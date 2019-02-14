@@ -42,3 +42,4 @@
 (import prelude/io-utils :unqualified)
 (import prelude/machine :as 'machine)
 (import prelude/machine-remote :unqualified)
+(import prelude/cmd-parsing :unqualified)
