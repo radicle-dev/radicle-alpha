@@ -13,7 +13,7 @@ contain a lot more information on `radicle`.
 
 ## Installation
 
-You will need [`stack`](https://docs.haskellstack.org/en/stable/install_and_upgrade/) and `libpq-dev` installed.
+You will need [`stack`](https://docs.haskellstack.org/en/stable/install_and_upgrade/) installed.
 
 Then run:
 
