@@ -187,4 +187,4 @@
    'add-comment    add-comment
    'add-admin      add-admin})
 
-(def eval (make-updatable-eval commands))
+(def eval (make-updatable-eval commands (auth [:allowed 'admin])))

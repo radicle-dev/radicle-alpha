@@ -102,4 +102,10 @@
         (catch 'validation-failure
                (simple-edit-diff! machine 1 {:state :accepted})
                (fn [_] :ok))) ==> :ok ]
+   [ (do
+        (set-fake-keys! non-owner-keys)
+        (catch 'validation-failure
+               (machine/send-signed-command! machine radicle-diff-machine-id 'update { :eval 'eval})
+               (fn [_] :ok))) ==> :ok ]
+
 )

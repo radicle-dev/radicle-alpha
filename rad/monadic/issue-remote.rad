@@ -30,6 +30,14 @@
 
 (def auth (make-simple-auth '[admin]))
 
+(def add-admin
+  "Add an admin to the diff machine. If the auth is initialized, only an admin
+  is allowed to do so. Otherwise, this initializes the auth."
+  (fn [pub-key]
+    ((auth [:allowed 'admin]) pub-key)
+    (auth [:add-to 'admin pub-key])
+    (auth [:initialize])))
+
 (def set-issues
   "A helper to set stuff in the issues ref."
   (fn [l v]
@@ -234,7 +242,8 @@
    'edit-issue   edit-issue
    'add-comment  add-comment
    'edit-comment edit-comment
-   'list-issues  list-issues})
+   'list-issues  list-issues
+   'add-admin    add-admin})
 
 
-(def eval (make-updatable-eval commands))
+(def eval (make-updatable-eval commands (auth [:allowed 'admin])))

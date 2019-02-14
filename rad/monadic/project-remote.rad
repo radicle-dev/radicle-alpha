@@ -13,6 +13,7 @@
 (import prelude/nonces :unqualified)
 (import prelude/set :as 'set)
 (import prelude/machine-remote '[make-updatable-eval] :unqualified)
+(import prelude/auth '[make-simple-auth] :unqualified)
 
 (def rsms
   "A url-based dict of RSMs."
@@ -27,6 +28,16 @@
         :description "" }))
 
 (def noncer (make-noncer))
+
+(def auth (make-simple-auth '[admin]))
+
+(def add-admin
+  "Add an admin to the diff machine. If the auth is initialized, only an admin
+  is allowed to do so. Otherwise, this initializes the auth."
+  (fn [pub-key]
+    ((auth [:allowed 'admin]) pub-key)
+    (auth [:add-to 'admin pub-key])
+    (auth [:initialize])))
 
 (def validator/rsm
   (validator/keys
@@ -70,9 +81,10 @@
 
 (def commands
   "The set of allowed commands."
-   {'add-rsm add-rsm
-    'set-meta set-meta
-    'get-meta get-meta
-    'list-rsms list-rsms })
+   {'add-rsm   add-rsm
+    'set-meta  set-meta
+    'get-meta  get-meta
+    'list-rsms list-rsms
+    'add-admin add-admin})
 
-(def eval (make-updatable-eval commands))
+(def eval (make-updatable-eval commands (auth [:allowed 'admin])))
