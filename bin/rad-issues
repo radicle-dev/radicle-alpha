@@ -28,11 +28,13 @@
         rad-issues list " list-opts-help "
         rad-issues new
         rad-issues close <issue-number>
+        rad-issues comment <issue-number> <comment>
         rad-issues help
 
      list         - Select from issues to view or comment on
      new          - Create a new issue in $EDITOR
      close        - Close an issue
+     comment      - Shortcut for adding a comment
      help         - Print this help and exit
    "))
 
@@ -41,6 +43,15 @@
     (parse-failure error help)))
 
 (def comment-divider "---")
+
+(def verify-issue-number
+  (fn [issue-no machine]
+    (match (lookup-default issue-no #f (list-issues machine))
+      #f          (do
+                    (put-str! (string-append "ISSUE " (show issue-no) " does not exist."))
+                    (exit! 1))
+      'the-issue  the-issue)))
+
 
 (def add-comment-md
   (fn [x]
@@ -143,13 +154,27 @@
         (map (fn [d] (put-str! (first d))) items)))))
 
 (def close-issue
-  (fn [issue-number machine-name]
+  (fn [issue-number machine]
     (def n (read issue-number))
     (if (number? n)
       (if (integral? n)
-        (simple-edit-issue! machine n {:state :closed})
+        (do
+          (verify-issue-number n machine)
+          (simple-edit-issue! machine n {:state :closed}))
         (cmd-parse-failure "Issue numbers must be whole numbers!"))
       (cmd-parse-failure "To close an issue, please provide the issue number."))))
+
+(def create-comment!
+  "Add a new `comment` to ISSUE."
+  (fn [machine n comment]
+    (if (number? n)
+      (if (integral? n)
+        (do
+          (verify-issue-number n machine)
+          (simple-add-comment! machine n comment (get-git-username!))
+          (put-str! (string-append "Added comment to issue " (show n))))
+        (cmd-parse-failure "Issue numbers must be whole numbers!"))
+    (cmd-parse-failure "To create a comment, please provide the issue number."))))
 
 (def new-issue
   (fn [machine]
@@ -182,6 +207,7 @@
           (/list-cmd 'options) (list-items (machine-name) options)
           (/cmd-0 "new" help) (new-issue (machine-name))
           (/cmd-1 "close" 'issue-number help) (close-issue issue-number (machine-name))
+          (/cmd-2 "comment" 'issue-number 'comment help) (create-comment! (machine-name) (read issue-number) comment)
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
           ["--help"] (put-str! help)
