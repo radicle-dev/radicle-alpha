@@ -158,7 +158,7 @@ errorDataToValue e = case e of
     SendError se -> makeVal ( "send-error", [("info", String se)] )
     Exit code -> makeVal ("exit", [("code", toRad code)])
   where
-    makeA = quote . Atom
+    makeA = Atom
     makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Keyword . Ident) . GhcExts.fromList $ v)
 
 newtype Reference = Reference { getReference :: Int }

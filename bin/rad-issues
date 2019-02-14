@@ -158,9 +158,13 @@
     (def n (read issue-number))
     (if (number? n)
       (if (integral? n)
-        (do
-          (verify-issue-number n machine)
-          (simple-edit-issue! machine n {:state :closed}))
+        (catch 'daemon-error
+               (do
+                 (verify-issue-number n machine)
+                 (simple-edit-issue! machine n {:state :closed}))
+               (fn [_]
+                 (put-str! "Issue could not be closed. Are you authorized to do so?")
+                 (exit! 1)))
         (cmd-parse-failure "Issue numbers must be whole numbers!"))
       (cmd-parse-failure "To close an issue, please provide the issue number."))))
 

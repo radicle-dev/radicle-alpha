@@ -1158,11 +1158,17 @@ file doesn't exist.
 Creates a new key pair and stores it in ``my-keys.rad``. Returns the
 full absolute path of the created file.
 
+``(set-fake-keys! keys)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Bypass reading the keys from ``my-keys.rad``, using instead the provided
+keys. This is intended for testing.
+
 ``(use-fake-keys!)``
 ~~~~~~~~~~~~~~~~~~~~
 
-Bypass reading the keys from ``my-keys.rad``. This is intended for
-testing.
+Bypass reading the keys from ``my-keys.rad``, using newly-generated
+ones. This is intended for testing.
 
 ``prelude/machine``
 -------------------
@@ -1360,6 +1366,11 @@ Coordinated Universal Time (UTC) timestamp.
 
 A validator which checks that it's argument is a string and less than
 the specified length.
+
+``(always-valid x)``
+~~~~~~~~~~~~~~~~~~~~
+
+A validator that is always valid.
 
 ``prelude/util``
 ----------------

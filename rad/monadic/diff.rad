@@ -4,7 +4,7 @@
 (import prelude/machine '[send-code!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
-(import prelude/key-management '[use-fake-keys!] :unqualified)
+(import prelude/key-management '[set-fake-keys! use-fake-keys! read-keys!] :unqualified)
 
 (def radicle-diff-machine-id
   "The name of this machine."
@@ -13,9 +13,11 @@
 (def create-diffs-machine!
   "Create a remote diff machine. Returns the machine id"
   (fn []
+    (def owner-keys (lookup :public-key (read-keys!)))
     (def id (machine/new-machine!))
     (machine/send-prelude! id)
     (send-code! id (find-module-file! "monadic/diff-remote.rad"))
+    (machine/send-signed-command! id radicle-diff-machine-id 'add-admin {:key owner-keys})
     id))
 
 (def simple-diff
@@ -79,7 +81,9 @@
  "The monadic diffs machine works."
  [:setup
   (do (machine/install-remote-machine-fake)
-      (use-fake-keys!)
+      (def owner-keys (gen-key-pair! (default-ecc-curve)))
+      (def non-owner-keys (gen-key-pair! (default-ecc-curve)))
+      (set-fake-keys! owner-keys)
       (def machine (create-diffs-machine!))
       (simple-create-diff! machine {:title "title0" :description "desc0" :patch "patch0"})
       (simple-create-diff! machine {:title "title1" :description "desc1" :patch "patch1"})
@@ -93,4 +97,10 @@
    [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) diffs) ==> "comment0" ]
    [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) diffs) ==> "comment1" ]
    [ (view (.. (@ 0) (@ :state)) diffs) ==> :accepted ]
- )
+   ;; authorization
+   [ (do
+        (set-fake-keys! non-owner-keys)
+        (catch 'validation-failure
+               (simple-edit-diff! machine 1 {:state :accepted})
+               (fn [_] :ok))) ==> :ok ]
+)

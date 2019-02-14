@@ -2,6 +2,8 @@ timeout: 3600s # Cache misses are slow to rebuild
 substitutions:
   # Bump the version if you make changes to `ci/Dockerfile
   _BUILD_IMAGE: eu.gcr.io/opensourcecoin/radicle-ci:v1
+options:
+  machineType: N1_HIGHCPU_8
 steps:
   - id: "Build CI base image"
     name: gcr.io/cloud-builders/docker
@@ -185,6 +187,7 @@ steps:
 
       # Add the empty entry to the IPFS test network. Radicle requires it
       echo '{"radicle": true}' | docker exec -i test_ipfs-test-network_1 ipfs dag put --pin
+
 
   - id: "Integration tests"
     waitFor:

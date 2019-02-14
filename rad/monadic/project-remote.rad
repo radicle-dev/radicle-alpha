@@ -13,6 +13,7 @@
 (import prelude/nonces :unqualified)
 (import prelude/set :as 'set)
 (import prelude/machine-remote '[make-updatable-eval] :unqualified)
+(import prelude/auth '[make-simple-auth add-admin] :unqualified)
 
 (def rsms
   "A url-based dict of RSMs."
@@ -28,6 +29,8 @@
 
 (def noncer (make-noncer))
 
+(def auth (make-simple-auth [:admin]))
+
 (def validator/rsm
   (validator/keys
     {:type (validator/type :keyword)
@@ -42,7 +45,8 @@
   (validator/and
     [ (validator/keys {:nonce      (noncer :validator)
                        :machine-id   (validator/= rsm-id)})
-      validator/signed] ))
+      validator/signed
+      (auth [:allowed :admin])] ))
 
 (def add-rsm
   (fn [r]
@@ -70,9 +74,10 @@
 
 (def commands
   "The set of allowed commands."
-   {'add-rsm add-rsm
-    'set-meta set-meta
-    'get-meta get-meta
-    'list-rsms list-rsms })
+   {'add-rsm   add-rsm
+    'set-meta  set-meta
+    'get-meta  get-meta
+    'list-rsms list-rsms
+    'add-admin (add-admin auth)})
 
-(def eval (make-updatable-eval commands))
+(def eval (make-updatable-eval commands (auth [:allowed :admin])))

@@ -17,17 +17,18 @@
 (def updatable-eval
   "Given an evaluation function `f`, returns a new one which augments `f` with a new
   command `(update expr)` which evaluates arbitrary expression using `base-eval`."
-  (fn [sub-eval]
+  (fn [sub-eval validator]
     (fn [expr state]
       (match expr
              (/cons 'cmd _) (if (eq? cmd 'update)
-                              (base-eval (nth 1 expr) state)
+                              (do (validator (nth 1 expr))
+                                  (base-eval (lookup :eval (nth 1 expr)) state))
                               (sub-eval expr state))
              _ (sub-eval expr state)))))
 
 (def make-updatable-eval
-  "Make an updatable eval from a list of command mappings."
-  (fn [initial-commands]
+  "Make an updatable eval from a list of command mappings and a validator for updates."
+  (fn [initial-commands validator]
     (def commands (ref initial-commands))
     (def process-command
       "Function that maps post-eval commands to existing functions"
@@ -38,7 +39,8 @@
         (apply do-this args)))
     (updatable-eval
         (fn [expr state]
-          (eval-fn-app state process-command expr (fn [x] x))))))
+          (eval-fn-app state process-command expr (fn [x] x)))
+        validator)))
 
 (:test "make-updatable-eval"
   [:setup
@@ -47,10 +49,22 @@
       (def commands
         {'inc (fn [] (modify-ref counter (fn [x] (+ x 1))))
          'get (fn [] (read-ref counter))})
-      (def ev (make-updatable-eval commands))
+      (def ev
+        (make-updatable-eval
+          commands
+          (fn [x] (if (eq? (lookup :pwd x) "secret")
+                      :ok
+                      (throw 'validation-failure "nope")))))
       (def res (ev '(inc) (get-current-state)))
       (def st (nth 1 res))
     )
   ]
   [ (nth 0 (ev '(get) st)) ==> 1 ]
+  [ (catch 'validation-failure
+           (ev '(update {:pwd "blah" :eval eval}) st)
+           (fn [_] :ok)) ==> :ok ]
+  [ (catch 'validation-failure
+           (do (ev '(update {:pwd "secret" :eval eval}) st)
+               :ok)
+           (fn [_] :not-ok)) ==> :ok ]
 )

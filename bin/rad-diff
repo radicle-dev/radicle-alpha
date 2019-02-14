@@ -317,7 +317,16 @@
         (do
           (def edit-state-with-feedback!
             (fn [message]
-              (simple-edit-diff! machine n {:state new-state})
+              (catch 'daemon-error
+                (simple-edit-diff! machine n {:state new-state})
+                (fn [x]
+                   (put-str!
+                     (string-append
+                     "Diff could not be "
+                     (pretty-state new-state)
+                     ". Are you authorized to do so?"
+                     ))
+                   (exit! 1)))
               (put-str! message)))
           (verify-diff-number n machine)
           (if (eq? new-state :accepted)
