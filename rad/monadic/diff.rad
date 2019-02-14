@@ -16,7 +16,6 @@
     (def id (machine/new-machine!))
     (machine/send-prelude! id)
     (send-code! id (find-module-file! "monadic/diff-remote.rad"))
-    (put-str! "here")
     (machine/send-signed-command! id radicle-diff-machine-id 'add-admin owner-keys)
     id))
 
@@ -100,5 +99,7 @@
    ;; authorization
    [ (do
         (set-fake-keys! non-owner-keys)
-        (simple-edit-diff! machine 1 {:state :accepted})) ==> 0 ]
- )
+        (catch 'validation-failure
+               (simple-edit-diff! machine 1 {:state :accepted})
+               (fn [_] :ok))) ==> :ok ]
+)

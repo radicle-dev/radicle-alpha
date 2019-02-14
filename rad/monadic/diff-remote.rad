@@ -122,10 +122,9 @@
       [(validator/pred "edit author == original author"
                       (fn [c]
                         (match c
-                               {:issue-number 'n
-                                :comment-index 'i
+                               {:diff-number 'n
                                 :author 'a}
-                               (eq? (view-ref issues (... [(@ n) (@ :comments) (@nth i) (@ :author)]))
+                               (eq? (view-ref diffs (... [(@ n) (@ :author)]))
                                     a))))
        (auth [:allowed 'admin])
       ])
