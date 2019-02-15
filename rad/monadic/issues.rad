@@ -35,9 +35,10 @@
 
 (def simple-comment
   "Create a comment for an issue."
-  (fn [issue-number bod]
+  (fn [issue-number bod author-name]
     (def t (now!))
     {:body         bod
+     :git-username  author-name
      :issue-number issue-number
      :created-at   t
      :modified-at  t}))
@@ -69,8 +70,8 @@
 
 (def simple-add-comment!
   "Create a remote comment."
-  (fn [machine in b]
-    (add-comment! machine (simple-comment in b))))
+  (fn [machine in b name]
+    (add-comment! machine (simple-comment in b name))))
 
 (def simple-edit-issue!
   (fn [machine n i]
@@ -139,13 +140,13 @@
       (use-fake-keys!)
       (simple-create-issue! machine "title0" "body0")
       (simple-create-issue! machine "title1" "body1")
-      (simple-add-comment! machine 0 "comment0")
-      (simple-add-comment! machine 1 "comment1")
+      (simple-add-comment! machine 0 "comment0" "name0")
+      (simple-add-comment! machine 1 "comment1" "name1")
       (simple-edit-issue! machine 0 {:state :closed})
       (simple-edit-comment! machine 0 0 {:body "comment0-edit"})
       (simple-create-issue! machine "new" "new")
       (simple-create-issue! machine "newer" "newer")
-      (simple-add-comment! machine 0 "new")
+      (simple-add-comment! machine 0 "new" "name0")
       (def is (list-issues machine)))
  ]
  [ (length (seq is)) ==> 4 ]
