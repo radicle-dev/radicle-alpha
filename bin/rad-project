@@ -71,7 +71,7 @@
         "or the IPNS link is stale, or because no online node "
         "with the data could be found."))
     (cd! name)
-    (set-git-config! "radicle.project-id" project-url)))
+    (set-git-config! "radicle.project-id" project)))
 
 (def new-project!
   "Create a new project."
