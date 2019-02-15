@@ -20,6 +20,7 @@ import           Protolude
 import           Radicle (LangError, Value, renderCompactPretty)
 import           Radicle.Daemon.Common
 import           Radicle.Daemon.Ipfs
+import           Radicle.Ipfs
 
 
 newtype Daemon a = Daemon (ExceptT Error (ReaderT Env IO) a)
@@ -47,16 +48,18 @@ data Env = Env
 
 -- * Errors
 
+-- | An error relating to a specific machine managed by the daemon.
 data MachineError
   = InvalidInput (LangError Value)
-  | IpfsError IpfsError
+  | IpfsError IpfsException
   | AckTimeout
   | DaemonError Text
   | MachineNotCached
 
+-- | An error that the daemon can encounter.
 data Error
   = MachineError MachineId MachineError
-  | CouldNotCreateMachine IpfsError
+  | CouldNotCreateMachine IpfsException
 
 displayError :: Error -> (Text, [(Text,Text)])
 displayError = \case
@@ -70,7 +73,9 @@ displayError = \case
       DaemonError err -> ("Internal error", [mid, ("error", err)])
   where
     ipfsErr = \case
-      IpfsDaemonErrMsg err -> ("The IPFS daemon returned an error", [("ipfs-error", err)])
-      IpfsDaemonException exc -> ("There was an error using the IPFS daemon", [("ipfs-error", toS (displayException exc))])
-      IpfsDaemonNoErrMsg -> ("There was an unknown error using IPFS", [])
-      Timeout -> ("Timeout communicating with IPFS daemon", [])
+      IpfsException msg -> ("There was an error using the IPFS daemon", [("ipfs-error", msg)])
+      IpfsExceptionErrResp msg -> ("The IPFS daemon returned an error", [("ipfs-error", msg)])
+      IpfsExceptionErrRespNoMsg -> ("There was an unknown error using IPFS", [])
+      IpfsExceptionTimeout -> ("Timeout communicating with IPFS daemon", [])
+      IpfsExceptionInvalidResponse url parseError -> ("Cannot parse IPFS daemon response", [("url", url), ("parse-error", parseError)])
+      IpfsExceptionNoDaemon -> ("The IPFS daemon is not reachable, run 'rad ipfs daemon'", [])

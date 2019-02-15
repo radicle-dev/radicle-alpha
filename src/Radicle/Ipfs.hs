@@ -25,7 +25,7 @@ module Radicle.Ipfs
     , subscribe
     ) where
 
-import           Protolude hiding (TypeError, catch, try)
+import           Protolude hiding (TypeError, catch, catches, try)
 
 import           Control.Exception.Safe
 import           Control.Monad.Fail
@@ -38,6 +38,7 @@ import           Data.Conduit ((.|))
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Attoparsec as C
 import qualified Data.Conduit.Combinators as C
+import qualified Data.HashMap.Strict as HashMap
 import           Data.IPLD.CID
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -45,26 +46,48 @@ import           Lens.Micro ((.~), (^.))
 import           Network.HTTP.Client
                  (HttpException(..), HttpExceptionContent(..))
 import qualified Network.HTTP.Client as HTTP
+import qualified Network.HTTP.Client as Http
 import qualified Network.HTTP.Conduit as HTTP
 import qualified Network.Wreq as Wreq
 import           System.Environment (lookupEnv)
 
 data IpfsException
-    = IpfsException Text
-    -- | JSON response from the IPFS Api cannot be parsed. First
-    -- argument is the request path, second argument the JSON parsing
-    -- error
-    | IpfsExceptionInvalidResponse Text Text
-    -- | The IPFS daemon is not running.
-    | IpfsExceptionNoDaemon
-    deriving (Show, Eq)
+  = IpfsException Text
+  | IpfsExceptionErrResp Text
+  | IpfsExceptionErrRespNoMsg
+  -- | The request to the IPFS daemon timed out.
+  | IpfsExceptionTimeout
+  -- | JSON response from the IPFS Api cannot be parsed. First
+  -- argument is the request path, second argument the JSON parsing
+  -- error
+  | IpfsExceptionInvalidResponse Text Text
+  -- | The IPFS daemon is not running.
+  | IpfsExceptionNoDaemon
+  deriving (Show)
 
 instance Exception IpfsException where
-    displayException (IpfsException msg) = "ipfs: " <> toS msg
-    displayException IpfsExceptionNoDaemon = "ipfs: Daemon not reachable, run 'rad ipfs daemon"
-    displayException (IpfsExceptionInvalidResponse url _) = "ipfs: Cannot parse IPFS daemon response for " <> toS url
+    displayException e = "ipfs: " <> case e of
+      IpfsException msg -> toS msg
+      IpfsExceptionNoDaemon -> "Cannot connect to " <> name
+      IpfsExceptionInvalidResponse url _ -> "Cannot parse " <> name <> " response for " <> toS url
+      IpfsExceptionTimeout -> name <> " took too long to respond"
+      IpfsExceptionErrResp msg -> toS msg
+      IpfsExceptionErrRespNoMsg -> name <> " failed with no error message"
+      where
+        name = "Radicle IPFS daemon"
 
-
+-- | Turn HTTP exceptions into 'IpfsException's.
+mapHttpException :: forall a. IO a -> IO a
+mapHttpException io = catch io httpHdlr
+  where
+    httpHdlr = \case
+      Http.HttpExceptionRequest _
+        (Http.StatusCodeException _
+          (Aeson.decodeStrict ->
+             Just (Aeson.Object (HashMap.lookup "Message" ->
+                     Just (Aeson.String msg))))) -> throw (IpfsExceptionErrResp msg)
+      Http.HttpExceptionRequest _ Http.ResponseTimeout -> throw IpfsExceptionTimeout
+      _ -> throw IpfsExceptionErrRespNoMsg
 
 -- | Given a CID @"abc...def"@ it returns a IPLD link JSON object
 -- @{"/": "abc...def"}@.
@@ -163,7 +186,7 @@ subscribe topic messageHandler = runResourceT $ do
 -- | Publish a message to a topic.
 publish :: Text -> LByteString -> IO ()
 publish topic message =
-    void $ ipfsHttpPost' "pubsub/pub" [("arg", topic)] "data" message
+     void $ ipfsHttpPost' "pubsub/pub" [("arg", topic)] "data" message
 
 newtype KeyGenResponse = KeyGenResponse IpnsId
 
@@ -241,7 +264,7 @@ ipfsHttpGet
     => Text  -- ^ Path of the endpoint under "/api/v0/"
     -> [(Text, Text)] -- ^ URL query parameters
     -> IO a
-ipfsHttpGet path params = do
+ipfsHttpGet path params = mapHttpException $ do
     let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
     res <- Wreq.getWith opts (toS url) `catch` handleRequestException
@@ -255,7 +278,7 @@ ipfsHttpPost
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
     -> IO a
-ipfsHttpPost path params payloadArgName payload = do
+ipfsHttpPost path params payloadArgName payload = mapHttpException $ do
     res <- ipfsHttpPost' path params payloadArgName payload
     jsonRes <- Wreq.asJSON res `catch` handleParseException path
     pure $ jsonRes ^. Wreq.responseBody

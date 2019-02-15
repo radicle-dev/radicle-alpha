@@ -113,6 +113,8 @@ wrapServantError action = do
     case result of
         Left (Servant.FailureResponse response) -> throwErrorHere $ DaemonError $ toS $ Servant.responseBody response
         Left e -> case e of
-          Servant.ConnectionError _ -> throwErrorHere $ DaemonError "Could not connect to radicle-daemon. Most likely it is not running. Please start it with 'radicle-daemon'."
+          Servant.ConnectionError _ -> throwErrorHere $ DaemonError startDaemonHint
           _ -> throwErrorHere $ DaemonError $ toS $ displayException e
         Right value -> pure value
+  where
+    startDaemonHint = "Could not connect to the Radicle daemon, most likely it is not running. Please see the documentation for how to start it."

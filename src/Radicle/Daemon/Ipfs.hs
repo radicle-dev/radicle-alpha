@@ -1,11 +1,10 @@
 module Radicle.Daemon.Ipfs
-  ( IpfsError(..)
-  , MachineId(..)
+  ( MachineId(..)
   , Message(..)
   , InputsApplied(..)
   , SubmitInputs(..)
   , writeIpfs
-  , publish
+  , Radicle.Daemon.Ipfs.publish
   , machineInputsFrom
   , createMachine
   , Ipfs.MachineEntryIndex
@@ -24,17 +23,16 @@ import           Control.Monad.Fail
 import           Data.Aeson (decodeStrict, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
-import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Unique as Unique
-import qualified Network.HTTP.Client as Http
 
 import           Radicle.Internal.Core
 import qualified Radicle.Internal.MachineBackend.Ipfs as Ipfs
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import qualified Radicle.Internal.UUID as UUID
+import           Radicle.Ipfs
 import qualified Radicle.Ipfs as Ipfs
 
 jsonToValue :: Aeson.Value -> Aeson.Parser Value
@@ -59,12 +57,6 @@ instance Aeson.ToJSON MachineId where
   toJSON (MachineId id) = Aeson.String id
 instance Aeson.FromJSON MachineId where
   parseJSON js = MachineId <$> Aeson.parseJSON js
-
-data IpfsError
-  = IpfsDaemonException Ipfs.IpfsException
-  | IpfsDaemonErrMsg Text
-  | IpfsDaemonNoErrMsg
-  | Timeout
 
 -- | Messages sent on a machine's IPFS pubsub topic.
 data Message = New InputsApplied | Submit SubmitInputs
@@ -110,30 +102,11 @@ data SubmitInputs = SubmitInputs
 
 -- * Ipfs helpers
 
--- TODO: All the error handling w.r.t interactions with IPFS should be
--- done in "Radicle.Ipfs".
-safeIpfs :: forall a. IO a -> ExceptT IpfsError IO a
-safeIpfs io = ExceptT $ liftIO $
-  catches (Right <$> io)
-    [ Handler $ pure . Left . IpfsDaemonException
-    , Handler httpHdlr
-    ]
-  where
-    httpHdlr e = pure $ Left $ case e of
-      Http.HttpExceptionRequest _
-        (Http.StatusCodeException _
-          (decodeStrict ->
-             Just (Aeson.Object (HashMap.lookup "Message" ->
-                     Just (Aeson.String msg))))) -> IpfsDaemonErrMsg msg
-      Http.HttpExceptionRequest _ Http.ResponseTimeout -> Timeout
-      _ -> IpfsDaemonNoErrMsg
-
-
 -- | Write and pin some inputs to an IPFS machine.
 -- TODO: we might want to make this safer by taking the expected head
 -- MachineEntryIndex as an argument.
-writeIpfs :: MachineId -> [Value] -> ExceptT IpfsError IO Ipfs.MachineEntryIndex
-writeIpfs (MachineId id) vs = safeIpfs $ Ipfs.sendIpfs id (Seq.fromList vs)
+writeIpfs :: MachineId -> [Value] -> IO Ipfs.MachineEntryIndex
+writeIpfs (MachineId id) vs = Ipfs.sendIpfs id (Seq.fromList vs)
 
 newtype Topic = Topic { getTopic :: Text }
 
@@ -142,9 +115,8 @@ machineTopic :: MachineId -> Topic
 machineTopic (MachineId id) = Topic ("radicle:machine:" <> id)
 
 -- | Publish a 'Message' on a machine's IPFS pubsub topic.
-publish :: MachineId -> Message -> ExceptT IpfsError IO ()
-publish id msg = safeIpfs $
-  Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
+publish :: MachineId -> Message -> IO ()
+publish id msg = Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
 subscribeForever :: MachineId -> MsgHandler -> IO ()
@@ -156,15 +128,15 @@ subscribeForever id messageHandler = Ipfs.subscribe topic pubsubHandler
       Nothing  -> Left (toS messageData)
 
 -- | Get and pin inputs of an IPFS machine from a certain index.
-machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT IpfsError IO (Ipfs.MachineEntryIndex, [Value])
-machineInputsFrom (MachineId id) = safeIpfs . Ipfs.receiveIpfs id
+machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> IO (Ipfs.MachineEntryIndex, [Value])
+machineInputsFrom = Ipfs.receiveIpfs . getMachineId
 
 -- | Create an IPFS machine and return its ID.
-createMachine :: ExceptT IpfsError IO MachineId
+createMachine :: IO MachineId
 createMachine = do
-  id_ <- safeIpfs $ Ipfs.ipfsMachineCreate =<< UUID.uuid
+  id_ <- Ipfs.ipfsMachineCreate =<< UUID.uuid
   case id_ of
-    Left e   -> throwError (IpfsDaemonErrMsg e)
+    Left e   -> throw (IpfsException e)
     Right id -> pure (MachineId id)
 
 -- * Topic subscriptions
@@ -180,8 +152,8 @@ newtype TopicSubscription = TopicSubscription
 -- | Given a machine ID, creates a subscription for that machine's
 -- pubsub topic. This allows adding and removing handlers for messages
 -- on that topic.
-initSubscription :: MachineId -> ExceptT IpfsError IO TopicSubscription
-initSubscription id = safeIpfs $ do
+initSubscription :: MachineId -> IO TopicSubscription
+initSubscription id = do
     hdlrs <- newMVar Map.empty
     _ <- async $ subscribeForever id (mainHdlr hdlrs)
     pure $ TopicSubscription hdlrs
