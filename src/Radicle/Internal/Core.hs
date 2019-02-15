@@ -81,6 +81,7 @@ data LangErrorData r =
     | ThrownError Ident r
     | SendError Text
     | PatternMatchError PatternMatchError
+    | DaemonError Text
     -- | Raised if the effectful @exit!@ primitive is evaluated.
     | Exit Int
     deriving (Eq, Show, Generic, Functor)
@@ -147,6 +148,7 @@ errorDataToValue e = case e of
         ( "other-error"
         , [("info", String i)]
         )
+    DaemonError i -> makeVal ( "daemon-error", [("info", String i)])
     ParseError _ -> makeVal ("parse-error", [])
     ThrownError label val -> pure (label, val)
     PatternMatchError pe -> case pe of

@@ -140,7 +140,6 @@ executables:
     - radicle
     - mtl
     - containers
-    - bytestring
     - optparse-applicative
     - servant-server
     - text

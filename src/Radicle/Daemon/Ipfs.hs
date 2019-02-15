@@ -61,9 +61,9 @@ instance Aeson.FromJSON MachineId where
   parseJSON js = MachineId <$> Aeson.parseJSON js
 
 data IpfsError
-  = IpfsDaemonError Ipfs.IpfsException
-  | InternalError Text
-  | NetworkError Text
+  = IpfsDaemonException Ipfs.IpfsException
+  | IpfsDaemonErrMsg Text
+  | IpfsDaemonNoErrMsg
   | Timeout
 
 -- | Messages sent on a machine's IPFS pubsub topic.
@@ -115,7 +115,7 @@ data SubmitInputs = SubmitInputs
 safeIpfs :: forall a. IO a -> ExceptT IpfsError IO a
 safeIpfs io = ExceptT $ liftIO $
   catches (Right <$> io)
-    [ Handler $ pure . Left . IpfsDaemonError
+    [ Handler $ pure . Left . IpfsDaemonException
     , Handler httpHdlr
     ]
   where
@@ -124,9 +124,9 @@ safeIpfs io = ExceptT $ liftIO $
         (Http.StatusCodeException _
           (decodeStrict ->
              Just (Aeson.Object (HashMap.lookup "Message" ->
-                     Just (Aeson.String msg))))) -> NetworkError msg
-      Http.HttpExceptionRequest _ Http.ResponseTimeout -> InternalError (toS (displayException e))
-      _ -> Timeout
+                     Just (Aeson.String msg))))) -> IpfsDaemonErrMsg msg
+      Http.HttpExceptionRequest _ Http.ResponseTimeout -> Timeout
+      _ -> IpfsDaemonNoErrMsg
 
 
 -- | Write and pin some inputs to an IPFS machine.
@@ -160,8 +160,12 @@ machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> ExceptT IpfsEr
 machineInputsFrom (MachineId id) = safeIpfs . Ipfs.receiveIpfs id
 
 -- | Create an IPFS machine and return its ID.
-createMachine :: ExceptT Text IO MachineId
-createMachine = ExceptT $ liftIO $ second MachineId <$> (Ipfs.ipfsMachineCreate =<< UUID.uuid)
+createMachine :: ExceptT IpfsError IO MachineId
+createMachine = do
+  id_ <- safeIpfs $ Ipfs.ipfsMachineCreate =<< UUID.uuid
+  case id_ of
+    Left e   -> throwError (IpfsDaemonErrMsg e)
+    Right id -> pure (MachineId id)
 
 -- * Topic subscriptions
 
