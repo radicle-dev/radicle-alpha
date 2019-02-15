@@ -1,6 +1,6 @@
 {:module 'prelude/strings
  :doc    "String manipulation functions."
- :exports '[intercalate unlines unwords split-by words lines map-string]
+ :exports '[intercalate unlines unwords split-by words lines map-string reverse-string]
  }
 
 (import prelude/basic :unqualified)
@@ -123,3 +123,12 @@
   [ (map-string (fn [x] "A") "") ==> ""]
   [ (map-string (fn [x] "") "foo") ==> ""]
   [ (catch 'type-error (map-string (fn [x] 2) "foo") (fn [x] :caught)) ==> :caught])
+
+(def reverse-string
+  (fn [str]
+    (def g (fn [a b] (string-append b a)))
+    (foldl-string g "" str)))
+
+(:test "reverse-string"
+  [ (reverse-string "abc") ==> "cba" ]
+)
