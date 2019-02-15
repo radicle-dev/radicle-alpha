@@ -7,7 +7,7 @@ module Radicle.Daemon.Monad
     , liftExceptT
 
     , Env(..)
-    , FollowFileLock
+    , FileLock
     , LogLevel(..)
 
     , MachineError(..)
@@ -34,16 +34,16 @@ liftExceptT makeError action = Daemon $ mapExceptT (lift . fmap (first makeError
 
 -- * Environment
 
-type FollowFileLock = MVar ()
+type FileLock = MVar ()
 
 data LogLevel = Normal | Debug
   deriving (Eq, Ord)
 
 data Env = Env
-  { followFileLock :: FollowFileLock
-  , followFile     :: FilePath
-  , machines       :: CachedMachines
-  , logLevel       :: LogLevel
+  { machineConfigFileLock :: FileLock
+  , machineConfigFile     :: FilePath
+  , machines              :: CachedMachines
+  , logLevel              :: LogLevel
   }
 
 -- * Errors

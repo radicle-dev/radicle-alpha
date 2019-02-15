@@ -5,38 +5,36 @@
 -- See
 -- <https://github.com/oscoin/radicle/blob/master/rfcs/0003-radicle-daemon.rst
 -- the RFC>.
-module Daemon where
+module Daemon (main) where
 
 import           Protolude hiding (fromStrict, option, poll)
 
-import qualified Data.Aeson as A
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Time.Clock.System as Time
 import           Network.Wai.Handler.Warp (run)
 import           Options.Applicative
 import           Servant
-import           System.Directory (doesFileExist)
 import           System.IO (BufferMode(..), hSetBuffering)
 
 import           Radicle.Daemon.Common hiding (logInfo)
 import qualified Radicle.Daemon.Common as Common
-import qualified Radicle.Internal.UUID as UUID
-
-import           Radicle hiding (DaemonError, Env)
 import qualified Radicle.Daemon.HttpApi as Api
 import           Radicle.Daemon.Ipfs
+import           Radicle.Daemon.MachineConfig
 import           Radicle.Daemon.Monad
+
+import qualified Radicle.Ipfs as Ipfs
+
+import           Radicle hiding (DaemonError, Env)
 import qualified Radicle.Internal.CLI as Local
 import qualified Radicle.Internal.ConcurrentMap as CMap
-import qualified Radicle.Ipfs as Ipfs
+import qualified Radicle.Internal.UUID as UUID
 
 -- * Types
 
 logDaemonError :: MonadIO m => Error -> m ()
 logDaemonError (displayError -> (m, xs)) = logErr m xs
-
-type Follows = Map MachineId ReaderOrWriter
 
 -- * Main
 
@@ -74,12 +72,12 @@ main :: IO Void
 main = do
     hSetBuffering stdout LineBuffering
     Opts{..} <- execParser allOpts
-    followFileLock <- newMVar ()
-    followFile <- Local.getRadicleFile (toS filePrefix <> "daemon-follows")
+    machineConfigFileLock <- newMVar ()
+    machineConfigFile <- Local.getRadicleFile (toS filePrefix <> "daemon-follows")
     machines <- CachedMachines <$> CMap.empty
     let env = Env{ logLevel = if debug then Debug else Normal, ..}
-    follows <- readFollowFileIO followFileLock followFile
-    initRes <- runDaemon env (init follows)
+    machineConfig <- readMachineConfigIO machineConfigFileLock machineConfigFile
+    initRes <- runDaemon env (init machineConfig)
     case initRes of
       Left err -> do
         logDaemonError err
@@ -137,7 +135,7 @@ server env = hoistServer Api.daemonApi nt daemonServer
 -- * Init
 
 -- | Initiate machines according to follow file.
-init :: Follows -> Daemon ()
+init :: MachineConfig -> Daemon ()
 init follows = traverse_ initMachine (Map.toList follows)
   where
     initMachine (id, Reader) = initReaderNoFail id
@@ -155,7 +153,7 @@ newMachine = do
     m <- liftIO $ emptyMachine id Writer sub
     insertNewMachine id (Cached m)
     actAsWriter m
-    writeFollowFile
+    writeMachineConfig
     pure (Api.NewResponse id)
 
 -- | Evaluate an expression against a cached machine. The resulting
@@ -237,32 +235,6 @@ logInfo l msg infos = do
     then Common.logInfo msg infos
     else pure ()
 
-withFollowFileLock :: FollowFileLock -> IO a -> IO a
-withFollowFileLock lock = withMVar lock . const
-
-readFollowFileIO :: FollowFileLock -> FilePath -> IO Follows
-readFollowFileIO lock ff = withFollowFileLock lock $ do
-  exists <- doesFileExist ff
-  t <- if exists
-    then readFile ff
-    else let noFollows = toS (A.encode (Map.empty :: Follows))
-         in writeFile ff noFollows $> noFollows
-  case A.decode (toS t) of
-    Nothing -> panic $ "Invalid daemon-follow file: could not decode " <> toS ff
-    Just fs -> pure fs
-
-writeFollowFile :: Daemon ()
-writeFollowFile = do
-    lock <- asks followFileLock
-    CachedMachines cMap <- asks machines
-    ff <- asks followFile
-    liftIO $ withFollowFileLock lock $ do
-      ms <- CMap.nonAtomicRead cMap
-      let fs = mode <$> ms
-      writeFile ff (toS (A.encode fs))
-  where
-    mode (UninitialisedReader _) = Reader
-    mode (Cached c)              = machineMode c
 
 lookupMachine :: MachineId -> Daemon (Maybe CachedMachine)
 lookupMachine id = do
@@ -431,7 +403,7 @@ initAsReader id = do
 newReader :: MachineId -> Daemon Machine
 newReader id = do
   m <- initAsReader id
-  writeFollowFile
+  writeMachineConfig
   pure m
 
 -- | Try to initiate a reader, but don't fail in case of errors; just log a

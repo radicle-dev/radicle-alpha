@@ -138,10 +138,8 @@ executables:
     other-modules: []
     dependencies:
     - radicle
-    - aeson
     - mtl
     - containers
-    - directory
     - optparse-applicative
     - servant-server
     - text

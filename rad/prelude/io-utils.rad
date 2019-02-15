@@ -1,6 +1,7 @@
 {:module 'prelude/io-utils
  :doc "IO-related utilities"
- :exports '[fzf-select! edit-in-editor! get-git-config! set-git-config!]}
+ :exports '[fzf-select! edit-in-editor! get-git-config! set-git-config!
+            get-git-commit-data! get-git-username!]}
 
 (import prelude/io '[shell-with-stdout! write-file! process-with-stdout!] :unqualified)
 (import prelude/strings '[unlines] :unqualified)
@@ -45,7 +46,38 @@
   (fn [key]
     (unlines (process-with-stdout! "git" ["config" "--get" key] ""))))
 
+(def get-git-username!
+  "Get the user name stored in git config."
+  (fn []
+    (match (get-git-config! "user.name")
+      ""    (do
+                (put-str! (string-append
+                            "git config user.name is not set. "
+                            "Set the user name and rerun your command."))
+                (exit! 1))
+      'name  name)))
+
+(def get-git-commit-data!
+  "Get data from a `commit` via `show` specified by `format`"
+  (fn [format commit]
+    (def git-args ["show" "-s" (string-append "--format=" format) commit])
+    (match (process-with-stdout-stderr-exitcode! "git" git-args "")
+      ['stdout _ :ok] (unlines stdout)
+      _               (do
+                        (put-str!
+                          (string-append "git show -s --format=" format " " commit " failed."))
+                        (exit! 1)))))
+
 (def set-git-config!
   "Set the value associated with a key in git config."
   (fn [key value]
     (process-with-stdout! "git" ["config" key value] "")))
+
+(def process-git-with-exit!
+  "Processes a git command `args`. If it fails, the message `msg` is shown and the process exits, otherwise `:ok` is passed."
+  (fn [args msg]
+    (match (process! "git" args "")
+      :ok :ok
+      _   (do
+            (put-str! msg)
+            (exit! 1)))))

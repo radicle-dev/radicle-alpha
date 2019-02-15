@@ -203,4 +203,6 @@ Do `rad-create-keys` to create your own key pair and rerun your command.")
   user."
   (fn [f]
     (catch 'daemon-error (f)
-      (fn [e] (put-str! (lookup :info e))))))
+      (fn [e]
+        (put-str! (lookup :info e))
+        (exit! 1)))))
