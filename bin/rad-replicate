@@ -1,0 +1,51 @@
+#!/usr/bin/env radicle
+
+(load! (find-module-file! "monadic/project.rad"))
+
+(def help
+  "rad-replicate - Replicate radicle projects
+
+   Usage:
+        rad-replicate [URL]
+  ")
+
+(def default-url "")
+
+(def get-machines
+  "Gets all machines in the project, including the project itself but excluding git."
+  (def proj (get-project-url!))
+  (def others (list-rsms! proj))
+  (def otherss (filter (fn [x] (not (eq? (lookup :type x) :rad-repo)))))
+  (cons proj otherss))
+
+(def replicate
+  "Replicates the given machine."
+  (fn [murl machine]
+    (def url-base
+      (match murl
+             :nothing default-url
+             :just 'x x))
+    (def url
+      (string-append
+        url-base
+        "v0/machines/"
+        machine
+        "/query"))
+    (process-with-exit!
+      "curl"
+      ["-f" url])))
+
+(def replicate-all
+  (fn [murl]
+    (map (fn [x] (replicate murl x)) (get-machines))))
+
+(def args (get-args!))
+(machine/catch-daemon!
+ (fn []
+   (match args
+          ['url] (replicate-all [:just url])
+          [] (replicate-all :nothing)
+          ["help"] (put-str! help)
+          ["-h"] (put-str! help)
+          ["--help"] (put-str! help)
+          )))
