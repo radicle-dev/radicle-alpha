@@ -23,10 +23,10 @@ test_diff_propose = testCaseSteps "diff propose" $ \step -> do
     _ <- runTestCommand "rad-diff" ["propose", "HEAD"]
 
     listOutput <- runTestCommand "rad-diff" ["list"]
-    assertContains listOutput $ "state     #"
-    assertContains listOutput $ "pending   0"
+    assertContains listOutput $ "state      #"
+    assertContains listOutput $ "pending    0"
 
     showOutput <- runTestCommand "rad-diff" ["show", "0"]
-    assertContains showOutput $ "pending   0"
+    assertContains showOutput $ "pending 0"
     assertContains showOutput $ "From " <> commitSha
     assertContains showOutput $ "Comments\n---"
