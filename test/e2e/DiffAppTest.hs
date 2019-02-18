@@ -13,7 +13,7 @@ test_diff_propose = testCaseSteps "diff propose" $ \step -> do
     _ <- runTestCommand "rad-create-keys" []
     _ <- runTestCommand "git" ["config", "--global", "user.name", "Alice"]
     _ <- runTestCommand "git" ["config", "--global", "user.email", "alice@example.com"]
-    _ <- runTestCommand' "rad-project" ["init"] ["1", "project-name", "project desc"]
+    _ <- runTestCommand' "rad-project" ["init"] ["project-name", "project desc", "1"]
     _ <- runTestCommand "git" ["commit", "--allow-empty", "--message", "first commit"]
     commitSha <- runTestCommand "git" ["rev-parse", "--short", "HEAD"]
 
