@@ -172,5 +172,5 @@ steps:
       export RADPATH="$(pwd)/rad"
 
       stack exec -- radicle-daemon &
-
+      sleep 5 # Wait for radicle-daemon
       stack test :e2e
