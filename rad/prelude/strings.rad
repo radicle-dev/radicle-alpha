@@ -125,6 +125,7 @@
   [ (catch 'type-error (map-string (fn [x] 2) "foo") (fn [x] :caught)) ==> :caught])
 
 (def reverse-string
+  "Reverses `str`. E.g.: `(reverse-string \"abc\")` == `\"cba\"."
   (fn [str]
     (def g (fn [a b] (string-append b a)))
     (foldl-string g "" str)))
