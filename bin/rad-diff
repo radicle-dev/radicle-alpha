@@ -164,13 +164,8 @@
 
 (def wrap-cell
   (fn [phrase cell-key]
-    (def cell
-      (string/intercalate "" (map (fn [x] " ") (range 1 (lookup cell-key cells)))))
-    (def c-length (length cell))
-    (def p-length (length phrase))
-    (if (> p-length (- c-length 1))
-      (string-append (take (- c-length 1) phrase) " ")
-      (string-append phrase (take (- c-length p-length) cell)))))
+    (def c-length (lookup cell-key cells))
+    (string-append (string/pad-to c-length phrase) " ")))
 
 (def pretty-table-header
   (fn []
@@ -182,6 +177,21 @@
       (wrap-cell "updated" :modified-at))))
 
 (def pretty-headline
+  (fn [i]
+    (match i
+      '{:number n
+        :title tit
+        :state s
+        :author-name an
+        :modified-at m-a}
+      (string-append
+        (pretty-state s) " "
+        (show n) " "
+        tit " "
+        an " "
+        m-a " "))))
+
+(def pretty-row
   (fn [i]
     (match i
       '{:number n
@@ -212,7 +222,6 @@
         :comments cs}
       (string-append
         (pretty-headline i) "\n\n"
-        "created at " c-a "\n\n"
         p "\n\n"
         "Comments\n"
         "--------\n\n"
@@ -234,7 +243,10 @@
   (fn [machine options]
 
     (def mk-key
-      (fn [diff] [(pretty-headline diff) diff]))
+      (fn [diff]
+        (if (lookup :fancy options)
+          [(pretty-headline diff) diff]
+          [(pretty-row diff) diff])))
 
     (def filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))

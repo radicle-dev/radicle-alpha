@@ -1,6 +1,6 @@
 {:module 'prelude/strings
  :doc    "String manipulation functions."
- :exports '[intercalate unlines unwords split-by words lines map-string]
+ :exports '[intercalate unlines unwords split-by words lines pad-to map-string]
  }
 
 (import prelude/basic :unqualified)
@@ -53,6 +53,26 @@
   [ (is-space-char? " ") ==> #t]
   [ (is-space-char? "\t") ==> #t]
   [ (is-space-char? "\n") ==> #t])
+
+(def pad-to
+  "Pads the string `x` with whitespace according to length `l`. If `x` is longer,
+  it is cut off."
+  (fn [l x]
+    (if (< l 1)
+      ""
+      (do
+        (def pad (intercalate "" (map (fn [x] " ") (range 1 l))))
+        (def x-length (length x))
+        (if (> x-length (- l 1))
+          (take l x)
+          (string-append x (take (- l x-length) pad)))))))
+
+(:test "pad-to"
+  [ (pad-to 3 "foo") ==> "foo"]
+  [ (pad-to 3 "foobar") ==> "foo"]
+  [ (pad-to 3 "fo") ==> "fo "]
+  [ (pad-to 3 "") ==> "   "]
+  [ (pad-to 0 "") ==> ""])
 
 ;; split-by
 
