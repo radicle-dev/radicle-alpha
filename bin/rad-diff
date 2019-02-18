@@ -144,8 +144,10 @@
                :author-name   author-name
                :author-email  author-email
                :patch         patch})
-    (simple-create-diff! machine diff)
-    (put-str! (string-append "Proposing " short-hash " to " machine))))
+    (match (simple-create-diff! machine diff)
+           ['n] (put-str! (string-append "Proposing #" (show n)
+                                         " to " machine))
+           _    (put-str! "Diff proposed but unexpected results returned."))))
 
 ;; showing diffs
 
