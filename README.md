@@ -56,7 +56,7 @@ start up an IPFS test network and the Raicle daemon.
 
     docker-compose -f test/docker-compose.yaml up -d ipfs-test-network
     RAD_IPFS_API_URL=http://localhost:19301 stack exec -- \
-      radicle-daemon --machine-config /tmp/radicle-machines.json
+      rad-daemon-radicle --machine-config /tmp/radicle-machines.json
 
 If you use `docker-compose up` for the first time you will also need to
 initialize the IPFS test network with
