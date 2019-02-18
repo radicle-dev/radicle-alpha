@@ -763,7 +763,7 @@ other than a string
 ``(reverse-string str)``
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Reverses ``str``. E.g.: ``(reverse-string "abc")`` == \`"cba".
+Reverses ``str``. E.g.: ``(reverse-string "abc")`` == ``"cba"``.
 
 ``prelude/dict``
 ----------------
