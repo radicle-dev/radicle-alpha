@@ -103,6 +103,8 @@ tests:
     - process
     - directory
     - filepath
+    # Requires the 'git-remote-ipfs' executable
+    - git-remote-ipfs
     - safe-exceptions
     - tasty
     - tasty-discover
