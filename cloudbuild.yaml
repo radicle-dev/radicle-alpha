@@ -29,6 +29,7 @@ steps:
 
       stack build \
         --no-terminal \
+        --test \
         --dependencies-only
 
   - id: "Save cache"
