@@ -188,7 +188,7 @@
     (def i (read (edit-in-editor! template)))
     (def author {:git-username (get-git-username!)})
     (match (create-issue!  machine (simple-issue (<> i author)))
-           ['n] (put-str! (string-append "Issue created with number: " (show n)))
+           ['n] (put-str! (string-append "Created issue #" (show n) " in " machine))
            _    (put-str! "Issue created but unexpected results returned."))))
 
 (def cmd-options
