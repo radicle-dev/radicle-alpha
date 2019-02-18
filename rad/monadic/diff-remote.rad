@@ -125,7 +125,8 @@
        (<> i
            {:number   n})))
     (set-diffs (@ n) i_)
-    (noncer [:use (lookup :nonce i)])))
+    (noncer [:use (lookup :nonce i)])
+    n))
 
 (def over-diffs
   "A helper to modify stuff in the diff ref."

@@ -183,7 +183,8 @@
            {:number   n
             :comments (map strip-input (lookup :comments fixed))})))
     (set-issues (@ n) i_)
-    (noncer [:use (lookup :nonce i)])))
+    (noncer [:use (lookup :nonce i)])
+    n))
 
 (def add-comment
   "Add a comment to an issue."
