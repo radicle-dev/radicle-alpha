@@ -171,6 +171,6 @@ steps:
       export RAD_IPFS_API_URL=http://ipfs-test-network:5001
       export RADPATH="$(pwd)/rad"
 
-      stack exec -- radicle-daemon &
+      stack exec -- rad-daemon-radicle &
 
       stack test :e2e

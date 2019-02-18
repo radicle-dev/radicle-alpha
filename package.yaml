@@ -119,8 +119,9 @@ executables:
     other-modules: [Paths_radicle]
     dependencies:
     - directory
-    - unix
+    - filepath
     - text
+    - unix
     ghc-options: -main-is Rad -O3 -threaded
 
   radicle:
@@ -134,7 +135,7 @@ executables:
     - optparse-applicative
     ghc-options: -main-is RadicleExe
 
-  radicle-daemon:
+  rad-daemon-radicle:
     main: Daemon.hs
     source-dirs: exe
     other-modules: []

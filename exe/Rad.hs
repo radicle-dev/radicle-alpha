@@ -6,11 +6,12 @@ module Rad
 
 import           Protolude
 
-import           Data.List (isPrefixOf)
+import           Data.List (lookup, stripPrefix)
 import           Data.String (String)
 import qualified Data.Text as T
 import           Data.Version (showVersion)
 import           System.Directory
+import           System.FilePath
 import qualified System.Posix.Process as Posix
 
 import           Paths_radicle (getBinDir, version)
@@ -21,13 +22,13 @@ radPrefix = "rad-"
 
 runCommand :: [String] -> IO ()
 runCommand [] = do
-    bin <- getBinDir
-    cmds <- availableCommands [bin]
+    cmds <- getSubCommands
+    let availableCommands = sort $ map fst cmds <> builtinCommands
     putStr @Text "usage: rad <command> [<args>]\n\n"
-    putStrLn @Text "Available rad commands:"
-    putStr $ T.unlines $ ["   " <> T.pack c | c <- cmds]
+    putStrLn @Text "Available commands:"
+    putStr $ T.unlines $ ["   " <> T.pack c | c <- availableCommands]
 runCommand ("version":_) =
-    putStrLn ("rad version " <> toS (showVersion version) :: Text)
+    putStrLn ("radicle version " <> toS (showVersion version) :: Text)
 runCommand ("help":_) =
     runCommand []
 runCommand ("--help":_) =
@@ -35,8 +36,8 @@ runCommand ("--help":_) =
 runCommand ("-h":_) =
     runCommand []
 runCommand (name:args) = do
-    result <- findExecutable (radPrefix <> name)
-    case result of
+    cmds <- getSubCommands
+    case lookup name cmds of
         Just exe ->
             Posix.executeFile exe False args Nothing
         Nothing -> do
@@ -50,18 +51,17 @@ builtinCommands :: [String]
 builtinCommands =
     ["version", "help"]
 
--- | Lists commands available for running.
-availableCommands
-    :: [FilePath]  -- ^ Directories to search
-    -> IO [String] -- ^ Available commands
-availableCommands dirs =
-    concat <$> forM dirs (\dir -> do
-        result <- try $ do
-            xs <- listDirectory dir
-            pure $ [drop (length radPrefix) x | x <- xs, toS radPrefix `isPrefixOf` x]
-        pure $ case result of
-            Left (_ :: IOException) -> builtinCommands
-            Right xs                -> xs ++ builtinCommands)
+-- | Returns list of Radicle sub-command binaries. These are all the
+-- executables in 'getBinDir' starting with @rad@.
+--
+-- The first item is the command name, the second the absolute location
+-- of the executable.
+getSubCommands :: IO [(String, FilePath)]
+getSubCommands = do
+    searchDir <- getBinDir
+    files <- listDirectory searchDir
+    let commands = mapMaybe (stripPrefix radPrefix) files
+    pure [(command, searchDir </> radPrefix <> command) | command <- commands]
 
 main :: IO ()
 main = runCommand =<< getArgs
