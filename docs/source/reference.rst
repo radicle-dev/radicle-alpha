@@ -753,6 +753,12 @@ Splits a string ``xs`` into a list of strings by whitespace characters.
 
 Splits a string ``xs`` into a list of strings by linebreaks.
 
+``(pad-to l x)``
+~~~~~~~~~~~~~~~~
+
+Pads the string ``x`` with whitespace according to length ``l``. If
+``x`` is longer, it is cut off.
+
 ``(map-string f xs)``
 ~~~~~~~~~~~~~~~~~~~~~
 
