@@ -206,6 +206,7 @@ executables:
 
 default-extensions:
 - AutoDeriveTypeable
+- ApplicativeDo
 - ConstraintKinds
 - DataKinds
 - DefaultSignatures

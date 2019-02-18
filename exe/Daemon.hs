@@ -39,41 +39,53 @@ logDaemonError (displayError -> (m, xs)) = logErr m xs
 -- * Main
 
 data Opts = Opts
-  { port       :: Int
-  -- TODO(james): temporary, just for testing.
-  , filePrefix :: Text
-  , debug      :: Bool
+  { port              :: Int
+  , machineConfigFile :: FilePath
+  , debug             :: Bool
   }
 
-opts :: Parser Opts
-opts = Opts
-    <$> option auto
+cliInfo :: IO (ParserInfo Opts)
+cliInfo = do
+    defaultMachineConfigFile <- Local.getRadicleFile "machines.json"
+    pure $
+        info (opts defaultMachineConfigFile <**> helper)
+            ( fullDesc
+           <> progDesc "Run the radicle daemon"
+           <> header "radicle-daemon"
+            )
+
+opts :: FilePath -> Parser Opts
+opts defaultMachineConfigFile = do
+    port <-
+        option auto
         ( long "port"
        <> help "daemon port"
        <> metavar "PORT"
        <> showDefault
        <> value 8909
         )
-    <*> strOption
-        ( long "filePrefix"
-       <> help "file prefix"
-       <> metavar "PREFIX"
+    machineConfigFile <-
+        strOption
+        ( long "machine-config"
+       <> help "Where to store configuration for known machines"
+       <> metavar "FILE"
        <> showDefault
-       <> value ""
+       <> value defaultMachineConfigFile
         )
-    <*> switch
+    debug <-
+        switch
         ( long "debug"
        <> help "enable debug logging"
        <> showDefault
         )
+    pure $ Opts{..}
 
 -- We use 'Void' to enforce the use of 'exitFailure'
 main :: IO Void
 main = do
     hSetBuffering stdout LineBuffering
-    Opts{..} <- execParser allOpts
+    Opts{..} <- execParser =<< cliInfo
     machineConfigFileLock <- newMVar ()
-    machineConfigFile <- Local.getRadicleFile (toS filePrefix <> "daemon-follows")
     machines <- CachedMachines <$> CMap.empty
     let env = Env{ logLevel = if debug then Debug else Normal, ..}
     machineConfig <- readMachineConfigIO machineConfigFileLock machineConfigFile
@@ -99,12 +111,6 @@ main = do
           Right (Right ()) -> do
             logErr "Server stopped (this should not happen)" []
             exitFailure
-  where
-    allOpts = info (opts <**> helper)
-        ( fullDesc
-       <> progDesc "Run the radicle daemon"
-       <> header "radicle-daemon"
-        )
 
 server :: Env -> Server Api.DaemonApi
 server env = hoistServer Api.daemonApi nt daemonServer
