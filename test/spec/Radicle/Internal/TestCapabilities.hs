@@ -22,7 +22,6 @@ import qualified System.FilePath.Find as FP
 import           Radicle
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
-import           Radicle.Internal.MachineBackend.Interface
 import qualified Radicle.Internal.UUID as UUID
 
 
@@ -81,7 +80,7 @@ runPureCode code =
 runCodeWithWorld :: WorldState -> Text -> IO (Either (LangError Value) Value, [Text])
 runCodeWithWorld ws code = do
     let prog = interpretMany "[test]" code
-    bindings <- testBindings
+    bindings <- createImpureBindings []
     (result, ws') <- runStateT (fst <$> runLang bindings prog) ws
     pure $ (result, worldStateStdout ws')
 
@@ -96,33 +95,6 @@ sourceFiles = do
         let path = drop (length dir + 5) absPath
         pure (toS path, contents)
     pure $ Map.fromList filesWithContent
-
--- | Bindings with REPL and client stuff mocked.
-testBindings :: IO (Bindings (PrimFns (StateT WorldState IO)))
-testBindings = addPrimFns memoryMachineBackendPrimFns <$> createImpureBindings []
-
--- | Provides a fake implementation of the @eval-server" machine
--- backend that store chains in a 'Map' in the 'WorldState'.
-memoryMachineBackendPrimFns :: PrimFns (StateT WorldState IO)
-memoryMachineBackendPrimFns =
-    buildMachineBackendPrimFns MachineBackend
-        { machineType = "eval-server"
-        , machineUpdate =
-            \id values -> do
-                chains <- gets worldStateRemoteChains
-                let exprs = Map.findWithDefault mempty id chains
-                let newExprs = exprs Seq.>< values
-                modify $ \s ->
-                   s { worldStateRemoteChains = Map.insert id newExprs $ worldStateRemoteChains s }
-                pure $ Right $ Seq.length newExprs
-        , machineGetLog =
-            \id maybeIndex -> do
-                chains <- gets worldStateRemoteChains
-                let exprs = Map.findWithDefault mempty id chains
-                let index = fromMaybe 0 maybeIndex
-                let newIndex = Seq.length exprs
-                pure $ Right $ (newIndex, toList $ Seq.drop index exprs)
-        }
 
 instance {-# OVERLAPPING #-} Stdin TestLang where
     getLineS = do
