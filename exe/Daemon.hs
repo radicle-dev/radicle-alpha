@@ -154,7 +154,7 @@ init follows = traverse_ initMachine (Map.toList follows)
 newMachine :: Daemon Api.NewResponse
 newMachine = do
     id <- ipfs createMachine CouldNotCreateMachine
-    sub <- machineIpfs id $ initSubscription id
+    sub <- initDaemonSubscription id
     logInfo Normal "Created new IPFS machine" [("machine-id", getMachineId id)]
     m <- liftIO $ emptyMachine id Writer sub
     insertNewMachine id (Cached m)
@@ -205,12 +205,12 @@ send id (Api.SendRequest expressions) = do
       results <- writeInputs id expressions Nothing
       pure Api.SendResponse{..}
   where
+    matchMessage nonce = \case
+        (New InputsApplied{results, nonce = Just nonce'}) | nonce' == nonce -> Just results
+        _ -> Nothing
     requestInput sub = do
       nonce <- liftIO $ UUID.uuid
-      let isResponse = \case
-            New InputsApplied{ nonce = Just nonce' } | nonce' == nonce -> True
-            _ -> False
-      asyncMsg <- liftIO $ async $ subscribeOne sub ackWaitTime isResponse (logNonDecodableMsg id)
+      asyncMsg <- liftIO $ async $ subscribeOne sub ackWaitTime (matchMessage nonce)
       machineIpfs id $ publish id (Submit SubmitInputs{..})
       logInfo Debug
               "Sent input request to writer"
@@ -218,7 +218,7 @@ send id (Api.SendRequest expressions) = do
               , ("expressions", prValues expressions) ]
       msg_ <- machineIpfs id $ wait asyncMsg
       case msg_ of
-        Just (New InputsApplied{results}) -> do
+        Just results -> do
           logInfo Normal
                  "Writer accepted input request"
                  [ ("machine-id", getMachineId id)
@@ -226,7 +226,6 @@ send id (Api.SendRequest expressions) = do
                  ]
           bumpPolling id
           pure Api.SendResponse{..}
-        Just _ -> throwError $ MachineError id (DaemonError "Didn't filter machine topic messages correctly.")
         Nothing -> throwError $ MachineError id AckTimeout
 
 
@@ -274,15 +273,20 @@ checkMachineLoaded id = do
         --   then pure m
         --   else refreshAsReader id
 
-logNonDecodableMsg :: MachineId -> Text -> IO ()
-logNonDecodableMsg (MachineId id) bad =
-  Common.logInfo "Non-decodable message on machine's pubsub topic" [("machine-id", id), ("message", bad)]
+-- | Creates a IPFS pusbsub subscription for the given machine. This
+-- wraps 'initSubscription' and logs all message parsing errors.
+initDaemonSubscription :: MachineId -> Daemon TopicSubscription
+initDaemonSubscription id =
+    machineIpfs id $ initSubscription id logNonDecodableMsg
+  where
+    logNonDecodableMsg bad =
+        Common.logInfo "Non-decodable message on machine's pubsub topic"
+            [("machine-id", getMachineId id), ("message", bad)]
 
 -- | Turns a 'Daemon' subscription handler into an IO one. Errors which are
 -- encountered in a subscription handler are just logged.
-daemonHandler :: Env -> MachineId -> (Message -> Daemon ()) -> Either Text Message -> IO ()
-daemonHandler _ id _ (Left bad) = logNonDecodableMsg id bad
-daemonHandler env _ h (Right msg) = do
+daemonHandler :: Env -> (Message -> Daemon ()) -> Message -> IO ()
+daemonHandler env h msg = do
   x_ <- runDaemon env (h msg)
   case x_ of
     Left err -> logDaemonError err
@@ -292,7 +296,7 @@ daemonHandler env _ h (Right msg) = do
 loadMachine :: ReaderOrWriter -> MachineId -> Daemon Machine
 loadMachine mode id = do
   (idx, is) <- machineIpfs id $ machineInputsFrom id Nothing
-  sub <- machineIpfs id $ initSubscription id
+  sub <- initDaemonSubscription id
   m <- liftIO $ emptyMachine id mode sub
   (m', _) <- addInputs is (pure idx) (const (pure ())) m
   insertNewMachine id (Cached m')
@@ -389,7 +393,7 @@ initAsReader :: MachineId -> Daemon Machine
 initAsReader id = do
     m <- loadMachine Reader id
     env <- ask
-    _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env id onMsg)
+    _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env onMsg)
     logInfo Normal "Following as reader" [ ("machine-id", getMachineId id)
                                          , ("current-input-index", show (machineLastIndex m)) ]
     pure m
@@ -457,7 +461,7 @@ initAsWriter id idx = do
 actAsWriter :: Machine -> Daemon ()
 actAsWriter m = do
     env <- ask
-    _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env id onMsg)
+    _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env onMsg)
     logInfo Normal "Acting as writer" [("machine-id", getMachineId id)]
   where
     id = machineId m
