@@ -1,7 +1,23 @@
 timeout: 3600s # Cache misses are slow to rebuild
+substitutions:
+  # Bump the version if you make changes to `ci/Dockerfile
+  _BUILD_IMAGE: eu.gcr.io/opensourcecoin/radicle-ci:v1
 steps:
+  - id: "Build CI base image"
+    name: gcr.io/cloud-builders/docker
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      set -euxo pipefail
+
+      if ! docker pull $_BUILD_IMAGE; then
+        docker build ci --tag $_BUILD_IMAGE
+        docker push $_BUILD_IMAGE
+      fi
+
   - id: "Load cache"
-    name: gcr.io/cloud-builders/gsutil
+    name: $_BUILD_IMAGE
     entrypoint: 'bash'
     args:
     - '-c'
@@ -12,7 +28,7 @@ steps:
       load-cache
 
   - id: "Build deps"
-    name: 'haskell:8.6.3'
+    name: $_BUILD_IMAGE
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: 'bash'
     args:
@@ -29,11 +45,12 @@ steps:
 
       stack build \
         --no-terminal \
+        --test \
         --dependencies-only
 
   - id: "Save cache"
     waitFor: ["Build deps"]
-    name: gcr.io/cloud-builders/gsutil
+    name: $_BUILD_IMAGE
     entrypoint: 'bash'
     env:
     - BRANCH_NAME=$BRANCH_NAME
@@ -46,17 +63,17 @@ steps:
       save-cache
 
   - id: "Format"
-    name: 'haskell:8.6.3'
+    name: $_BUILD_IMAGE
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['./scripts/check-fmt.sh']
 
   - id: "Lint"
-    name: 'haskell:8.6.3'
+    name: $_BUILD_IMAGE
     env: ['STACK_ROOT=/workspace/.stack']
     args: ['stack', 'exec', '--', 'hlint', '.']
 
   - id: "Build"
-    name: 'haskell:8.6.3'
+    name: $_BUILD_IMAGE
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
@@ -72,7 +89,7 @@ steps:
         --no-run-tests
 
   - id: "Test"
-    name: 'haskell:8.6.3'
+    name: $_BUILD_IMAGE
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
@@ -86,14 +103,14 @@ steps:
 
   - id: "Lint (weeder)"
     waitFor: ["Build"]
-    name: 'haskell:8.6.3'
+    name: $_BUILD_IMAGE
     env: ["STACK_ROOT=/workspace/.stack"]
     args: ["stack", "exec", "--", "weeder", "--match"]
 
   - id: "Build reference document"
     waitFor:
     - "Build"
-    name: 'haskell:8.6.3'
+    name: $_BUILD_IMAGE
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
@@ -111,7 +128,7 @@ steps:
   - id: "Check tutorial"
     waitFor:
     - "Build"
-    name: 'haskell:8.6.3'
+    name: $_BUILD_IMAGE
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: bash
     args:
@@ -122,8 +139,8 @@ steps:
       RADPATH="$(pwd)/rad" stack exec radicle-doc docs/source/guide/Basics.lrad
 
   - id: "Start IPFS daemon"
-    name: 'docker/compose:1.23.2'
-    entrypoint: sh
+    name: $_BUILD_IMAGE
+    entrypoint: bash
     args:
     - "-c"
     - |
@@ -143,7 +160,7 @@ steps:
   - id: "Integration tests"
     waitFor:
     - "Start IPFS daemon"
-    name: 'haskell:8.6.3'
+    name: $_BUILD_IMAGE
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: 'bash'
     args:

@@ -73,13 +73,27 @@
     (cd! name)
     (set-git-config! "radicle.project-id" project)))
 
+(def setup-repo!
+  (fn []
+    (def question
+      (unlines
+       ["? What kind of repository would you like to use?"
+        "1. New peer-to-peer repository (git-ipfs **EXPERIMENTAL**)"
+        "2. Add your own remote (e.g.: github / gitlab / ...)"
+        "    (see radicle.xyz/docs/storage for more info)\n"]))
+    (match (prompt! question)
+           "1" (init-git-ipfs-repo cid-of-empty-repo)
+           "2" (prompt! "Please input the remote git repo URL:")
+           _   (do (put-str! "You must select either 1 or 2.")
+                   (exit! 1)))))
+
 (def new-project!
   "Create a new project."
   (fn []
     (def meta (prompt-for-metadata!))
     (def project (create-project! meta))
     (process! "git" ["init"] "")
-    (def repo (init-git-ipfs-repo cid-of-empty-repo))
+    (def repo (setup-repo!))
     (put-str! (string-append "=> adding \"origin\" remote: " repo))
     (def issues (create-issues-machine!))
     (put-str! "=> Assembled rad-issues machine")

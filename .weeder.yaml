@@ -23,3 +23,5 @@
       - depends:
         # Required as compiler plugin
         - tasty-discover
+        # Library is not required, but executable
+        - git-remote-ipfs
