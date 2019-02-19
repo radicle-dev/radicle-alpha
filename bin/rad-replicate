@@ -5,25 +5,25 @@
 
 (import prelude/strings '[reverse-string] :unqualified)
 
-(def help
-  "rad-replicate - Replicate radicle projects.
-
-  This can be used to make your machines more available (e.g., readable when
-  you are offline, or writable and readable if you are behind a firewall).
-
-   Usage:
-        rad-replicate [URL]
-
-  If not provided, the URL defaults to http://replicate.radicle.xyz
-  ")
-
 (def default-url
   "Default replication URL"
   "http://replicate.radicle.xyz")
 
+(def help
+  (string-append
+    "rad-replicate - Replicate radicle projects.
+
+    This can be used to make your machines more available (e.g., readable when
+    you are offline, or writable and readable if you are behind a firewall).
+
+     Usage:
+          rad-replicate [URL]
+
+    If not provided, the URL defaults to " default-url))
+
 (def append-slash-if-missing
   (fn [str]
-    (if (starts-with? (reverse-string str) "/")
+    (if (ends-with? str "/")
         str
         (string-append str "/"))))
 

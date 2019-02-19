@@ -1,7 +1,7 @@
 {:module 'prelude/strings
  :doc    "String manipulation functions."
- :exports '[intercalate unlines unwords split-by words lines map-string reverse-string]
- }
+ :exports '[intercalate unlines unwords split-by words lines map-string
+            reverse-string ends-with?] }
 
 (import prelude/basic :unqualified)
 (import prelude/patterns :unqualified)
@@ -132,4 +132,13 @@
 
 (:test "reverse-string"
   [ (reverse-string "abc") ==> "cba" ]
+)
+
+(def ends-with?
+  "True if `str` ends with `substr`"
+  (fn [str substr]
+    (starts-with? (reverse-string str) substr)))
+
+(:test "ends-with?"
+  [ (ends-with? "abc" "c") ==> #t]
 )

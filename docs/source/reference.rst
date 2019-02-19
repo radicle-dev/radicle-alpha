@@ -765,6 +765,11 @@ other than a string
 
 Reverses ``str``. E.g.: ``(reverse-string "abc")`` == ``"cba"``.
 
+``(ends-with? str substr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+True if ``str`` ends with ``substr``
+
 ``prelude/dict``
 ----------------
 
