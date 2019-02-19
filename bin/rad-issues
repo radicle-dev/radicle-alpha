@@ -27,12 +27,13 @@
    Usage:
         rad-issues list " list-opts-help "
         rad-issues new
-        rad-issues close <issue-number>
+        rad-issues [show | close] <issue-number>
         rad-issues comment <issue-number> <comment>
         rad-issues help
 
      list         - Select from issues to view or comment on
      new          - Create a new issue in $EDITOR
+     show         - Show an issue
      close        - Close an issue
      comment      - Shortcut for adding a comment
      help         - Print this help and exit
@@ -59,6 +60,72 @@
      "\n" comment-divider "\n"
      "---Add comment above the line.\n\n"
      x)))
+
+(def pretty-state
+ (fn [state]
+   (drop 1 (show state))))
+
+(def cells
+ {:state       10
+  :number      10
+  :title       50
+  :author      20
+  :modified-at 20})
+
+(def pad-to
+(fn [l x]
+  (if (< l 1)
+    ""
+    (do
+      (def pad (string/intercalate "" (map (fn [x] " ") (range 1 l))))
+      (def x-length (length x))
+      (if (> x-length (- l 1))
+        (take l x)
+        (string-append x (take (- l x-length) pad)))))))
+
+(def wrap-cell
+ (fn [phrase cell-key]
+   (def c-length (lookup cell-key cells))
+   (string-append (pad-to c-length phrase) " ")))
+
+(def pretty-table-header
+ (fn []
+   (string-append
+     (wrap-cell "state" :state)
+     (wrap-cell "#" :number)
+     (wrap-cell "title" :title)
+     (wrap-cell "author" :author)
+     (wrap-cell "updated" :modified-at))))
+
+(def pretty-headline
+ (fn [i]
+   (match i
+     '{:number n
+       :title tit
+       :state s
+       :username un
+       :modified-at m-a}
+     (string-append
+       (pretty-state s) " "
+       (show n) " "
+       tit " "
+       un " "
+       m-a " "))))
+
+(def pretty-row
+ (fn [i]
+   (match i
+     '{:number n
+       :title tit
+       :state s
+       :username un
+       :modified-at m-a}
+     (string-append
+       (wrap-cell (pretty-state s) :state)
+       (wrap-cell (show n) :number)
+       (wrap-cell tit :title)
+       (wrap-cell un :author)
+       (wrap-cell m-a :modified-at)))))
 
 (def pretty-comment
   "Markdown view of a comment. Assumes that the comment has been annotated with a
@@ -87,34 +154,33 @@
        "\r"
        ""
        (string-append
-        "# Issue " (show n) ": " tit "\n\n"
-        "created by " un " [" c-a "]\n\n"
-        "**State:** " (if (eq? state :open) "open" "closed") "\n"
+        (pretty-headline i) "\n\n"
+        "**State:** " (pretty-state state) "\n"
         "**Labels:** " (show ls) "\n\n"
         b "\n\n"
         "Comments\n"
         "--------\n\n"
         (string/unlines (map pretty-comment cs)))))))
 
+(def add-username
+  (fn [d]
+    (def n (lookup-default :github-username (lookup-default :git-username "???" d) d))
+    (insert :username n d)))
+
+(def add-username-issue
+  (fn [i]
+    (add-username
+     (insert :comments (map add-username (lookup :comments i)) i))))
+
 (def list-items
   "Lists the recent items and uses an editor to add a relevant comment."
   (fn [machine options]
 
-    (def add-username
-      (fn [d]
-        (def n (lookup-default :github-username (lookup-default :git-username "???" d) d))
-        (insert :username n d)))
-
-    (def add-username-issue
-      (fn [i]
-        (add-username
-         (insert :comments (map add-username (lookup :comments i)) i))))
-
     (def mk-key
-      (fn [v]
-        (match v
-          (/as 'i {:number 'n :title 'tit})
-            [(string-append "Issue " (show n) " - " tit) i])))
+      (fn [i]
+        (if (lookup :fancy options)
+          [(pretty-headline i) i]
+          [(pretty-row i) i])))
 
     (def filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
@@ -123,8 +189,9 @@
 
     (def items
       (map mk-key
-        (filter filt
-          (reverse (values (list-issues machine))))))
+        (map (fn [i] (add-username-issue i))
+          (filter filt
+            (reverse (values (list-issues machine)))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -132,7 +199,7 @@
       (if (lookup :fancy options)
         (match (fzf-select-with-preview!
                  (map first items)
-                 (fn [s] (pretty-issue (add-username-issue (lookup s items-dict)))))
+                 (fn [s] (pretty-issue (lookup s items-dict))))
                (/just 's)
                (do (def selected (lookup s items-dict))
                    (def issue-number (match selected {:number 'n} n))
@@ -151,7 +218,20 @@
                       (do (simple-add-comment! machine issue-number added-comment (get-git-username!))
                           (string-append "Sent comment: " added-comment)))))
                _ (put-str! "No selection made."))
-        (map (fn [d] (put-str! (first d))) items)))))
+        (do
+          (put-str! (pretty-table-header))
+          (map (fn [d] (put-str! (first d))) items))))))
+
+(def show-issue!
+  "Shows a single ISSUE `n`"
+  (fn [n machine]
+    (if (number? n)
+      (if (integral? n)
+        (do
+          (def issue (verify-issue-number n machine))
+          (put-str! (pretty-issue (add-username-issue issue))))
+        (cmd-parse-failure "Issue numbers must be whole numbers!"))
+      (cmd-parse-failure "To show an issue, please provide the issue number."))))
 
 (def close-issue
   (fn [issue-number machine]
@@ -213,6 +293,7 @@
           (/list-cmd 'options) (list-items (machine-name) options)
           (/cmd-0 "new" help) (new-issue (machine-name))
           (/cmd-1 "close" 'issue-number help) (close-issue issue-number (machine-name))
+          (/cmd-1 "show" 'issue-number help) (show-issue! (read issue-number) (machine-name))
           (/cmd-2 "comment" 'issue-number 'comment help) (create-comment! (machine-name) (read issue-number) comment)
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
