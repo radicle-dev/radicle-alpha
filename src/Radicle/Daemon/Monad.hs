@@ -20,6 +20,7 @@ import           Protolude
 import           Radicle (LangError, Value, renderCompactPretty)
 import           Radicle.Daemon.Common
 import           Radicle.Daemon.Ipfs
+import           Radicle.Daemon.Logging
 import           Radicle.Ipfs
 
 
@@ -32,12 +33,12 @@ runDaemon env (Daemon x) = runReaderT (runExceptT x) env
 liftExceptT :: (e -> Error) -> ExceptT e IO a -> Daemon a
 liftExceptT makeError action = Daemon $ mapExceptT (lift . fmap (first makeError)) action
 
+instance MonadLog Daemon where
+    askLogLevel = asks logLevel
+
 -- * Environment
 
 type FileLock = MVar ()
-
-data LogLevel = Normal | Debug
-  deriving (Eq, Ord)
 
 data Env = Env
   { machineConfigFileLock :: FileLock
