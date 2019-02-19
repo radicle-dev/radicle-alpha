@@ -155,6 +155,38 @@
   (fn [state]
     (drop 1 (show state))))
 
+(def cells
+  {:state       10
+   :number      10
+   :title       50
+   :author      20
+   :modified-at 20})
+
+(def pad-to
+ (fn [l x]
+   (if (< l 1)
+     ""
+     (do
+       (def pad (string/intercalate "" (map (fn [x] " ") (range 1 l))))
+       (def x-length (length x))
+       (if (> x-length (- l 1))
+         (take l x)
+         (string-append x (take (- l x-length) pad)))))))
+
+(def wrap-cell
+  (fn [phrase cell-key]
+    (def c-length (lookup cell-key cells))
+    (string-append (pad-to c-length phrase) " ")))
+
+(def pretty-table-header
+  (fn []
+    (string-append
+      (wrap-cell "state" :state)
+      (wrap-cell "#" :number)
+      (wrap-cell "commit" :title)
+      (wrap-cell "author" :author)
+      (wrap-cell "updated" :modified-at))))
+
 (def pretty-headline
   (fn [i]
     (match i
@@ -162,9 +194,28 @@
         :title tit
         :state s
         :author-name an
-        :short-hash sh}
+        :modified-at m-a}
       (string-append
-        "(" (pretty-state s) ") [" an "] " sh " - " tit " | DIFF " (show n)))))
+        (pretty-state s) " "
+        (show n) " "
+        tit " "
+        an " "
+        m-a " "))))
+
+(def pretty-row
+  (fn [i]
+    (match i
+      '{:number n
+        :title tit
+        :state s
+        :author-name an
+        :modified-at m-a}
+      (string-append
+        (wrap-cell (pretty-state s) :state)
+        (wrap-cell (show n) :number)
+        (wrap-cell tit :title)
+        (wrap-cell an :author)
+        (wrap-cell m-a :modified-at)))))
 
 (def pretty-comment
  (fn [c]
@@ -182,7 +233,6 @@
         :comments cs}
       (string-append
         (pretty-headline i) "\n\n"
-        "created at " c-a "\n\n"
         p "\n\n"
         "Comments\n"
         "--------\n\n"
@@ -204,7 +254,10 @@
   (fn [machine options]
 
     (def mk-key
-      (fn [diff] [(pretty-headline diff) diff]))
+      (fn [diff]
+        (if (lookup :fancy options)
+          [(pretty-headline diff) diff]
+          [(pretty-row diff) diff])))
 
     (def filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
@@ -240,7 +293,9 @@
                       (do (simple-add-comment! machine diff-number added-comment (get-git-username!))
                           (string-append "Sent comment: " added-comment)))))
                _ (put-str! "No selection made."))
-         (map (fn [d] (put-str! (first d))) items)))))
+         (do
+           (put-str! (pretty-table-header))
+           (map (fn [d] (put-str! (first d))) items))))))
 
 (def show-diff!
   "Shows a single DIFF `n`"
@@ -316,4 +371,3 @@
           ["--help"] (put-str! help)
           (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
           [] (put-str! help))))
-
