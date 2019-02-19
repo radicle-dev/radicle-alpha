@@ -760,6 +760,16 @@ Returns a string consisting of the results of applying ``f`` to each
 character of ``xs``. Throws a type error if ``f`` returns something
 other than a string
 
+``(reverse-string str)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Reverses ``str``. E.g.: ``(reverse-string "abc")`` == ``"cba"``.
+
+``(ends-with? str substr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+True if ``str`` ends with ``substr``
+
 ``prelude/dict``
 ----------------
 

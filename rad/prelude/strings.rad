@@ -1,7 +1,7 @@
 {:module 'prelude/strings
  :doc    "String manipulation functions."
- :exports '[intercalate unlines unwords split-by words lines map-string]
- }
+ :exports '[intercalate unlines unwords split-by words lines map-string
+            reverse-string ends-with?] }
 
 (import prelude/basic :unqualified)
 (import prelude/patterns :unqualified)
@@ -123,3 +123,22 @@
   [ (map-string (fn [x] "A") "") ==> ""]
   [ (map-string (fn [x] "") "foo") ==> ""]
   [ (catch 'type-error (map-string (fn [x] 2) "foo") (fn [x] :caught)) ==> :caught])
+
+(def reverse-string
+  "Reverses `str`. E.g.: `(reverse-string \"abc\")` == `\"cba\"`."
+  (fn [str]
+    (def g (fn [a b] (string-append b a)))
+    (foldl-string g "" str)))
+
+(:test "reverse-string"
+  [ (reverse-string "abc") ==> "cba" ]
+)
+
+(def ends-with?
+  "True if `str` ends with `substr`"
+  (fn [str substr]
+    (starts-with? (reverse-string str) substr)))
+
+(:test "ends-with?"
+  [ (ends-with? "abc" "c") ==> #t]
+)
