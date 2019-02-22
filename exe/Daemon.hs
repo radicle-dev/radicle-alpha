@@ -141,11 +141,11 @@ server env = hoistServer Api.daemonApi nt daemonServer
 -- * Init
 
 -- | Initiate machines according to follow file.
-init :: MachineConfig -> Daemon ()
+init :: MachinesConfig -> Daemon ()
 init follows = traverse_ initMachine (Map.toList follows)
   where
-    initMachine (id, Reader) = initReaderNoFail id
-    initMachine (id, Writer) = initAsWriter id $> ()
+    initMachine (id, ConfigReader)     = initReaderNoFail id
+    initMachine (id, ConfigWriter idx) = initAsWriter id idx $> ()
 
 -- * Endpoints
 
@@ -153,7 +153,7 @@ init follows = traverse_ initMachine (Map.toList follows)
 -- /writer/.
 newMachine :: Daemon Api.NewResponse
 newMachine = do
-    id <- createMachine `ipfs` CouldNotCreateMachine
+    id <- ipfs createMachine CouldNotCreateMachine
     sub <- machineIpfs id $ initSubscription id
     logInfo Normal "Created new IPFS machine" [("machine-id", getMachineId id)]
     m <- liftIO $ emptyMachine id Writer sub
@@ -316,7 +316,7 @@ addInputs is getIdx after m =
       idx <- getIdx
       t <- liftIO $ Time.getSystemTime
       let m' = m { machineState = newState
-                 , machineLastIndex = Just idx
+                 , machineLastIndex = idx
                  , machineLastUpdated = t
                  }
       after rs
@@ -370,7 +370,7 @@ emptyMachine id mode sub = do
   t <- Time.getSystemTime
   pure Machine{ machineId = id
               , machineState = pureEnv
-              , machineLastIndex = Nothing
+              , machineLastIndex = emptyMachineEntryIndex
               , machineMode = mode
               , machineSubscription = sub
               , machineLastUpdated = t
@@ -428,8 +428,8 @@ refreshAsReader id = modifyMachine id refresh
   where
     refresh m = do
       let currentIdx = machineLastIndex m
-      (newIdx, is) <- machineIpfs id $ machineInputsFrom (machineId m) currentIdx
-      if currentIdx == Just newIdx
+      (newIdx, is) <- machineIpfs id $ machineInputsFrom (machineId m) (Just currentIdx)
+      if currentIdx == newIdx
         then do
           logInfo Debug
                   "Reader is already up to date"
@@ -445,8 +445,9 @@ refreshAsReader id = modifyMachine id refresh
 
 -- ** Writer
 
-initAsWriter :: MachineId -> Daemon Machine
-initAsWriter id = do
+initAsWriter :: MachineId -> MachineEntryIndex -> Daemon Machine
+initAsWriter id idx = do
+  machineIpfs id $ ipnsPublish id idx
   m <- loadMachine Writer id
   actAsWriter m
   pure m

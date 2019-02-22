@@ -62,13 +62,19 @@ ipfsMachineCreate :: Text -> IO (Either Text Ipfs.IpnsId)
 ipfsMachineCreate name = do
     res <- liftIO $ tryAny $ do
         Ipfs.KeyGenResponse machineId <- Ipfs.keyGen name
-        Ipfs.namePublish machineId $ Ipfs.AddressIpfs emtpyMachineCid
+        Ipfs.namePublish machineId $ Ipfs.AddressIpfs emptyMachineCid
         pure machineId
     pure $ first (toS . displayException) res
 
 
 newtype MachineEntryIndex = MachineEntryIndex CID
     deriving (Show, Eq)
+
+instance Aeson.ToJSON MachineEntryIndex where
+  toJSON (MachineEntryIndex cid) = Ipfs.ipldLink cid
+
+instance Aeson.FromJSON MachineEntryIndex where
+  parseJSON = fmap MachineEntryIndex . Ipfs.parseIpldLink
 
 instance (CPA t) => ToRad t MachineEntryIndex where
     toRad (MachineEntryIndex cid) = String $ cidToText cid
@@ -107,14 +113,14 @@ sendIpfs ipnsId values = do
 -- index. Pins the received expressions.
 receiveIpfs :: Ipfs.IpnsId -> Maybe MachineEntryIndex -> IO (MachineEntryIndex, [Value])
 receiveIpfs ipnsId maybeFrom = do
-    let MachineEntryIndex fromCid = fromMaybe (MachineEntryIndex emtpyMachineCid) maybeFrom
+    let MachineEntryIndex fromCid = fromMaybe (MachineEntryIndex emptyMachineCid) maybeFrom
     Ipfs.NameResolveResponse cid <- Ipfs.nameResolve ipnsId
     blocks <- getBlocks cid fromCid
     pure $ (MachineEntryIndex cid, blocks)
   where
     getBlocks :: CID -> CID -> IO [Value]
     getBlocks cid fromCid = do
-        if cid == fromCid || cid == emtpyMachineCid
+        if cid == fromCid || cid == emptyMachineCid
         then pure []
         else do
             let addr = Ipfs.AddressIpfs cid
@@ -127,8 +133,8 @@ receiveIpfs ipnsId maybeFrom = do
 -- The first entry in a machine log also points to this entry.
 --
 -- This is the CID produced by the document @{"radicle": true}@.
-emtpyMachineCid :: CID
-emtpyMachineCid =
+emptyMachineCid :: CID
+emptyMachineCid =
     case cidFromText "zdpuAyyGtvC37aeZid2zh7LAGKCbFTn9MzdqoPpbNQm3BCwWT" of
         Left e    -> panic $ toS e
         Right cid -> cid

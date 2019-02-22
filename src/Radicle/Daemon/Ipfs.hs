@@ -5,9 +5,11 @@ module Radicle.Daemon.Ipfs
   , SubmitInputs(..)
   , writeIpfs
   , Radicle.Daemon.Ipfs.publish
+  , ipnsPublish
   , machineInputsFrom
   , createMachine
   , Ipfs.MachineEntryIndex
+  , emptyMachineEntryIndex
   , TopicSubscription
   , initSubscription
   , subscribeOne
@@ -139,6 +141,11 @@ createMachine = do
     Left e   -> throw (IpfsException e)
     Right id -> pure (MachineId id)
 
+-- | Publish to IPNS a machine entry index for a machine. Should only be issued
+-- by the writer.
+ipnsPublish :: MachineId -> Ipfs.MachineEntryIndex -> IO ()
+ipnsPublish id (Ipfs.MachineEntryIndex cid) = Ipfs.namePublish (getMachineId id) $ Ipfs.AddressIpfs cid
+
 -- * Topic subscriptions
 
 type MsgHandler = Either Text Message -> IO ()
@@ -189,3 +196,6 @@ subscribeOne sub timeout pr badMsg = do
     (addHandler sub onMsg)
     (removeHandler sub)
     (const $ forkIO (threadDelay (fromIntegral timeout * 1000) >> putMVar var Nothing) *> readMVar var)
+
+emptyMachineEntryIndex :: Ipfs.MachineEntryIndex
+emptyMachineEntryIndex = Ipfs.MachineEntryIndex Ipfs.emptyMachineCid

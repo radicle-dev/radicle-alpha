@@ -2,7 +2,8 @@
 -- 'MachineConfig' tells us which machine the daemon owns and which
 -- machines it follows.
 module Radicle.Daemon.MachineConfig
-    ( MachineConfig
+    ( MachineConfig(..)
+    , MachinesConfig
     , readMachineConfigIO
     , writeMachineConfig
     ) where
@@ -18,15 +19,26 @@ import           Radicle.Daemon.Ipfs
 import           Radicle.Daemon.Monad
 import qualified Radicle.Internal.ConcurrentMap as CMap
 
--- | Holds the machines the daemon owns and follows.
-type MachineConfig = Map MachineId ReaderOrWriter
+data MachineConfig
+  -- | The daemon follows this machine.
+  = ConfigReader
+  -- | The daemon owns this machine, and this is the last entry index published
+  -- to IPNS.
+  | ConfigWriter MachineEntryIndex
+  deriving (Generic)
 
-readMachineConfigIO :: FileLock -> FilePath -> IO MachineConfig
+instance A.ToJSON MachineConfig
+instance A.FromJSON MachineConfig
+
+-- | Holds the machines the daemon owns and follows.
+type MachinesConfig = Map MachineId MachineConfig
+
+readMachineConfigIO :: FileLock -> FilePath -> IO MachinesConfig
 readMachineConfigIO lock ff = withFileLock lock $ do
   exists <- doesFileExist ff
   t <- if exists
     then readFile ff
-    else let noFollows = toS (A.encode (Map.empty :: MachineConfig))
+    else let noFollows = toS (A.encode (Map.empty :: MachinesConfig))
          in writeFile ff noFollows $> noFollows
   case A.decode (toS t) of
     Nothing -> panic $ "Invalid daemon-follow file: could not decode " <> toS ff
@@ -42,8 +54,8 @@ writeMachineConfig = do
       let fs = mode <$> ms
       writeFile ff (toS (A.encode fs))
   where
-    mode (UninitialisedReader _) = Reader
-    mode (Cached c)              = machineMode c
+    mode (Cached Machine{machineMode = Writer, ..}) = ConfigWriter machineLastIndex
+    mode _ = ConfigReader
 
 withFileLock :: FileLock -> IO a -> IO a
 withFileLock lock = withMVar lock . const
