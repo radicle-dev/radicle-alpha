@@ -20,7 +20,10 @@ import           Radicle.Daemon.Monad
 import qualified Radicle.Internal.ConcurrentMap as CMap
 
 data MachineConfig
+  -- | The daemon follows this machine.
   = ConfigReader
+  -- | The daemon owns this machine, and this is the last entry index published
+  -- to IPNS.
   | ConfigWriter MachineEntryIndex
   deriving (Generic)
 
