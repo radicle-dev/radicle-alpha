@@ -39,7 +39,7 @@ instance A.FromJSON ReaderOrWriter
 data Machine = Machine
     { machineId           :: MachineId
     , machineState        :: Bindings (PrimFns Identity)
-    , machineLastIndex    :: Maybe MachineEntryIndex
+    , machineLastIndex    :: MachineEntryIndex
     , machineMode         :: ReaderOrWriter
     , machineSubscription :: TopicSubscription
     , machineLastUpdated  :: Time.SystemTime
