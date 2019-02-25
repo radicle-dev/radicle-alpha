@@ -13,14 +13,10 @@ remote_cache_hashed="$remote/stack-root-${dependency_hash}.tar.gz"
 function load-cache() {
   if gsutil -q ls "$remote_cache_hashed"; then
     echo "Using hashed stack cache"
-    gsutil -m cp "$remote_cache_hashed" "$local_cache_archive"
-    tar xzf "$local_cache_archive"
-    rm "$local_cache_archive"
+    gsutil cat "$remote_cache_hashed" | tar -xz
   elif gsutil -q ls "$remote_cache_master"; then
     echo "Using master stack cache"
-    gsutil -m cp "$remote_cache_master" "$local_cache_archive"
-    tar xzf "$local_cache_archive"
-    rm "$local_cache_archive"
+    gsutil cat "$remote_cache_master" | tar -xz
   fi
 }
 
