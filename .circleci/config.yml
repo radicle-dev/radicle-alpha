@@ -100,7 +100,7 @@ jobs:
               cabal v1-copy \
                 exe:rad \
                 exe:radicle \
-                exe:radicle-daemon \
+                exe:rad-daemon-radicle \
                 exe:rad-machines \
                 --destdir=dist/package-root
 
