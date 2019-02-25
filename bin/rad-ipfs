@@ -2,5 +2,20 @@
 #
 # Wrapper for the 'ipfs' command that talks to the IPFS daemon instance
 # for the Radicle network.
+#
+# Respects the RAD_IPFS_API_URL environment variable.
 
-IPFS_PATH=${IPFS_PATH:-"$HOME/.local/share/radicle/ipfs"} ipfs --api "/ip4/127.0.0.1/tcp/9301" "$@"
+set -eo pipefail
+
+if [ -n "$RAD_IPFS_API_URL" ]; then
+  api_url=$(echo "$RAD_IPFS_API_URL" | sed --quiet --regexp-extended \
+    's/^http:\/\/([a-zA-Z0-9\-_\.]+):([0-9]{1,5})/\/dns4\/\1\/tcp\/\2/;T exit; p; :exit')
+  if [ -z "$api_url" ]; then
+    echo "Invalid value for RAD_IPFS_API_URL: $RAD_IPFS_API_URL"
+    exit 1
+  fi
+else
+  api_url="/ip4/127.0.0.1/tcp/9301"
+fi
+
+IPFS_PATH=${IPFS_PATH:-"$HOME/.local/share/radicle/ipfs"} exec ipfs --api "$api_url" "$@"
