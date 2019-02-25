@@ -88,8 +88,6 @@ steps:
         --test \
         --no-run-tests
 
-      ./images/rad-daemon-radicle/ci-copy-bin.sh
-
   - id: "Test"
     name: $_BUILD_IMAGE
     env: ['STACK_ROOT=/workspace/.stack']
@@ -112,7 +110,7 @@ steps:
   - id: "Build rad-daemon-radicle image"
     waitFor:
     - "Test"
-    name: 'gcr.io/cloud-builders/docker'
+    name: $_BUILD_IMAGE
     entrypoint: bash
     env:
     - COMMIT_SHA=$COMMIT_SHA
@@ -121,6 +119,9 @@ steps:
     - "-c"
     - |
       set -euxo pipefail
+
+      ./images/rad-daemon-radicle/ci-copy-bin.sh
+
       image_name="eu.gcr.io/opensourcecoin/rad-daemon-radicle"
       short_sha=$(echo "$COMMIT_SHA" | head --bytes=7)
       # Looks like this: b2018.12.06-a76a52f

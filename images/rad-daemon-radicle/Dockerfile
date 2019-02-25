@@ -4,7 +4,7 @@ FROM debian:stretch
 # `fpco/stack-build` with when building with `stack build --docker`.
 
 RUN apt-get -qq update && \
-    apt-get install -y libgmp-dev && \
+    apt-get install -y libgmp10 && \
     rm -rf /var/lib/apt/lists/*
 
 ADD ./ /
