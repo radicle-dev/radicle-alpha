@@ -29,7 +29,7 @@ stdenv.mkDerivation {
       alias mkdocs="pushd $PWD/docs && make html && popd"
       alias sb="stack build --fast"
       alias se="stack exec"
-      alias sbd="stack build --fast radicle:exe:radicle-daemon"
+      alias sbd="stack build --fast radicle:exe:rad-daemon-radicle"
       alias sbrad="stack build --fast radicle:exe:radicle"
       alias st="stack test --fast"
       alias sts="stack test --fast radicle:spec"

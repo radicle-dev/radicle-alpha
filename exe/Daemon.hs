@@ -1,4 +1,4 @@
--- | The radicle-daemon; a long-running background process which
+-- | The radicle daemon; a long-running background process which
 -- materialises the state of remote IPFS machines on the user's PC, and
 -- writes to those IPFS machines the user is an owner of.
 --
@@ -51,7 +51,7 @@ cliInfo = do
         info (opts defaultMachineConfigFile <**> helper)
             ( fullDesc
            <> progDesc "Run the radicle daemon"
-           <> header "radicle-daemon"
+           <> header "rad-daemon-radicle"
             )
 
 opts :: FilePath -> Parser Opts
