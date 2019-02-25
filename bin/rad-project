@@ -38,12 +38,12 @@
     (def key
       (unlines
         (process-with-stdout!
-          "rad-ipfs"
-          ["key" "gen" "--type=ed25519" keyname]
+          "rad"
+          ["ipfs" "key" "gen" "--type=ed25519" keyname]
           "")))
     (process-with-stdout!
-      "rad-ipfs"
-      ["name" "publish" "--key" key orig-cid]
+      "rad"
+      ["ipfs" "name" "publish" "--key" key orig-cid]
       "")
     (def remote (string-append "ipfs://ipns/" key))
     remote))

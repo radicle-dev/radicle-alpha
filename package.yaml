@@ -8,6 +8,15 @@ extra-source-files:
 - README.md
 - ChangeLog.md
 
+build-type: Custom
+
+custom-setup:
+  dependencies:
+    - base >= 4 && <5
+    - Cabal
+    - filepath
+    - directory
+
 dependencies:
 - base >=4 && <5
 - protolude
