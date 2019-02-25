@@ -22,8 +22,6 @@
      checkout     - Checkout a project
   ")
 
-(def base "http://localhost:8000/machines/")
-
 (def prompt-for-metadata!
   (fn []
     (def name (prompt! "? What's the name of your project: "))
