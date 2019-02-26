@@ -2,7 +2,7 @@
  :doc "Providing functions for creating and reading key pairs for signing send
  commands. Per default, key pairs are stored in `$HOME/.config/radicle/my-keys.rad`
  this can be adjusted by setting `$XDG_CONFIG_HOME`."
- :exports '[read-keys! create-keys! use-fake-keys!]}
+ :exports '[read-keys! create-keys! set-fake-keys! use-fake-keys!]}
 
 (import prelude/io :as 'io)
 (import prelude/strings :as 'string)
@@ -10,11 +10,17 @@
 
 (def key-pair-mode (ref {:use-fake-key #f}))
 
-(def use-fake-keys!
-  "Bypass reading the keys from `my-keys.rad`. This is intended for testing."
-  (fn []
+(def set-fake-keys!
+  "Bypass reading the keys from `my-keys.rad`, using instead the provided keys.
+  This is intended for testing."
+  (fn [keys]
     (set-ref key-pair-mode (@ :use-fake-key) #t)
-    (set-ref key-pair-mode (@ :fake-key) (gen-key-pair! (default-ecc-curve)))))
+    (set-ref key-pair-mode (@ :fake-key) keys)))
+
+(def use-fake-keys!
+  "Bypass reading the keys from `my-keys.rad`, using newly-generated ones.
+  This is intended for testing."
+  (fn [] (set-fake-keys! (gen-key-pair! (default-ecc-curve)))))
 
 (def base-path
   (fn []

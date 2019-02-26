@@ -8,7 +8,7 @@
 (import prelude/machine '[send-code! send-signed-command!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
-(import prelude/key-management '[use-fake-keys!] :unqualified)
+(import prelude/key-management '[use-fake-keys! read-keys!] :unqualified)
 
 (def radicle-issues-machine-id
   "The name of this machine."
@@ -17,9 +17,11 @@
 (def create-issues-machine!
   "Create a remote issue machine with the given url."
   (fn []
+    (def owner-keys (lookup :public-key (read-keys!)))
     (def id (machine/new-machine!))
     (machine/send-prelude! id)
     (send-code! id (find-module-file! "monadic/issue-remote.rad"))
+    (machine/send-signed-command! id radicle-issues-machine-id 'add-admin {:key owner-keys})
     id))
 
 (def simple-issue
@@ -135,19 +137,22 @@
  "The monadic issues machine works."
  [:setup
   (do (machine/install-remote-machine-fake)
-      (use-fake-keys!)
+      (def owner-keys (gen-key-pair! (default-ecc-curve)))
+      (def non-owner-keys (gen-key-pair! (default-ecc-curve)))
+      (set-fake-keys! owner-keys)
       (def machine (create-issues-machine!))
-      (use-fake-keys!)
       (simple-create-issue! machine "title0" "body0")
       (simple-create-issue! machine "title1" "body1")
       (simple-add-comment! machine 0 "comment0" "name0")
-      (simple-add-comment! machine 1 "comment1" "name1")
       (simple-edit-issue! machine 0 {:state :closed})
       (simple-edit-comment! machine 0 0 {:body "comment0-edit"})
+      (set-fake-keys! non-owner-keys)
+      (simple-add-comment! machine 1 "comment1" "name1")
       (simple-create-issue! machine "new" "new")
       (simple-create-issue! machine "newer" "newer")
       (simple-add-comment! machine 0 "new" "name0")
-      (def is (list-issues machine)))
+      (def is (list-issues machine))
+      (set-fake-keys! owner-keys))
  ]
  [ (length (seq is)) ==> 4 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
@@ -157,4 +162,69 @@
  [ (short (first (values is))) ==> "0: title0" ]
  [ (short (first (list-last machine 1))) ==> "3: newer" ]
  [ (view (.. (@ 0) (@ :state)) is) ==> :closed ]
+ ;; authorization
+ ;; owner can edit comments
+ [ (do
+      (set-fake-keys! owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-comment! machine 0 0 {:body "edit"})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
+ ;; author can edit comments
+ [ (do
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-comment! machine 0 1 {:body "edit"})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
+ ;; non-owner/non-author cannot edit comments
+ [ (do
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-comment! machine 0 0 {:body "edit"})
+                 :valid)
+             (fn [_] :not-valid))) ==> :not-valid
+ ]
+ ;; owner can edit issues
+ [ (do
+      (set-fake-keys! owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-issue! machine 2 {:state :closed})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
+ ;; author can edit comments
+ [ (do
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-comment! machine 0 1 {:body "edit"})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
+ ;; author can edit issues
+ [ (do
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-issue! machine 2 {:state :closed})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
+ ;; non-owner/non-author cannot edit comments
+ [ (do
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-comment! machine 0 0 {:body "edit"})
+                 :valid)
+             (fn [_] :not-valid))) ==> :not-valid
+ ]
+ ;; non-owner/non-author cannot edit issues
+ [ (do
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-issue! machine 0 {:state :closed})
+                 :valid)
+             (fn [_] :not-valid))) ==> :not-valid
+ ]
 )

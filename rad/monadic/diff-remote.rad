@@ -8,6 +8,7 @@
 (import prelude/patterns :unqualified)
 (import prelude/util :unqualified)
 (import prelude/lens :unqualified)
+(import prelude/auth '[make-simple-auth add-admin] :unqualified)
 (import prelude/machine-remote '[make-updatable-eval] :unqualified)
 
 (def machine-id
@@ -23,6 +24,8 @@
   (make-counter))
 
 (def noncer (make-noncer))
+
+(def auth (make-simple-auth [:admin]))
 
 (def set-diffs
   "A helper to set stuff in the diffs ref."
@@ -103,11 +106,24 @@
 
 (def validator/diff-edit-input
   "An input to edit an diff."
-  (validator/and
-   [validator/input
-    validator/time-modified
-    validator/diff-reference
-    (validator/contains-only (edit-keys (keys diff-keys)))]))
+  (fn [ed]
+    (def auth-validation
+      (match (lookup-default :state :nothing ed)
+             :nothing   validator/always-valid
+             :retracted (validator/pred "edit author == original author"
+                          (fn [c]
+                            (match c
+                                   {:diff-number 'n
+                                    :author 'a}
+                                   (eq? (view-ref diffs (... [(@ n) (@ :author)]))
+                                        a))))
+             _          (auth [:allowed :admin])))
+    ((validator/and
+      [validator/input
+       validator/time-modified
+       validator/diff-reference
+       auth-validation
+       (validator/contains-only (edit-keys (keys diff-keys)))]) ed)))
 
 (def strip-input
   "After an entity input has been processed/verified, we no longer need some of
@@ -164,6 +180,7 @@
   {'create-diff    create-diff
    'list-diffs     list-diffs
    'edit-diff      edit-diff
-   'add-comment  add-comment})
+   'add-comment    add-comment
+   'add-admin      (add-admin auth)})
 
-(def eval (make-updatable-eval commands))
+(def eval (make-updatable-eval commands (auth [:allowed :admin])))

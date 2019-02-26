@@ -21,7 +21,7 @@ stdenv.mkDerivation {
     shellHook = ''
       export PATH=$PATH:`stack path --local-bin`:$PWD/bin
       export RADPATH=$PWD/rad
-      export STACK_IN_NIX_EXTRA_ARGS="--system-ghc --no-nix-pure --nix-packages 'zlib fzf moreutils'"
+      export STACK_IN_NIX_EXTRA_ARGS="--system-ghc --nix-packages zlib"
       export IS_NIX_SHELL="true"
       export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
       eval $(grep export ${ghc}/bin/ghc)
@@ -29,6 +29,7 @@ stdenv.mkDerivation {
       alias mkdocs="pushd $PWD/docs && make html && popd"
       alias sb="stack build --fast"
       alias se="stack exec"
+      alias se="stack --no-nix-pure exec"
       alias sbd="stack build --fast radicle:exe:rad-daemon-radicle"
       alias sbrad="stack build --fast radicle:exe:radicle"
       alias st="stack test --fast"

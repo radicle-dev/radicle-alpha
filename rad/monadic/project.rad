@@ -4,7 +4,7 @@
 (import prelude/machine '[send-code! send-signed-command! new-machine!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
-(import prelude/key-management '[use-fake-keys!] :unqualified)
+(import prelude/key-management '[use-fake-keys! read-keys!] :unqualified)
 
 (def get-project-url!
   (fn []
@@ -32,10 +32,12 @@
 (def create-project!
   "Create a remote project RSM with the given url."
   (fn [meta]
+    (def owner-keys (lookup :public-key (read-keys!)))
     (def id (new-machine!))
     (machine/send-prelude! id)
     (send-code! id (find-module-file! "monadic/project-remote.rad"))
     (set-meta! id meta)
+    (machine/send-signed-command! id rsm-id 'add-admin {:key owner-keys})
     id))
 
 (def add-rsm!
@@ -74,9 +76,10 @@
 
  [:setup
   (do (machine/install-remote-machine-fake)
+      (def owner-keys (gen-key-pair! (default-ecc-curve)))
+      (def non-owner-keys (gen-key-pair! (default-ecc-curve)))
+      (set-fake-keys! owner-keys)
       (install-fake-clock)
-      (use-fake-keys!)
-      (def machine-name "http://bar")
       (def machine (create-project! {:name "test" :description "test project"}))
       (add-issues-rsm! machine "a")
       (add-diff-rsm! machine "b")
@@ -87,4 +90,15 @@
   [ (lookup :id (first-rsm-of-type! machine :rad-issues)) ==> "a" ]
   [ (lookup :id (first-rsm-of-type! machine :rad-diff)) ==> "b" ]
   [ (lookup :id (first-rsm-of-type! machine :rad-repo)) ==> "c" ]
+  ;; authorization
+  [ (do
+       (set-fake-keys! non-owner-keys)
+       (def originally (length (list-rsms! machine)))
+       (def res (catch 'validation-failure
+              (do (add-diff-rsm! machine "d")
+                  :valid)
+              ;; check that the machine has in fact not been added
+              (fn [_] :not-valid)))
+       [res (eq? originally (length (list-rsms! machine)))]) ==> [:not-valid #t]
+  ]
 )

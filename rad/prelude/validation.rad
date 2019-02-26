@@ -5,11 +5,16 @@
  :exports
  '[= member and or type pred integral optional-key contains contains-all
    contains-only key optional-keys keys every uuid signed timestamp
-   string-of-max-length]}
+   string-of-max-length always-valid]}
 
 (import prelude/dict :unqualified)
 (import prelude/dict :as 'dict)
 (import prelude/set :as 'set)
+
+(def always-valid
+  "A validator that is always valid."
+  (fn [x] x))
+
 
 (def =
   "Given `x`, returns a validator that checks for equality with `x`."

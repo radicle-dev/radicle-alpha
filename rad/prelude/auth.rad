@@ -1,0 +1,100 @@
+{:module 'prelude/auth
+ :doc "Functions for easily handling authorization on machines."
+ :exports
+ '[make-simple-auth add-admin]}
+
+(import prelude/validation :as 'validation)
+(import prelude/set :as 'set)
+(import prelude/dict '[dict-from-seq keys] :unqualified)
+(import prelude/patterns :unqualified)
+(import prelude/ref '[modify-ref] :unqualified)
+(import prelude/lens '[over-ref @] :unqualified)
+
+(def make-simple-auth
+  "Creates an authorization scheme with any number of groups of users.
+
+  Example:
+
+    (def auth (make-simple-auth [:admin])) ;; creates auth with initial 'admin group'
+    (auth [:add-to :admin \"alice\"]) ;; adds alice to admin
+    (auth [:is-in :admin \"alice\"]) :: #t
+    (auth [:create-group :regular]) ;; creates 'regular' group
+
+  A common pattern is to set up a machine, and only then set the owner of the
+  machine. Since setting the owner is something only owners can do, we provide
+  a way for *initializing* the authentication mechanism. Prior to
+  initialization, `(auth [:allowed <group> <person>])` always succeeds.
+  After `(auth [:initialize])` is called, it returns whatever
+  `(auth [:is-in <group> <person>])` returns.
+"
+  (fn [set-names]
+    (def groups (ref (dict-from-seq (map (fn [k] [k set/empty]) set-names))))
+    (def initialized? (ref #f))
+    (def insert-in
+      (fn [group pub-key]
+        (over-ref groups (@ group) (fn [x] (set/insert pub-key x)))))
+    (def remove-from
+      (fn [group pub-key]
+        (over-ref groups (@ group) (fn [x] (set/delete pub-key x)))))
+    (def create-group
+      (fn [group]
+        (modify-ref groups (fn [x] (insert group set/empty x)))))
+    (def is-in
+      (fn [group pub-key]
+        (def the-group (lookup group (read-ref groups)))
+        ((validation/member the-group) pub-key)))
+    (fn [command]
+      (match command
+        [:add-to 'group 'pub-key]      (do
+                                         ((validation/member (keys (read-ref groups))) group)
+                                         (insert-in group pub-key))
+        [:remove-from 'group 'pub-key] (do
+                                         ((validation/member (keys (read-ref groups))) group)
+                                         (remove-from group pub-key))
+        [:create-group 'group]         (create-group group)
+        [:is-in 'group 'pub-key]       (is-in group pub-key)
+        [:initialize]                  (write-ref initialized? #t)
+        [:allowed 'group]              (validation/pred "allowed"
+                                         (fn [msg]
+                                           (if (read-ref initialized?)
+                                               (is-in group (lookup :author msg))
+                                               msg)))
+        'x                             (throw 'invalid-command x)))))
+
+(:test "make-simple-auth"
+  [:setup (do
+    (def auth (make-simple-auth [:admin]))
+    (auth [:create-group :regular])
+    (auth [:add-to :admin "alice"])
+    (auth [:add-to :regular "bob"])
+    (auth [:add-to :regular "carol"])
+    (auth [:remove-from :regular "carol"])
+  )]
+
+  [ (auth [:is-in :admin "alice"]) ==> "alice" ]
+  [ (catch 'validation-failure (auth [:is-in :admin "bob"]) (fn [_] :ok))
+     ==> :ok ]
+  [ (catch 'validation-failure (auth [:is-in :regular "carol"]) (fn [_] :ok))
+     ==> :ok ]
+  [ ((auth [:allowed :admin]) "bob") ==> "bob" ]
+  [ (do
+      (auth [:initialize])
+      (catch 'validation-failure ((auth [:allowed :admin]) {:author "bob"}) (fn [_] :ok)))
+     ==> :ok ]
+)
+
+(def add-admin
+  "Add an admin. If the auth is initialized, only an admin is allowed to do so.
+  Otherwise, this initializes the auth.
+
+  The author is taken from the :author field, and the new admin from the :key
+  field.
+
+  NOTE: The author is assumed to be already verified!"
+  (fn [auth]
+    (fn [pub-key-msg]
+      (def pub-key (lookup :key pub-key-msg))
+      (def author-key (lookup :author pub-key-msg))
+      ((auth [:allowed :admin]) author-key)
+      (auth [:add-to :admin pub-key])
+      (auth [:initialize]))))

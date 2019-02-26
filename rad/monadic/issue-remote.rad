@@ -11,6 +11,7 @@
 (import prelude/util :unqualified)
 (import prelude/lens :unqualified)
 (import prelude/nonces :unqualified)
+(import prelude/auth '[make-simple-auth add-admin] :unqualified)
 (import prelude/machine-remote '[make-updatable-eval] :unqualified)
 
 (def machine-id
@@ -26,6 +27,8 @@
   (make-counter))
 
 (def noncer (make-noncer))
+
+(def auth (make-simple-auth [:admin]))
 
 (def set-issues
   "A helper to set stuff in the issues ref."
@@ -123,6 +126,16 @@
     validator/time-modified
     validator/sub-issue
     validator/issue-reference
+    (validator/or
+          [(validator/pred
+            "edit author == original author"
+            (fn [c]
+              (match c
+                     {:issue-number 'n
+                      :author 'a}
+                     (eq? (view-ref issues (... [(@ n) (@ :author)]))
+                          a))))
+          (auth [:allowed :admin])])
     (validator/contains-only (edit-keys (keys issue-keys)))]))
 
 (def validator/comment-edit-input
@@ -144,14 +157,17 @@
                              {:comment-index 'i
                               :issue-number 'n}
                              (< i (length (view-ref issues (.. (@ n) (@ :comments))))))))
-    (validator/pred "edit author == original author"
-                    (fn [c]
-                      (match c
-                             {:issue-number 'n
-                              :comment-index 'i
-                              :author 'a}
-                             (eq? (view-ref issues (... [(@ n) (@ :comments) (@nth i) (@ :author)]))
-                                  a))))]))
+    (validator/or
+      [(validator/pred
+        "edit author == original author"
+        (fn [c]
+          (match c
+                 {:issue-number 'n
+                  :comment-index 'i
+                  :author 'a}
+                 (eq? (view-ref issues (... [(@ n) (@ :comments) (@nth i) (@ :author)]))
+                      a))))
+      (auth [:allowed :admin])])]))
 
 (def strip-input
   "After an entity input has been processed/verified, we no longer need some of
@@ -232,6 +248,8 @@
    'edit-issue   edit-issue
    'add-comment  add-comment
    'edit-comment edit-comment
-   'list-issues  list-issues})
+   'list-issues  list-issues
+   'add-admin    (add-admin auth)})
 
-(def eval (make-updatable-eval commands))
+
+(def eval (make-updatable-eval commands (auth [:allowed :admin])))
