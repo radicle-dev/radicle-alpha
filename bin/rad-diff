@@ -22,22 +22,35 @@
 
 (def help
   (string-append
-  "rad-diff - Radicle Diff CLI
+  "rad diff - Radicle Diff CLI
 
    Usage:
-        rad-diff list " list-opts-help "
-        rad-diff propose <commit>
-        rad-diff [retract | accept | reject | show] <diff-no>
-        rad-diff comment <diff-no> <comment>
-        rad-diff help
+        rad diff list " list-opts-help "
+        rad diff propose <commit>
+        rad diff [show | retract | accept | reject] <diff-number>
+        rad diff comment <diff-number> <comment>
+        rad diff help
 
-     list         - Select from diffs to view or comment on
-     propose      - Create a new diff in $EDITOR
+     list         - Lists all diffs
+                    The list can be filtered by state:
+                      " (string/intercalate ", " valid-states) "
+                    The flags for filtering by state:
+                      " (string/intercalate ", " status-opts) "
+                    Filtering by multiple states is possible via '-s <state1> -s
+                    <state2> ...'.
+                    If the option '--fancy' is appended, the list is opened via
+                    fzf (note that fzf has to be installed).
+     propose      - Create a new diff from a single commit
      show         - Show a diff
-     comment      - Shortcut for adding a comment
+     comment      - Add a comment to a diff
      retract      - Retract your own diff
+                    This command is restricted to the creator of the diff or the
+                    maintainer of the project.
      accept       - Accept a diff
+                    Automatically merges to master and pushes to origin. This
+                    command is restricted to the maintainer of the project.
      reject       - Reject a diff
+                    This command is restricted to the maintainer of the project.
      help         - Print this help and exit
   "))
 
@@ -368,12 +381,12 @@
    (match args
           (/list-cmd 'options) (list-items (machine-name) options)
           (/cmd-1 "propose" 'commit help) (new-diff! (machine-name) commit)
-          (/cmd-1 "checkout" 'diff-no help) (checkout-diff! (machine-name) (read diff-no))
-          (/cmd-1 "show" 'diff-no help) (show-diff! (machine-name) (read diff-no))
-          (/cmd-1 "retract" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :retracted)
-          (/cmd-1 "accept" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :accepted)
-          (/cmd-1 "reject" 'diff-no help) (edit-diff-state! (machine-name) (read diff-no) :rejected)
-          ["comment" 'diff-no 'comment] (create-comment! (machine-name) (read diff-no) comment)
+          (/cmd-1 "checkout" 'diff-number help) (checkout-diff! (machine-name) (read diff-number))
+          (/cmd-1 "show" 'diff-number help) (show-diff! (machine-name) (read diff-number))
+          (/cmd-1 "retract" 'diff-number help) (edit-diff-state! (machine-name) (read diff-number) :retracted)
+          (/cmd-1 "accept" 'diff-number help) (edit-diff-state! (machine-name) (read diff-number) :accepted)
+          (/cmd-1 "reject" 'diff-number help) (edit-diff-state! (machine-name) (read diff-number) :rejected)
+          ["comment" 'diff-number 'comment] (create-comment! (machine-name) (read diff-number) comment)
           (/cmd-0 "create-machine" help) (new-diff-machine! (machine-name))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
