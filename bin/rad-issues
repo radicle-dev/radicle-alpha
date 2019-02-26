@@ -106,11 +106,11 @@
         :username un
         :modified-at m-a}
       (string/unwords
-        (pretty-state s)
-        (show n)
-        tit
-        un
-        m-a))))
+        [(pretty-state s)
+         (show n)
+         tit
+         un
+         m-a]))))
 
 (def pretty-row
   (fn [i]
