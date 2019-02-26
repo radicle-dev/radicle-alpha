@@ -18,7 +18,8 @@ You will need [`stack`](https://docs.haskellstack.org/en/stable/install_and_upgr
 Then run:
 
 ```
-stack install
+stack build
+stack install :rad
 ```
 
 Note: `stack` will need about 4GB of memory to compile successfully.
