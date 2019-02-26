@@ -54,11 +54,8 @@ jobs:
           command: |
             brew install coreutils
             echo 'export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"' >> $BASH_ENV
-
-            if [[ "$CIRCLE_BRANCH" == "master" ]]; then
-              brew tap caskroom/cask
-              brew cask install google-cloud-sdk
-            fi
+            brew tap caskroom/cask
+            brew cask install google-cloud-sdk
 
       - save_cache:
           key: homebrew-{{ epoch }}
@@ -67,65 +64,43 @@ jobs:
 
       - restore_cache:
           keys:
-            - stack-root-v2-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
-            - stack-root-v2-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}
+            - stack-root-v3-pkg-1-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
+            - stack-root-v3-pkg-1-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}
+            - stack-root-v3-pkg-1-{{ arch }}-ghc8.6.3-
             - stack-root-v2-{{ arch }}-ghc8.6.3-
-            - stack-root-{{ arch }}-ghc8.6.3-
 
       - run:
           name: Build Dependencies
           command: |
-            stack build --no-terminal --dependencies-only
+            stack build \
+              --no-terminal \
+              --test \
+              --dependencies-only
+
             # Don’t want this files to be cached. They are large and
             # not needed
             rm -rf ~/.stack/indices/Hackage/00-index.tar*
 
       - save_cache:
-          key: stack-root-v2-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
+          key: stack-root-v3-pkg-1-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
           paths:
             - "~/.stack"
 
       - run:
-          name: Build Executables
+          name: Build
           command: |
-            cabal v1-update
-            cabal v1-configure \
-              --prefix=/usr/local \
-              --docdir=/usr/local/share/doc/radicle \
-              --libsubdir=radicle \
-              --datasubdir=radicle \
-              --libexecsubdir=radicle \
-              --package-db="$(stack path --snapshot-pkg-db)" \
-              --package-db="$(stack path --local-pkg-db)" \
-              --package-db="$(stack path --global-pkg-db)"
-            cabal v1-build
+            stack build \
+              --no-terminal \
+              --pedantic
 
       - run:
           name: Package
           command: |
-            if [[ "$CIRCLE_BRANCH" == "master" ]]; then
-              cabal v1-copy \
-                exe:rad \
-                exe:radicle \
-                exe:rad-daemon-radicle \
-                exe:rad-machines \
-                --destdir=dist/package-root
+            echo "$GCLOUD_SERVICE_KEY" | \
+              gcloud auth activate-service-account \
+                circleci-image-uploader@opensourcecoin.iam.gserviceaccount.com \
+                --key-file=-
 
-              mkdir -p dist/pkg
-              tarball=radicle_${CIRCLE_SHA1}_x86_64-darwin.tar.gz
-              tar -C dist/package-root -cvzf dist/pkg/$tarball usr
-              sha512sum dist/pkg/$tarball|cut -d ' ' -f1 > dist/pkg/${tarball}.sha512
-            fi
-
-      - run:
-          name: Upload to Google Cloud Storage
-          command: |
-            if [[ "$CIRCLE_BRANCH" == "master" ]]; then
-              # Key ID: db4e4a0b0ee696ea6f263c20de593c2fba4d0998
-              echo "$GCLOUD_SERVICE_KEY" | \
-                gcloud auth activate-service-account \
-                  circleci-image-uploader@opensourcecoin.iam.gserviceaccount.com \
-                  --key-file=-
-
-              gsutil -m cp dist/pkg/* gs://static.radicle.xyz/releases/
-            fi
+            version="$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
+            VERSION=$version TARGET=darwin ./packaging/build-package.sh
+            ./packaging/upload.sh
