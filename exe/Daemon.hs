@@ -474,6 +474,7 @@ actAsWriter m = do
 writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs id is nonce = do
     (rs, idx) <- modifyMachine id (addInputs is write pub)
+    writeMachineConfig
     logInfo Debug "Wrote inputs to IPFS" [ ("machine-id", getMachineId id)
                                          , ("new-input-index", show idx) ]
     pure rs
