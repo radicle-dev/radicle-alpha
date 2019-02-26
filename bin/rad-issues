@@ -62,70 +62,70 @@
      x)))
 
 (def pretty-state
- (fn [state]
-   (drop 1 (show state))))
+  (fn [state]
+    (drop 1 (show state))))
 
 (def cells
- {:state       10
-  :number      10
-  :title       50
-  :author      20
-  :modified-at 20})
+  {:state       10
+   :number      10
+   :title       50
+   :author      20
+   :modified-at 20})
 
 (def pad-to
-(fn [l x]
-  (if (< l 1)
-    ""
-    (do
-      (def pad (string/intercalate "" (map (fn [x] " ") (range 1 l))))
-      (def x-length (length x))
-      (if (> x-length (- l 1))
-        (take l x)
-        (string-append x (take (- l x-length) pad)))))))
+  (fn [l x]
+    (if (< l 1)
+      ""
+      (do
+        (def pad (string/intercalate "" (map (fn [x] " ") (range 1 l))))
+        (def x-length (length x))
+        (if (> x-length (- l 1))
+          (take l x)
+          (string-append x (take (- l x-length) pad)))))))
 
 (def wrap-cell
- (fn [phrase cell-key]
-   (def c-length (lookup cell-key cells))
-   (string-append (pad-to c-length phrase) " ")))
+  (fn [phrase cell-key]
+    (def c-length (lookup cell-key cells))
+    (string-append (pad-to c-length phrase) " ")))
 
 (def pretty-table-header
- (fn []
-   (string-append
-     (wrap-cell "state" :state)
-     (wrap-cell "#" :number)
-     (wrap-cell "title" :title)
-     (wrap-cell "author" :author)
-     (wrap-cell "updated" :modified-at))))
+  (fn []
+    (string-append
+      (wrap-cell "state" :state)
+      (wrap-cell "#" :number)
+      (wrap-cell "title" :title)
+      (wrap-cell "author" :author)
+      (wrap-cell "updated" :modified-at))))
 
 (def pretty-headline
- (fn [i]
-   (match i
-     '{:number n
-       :title tit
-       :state s
-       :username un
-       :modified-at m-a}
-     (string-append
-       (pretty-state s) " "
-       (show n) " "
-       tit " "
-       un " "
-       m-a " "))))
+  (fn [i]
+    (match i
+      '{:number n
+        :title tit
+        :state s
+        :username un
+        :modified-at m-a}
+      (string/unwords
+        (pretty-state s)
+        (show n)
+        tit
+        un
+        m-a))))
 
 (def pretty-row
- (fn [i]
-   (match i
-     '{:number n
-       :title tit
-       :state s
-       :username un
-       :modified-at m-a}
-     (string-append
-       (wrap-cell (pretty-state s) :state)
-       (wrap-cell (show n) :number)
-       (wrap-cell tit :title)
-       (wrap-cell un :author)
-       (wrap-cell m-a :modified-at)))))
+  (fn [i]
+    (match i
+      '{:number n
+        :title tit
+        :state s
+        :username un
+        :modified-at m-a}
+      (string-append
+        (wrap-cell (pretty-state s) :state)
+        (wrap-cell (show n) :number)
+        (wrap-cell tit :title)
+        (wrap-cell un :author)
+        (wrap-cell m-a :modified-at)))))
 
 (def pretty-comment
   "Markdown view of a comment. Assumes that the comment has been annotated with a
