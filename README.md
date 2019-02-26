@@ -65,6 +65,9 @@ initialize the IPFS test network with
     echo '{"radicle": true}' | \
       docker-compose -f test/docker-compose.yaml exec -T ipfs-test-network ipfs dag put
 
+If you are using `docker-machine`, replace `localhost` in `RAD_IPFS_API_URL`
+with the output of `docker-machine ip`.
+
 You can reset the test daemon’s machine configuration by removing the file
 `/tmp/radicle-machines.json`.
 
