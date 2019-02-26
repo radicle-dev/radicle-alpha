@@ -50,9 +50,9 @@
   (fn [machine]
     (machine/query! machine '(list-rsms))))
 
-(def add-issues-rsm!
+(def add-issue-rsm!
   (fn [machine id]
-    (add-rsm! machine { :id id :type :rad-issues })))
+    (add-rsm! machine { :id id :type :rad-issue })))
 
 (def add-diff-rsm!
   (fn [machine id]
@@ -81,13 +81,13 @@
       (set-fake-keys! owner-keys)
       (install-fake-clock)
       (def machine (create-project! {:name "test" :description "test project"}))
-      (add-issues-rsm! machine "a")
+      (add-issue-rsm! machine "a")
       (add-diff-rsm! machine "b")
       (add-repo-rsm! machine "c"))
   ]
 
   [ (get-meta! machine) ==> { :name "test" :description "test project" }]
-  [ (lookup :id (first-rsm-of-type! machine :rad-issues)) ==> "a" ]
+  [ (lookup :id (first-rsm-of-type! machine :rad-issue)) ==> "a" ]
   [ (lookup :id (first-rsm-of-type! machine :rad-diff)) ==> "b" ]
   [ (lookup :id (first-rsm-of-type! machine :rad-repo)) ==> "c" ]
   ;; authorization

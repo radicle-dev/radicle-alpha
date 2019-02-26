@@ -1,14 +1,14 @@
 #!/usr/bin/env radicle
 
 (load! (find-module-file! "prelude.rad"))
-(load! (find-module-file! "monadic/issues.rad"))
+(load! (find-module-file! "monadic/issue.rad"))
 (load! (find-module-file! "monadic/project.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
 
 (import prelude/validation :as 'validation)
 (import prelude/machine :as 'machine)
 
-(def machine-name (fn [] (get-rsm-of-type! :rad-issues)))
+(def machine-name (fn [] (get-rsm-of-type! :rad-issue)))
 
 (def valid-states ["open" "closed"])
 
@@ -22,14 +22,14 @@
 
 (def help
   (string-append
-  "rad-issues - Radicle issue CLI
+  "rad-issue - Radicle issue CLI
 
    Usage:
-        rad-issues list " list-opts-help "
-        rad-issues new
-        rad-issues [show | close] <issue-number>
-        rad-issues comment <issue-number> <comment>
-        rad-issues help
+        rad-issue list " list-opts-help "
+        rad-issue new
+        rad-issue [show | close] <issue-number>
+        rad-issue comment <issue-number> <comment>
+        rad-issue help
 
      list         - Select from issues to view or comment on
      new          - Create a new issue in $EDITOR

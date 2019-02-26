@@ -1,8 +1,8 @@
-;; Helpers for setting up and interacting with the issues machine (as defined in
-;; rad/monadic/issues-remote.rad)
-{:module  'monadic/issues
- :doc     "Functions for interacting with issues machine"
- :exports '[create-issues-machine!]}
+;; Helpers for setting up and interacting with the issue machine (as defined in
+;; rad/monadic/issue-remote.rad)
+{:module  'monadic/issue
+ :doc     "Functions for interacting with issue machine"
+ :exports '[create-issue-machine!]}
 
 (import prelude/lens :unqualified)
 (import prelude/machine '[send-code! send-signed-command!] :unqualified)
@@ -10,18 +10,18 @@
 (import prelude/io :as 'io)
 (import prelude/key-management '[use-fake-keys! read-keys!] :unqualified)
 
-(def radicle-issues-machine-id
+(def radicle-issue-machine-id
   "The name of this machine."
-  "monadic/radicle/issues")
+  "monadic/radicle/issue")
 
-(def create-issues-machine!
+(def create-issue-machine!
   "Create a remote issue machine with the given url."
   (fn []
     (def owner-keys (lookup :public-key (read-keys!)))
     (def id (machine/new-machine!))
     (machine/send-prelude! id)
     (send-code! id (find-module-file! "monadic/issue-remote.rad"))
-    (machine/send-signed-command! id radicle-issues-machine-id 'add-admin {:key owner-keys})
+    (machine/send-signed-command! id radicle-issue-machine-id 'add-admin {:key owner-keys})
     id))
 
 (def simple-issue
@@ -48,22 +48,22 @@
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."
   (fn [machine i]
-    (machine/send-signed-command! machine radicle-issues-machine-id 'create-issue i)))
+    (machine/send-signed-command! machine radicle-issue-machine-id 'create-issue i)))
 
 (def add-comment!
   "Create a remote comment with the keys in `my-keys.rad`."
   (fn [machine c]
-    (machine/send-signed-command! machine radicle-issues-machine-id 'add-comment c)))
+    (machine/send-signed-command! machine radicle-issue-machine-id 'add-comment c)))
 
 (def edit-issue!
   "Edit a remote issue with the keys in `my-keys.rad`."
   (fn [machine i]
-    (machine/send-signed-command! machine radicle-issues-machine-id 'edit-issue i)))
+    (machine/send-signed-command! machine radicle-issue-machine-id 'edit-issue i)))
 
 (def edit-comment!
   "Edit a remote comment with the keys in `my-keys.rad`."
   (fn [machine c]
-    (machine/send-signed-command! machine radicle-issues-machine-id 'edit-comment c)))
+    (machine/send-signed-command! machine radicle-issue-machine-id 'edit-comment c)))
 
 (def simple-create-issue!
   "Create a remote issue with sensible defaults."
@@ -134,13 +134,13 @@
     (take n is)))
 
 (:test
- "The monadic issues machine works."
+ "The monadic issue machine works."
  [:setup
   (do (machine/install-remote-machine-fake)
       (def owner-keys (gen-key-pair! (default-ecc-curve)))
       (def non-owner-keys (gen-key-pair! (default-ecc-curve)))
       (set-fake-keys! owner-keys)
-      (def machine (create-issues-machine!))
+      (def machine (create-issue-machine!))
       (simple-create-issue! machine "title0" "body0")
       (simple-create-issue! machine "title1" "body1")
       (simple-add-comment! machine 0 "comment0" "name0")

@@ -8,9 +8,9 @@
 
 (def radicle-diff-machine-id
   "The name of this machine."
-  "monadic/radicle/diffs")
+  "monadic/radicle/diff")
 
-(def create-diffs-machine!
+(def create-diff-machine!
   "Create a remote diff machine. Returns the machine id"
   (fn []
     (def owner-keys (lookup :public-key (read-keys!)))
@@ -78,13 +78,13 @@
   (machine/query! machine '(list-diffs))))
 
 (:test
- "The monadic diffs machine works."
+ "The monadic diff machine works."
  [:setup
   (do (machine/install-remote-machine-fake)
       (def owner-keys (gen-key-pair! (default-ecc-curve)))
       (def non-owner-keys (gen-key-pair! (default-ecc-curve)))
       (set-fake-keys! owner-keys)
-      (def machine (create-diffs-machine!))
+      (def machine (create-diff-machine!))
       (simple-create-diff! machine {:title "title0" :description "desc0" :patch "patch0"})
       (simple-create-diff! machine {:title "title1" :description "desc1" :patch "patch1"})
       (simple-add-comment! machine 0 "comment0" "name0")
