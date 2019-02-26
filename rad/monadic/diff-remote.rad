@@ -13,7 +13,7 @@
 
 (def machine-id
   "The name of this machine."
-  "monadic/radicle/diffs")
+  "monadic/radicle/diff")
 
 (def diffs
   "DIFFs are stored in a dict in a ref, keyed by diff-number."

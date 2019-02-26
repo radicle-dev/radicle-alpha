@@ -37,7 +37,7 @@ rad> (fac 6)
 
 We are currently using `radicle` itself to manage issues, and have therefore
 disabled issues on Github. You can create and see issues with the
-`bin/rad-issues` script. You can also reach us on the `radicle` IRC channel on
+`bin/rad-issue` script. You can also reach us on the `radicle` IRC channel on
 `#freenode`.
 
 ## Development

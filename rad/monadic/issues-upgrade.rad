@@ -1,8 +1,8 @@
-(load! (find-module-file! "monadic/issues.rad"))
+(load! (find-module-file! "monadic/issue.rad"))
 
 (import prelude/chain :unqualified)
 
-;; This is a script that migrates the issues chain. It is used when there is a
+;; This is a script that migrates the issue chain. It is used when there is a
 ;; breaking change.
 ;; Example:
 ;; (migrate-issues! "machines.radicle.xyz/chains/radicle-issues"
@@ -20,5 +20,5 @@
 (def migrate-issues!
   (fn [old new]
     (def is (nth 1 (receive! old :nothing)))
-    (create-issues-chain! new)
+    (create-issue-chain! new)
     (send! new (filter input? is))))

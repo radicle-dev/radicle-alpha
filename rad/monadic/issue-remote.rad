@@ -16,7 +16,7 @@
 
 (def machine-id
   "The name of this machine."
-  "monadic/radicle/issues")
+  "monadic/radicle/issue")
 
 (def issues
   "Issues are stored in a dict in a ref, keyed by issue-number."
