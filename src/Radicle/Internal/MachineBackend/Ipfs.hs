@@ -24,7 +24,6 @@ import           Control.Monad.Fail
 import           Data.Aeson (FromJSON, ToJSON, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import           Data.IPLD.CID
-import qualified Data.Text as T
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Identifier
@@ -147,10 +146,10 @@ data MachineEntry = MachineEntry
 
 instance FromJSON MachineEntry where
     parseJSON = Aeson.withObject "MachineEntry" $ \o -> do
-        expressionCode <- o .: "expression"
+        expressionCodes <- o .: "expressions"
         let src = "[ipfs]"
-        entryExpressions <-
-            case parseValues src expressionCode of
+        entryExpressions :: [Value] <-
+            case traverse (parse src) expressionCodes of
                 Left err  -> fail $ "failed to parse Radicle expression: " <> show err
                 Right v -> pure v
         entryPrevious <- Ipfs.parseIpldLink =<< o .: "previous"
@@ -158,8 +157,8 @@ instance FromJSON MachineEntry where
 
 instance ToJSON MachineEntry where
     toJSON MachineEntry{..} =
-        let code = T.intercalate "\n" $ map renderCompactPretty entryExpressions
+        let code = map renderCompactPretty entryExpressions
         in Aeson.object
-            [ "expression" .= code
+            [ "expressions" .= code
             , "previous" .= Ipfs.ipldLink entryPrevious
             ]
