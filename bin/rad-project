@@ -98,6 +98,15 @@
            _   (do (put-str! "You must select either 1 or 2.")
                    (exit! 1)))))
 
+(def setup-upstream!
+  "Creates a commit to set the upstream to master, if master does not exist yet"
+  (fn []
+    (match (process! "git" ["log" "master"] "")
+      :ok :ok
+      _   (do
+            (process! "git" ["commit" "--allow-empty" "--message" "Radicle Setup"] "")
+            (process! "git" ["push" "-u" "origin" "master"] "")))))
+
 (def new-project!
   "Create a new project."
   (fn []
@@ -113,6 +122,7 @@
     (put-str! "=> Assembled rad-diff machine")
     (put-str! (string-append "=> project id: " project))
     (process! "git" ["remote" "add" "origin" repo] "")
+    (setup-upstream!)
     (add-rsm! project { :id repo :type :rad-repo })
     (add-rsm! project { :id issues :type :rad-issue })
     (add-rsm! project { :id diff :type :rad-diff })
