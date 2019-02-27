@@ -717,6 +717,69 @@ Pattern which matches ``[:just x]``.
 
 Matches values that are members of a structure.
 
+``prelude/bool``
+----------------
+
+Functions for dealing with truthiness and #f.
+
+``(not x)``
+~~~~~~~~~~~
+
+True if ``x`` is ``#f``, false otherwise.
+
+``(and x y)``
+~~~~~~~~~~~~~
+
+Returns ``y`` if ``x`` is not ``#f``, otherwise returns ``x``
+
+``(all xs)``
+~~~~~~~~~~~~
+
+Checks that all the items of a list are truthy.
+
+``prelude/seq``
+---------------
+
+Functions for manipulating sequences, that is lists and vectors.
+
+``(empty? seq)``
+~~~~~~~~~~~~~~~~
+
+True if ``seq`` is empty, false otherwise.
+
+``(seq? x)``
+~~~~~~~~~~~~
+
+Returns ``#t`` if ``x`` is a list or a vector.
+
+``(reverse xs)``
+~~~~~~~~~~~~~~~~
+
+Returns the reversed sequence ``xs``.
+
+``(filter pred ls)``
+~~~~~~~~~~~~~~~~~~~~
+
+Returns ``ls`` with only the elements that satisfy ``pred``.
+
+``(take-while pred ls)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns all elements of a sequence ``ls`` until one does not satisfy
+``pred``
+
+``(starts-with? s prefix)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``. Also
+works for strings
+
+``(/prefix prefix rest-pat)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Matches sequences that start with ``prefix`` and bind the rest of that
+sequence to ``rest-pat``. Also works for strings.
+
 ``prelude/strings``
 -------------------
 
@@ -929,26 +992,6 @@ Like ``process-with-stdout!``, but returns a vec
 
 Ask for user input with a prompt.
 
-``prelude/bool``
-----------------
-
-Functions for dealing with truthiness and #f.
-
-``(not x)``
-~~~~~~~~~~~
-
-True if ``x`` is ``#f``, false otherwise.
-
-``(and x y)``
-~~~~~~~~~~~~~
-
-Returns ``y`` if ``x`` is not ``#f``, otherwise returns ``x``
-
-``(all xs)``
-~~~~~~~~~~~~
-
-Checks that all the items of a list are truthy.
-
 ``prelude/exception``
 ---------------------
 
@@ -968,49 +1011,6 @@ The empty list.
 ~~~~~~~~~~~~~~~~~~~
 
 Returns a list with all integers from ``from`` to ``to``, inclusive.
-
-``prelude/seq``
----------------
-
-Functions for manipulating sequences, that is lists and vectors.
-
-``(empty? seq)``
-~~~~~~~~~~~~~~~~
-
-True if ``seq`` is empty, false otherwise.
-
-``(seq? x)``
-~~~~~~~~~~~~
-
-Returns ``#t`` if ``x`` is a list or a vector.
-
-``(reverse xs)``
-~~~~~~~~~~~~~~~~
-
-Returns the reversed sequence ``xs``.
-
-``(filter pred ls)``
-~~~~~~~~~~~~~~~~~~~~
-
-Returns ``ls`` with only the elements that satisfy ``pred``.
-
-``(take-while pred ls)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Returns all elements of a sequence ``ls`` until one does not satisfy
-``pred``
-
-``(starts-with? s prefix)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``. Also
-works for strings
-
-``(/prefix prefix rest-pat)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Matches sequences that start with ``prefix`` and bind the rest of that
-sequence to ``rest-pat``. Also works for strings.
 
 ``prelude/set``
 ---------------

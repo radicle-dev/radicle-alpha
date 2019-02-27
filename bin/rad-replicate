@@ -3,7 +3,7 @@
 (load! (find-module-file! "prelude.rad"))
 (load! (find-module-file! "monadic/project.rad"))
 
-(import prelude/strings '[reverse-string] :unqualified)
+(import prelude/strings '[ends-with?] :unqualified)
 
 (def default-url
   "Default replication URL"
