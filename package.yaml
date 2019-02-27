@@ -7,6 +7,7 @@ git: oscoin/radicle
 extra-source-files:
 - README.md
 - ChangeLog.md
+- bin/*
 
 build-type: Custom
 
