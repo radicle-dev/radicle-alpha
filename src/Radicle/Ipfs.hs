@@ -76,18 +76,24 @@ instance Exception IpfsException where
       where
         name = "Radicle IPFS daemon"
 
--- | Turn HTTP exceptions into 'IpfsException's.
+-- | Catches 'HttpException's and re-throws them as 'IpfsException's.
 mapHttpException :: forall a. IO a -> IO a
-mapHttpException io = catch io httpHdlr
+mapHttpException io = catch io (throw . mapHttpExceptionData)
   where
-    httpHdlr = \case
-      Http.HttpExceptionRequest _
+    mapHttpExceptionData :: HttpException -> IpfsException
+    mapHttpExceptionData = \case
+        Http.HttpExceptionRequest _ content -> mapHttpExceptionContent content
+        _ -> IpfsExceptionErrRespNoMsg
+
+    mapHttpExceptionContent :: HttpExceptionContent -> IpfsException
+    mapHttpExceptionContent = \case
         (Http.StatusCodeException _
           (Aeson.decodeStrict ->
              Just (Aeson.Object (HashMap.lookup "Message" ->
-                     Just (Aeson.String msg))))) -> throw (IpfsExceptionErrResp msg)
-      Http.HttpExceptionRequest _ Http.ResponseTimeout -> throw IpfsExceptionTimeout
-      _ -> throw IpfsExceptionErrRespNoMsg
+                     Just (Aeson.String msg))))) -> (IpfsExceptionErrResp msg)
+        Http.ResponseTimeout -> IpfsExceptionTimeout
+        ConnectionFailure _ -> IpfsExceptionNoDaemon
+        _ -> IpfsExceptionErrRespNoMsg
 
 -- | Given a CID @"abc...def"@ it returns a IPLD link JSON object
 -- @{"/": "abc...def"}@.
@@ -267,9 +273,8 @@ ipfsHttpGet
 ipfsHttpGet path params = mapHttpException $ do
     let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
-    res <- Wreq.getWith opts (toS url) `catch` handleRequestException
-    jsonRes <- Wreq.asJSON res `catch` handleParseException path
-    pure $ jsonRes ^. Wreq.responseBody
+    res <- Wreq.getWith opts (toS url)
+    getJsonResponseBody path res
 
 ipfsHttpPost
     :: FromJSON a
@@ -280,8 +285,7 @@ ipfsHttpPost
     -> IO a
 ipfsHttpPost path params payloadArgName payload = mapHttpException $ do
     res <- ipfsHttpPost' path params payloadArgName payload
-    jsonRes <- Wreq.asJSON res `catch` handleParseException path
-    pure $ jsonRes ^. Wreq.responseBody
+    getJsonResponseBody path res
 
 ipfsHttpPost'
     :: Text  -- ^ Path of the endpoint under "/api/v0/"
@@ -289,20 +293,21 @@ ipfsHttpPost'
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
     -> IO (Wreq.Response LByteString)
-ipfsHttpPost' path params payloadArgName payload = do
+ipfsHttpPost' path params payloadArgName payload = mapHttpException $ do
     let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
-    Wreq.postWith opts (toS url) (Wreq.partLBS payloadArgName payload) `catch` handleRequestException
+    Wreq.postWith opts (toS url) (Wreq.partLBS payloadArgName payload)
 
 ipfsApiUrl :: Text -> IO Text
 ipfsApiUrl path = do
     baseUrl <- fromMaybe "http://localhost:9301" <$> lookupEnv "RAD_IPFS_API_URL"
     pure $ toS baseUrl <> "/api/v0/" <> path
 
-handleRequestException :: MonadThrow m => HttpException -> m a
-handleRequestException (HttpExceptionRequest _ (ConnectionFailure _)) =
-    throw IpfsExceptionNoDaemon
-handleRequestException ex = throw ex
-
-handleParseException :: MonadCatch m => Text -> Wreq.JSONError -> m a
-handleParseException path (Wreq.JSONError msg) = throw $ IpfsExceptionInvalidResponse path (toS msg)
+-- | Parses response body as JSON and returns the parsed value. @path@
+-- is the IPFS API the response was obtained from. Throws
+-- 'IpfsExceptionInvalidResponse' if parsing fails.
+getJsonResponseBody :: FromJSON a => Text -> Wreq.Response LByteString -> IO a
+getJsonResponseBody path res = do
+    jsonRes <- Wreq.asJSON res `catch`
+        \(Wreq.JSONError msg) -> throw $ IpfsExceptionInvalidResponse path (toS msg)
+    pure $ jsonRes ^. Wreq.responseBody
