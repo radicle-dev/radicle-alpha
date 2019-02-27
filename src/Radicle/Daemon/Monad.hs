@@ -78,4 +78,4 @@ displayError = \case
       IpfsExceptionErrRespNoMsg -> ("There was an unknown error using IPFS", [])
       IpfsExceptionTimeout -> ("Timeout communicating with IPFS daemon", [])
       IpfsExceptionInvalidResponse url parseError -> ("Cannot parse IPFS daemon response", [("url", url), ("parse-error", parseError)])
-      IpfsExceptionNoDaemon -> ("The IPFS daemon is not reachable, run 'rad ipfs daemon'", [])
+      IpfsExceptionNoDaemon -> ("Cannot connect to the IPFS daemon", [])
