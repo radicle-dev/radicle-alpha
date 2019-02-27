@@ -115,6 +115,7 @@ steps:
     name: $_BUILD_IMAGE
     entrypoint: bash
     env:
+    - STACK_ROOT=/workspace/.stack
     - COMMIT_SHA=$COMMIT_SHA
     - BRANCH_NAME=$BRANCH_NAME
     args:
