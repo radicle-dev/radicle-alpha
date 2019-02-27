@@ -10,6 +10,7 @@
 (import prelude/lens :unqualified)
 (import prelude/seq :unqualified)
 (import prelude/strings :unqualified)
+(import prelude/error-messages :as 'error)
 
 (def parse-failure-mode (ref {:stub #f}))
 
@@ -27,14 +28,6 @@
   (fn [cmd opts]
     (catch 'invalid-input (cmd opts) (fn [x] x))))
 
-(def missing-arg-error
-  (fn [arg cmd]
-    (string-append "Missing argument \"" (show arg) "\" for command \"" cmd "\"")))
-
-(def too-many-args-error
-  (fn [cmd]
-    (string-append "Too many arguments for command \"" cmd "\"")))
-
 (def /cmd-opts
   "Matches the command `cmd` and a combination of options `opt`. The options
   need to be one of `:options` of the dicts in `cmd-opts`. In that list each
@@ -51,29 +44,27 @@
         (def parse-arg
           (fn [opt args]
             (def opt-key (lookup :key opt))
-            (def valid-args-help
-              (string-append "Valid arguments: " (intercalate ", "(lookup :possible-values opt))))
+            (def valid-args
+              (lookup :possible-values opt))
             (match args
               (/cons 'val 'rest)
-                  (if (elem? val (lookup :possible-values opt))
+                  (if (elem? val valid-args)
                     (modify-map opt-key (fn [x] (cons val x)) (parse-cli rest))
                     (do
                       (if (starts-with? val "-")
                         (parse-failure
-                          (string-append "Missing argument for option \"" (show opt-key) "\". " valid-args-help) help)
+                          (error/missing-arg-for-opt (show opt-key) valid-args) help)
                         (parse-failure
-                          (string-append
-                            "Invalid argument \"" val "\" for option \"" (show opt-key) "\". "
-                            valid-args-help)
+                          (error/invalid-arg-for-opt val (show opt-key) valid-args)
                           help))))
               []  (parse-failure
-                    (string-append "Missing argument for option \"" (show opt-key) "\". " valid-args-help) help)
+                    (error/missing-arg-for-opt (show opt-key) valid-args) help)
               )))
         (def parse-opt
           (fn [opt rest]
             (def option
               (match (filter (fn [x] (elem? opt (lookup :options x))) cmd-opts)
-                []    (parse-failure (string-append "Invalid option \"" opt "\" for command list.") help)
+                []    (parse-failure (error/invalid-opt-for-cmd opt "list") help)
                 'filt (first filt)))
             (if (eq? (lookup :type option) :flag)
               (insert (lookup :key option) #t (parse-cli rest))
@@ -118,9 +109,9 @@
     (fn [value]
       (match value
         [cmd 'a-1 'a-2] (match-pat [arg-1 arg-2] [a-1 a-2])
-        [cmd _] (parse-failure (missing-arg-error arg-2 cmd) help)
-        [cmd] (parse-failure (missing-arg-error arg-1 cmd) help)
-        (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
+        [cmd _] (parse-failure (error/missing-arg (show arg-2) cmd) help)
+        [cmd] (parse-failure (error/missing-arg (show arg-1) cmd) help)
+        (/cons cmd _) (parse-failure (error/too-many-args cmd) help)
         _ :nothing))))
 
 (:test "/cmd-2"
@@ -142,8 +133,8 @@
     (fn [value]
       (match value
         [cmd 'cmd-args] (match-pat cmd-args-pat cmd-args)
-        [cmd] (parse-failure (missing-arg-error cmd-args-pat cmd) help)
-        (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
+        [cmd] (parse-failure (error/missing-arg (show cmd-args-pat) cmd) help)
+        (/cons cmd _) (parse-failure (error/too-many-args cmd) help)
         _ :nothing))))
 
 (:test "/cmd-1"
@@ -163,7 +154,7 @@
     (fn [value]
      (match value
        [cmd] [:just {}]
-       (/cons cmd _) (parse-failure (too-many-args-error cmd) help)
+       (/cons cmd _) (parse-failure (error/too-many-args cmd) help)
        _ :nothing))))
 
 (:test "/cmd-0"

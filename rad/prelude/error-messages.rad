@@ -1,0 +1,55 @@
+{:module 'prelude/error-messages
+ :doc "Functions for user facing error messages."
+ :exports
+ '[missing-arg too-many-args missing-arg-for-opt invalid-arg-for-opt
+   invalid-opt-for-cmd]}
+
+(import prelude/strings :unqualified)
+
+;; parsing
+
+(def missing-arg
+  (fn [arg cmd]
+    (string-append "Missing argument \"" arg "\" for command \"" cmd "\"")))
+
+(:test "missing-arg"
+  [(missing-arg "foo" "bar") ==> "Missing argument \"foo\" for command \"bar\""])
+
+(def too-many-args
+  (fn [cmd]
+    (string-append "Too many arguments for command \"" cmd "\"")))
+
+(:test "too-many-args"
+  [(too-many-args "foobar") ==> "Too many arguments for command \"foobar\""])
+
+(def valid-args-help
+  (fn [args]
+    (string-append "Valid arguments: " (intercalate ", " args))))
+
+(:test "valid-args-help"
+  [(valid-args-help ["foo" "bar"]) ==> "Valid arguments: foo, bar"])
+
+(def missing-arg-for-opt
+  (fn [opt valid-args]
+    (string-append
+      "Missing argument for option \"" opt "\". "
+      (valid-args-help valid-args))))
+
+(:test "missing-arg-for-opt"
+  [(missing-arg-for-opt "-s" ["foo" "bar"]) ==> "Missing argument for option \"-s\". Valid arguments: foo, bar"])
+
+(def invalid-arg-for-opt
+  (fn [arg opt valid-args]
+    (string-append
+      "Invalid argument \"" arg "\" for option \"" opt "\". "
+      (valid-args-help valid-args))))
+
+(:test "invalid-arg-for-opt"
+  [(invalid-arg-for-opt "foobar" "-s" ["foo" "bar"]) ==> "Invalid argument \"foobar\" for option \"-s\". Valid arguments: foo, bar"])
+
+(def invalid-opt-for-cmd
+  (fn [opt cmd]
+    (string-append "Invalid option \"" opt "\" for command " cmd ".")))
+
+(:test "invalid-opt-for-cmd"
+  [(invalid-opt-for-cmd "foo" "list") ==> "Invalid option \"foo\" for command list."])
