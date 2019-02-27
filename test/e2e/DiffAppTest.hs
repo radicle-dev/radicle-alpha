@@ -14,6 +14,8 @@ test_diff_propose = testCaseSteps "diff propose" $ \step -> do
     _ <- runTestCommand "git" ["config", "--global", "user.name", "Alice"]
     _ <- runTestCommand "git" ["config", "--global", "user.email", "alice@example.com"]
     _ <- runTestCommand' "rad-project" ["init"] ["project-name", "project desc", "1"]
+    bla <- runTestCommand "cat" [".git/config"]
+    putStr bla
     _ <- runTestCommand "git" ["checkout", "-b", "f/test"]
     _ <- runTestCommand "touch" ["test"]
     _ <- runTestCommand "git" ["add", "test"]
