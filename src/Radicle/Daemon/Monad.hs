@@ -79,6 +79,6 @@ displayError = \case
       IpfsException msg -> ("There was an error using the IPFS daemon", [("ipfs-error", msg)])
       IpfsExceptionErrResp msg -> ("The IPFS daemon returned an error", [("ipfs-error", msg)])
       IpfsExceptionErrRespNoMsg -> ("There was an unknown error using IPFS", [])
-      IpfsExceptionTimeout -> ("Timeout communicating with IPFS daemon", [])
+      IpfsExceptionTimeout apiPath -> ("Timeout communicating with IPFS daemon", [("api-path", apiPath)])
       IpfsExceptionInvalidResponse url parseError -> ("Cannot parse IPFS daemon response", [("url", url), ("parse-error", parseError)])
       IpfsExceptionNoDaemon -> ("Cannot connect to the IPFS daemon", [])
