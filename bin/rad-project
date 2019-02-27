@@ -48,11 +48,24 @@
     (def remote (string-append "ipfs://ipns/" key))
     remote))
 
+(def config-ipfs-api-url!
+  "For git-ipfs repositories, set the `ipfs.apiurl` git-config so that the git
+  remote helper uses the radicle IPFS network."
+  (fn [origin]
+    (def ipfs-api-url
+      (match (shell-with-stdout! "echo $RAD_IPFS_API_URL" "")
+             [""] "http://localhost:9301"
+             ['url] url))
+    (if (starts-with? origin "ipfs://")
+      (set-git-config! "ipfs.apiurl" ipfs-api-url)
+      :ok)))
+
 (def checkout!
   "Checkout a project."
   (fn [project]
     (def name (lookup :name (get-meta! project)))
     (def origin (lookup :id (first-rsm-of-type! project :rad-repo)))
+    (config-ipfs-api-url! origin)
     (match (process! "test" ["-d" name] "")
       :ok (do
             (put-str! (string-append
@@ -92,6 +105,7 @@
     (def project (create-project! meta))
     (process! "git" ["init"] "")
     (def repo (setup-repo!))
+    (config-ipfs-api-url! repo)
     (put-str! (string-append "=> adding \"origin\" remote: " repo))
     (def issues (create-issue-machine!))
     (put-str! "=> Assembled rad-issue machine")
