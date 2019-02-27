@@ -17,7 +17,7 @@
 --
 module Radicle.Internal.MachineBackend.Ipfs where
 
-import           Protolude hiding (TypeError, catch, try)
+import           Protolude hiding (catch, try)
 
 import           Control.Exception.Safe
 import           Control.Monad.Fail
@@ -26,33 +26,9 @@ import qualified Data.Aeson as Aeson
 import           Data.IPLD.CID
 
 import           Radicle.Internal.Core
-import           Radicle.Internal.Identifier
-import           Radicle.Internal.MachineBackend.Interface
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
-import qualified Radicle.Internal.PrimFns as PrimFns
-import           Radicle.Internal.Type
 import qualified Radicle.Ipfs as Ipfs
-
--- | Primitive functions for the IPFS machine backend and the primitive
--- function @machine/ipfs/create!@.
-ipfsPrimFns :: MonadIO m => PrimFns m
-ipfsPrimFns =
-    PrimFns.addPrimFn (unsafeToIdent createFnName) createFnDoc fn $
-        buildMachineBackendPrimFns ipfsMachineBackend
-  where
-    createFnName = "machine/ipfs/create!"
-    createFnDoc =
-        "Create an IPFS machine and return its ID. Takes a local alias\
-        \ for the machine as an argument. To avoid conflicts this should\
-        \ be a UUID in production use."
-    fn = PrimFns.oneArg createFnName $ \case
-        String name ->
-            liftIO (ipfsMachineCreate name) >>= \case
-                Left err        -> throwErrorHere $ OtherError err
-                Right machineId -> pure $ String machineId
-        v -> throwErrorHere $ TypeError createFnName 0 TString v
-
 
 -- | Create a Radicle machine and return its identifier. The argument
 -- is the name to store with the returned key on the local. It is not
@@ -75,33 +51,8 @@ instance Aeson.ToJSON MachineEntryIndex where
 instance Aeson.FromJSON MachineEntryIndex where
   parseJSON = fmap MachineEntryIndex . Ipfs.parseIpldLink
 
-instance (CPA t) => ToRad t MachineEntryIndex where
-    toRad (MachineEntryIndex cid) = String $ cidToText cid
-
-instance (CPA t) => FromRad t MachineEntryIndex where
-    fromRad (String cid) =
-        case cidFromText cid of
-            Left err   -> Left $ toS err
-            Right cid' -> Right $ MachineEntryIndex cid'
-    fromRad _ = Left "IPFS entry index must be a string"
-
-
-ipfsMachineBackend :: MonadIO m => MachineBackend MachineEntryIndex m
-ipfsMachineBackend =
-    MachineBackend
-        { machineType = "ipfs"
-        , machineUpdate =
-            \id values -> do
-                res <- liftIO $ tryAny $ sendIpfs id values
-                pure $ first (toS . displayException) res
-        , machineGetLog =
-            \id maybeFrom -> do
-                res <- liftIO $ tryAny $ receiveIpfs id maybeFrom
-                pure $ first (toS . displayException) res
-        }
-
 -- | Write and pin a sequence of expressions to a machine.
-sendIpfs :: Text -> Seq Value -> IO MachineEntryIndex
+sendIpfs :: Ipfs.IpnsId -> Seq Value -> IO MachineEntryIndex
 sendIpfs ipnsId values = do
     Ipfs.NameResolveResponse cid <- Ipfs.nameResolve ipnsId
     Ipfs.DagPutResponse newEntryCid <- Ipfs.dagPut $ MachineEntry (toList values) cid
