@@ -325,33 +325,30 @@ loadMachine mode id = do
   (idx, is) <- machineIpfs id $ machineInputsFrom id Nothing
   sub <- initDaemonSubscription id
   m <- liftIO $ emptyMachine id mode sub
-  (m', _) <- addInputs is (pure idx) (const (pure ())) m
+  (m', _) <- addInputs is idx m
   insertNewMachine id (Cached m')
   pure m'
 
--- | Add inputs to a cached machine.
+-- | Add inputs to a machine and update its state
 addInputs
   :: [Value]
   -- ^ Inputs to add.
-  -> Daemon MachineEntryIndex
-  -- ^ Determine the new index.
-  -> ([Value] -> Daemon ())
-  -- ^ Performed after the chain is cached.
+  -> MachineEntryIndex
+  -- ^ The new index.
   -> Machine
-  -> Daemon (Machine, ([Value], MachineEntryIndex))
-  -- ^ Returns the updated machine, the results and the new index.
-addInputs is getIdx after m =
-  case advanceChain m is of
+  -> Daemon (Machine, [Value])
+  -- ^ Returns the updated machine and the produced outputs
+addInputs inputs index m = do
+  let (result, newState) = runIdentity $ runLang (machineState m) $ traverse eval inputs
+  case result of
     Left err -> throwError $ MachineError (machineId m) (InvalidInput err)
-    Right (rs, newState) -> do
-      idx <- getIdx
+    Right outputs -> do
       t <- liftIO $ Time.getSystemTime
       let m' = m { machineState = newState
-                 , machineLastIndex = idx
+                 , machineLastIndex = index
                  , machineLastUpdated = t
                  }
-      after rs
-      pure (m', (rs, idx))
+      pure (m', outputs)
 
 -- | Run some IPFS IO.
 ipfs :: IO a -> (Ipfs.IpfsException -> Error) -> Daemon a
@@ -467,7 +464,7 @@ refreshAsReader id = modifyMachine id refresh
                   [mid, ("input-index",  show newIdx)]
           pure (m, m)
         else do
-          (m', _) <- addInputs is (pure newIdx) (const (pure ())) m
+          (m', _) <- addInputs is newIdx m
           logDebug
                   "Updated reader"
                   [mid, ("n", show (length is)), ("input-index",  show newIdx)]
@@ -503,17 +500,18 @@ actAsWriter m = do
 -- Sends out a 'InputsApplied' message over pubsub that includes the
 -- outputs and the given nonce.
 writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
-writeInputs id is nonce = do
-    (rs, idx) <- modifyMachine id (addInputs is write pub)
+writeInputs id inputs nonce = do
+    (rs, idx) <- modifyMachine id $ \machine -> do
+        newIndex <- machineIpfs id $ writeIpfs id inputs
+        (machine', results) <- addInputs inputs newIndex machine
+        machineIpfs id $ publish id (New InputsApplied{results,nonce})
+        pure (machine', (results, machineLastIndex machine'))
     writeMachineConfig
     logDebug "Wrote inputs to IPFS"
         [ ("machine-id", getMachineId id)
         , ("new-input-index", show idx)
         ]
     pure rs
-  where
-    write = machineIpfs id $ writeIpfs id is
-    pub results = machineIpfs id $ publish id (New InputsApplied{..})
 
 -- * Polling
 
