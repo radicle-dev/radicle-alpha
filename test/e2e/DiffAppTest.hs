@@ -42,5 +42,4 @@ test_diff_propose = testCaseSteps "diff propose" $ \step -> do
     assertContains showAcceptedOutput $ "accepted 0"
 
     logOutput <- runTestCommand "git" ["log", "master"]
-    assertContains logOutput $ commitSha
     assertContains logOutput $ "first commit"

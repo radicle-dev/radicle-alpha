@@ -101,9 +101,12 @@
 (def setup-upstream!
   "Creates a commit to set the upstream to master, if master does not exist yet"
   (fn []
-    (process! "git" ["commit" "--allow-empty" "--message" "Radicle Setup"] "")
-    (process! "git" ["push" "-u" "origin" "master"] "")
-    (exit! 1)))
+    (match (process! "git" ["log" "master"] "")
+      :ok :ok
+      _   (do
+            (process! "git" ["commit" "--allow-empty" "--message" "Radicle Setup"] "")
+            (process! "git" ["push" "-u" "origin" "master"] "")))))
+
 
 (def new-project!
   "Create a new project."
@@ -113,7 +116,6 @@
     (process! "git" ["init"] "")
     (def repo (setup-repo!))
     (config-ipfs-api-url! repo)
-    (put-str! (string-append "-------- " (show repo)))
     (put-str! (string-append "=> adding \"origin\" remote: " repo))
     (def issues (create-issue-machine!))
     (put-str! "=> Assembled rad-issue machine")

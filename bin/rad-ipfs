@@ -9,11 +9,7 @@ set -eo pipefail
 
 if [ -n "$RAD_IPFS_API_URL" ]; then
   api_url=$(echo "$RAD_IPFS_API_URL" | sed -n -E \
-<<<<<<< HEAD
     -e "s/^http:\/\/([a-zA-Z0-9_\.\-]+):([0-9]{1,5})/\/dns4\/\1\/tcp\/\2/;tprint" \
-=======
-    -e "s/^http:\/\/([a-zA-Z0-9\-_\.]+):([0-9]{1,5})/\/dns4\/\1\/tcp\/\2/;tprint" \
->>>>>>> WIP fix e2e tests
     -e "q" \
     -e ":print" \
     -e "p")
