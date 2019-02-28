@@ -28,6 +28,7 @@ import qualified Data.Aeson.Types as Aeson
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Unique as Unique
+import           System.Timeout
 
 import           Radicle.Internal.Core
 import qualified Radicle.Internal.MachineBackend.Ipfs as Ipfs
@@ -121,7 +122,7 @@ publish :: MachineId -> Message -> IO ()
 publish id msg = Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
-subscribeForever :: MachineId -> MsgHandler -> IO ()
+subscribeForever :: MachineId -> (Either Text Message -> IO ()) -> IO ()
 subscribeForever id messageHandler = Ipfs.subscribe topic pubsubHandler
   where
     Topic topic = machineTopic id
@@ -148,7 +149,7 @@ ipnsPublish id (Ipfs.MachineEntryIndex cid) = Ipfs.namePublish (getMachineId id)
 
 -- * Topic subscriptions
 
-type MsgHandler = Either Text Message -> IO ()
+type MsgHandler = Message -> IO ()
 
 type RegisteredHandler = Unique.Unique
 
@@ -159,15 +160,20 @@ newtype TopicSubscription = TopicSubscription
 -- | Given a machine ID, creates a subscription for that machine's
 -- pubsub topic. This allows adding and removing handlers for messages
 -- on that topic.
-initSubscription :: MachineId -> IO TopicSubscription
-initSubscription id = do
+--
+-- @logParseError@ is called with the raw message content if a message
+-- cannot be parsed.
+initSubscription :: MachineId -> (Text -> IO ()) -> IO TopicSubscription
+initSubscription id logParseError = do
     hdlrs <- newMVar Map.empty
     _ <- async $ subscribeForever id (mainHdlr hdlrs)
     pure $ TopicSubscription hdlrs
   where
-    mainHdlr hdlrs msg = do
-      hs <- readMVar hdlrs
-      traverse_ ($ msg) (Map.elems hs)
+    mainHdlr hdlrs = \case
+        Left rawMessage -> logParseError rawMessage
+        Right msg -> do
+          hs <- readMVar hdlrs
+          traverse_ ($ msg) (Map.elems hs)
 
 -- | Add a message handler to a topic subscription.
 addHandler :: TopicSubscription -> MsgHandler -> IO RegisteredHandler
@@ -181,21 +187,20 @@ removeHandler :: TopicSubscription -> RegisteredHandler -> IO ()
 removeHandler ts u =
   modifyMVar (handlers ts) (pure . (,()) . Map.delete u)
 
--- | Block while waiting for a message which matches a
--- predicate. Returns @Just msg@ where @msg@ is the first message
--- passing the predicate if such a message arrives before the
--- specified amount of milliseconds. Otherwise, returns @Nothing@.
-subscribeOne :: TopicSubscription -> Int64 -> (Message -> Bool) -> (Text -> IO ()) -> IO (Maybe Message)
-subscribeOne sub timeout pr badMsg = do
-  var <- newEmptyMVar
-  let onMsg = \case
-        Right msg | pr msg -> putMVar var (Just msg)
-        Right _ -> pure ()
-        Left bad -> badMsg bad
-  bracket
-    (addHandler sub onMsg)
-    (removeHandler sub)
-    (const $ forkIO (threadDelay (fromIntegral timeout * 1000) >> putMVar var Nothing) *> readMVar var)
+-- | Block while waiting for a matching message.
+-- If no matching message arrives within the given timeout (in
+-- milliseconds) then @Nothing@ is retuend.
+subscribeOne :: TopicSubscription -> Int64 -> (Message -> Maybe a) -> IO (Maybe a)
+subscribeOne subscription t matchMessage = do
+    timeout (fromIntegral t * 1000) $ do
+        msgVar <- newEmptyMVar
+        let onMsg msg = case matchMessage msg of
+                            Just a  -> putMVar msgVar a
+                            Nothing -> pure ()
+        bracket
+            (addHandler subscription onMsg)
+            (removeHandler subscription)
+            (\_ -> readMVar msgVar)
 
 emptyMachineEntryIndex :: Ipfs.MachineEntryIndex
 emptyMachineEntryIndex = Ipfs.MachineEntryIndex Ipfs.emptyMachineCid
