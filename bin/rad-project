@@ -101,12 +101,19 @@
 (def setup-upstream!
   "Creates a commit to set the upstream to master, if master does not exist yet"
   (fn []
-    (match (process! "git" ["log" "master"] "")
-      :ok :ok
-      _   (do
-            (process! "git" ["commit" "--allow-empty" "--message" "Radicle Setup"] "")
-            (process! "git" ["push" "-u" "origin" "master"] "")))))
-
+    (match (process-with-stdout! "git" ["show-ref" "refs/heads/master"] "")
+      []  (do
+            (process-git-with-exit!
+              ["commit" "--allow-empty" "--message" "Radicle Setup"]
+              (string-append
+                "Error: git --allow-empty --message \"Radicle Setup\" failed.\n"
+                "Make sure that git was initialized correctly and rerun 'rad project init'"))
+            (process-git-with-exit!
+              ["push" "-u" "origin" "master"]
+              (string-append
+                "Error: git -u origin master failed.\n"
+                "Set the upstream branch manually and rerun 'rad project init'")))
+      _   :ok)))
 
 (def new-project!
   "Create a new project."
