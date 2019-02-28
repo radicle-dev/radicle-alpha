@@ -61,10 +61,12 @@ data MachineError
 data Error
   = MachineError MachineId MachineError
   | CouldNotCreateMachine IpfsException
+  | IpfsDaemonNotReachable
 
 displayError :: Error -> (Text, [(Text,Text)])
 displayError = \case
   CouldNotCreateMachine (ipfsErr -> (msg, infos)) -> ("Could not create IPFS machine", ("message", msg) : infos)
+  IpfsDaemonNotReachable -> ("Could not connect to Radicle IPFS daemon", [])
   MachineError id e -> let mid = ("machine-id", getMachineId id) in
     case e of
       InvalidInput err -> ("Invalid radicle input", [mid, ("radicle-error", renderCompactPretty err)])

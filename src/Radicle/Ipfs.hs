@@ -8,6 +8,9 @@ module Radicle.Ipfs
     , addressToText
     , addressFromText
 
+    , VersionResponse(..)
+    , version
+
     , KeyGenResponse(..)
     , keyGen
 
@@ -144,6 +147,16 @@ addressFromText t =
 --------------------------------------------------------------------------
 -- * IPFS node API
 --------------------------------------------------------------------------
+
+newtype VersionResponse = VersionResponse Text
+
+instance FromJSON VersionResponse where
+    parseJSON = Aeson.withObject "VersionResponse" $ \o -> do
+        v <- o .: "Version"
+        pure $ VersionResponse v
+
+version :: IO VersionResponse
+version = ipfsHttpGet "version" []
 
 data PubsubMessage = PubsubMessage
     { messageTopicIDs :: [Text]

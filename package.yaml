@@ -155,6 +155,7 @@ executables:
     - mtl
     - containers
     - optparse-applicative
+    - safe-exceptions
     - servant-server
     - text
     - warp
