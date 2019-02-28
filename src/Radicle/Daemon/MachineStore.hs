@@ -12,6 +12,7 @@ module Radicle.Daemon.MachineStore
   , CachedMachines(..)
   , MonadMachineStore(..)
   , modifyMachine
+  , modifyMachine'
   , insertMachine
   , insertUninitializedReader
   , emptyMachine
@@ -98,6 +99,11 @@ modifyMachine id f = do
         Cached m -> do
             (m', a) <- f m
             pure (Cached m', a)
+
+modifyMachine' :: forall a m. (MonadMachineStore m) => MachineId -> (Maybe CachedMachine -> m (Maybe CachedMachine, a)) -> m a
+modifyMachine' id f = do
+    machines <- askMachines
+    CMap.modifyValue id (getMachines machines) f
 
 emptyMachine :: (MonadMachineStore m) => MachineId -> ReaderOrWriter -> TopicSubscription -> m Machine
 emptyMachine id mode sub = liftIO $ do
