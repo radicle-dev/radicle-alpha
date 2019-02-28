@@ -63,8 +63,11 @@ into version control.
 
 ### End-to-end Tests
 
-The end-to-end test suite is run with `stack test :e2e`. It requires you to
-start up an IPFS test network and the Raicle daemon.
+The end-to-end test suite is run with
+
+    RAD_IPFS_API_URL=http://localhost:19301 stack test :e2e
+
+It requires you to start up an IPFS test network and the Raicle daemon.
 
     docker-compose -f test/docker-compose.yaml up -d ipfs-test-network
     RAD_IPFS_API_URL=http://localhost:19301 stack exec -- \

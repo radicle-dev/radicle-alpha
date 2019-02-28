@@ -32,3 +32,9 @@ RUN \
 # Install `docker-compose`
 ADD https://github.com/docker/compose/releases/download/1.23.2/docker-compose-Linux-x86_64 /usr/local/bin/docker-compose
 RUN chmod +x /usr/local/bin/docker-compose
+
+# Install `ipfs`
+ADD https://dist.ipfs.io/go-ipfs/v0.4.18/go-ipfs_v0.4.18_linux-amd64.tar.gz ipfs.tgz
+RUN \
+  tar --extract --file ipfs.tgz --strip-components=1 -C /usr/bin go-ipfs/ipfs && \
+  rm ipfs.tgz
