@@ -8,12 +8,6 @@ jobs:
 
       - restore_cache:
           keys:
-            - stack-root-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
-            - stack-root-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}
-            - stack-root-{{ arch }}-ghc8.6.3-
-
-      - restore_cache:
-          keys:
             - toolchain-{{ arch }}
 
       - restore_cache:
@@ -59,6 +53,8 @@ jobs:
           name: Homebrew Dependencies
           command: |
             brew install coreutils
+            echo 'export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"' >> $BASH_ENV
+
             if [[ "$CIRCLE_BRANCH" == "master" ]]; then
               brew tap caskroom/cask
               brew cask install google-cloud-sdk
@@ -69,12 +65,23 @@ jobs:
           paths:
             - /usr/local/Homebrew
 
+      - restore_cache:
+          keys:
+            - stack-root-v2-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
+            - stack-root-v2-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}
+            - stack-root-v2-{{ arch }}-ghc8.6.3-
+            - stack-root-{{ arch }}-ghc8.6.3-
+
       - run:
           name: Build Dependencies
-          command: stack build --no-terminal --dependencies-only
+          command: |
+            stack build --no-terminal --dependencies-only
+            # Don’t want this files to be cached. They are large and
+            # not needed
+            rm -rf ~/.stack/indices/Hackage/00-index.tar*
 
       - save_cache:
-          key: stack-root-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
+          key: stack-root-v2-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
           paths:
             - "~/.stack"
 
