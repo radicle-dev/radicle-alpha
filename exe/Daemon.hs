@@ -205,7 +205,7 @@ newMachine = do
 -- fixed amount of time.
 query :: MachineId -> Api.QueryRequest -> Daemon Api.QueryResponse
 query id (Api.QueryRequest v) = do
-  m <- checkMachineLoaded id
+  m <- ensureMachineLoaded id
   bumpPolling id
   case fst <$> runIdentity $ runLang (machineState m) $ eval v of
     Left err -> throwError $ MachineError id (InvalidInput err)
@@ -224,21 +224,15 @@ query id (Api.QueryRequest v) = do
 --   ack.
 send :: MachineId -> Api.SendRequest -> Daemon Api.SendResponse
 send id (Api.SendRequest expressions) = do
-  cm_ <- lookupMachine id
-  case cm_ of
-    Nothing -> do
-      m <- newReader id
-      requestInput (machineSubscription m)
-    Just (UninitialisedReader _) -> do
-      m <- initAsReader id
-      requestInput (machineSubscription m)
-    Just (Cached Machine{ machineMode = Reader, ..}) -> requestInput machineSubscription
-    Just (Cached Machine{ machineMode = Writer }) -> do
-      logInfo "Applying input"
-        [ ("machine-id", getMachineId id)
-        ]
-      results <- writeInputs id expressions Nothing
-      pure Api.SendResponse{..}
+    Machine{machineMode, machineSubscription} <- ensureMachineLoaded id
+    case machineMode of
+        Reader -> requestInput machineSubscription
+        Writer -> do
+            logInfo "Applying input"
+                [ ("machine-id", getMachineId id)
+                ]
+            results <- writeInputs id expressions Nothing
+            pure Api.SendResponse{..}
   where
     matchMessage nonce = \case
         (New InputsApplied{results, nonce = Just nonce'}) | nonce' == nonce -> Just results
@@ -266,23 +260,23 @@ send id (Api.SendRequest expressions) = do
 
     prValues = T.intercalate "," . (renderCompactPretty <$>)
 
--- * Helpers
 
-lookupMachine :: MachineId -> Daemon (Maybe CachedMachine)
-lookupMachine id = do
+-- | Given an 'MachineId', makes sure the machine is loaded and
+-- fetch the latest inputs.
+--
+-- If the machine is not yet loaded into memory we fetch its inputs, load it
+-- into memory and start following its changes.
+ensureMachineLoaded :: MachineId -> Daemon Machine
+ensureMachineLoaded id = do
   msCMap <- asks machines
-  liftIO $ CMap.lookup id (getMachines msCMap)
-
--- | Given an 'MachineId', makes sure the machine is in the cache and
--- updated.
-checkMachineLoaded :: MachineId -> Daemon Machine
-checkMachineLoaded id = do
-  m_ <- lookupMachine id
+  m_ <- liftIO $ CMap.lookup id (getMachines msCMap)
   case m_ of
     Nothing -> do
       -- In this case we have not seen the machine before so we act as
       -- a reader.
-      newReader id
+      m <- initAsReader id
+      writeMachineConfig
+      pure m
     Just (UninitialisedReader _) ->
       -- We try to initialise the reader again.
       initAsReader id
@@ -420,14 +414,6 @@ initAsReader id = do
         -- high-frequency.
         bumpPolling id
       _ -> pure ()
-
--- | Initiate a reader the daemon wasn't following before (adds it to the
--- follow-file).
-newReader :: MachineId -> Daemon Machine
-newReader id = do
-  m <- initAsReader id
-  writeMachineConfig
-  pure m
 
 -- | Try to initiate a reader, but don't fail in case of errors; just log a
 -- message.
