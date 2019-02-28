@@ -10,6 +10,8 @@
 (import prelude/lens :unqualified)
 (import prelude/seq :unqualified)
 (import prelude/strings :unqualified)
+
+(file-module! "prelude/error-messages.rad")
 (import prelude/error-messages :as 'error)
 
 (def parse-failure-mode (ref {:stub #f}))
