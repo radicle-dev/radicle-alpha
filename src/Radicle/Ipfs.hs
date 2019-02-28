@@ -67,16 +67,22 @@ data IpfsException
   | IpfsExceptionInvalidResponse Text Text
   -- | The IPFS daemon is not running.
   | IpfsExceptionNoDaemon
+  -- | Failed to parse IPLD document returned by @dag/get@ with
+  -- 'Aeson.fromJSON'. First argument is the IPFS address, second argument is
+  -- the Aeson parse error.
+  | IpfsExceptionIpldParse Address Text
   deriving (Show)
 
 instance Exception IpfsException where
     displayException e = "ipfs: " <> case e of
-      IpfsException msg -> toS msg
-      IpfsExceptionNoDaemon -> "Cannot connect to " <> name
-      IpfsExceptionInvalidResponse url _ -> "Cannot parse " <> name <> " response for " <> toS url
-      IpfsExceptionTimeout apiPath -> name <> " took too long to respond for " <> toS apiPath
-      IpfsExceptionErrResp msg -> toS msg
-      IpfsExceptionErrRespNoMsg -> name <> " failed with no error message"
+        IpfsException msg -> toS msg
+        IpfsExceptionNoDaemon -> "Cannot connect to " <> name
+        IpfsExceptionInvalidResponse url _ -> "Cannot parse " <> name <> " response for " <> toS url
+        IpfsExceptionTimeout apiPath -> name <> " took too long to respond for " <> toS apiPath
+        IpfsExceptionErrResp msg -> toS msg
+        IpfsExceptionErrRespNoMsg -> name <> " failed with no error message"
+        IpfsExceptionIpldParse addr parseError ->
+            toS $ "Failed to parse IPLD document " <> addressToText addr <> ": " <> parseError
       where
         name = "Radicle IPFS daemon"
 
@@ -253,7 +259,7 @@ dagGet :: FromJSON a => Address -> IO a
 dagGet addr = do
     result <- ipfsHttpGet "dag/get" [("arg", addressToText addr)]
     case Aeson.fromJSON result of
-        Aeson.Error _   -> throw $ IpfsException $ "Invalid machine log entry at " <> addressToText addr
+        Aeson.Error err -> throw $ IpfsExceptionIpldParse addr (toS err)
         Aeson.Success a -> pure a
 
 namePublish :: IpnsId -> Address -> IO ()
