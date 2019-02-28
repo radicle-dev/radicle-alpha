@@ -5,7 +5,7 @@
 set -euo pipefail
 
 export IPFS_PATH=${IPFS_PATH:-"$HOME/.local/share/radicle/ipfs"}
-if [[ ! -d "$IPFS_PATH" ]]; then
+if [[ ! -f "$IPFS_PATH/config" ]]; then
   mkdir -p "$IPFS_PATH"
   ipfs init
   cat >"$IPFS_PATH/swarm.key" <<DOC
