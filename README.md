@@ -13,16 +13,27 @@ contain a lot more information on `radicle`.
 
 ## Installation
 
-You will need [`stack`](https://docs.haskellstack.org/en/stable/install_and_upgrade/) installed.
-
-Then run:
+To build Radicle from source you need [`stack`][stack].
 
 ```
 stack build
-stack install :rad
+stack install :rad :radicle
 ```
 
 Note: `stack` will need about 4GB of memory to compile successfully.
+
+To use Radicle you need to install [`ipfs`][ipfs] and
+[`git-remote-ipfs`][git-remote-ipfs]. Running Radicle requires you to run the
+Radicle daemon and the Radicle IPFS daemon
+
+```
+rad daemon-radicle
+rad daemon-ipfs
+```
+
+[stack]: https://docs.haskellstack.org/en/stable/install_and_upgrade/
+[ipfs]: https://docs.ipfs.io/introduction/install/
+[git-remote-ipfs]: https://github.com/oscoin/ipfs/tree/master/git-remote-ipfs#install
 
 ## Usage
 
