@@ -14,6 +14,9 @@
 (import prelude/seq :unqualified)
 (import prelude/key-management :as 'key-mgmt)
 
+(file-module! "prelude/error-messages.rad")
+(import prelude/error-messages :as 'error)
+
 (def primitive-stub-ref/send! (ref daemon/send!))
 (def send!
   "Update a machine with the vector of `inputs` to evaluate. Returns a vector
@@ -174,8 +177,7 @@
 (def get-keys!
  (fn []
    (match (key-mgmt/read-keys!)
-     :nothing (do (put-str! "Missing file: my-keys.rad
-Do `rad-create-keys` to create your own key pair and rerun your command.")
+     :nothing (do (put-str! (error/missing-key-file))
                   (exit! 1))
       'keys    keys)))
 

@@ -5,6 +5,9 @@
 (load! (find-module-file! "prelude/io-utils.rad"))
 (load! (find-module-file! "monadic/project.rad"))
 
+(file-module! "prelude/error-messages.rad")
+(import prelude/error-messages :as 'error)
+
 (import prelude/validation :as 'validation)
 
 (def machine-name (fn [] (get-rsm-of-type! :rad-diff)))
@@ -62,7 +65,7 @@
   (fn [diff-no machine]
     (match (lookup-default diff-no #f (list-diffs machine))
       #f         (do
-                   (put-str! (string-append "DIFF " (show diff-no) " does not exist."))
+                   (put-str! (error/item-not-found :diff (show diff-no)))
                    (exit! 1))
       'the-diff  the-diff)))
 
@@ -73,7 +76,7 @@
     (match (process-with-stdout-stderr-exitcode! "git" ["show" commit] "")
       [_ _ :ok] commit
       _         (do
-                  (put-str! "Commit can't be found")
+                  (put-str! (error/unknown-commit commit))
                   (exit! 1)))))
 
 (def get-patch!
@@ -108,15 +111,13 @@
   "Creates a new branch diff/<DIFF-ID> based on the DIFF, and switches to it."
   (fn [machine diff-no]
     (def diff (verify-diff-number diff-no machine))
+    (def diff-branch (string-append "diff/" (show diff-no)))
     (process-git-with-exit!
-      ["checkout" "-b" (string-append "diff/" (show diff-no))]
-      (string-append "Creating and switching to branch diff/" (show diff-no) "' failed."))
+      ["checkout" "-b" diff-branch]
+      (error/checkout-new-branch-failure diff-branch))
     (apply-patch!
       (lookup :patch diff)
-      (string-append
-        "Applying the patch failed.\n"
-        "Resolve any conflicts and run 'git am --continue', \n"
-        "or 'git am --abort' to abort."))))
+      (error/applying-patch-failure))))
 
 (def push-diff!
   "Merges the DIFF to master, and pushes the changes."
@@ -124,22 +125,13 @@
     (def diff (verify-diff-number diff-no machine))
     (process-git-with-exit!
       ["checkout" "master"]
-      (string-append
-        "Checkout branch master failed.\n"
-        "Refusing to continue."))
+      (error/checkout-master-failure))
     (apply-patch!
       (lookup :patch diff)
-      (string-append
-        "Applying the patch failed.\n"
-        "Resolve any conflicts and and then run 'git push', \n"
-        "or 'git am --abort' to abort."))
+      (error/applying-accepted-patch-failure))
     (process-git-with-exit!
       ["push"]
-      (string-append
-        "Pushing the diff failed.\n"
-        "This may be because you have no internet connection, "
-        "you are not authorized to push to origin, "
-        "or the remote is currently not reachable."))))
+      (error/push-diff-failure))))
 
 (def new-diff!
   "Creates a new diff on `machine` with a patch from the given `commit`."
@@ -160,7 +152,7 @@
     (match (simple-create-diff! machine diff)
            ['n] (put-str! (string-append "Proposing #" (show n)
                                          " to " machine))
-           _    (put-str! "Diff proposed but unexpected results returned."))))
+           _    (put-str! (error/no-number-returned :diff)))))
 
 ;; showing diffs
 
@@ -318,8 +310,8 @@
         (do
           (def diff (verify-diff-number n machine))
           (put-str! (pretty-diff diff)))
-        (cmd-parse-failure "Diff numbers must be whole numbers!"))
-      (cmd-parse-failure "To show a diff, please provide the diff number."))))
+        (cmd-parse-failure (error/whole-item-number :diff)))
+      (cmd-parse-failure (error/missing-item-number :diff "show")))))
 
 (def edit-diff-state!
   "Edit the state of a DIFF. If the new state is `:accepted` the DIFF is then
@@ -334,11 +326,7 @@
                 (simple-edit-diff! machine n {:state new-state})
                 (fn [x]
                    (put-str!
-                     (string-append
-                     "Diff could not be "
-                     (pretty-state new-state)
-                     ". Are you authorized to do so?"
-                     ))
+                     (error/state-change-failure :diff (pretty-state new-state)))
                    (exit! 1)))
               (put-str! message)))
           (verify-diff-number n machine)
@@ -349,8 +337,8 @@
               _   (exit! 1))
             (edit-state-with-feedback!
               (string-append "Diff " (show n) " has been " (pretty-state new-state)))))
-        (cmd-parse-failure "Diff numbers must be whole numbers!"))
-    (cmd-parse-failure "To change the state, please provide the diff number."))))
+        (cmd-parse-failure (error/whole-item-number :diff)))
+    (cmd-parse-failure (error/missing-item-number :issue "change the state of")))))
 
 (def create-comment!
   "Add a new `comment` to DIFF."
@@ -361,8 +349,8 @@
           (verify-diff-number n machine)
           (simple-add-comment! machine n comment (get-git-username!))
           (put-str! (string-append "Added comment to Diff " (show n))))
-        (cmd-parse-failure "Diff numbers must be whole numbers!"))
-    (cmd-parse-failure "To create a comment, please provide the diff number."))))
+        (cmd-parse-failure (error/whole-item-number :diff)))
+    (cmd-parse-failure (error/missing-item-number :issue "comment on")))))
 
 (def cmd-options
   [
@@ -391,5 +379,5 @@
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
           ["--help"] (put-str! help)
-          (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
+          (/cons 'cmd _) (cmd-parse-failure (error/unknown-command cmd))
           [] (put-str! help))))
