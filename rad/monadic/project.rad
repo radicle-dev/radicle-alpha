@@ -9,7 +9,7 @@
 (import prelude/machine '[send-code! send-signed-command! new-machine!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
-(import prelude/key-management '[use-fake-keys! read-keys!] :unqualified)
+(import prelude/key-management '[use-fake-keys! get-keys!] :unqualified)
 
 (def get-project-url!
   (fn []
@@ -37,7 +37,7 @@
 (def create-project!
   "Create a remote project RSM with the given url."
   (fn [meta]
-    (def owner-keys (lookup :public-key (read-keys!)))
+    (def owner-keys (lookup :public-key (get-keys!)))
     (def id (new-machine!))
     (machine/send-prelude! id)
     (send-code! id (find-module-file! "monadic/project-remote.rad"))

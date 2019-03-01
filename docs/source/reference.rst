@@ -1165,6 +1165,12 @@ commands. Per default, key pairs are stored in
 Reads the keys stored in ``my-keys.rad`` or returns ``:nothing`` if the
 file doesn't exist.
 
+``(get-keys!)``
+~~~~~~~~~~~~~~~
+
+Like ``read-keys`` but prints an error message and exits the process if
+no key file was found.
+
 ``(create-keys!)``
 ~~~~~~~~~~~~~~~~~~
 
