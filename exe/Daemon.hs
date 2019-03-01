@@ -7,8 +7,9 @@
 -- the RFC>.
 module Daemon (main) where
 
-import           Protolude hiding (fromStrict, option, poll)
+import           Protolude hiding (catch, fromStrict, option, poll, tryJust)
 
+import           Control.Exception.Safe hiding (Handler)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Time.Clock.System as Time
@@ -80,6 +81,38 @@ opts defaultMachineConfigFile = do
         )
     pure $ Opts{..}
 
+-- | Repeatedly tries to connect to the Radicle IPFS daemon API until
+-- succesfull. Times out after five seconds and throws 'IpfsDaemonNotReachable'.
+waitForIpfsDaemon :: Daemon ()
+waitForIpfsDaemon = do
+    isOnline <- checkIpfsIsOnline
+    if isOnline
+    then pure ()
+    else do
+        logInfo "Waiting for Radicle IPFS daemon" []
+        go 5
+  where
+    go :: Int -> Daemon ()
+    go 0 = throwError IpfsDaemonNotReachable
+    go n = do
+        isOnline <- checkIpfsIsOnline
+        if isOnline
+        then pure ()
+        else do
+            liftIO $ threadDelay (1000 * 1000)
+            go (n - 1)
+
+    checkIpfsIsOnline :: Daemon Bool
+    checkIpfsIsOnline = liftIO $ do
+        result <- tryJust isIpfsExceptionNoDaemon Ipfs.version
+        pure $ case result of
+            Left _  -> False
+            Right _ -> True
+
+    isIpfsExceptionNoDaemon :: Ipfs.IpfsException -> Maybe ()
+    isIpfsExceptionNoDaemon Ipfs.IpfsExceptionNoDaemon = Just ()
+    isIpfsExceptionNoDaemon _                          = Nothing
+
 -- We use 'Void' to enforce the use of 'exitFailure'
 main :: IO Void
 main = do
@@ -89,7 +122,9 @@ main = do
     machines <- CachedMachines <$> CMap.empty
     let env = Env{ logLevel = if debug then LogDebug else LogInfo, ..}
     machineConfig <- readMachineConfigIO machineConfigFileLock machineConfigFile
-    initRes <- runDaemon env (init machineConfig)
+    initRes <- runDaemon env $ do
+        waitForIpfsDaemon
+        init machineConfig
     case initRes of
       Left err -> do
         logDaemonError err
@@ -136,7 +171,7 @@ server env = hoistServer Api.daemonApi nt daemonServer
             InvalidInput _ -> err400
             AckTimeout     -> err504
             _              -> err500
-          CouldNotCreateMachine _ -> err500
+          _ -> err500
 
 -- * Init
 
