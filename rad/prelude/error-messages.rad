@@ -9,7 +9,7 @@
    upstream-push-failure item-not-found whole-item-number missing-item-number
    state-change-failure no-number-returned unknown-command unknown-commit
    checkout-new-branch-failure checkout-master-failure applying-patch-failure
-   applying-accepted-patch-failure push-diff-failure]}
+   applying-accepted-patch-failure push-diff-failure missing-key-file]}
 
 (import prelude/strings :unqualified)
 
@@ -260,3 +260,16 @@ This may be because you have no internet connection, you are not authorized to p
 
 (:test "unknown-command"
   [(unknown-command "foo") ==> "Unknown command: foo"])
+
+;; key management
+
+(def missing-key-file
+  "Any request to the machine is aborted, when the key file can't be found."
+  (fn []
+    (string-append
+      "Missing file: my-keys.rad\n"
+      "Do `rad create-keys` to create your own key pair and rerun your command.")))
+
+(:test "missing-key-file"
+  [(missing-key-file) ==> "Missing file: my-keys.rad
+Do `rad create-keys` to create your own key pair and rerun your command."])
