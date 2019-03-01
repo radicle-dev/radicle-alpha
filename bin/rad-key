@@ -11,8 +11,8 @@
         rad key create [--force]
         rad key help
 
-   Create a new key pair with `rad key create`. If `--force` is appended, an
-   existing key pair file will be overwritten.
+   Creates a new key pair. If `--force` is appended, an existing key pair
+   file will be overwritten.
    Per default, key pairs are stored in `$HOME/.config/radicle/my-keys.rad`
    this can be adjusted by setting `$XDG_CONFIG_HOME`.
 
