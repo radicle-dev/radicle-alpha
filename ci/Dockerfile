@@ -13,15 +13,23 @@ FROM haskell:8.6.3
 
 ENTRYPOINT []
 
-# Install `gcloud` and `gsutil`
+# Install `gcloud`, `gsutil` and dependencies of `fpm`.
 ADD https://packages.cloud.google.com/apt/doc/apt-key.gpg google-apt-key.gpg
 RUN \
   echo "deb http://packages.cloud.google.com/apt cloud-sdk-stretch main" \
     > /etc/apt/sources.list.d/google-cloud-sdk.list && \
   apt-key add google-apt-key.gpg && \
   apt-get update -yqq && \
-  apt-get -yq install google-cloud-sdk && \
+  apt-get -yq install \
+    build-essential \
+    ruby \
+    ruby-dev \
+    rubygems \
+    google-cloud-sdk && \
   rm -rf /var/lib/apt/lists/*
+
+# Install `fpm`
+RUN gem install --no-ri --no-rdoc fpm
 
 # Install `docker`
 ADD https://download.docker.com/linux/static/stable/x86_64/docker-18.09.2.tgz docker.tgz
