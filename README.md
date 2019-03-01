@@ -108,3 +108,8 @@ integration][stack-docker-integration]. This is enabled by passing the
 [stack-docker-integration]: https://docs.haskellstack.org/en/stable/docker_integration/
 [docker]: https://www.docker.com/get-started
 [docker-compose]: https://docs.docker.com/compose/install
+
+
+## Code of conduct
+
+Please read our [code of conduct](code-of-conduct.md) when thinking of contributing.
