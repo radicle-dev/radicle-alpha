@@ -150,7 +150,7 @@
                :author-email  author-email
                :patch         patch})
     (match (simple-create-diff! machine diff)
-           ['n] (put-str! (string-append "Proposing #" (show n)
+           ['n] (put-str! (string-append "Proposing diff #" (show n)
                                          " to " machine))
            _    (put-str! (error/no-number-returned :diff)))))
 
@@ -333,10 +333,10 @@
           (if (eq? new-state :accepted)
             (match (push-diff! machine n)
               :ok (edit-state-with-feedback!
-                    (string-append "Diff " (show n) " has been " (pretty-state new-state) " and merged."))
+                    (string-append "Diff #" (show n) " has been " (pretty-state new-state) " and merged."))
               _   (exit! 1))
             (edit-state-with-feedback!
-              (string-append "Diff " (show n) " has been " (pretty-state new-state)))))
+              (string-append "Diff #" (show n) " has been " (pretty-state new-state)))))
         (cmd-parse-failure (error/whole-item-number :diff)))
     (cmd-parse-failure (error/missing-item-number :issue "change the state of")))))
 
@@ -348,7 +348,7 @@
         (do
           (verify-diff-number n machine)
           (simple-add-comment! machine n comment (get-git-username!))
-          (put-str! (string-append "Added comment to Diff " (show n))))
+          (put-str! (string-append "Added comment to diff #" (show n))))
         (cmd-parse-failure (error/whole-item-number :diff)))
     (cmd-parse-failure (error/missing-item-number :issue "comment on")))))
 
