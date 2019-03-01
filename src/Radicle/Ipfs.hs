@@ -58,8 +58,9 @@ data IpfsException
   = IpfsException Text
   | IpfsExceptionErrResp Text
   | IpfsExceptionErrRespNoMsg
-  -- | The request to the IPFS daemon timed out.
-  | IpfsExceptionTimeout
+  -- | The request to the IPFS daemon timed out. The constructor
+  -- parameter is the API path.
+  | IpfsExceptionTimeout Text
   -- | JSON response from the IPFS Api cannot be parsed. First
   -- argument is the request path, second argument the JSON parsing
   -- error
@@ -73,15 +74,17 @@ instance Exception IpfsException where
       IpfsException msg -> toS msg
       IpfsExceptionNoDaemon -> "Cannot connect to " <> name
       IpfsExceptionInvalidResponse url _ -> "Cannot parse " <> name <> " response for " <> toS url
-      IpfsExceptionTimeout -> name <> " took too long to respond"
+      IpfsExceptionTimeout apiPath -> name <> " took too long to respond for " <> toS apiPath
       IpfsExceptionErrResp msg -> toS msg
       IpfsExceptionErrRespNoMsg -> name <> " failed with no error message"
       where
         name = "Radicle IPFS daemon"
 
 -- | Catches 'HttpException's and re-throws them as 'IpfsException's.
-mapHttpException :: forall a. IO a -> IO a
-mapHttpException io = catch io (throw . mapHttpExceptionData)
+--
+-- @path@ is the IPFS API path that is added to some errors.
+mapHttpException :: Text -> IO a -> IO a
+mapHttpException path io = catch io (throw . mapHttpExceptionData)
   where
     mapHttpExceptionData :: HttpException -> IpfsException
     mapHttpExceptionData = \case
@@ -94,7 +97,7 @@ mapHttpException io = catch io (throw . mapHttpExceptionData)
           (Aeson.decodeStrict ->
              Just (Aeson.Object (HashMap.lookup "Message" ->
                      Just (Aeson.String msg))))) -> (IpfsExceptionErrResp msg)
-        Http.ResponseTimeout -> IpfsExceptionTimeout
+        Http.ResponseTimeout -> IpfsExceptionTimeout path
         ConnectionFailure _ -> IpfsExceptionNoDaemon
         _ -> IpfsExceptionErrRespNoMsg
 
@@ -283,7 +286,7 @@ ipfsHttpGet
     => Text  -- ^ Path of the endpoint under "/api/v0/"
     -> [(Text, Text)] -- ^ URL query parameters
     -> IO a
-ipfsHttpGet path params = mapHttpException $ do
+ipfsHttpGet path params = mapHttpException path $ do
     let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
     res <- Wreq.getWith opts (toS url)
@@ -296,7 +299,7 @@ ipfsHttpPost
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
     -> IO a
-ipfsHttpPost path params payloadArgName payload = mapHttpException $ do
+ipfsHttpPost path params payloadArgName payload = mapHttpException path $ do
     res <- ipfsHttpPost' path params payloadArgName payload
     getJsonResponseBody path res
 
@@ -306,7 +309,7 @@ ipfsHttpPost'
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
     -> IO (Wreq.Response LByteString)
-ipfsHttpPost' path params payloadArgName payload = mapHttpException $ do
+ipfsHttpPost' path params payloadArgName payload = mapHttpException path $ do
     let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
     Wreq.postWith opts (toS url) (Wreq.partLBS payloadArgName payload)
