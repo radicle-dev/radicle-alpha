@@ -134,13 +134,13 @@ primFns:
 modules:
 - prelude/basic
 - prelude/patterns
+- prelude/bool
+- prelude/seq
 - prelude/strings
 - prelude/dict
 - prelude/io
-- prelude/bool
 - prelude/exception
 - prelude/list
-- prelude/seq
 - prelude/set
 - prelude/ref
 - prelude/lens

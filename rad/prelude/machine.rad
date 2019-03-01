@@ -134,9 +134,10 @@
   (map find-module-file!
     ["prelude/basic.rad"
      "prelude/patterns.rad"
+     "prelude/bool.rad"
+     "prelude/seq.rad"
      "prelude/strings.rad"
      "prelude/dict.rad"
-     "prelude/bool.rad"
      "prelude/maybe.rad"
      "prelude/list.rad"
      "prelude/set.rad"

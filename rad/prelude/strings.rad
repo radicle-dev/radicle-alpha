@@ -4,6 +4,7 @@
             reverse-string ends-with?] }
 
 (import prelude/basic :unqualified)
+(import prelude/seq :unqualified)
 (import prelude/patterns :unqualified)
 
 (def intercalate
