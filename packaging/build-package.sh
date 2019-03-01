@@ -82,6 +82,8 @@ EOF
   install -D --mode 0644 "$project_dir/packaging/radicle-ipfs.service" -t "$package_root/usr/lib/systemd/user"
   install -D --mode 0644 "$project_dir/packaging/radicle-daemon.service" -t "$package_root/usr/lib/systemd/user"
 
+  install -D --mode 0644 "$project_dir/LICENSE" -t "$package_root/usr/share/doc/radicle"
+
   mkdir -p "$package_root/$radpath"
   cp --archive $project_dir/rad -T "$package_root/$radpath"
 
@@ -98,6 +100,7 @@ function package () {
     --input-type dir \
     --name radicle \
     --version $VERSION \
+    --license MIT \
     "$@" \
     "$package_root/=/"
   popd
