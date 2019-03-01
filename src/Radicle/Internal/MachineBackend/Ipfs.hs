@@ -19,7 +19,6 @@ module Radicle.Internal.MachineBackend.Ipfs where
 
 import           Protolude hiding (catch, try)
 
-import           Control.Exception.Safe
 import           Control.Monad.Fail
 import           Data.Aeson (FromJSON, ToJSON, (.:), (.=))
 import qualified Data.Aeson as Aeson
@@ -29,18 +28,6 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import qualified Radicle.Ipfs as Ipfs
-
--- | Create a Radicle machine and return its identifier. The argument
--- is the name to store with the returned key on the local. It is not
--- portable. To avoid conflicts it is recommended to use a UUID.
-ipfsMachineCreate :: Text -> IO (Either Text Ipfs.IpnsId)
-ipfsMachineCreate name = do
-    res <- liftIO $ tryAny $ do
-        Ipfs.KeyGenResponse machineId <- Ipfs.keyGen name
-        Ipfs.namePublish machineId $ Ipfs.AddressIpfs emptyMachineCid
-        pure machineId
-    pure $ first (toS . displayException) res
-
 
 newtype MachineEntryIndex = MachineEntryIndex CID
     deriving (Show, Eq)

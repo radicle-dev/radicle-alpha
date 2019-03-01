@@ -35,7 +35,6 @@ import qualified Radicle.Internal.MachineBackend.Ipfs as Ipfs
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import qualified Radicle.Internal.UUID as UUID
-import           Radicle.Ipfs
 import qualified Radicle.Ipfs as Ipfs
 
 jsonToValue :: Aeson.Value -> Aeson.Parser Value
@@ -135,12 +134,15 @@ machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> IO (Ipfs.Machi
 machineInputsFrom = Ipfs.receiveIpfs . getMachineId
 
 -- | Create an IPFS machine and return its ID.
+--
+-- Generates a new IPNS key and sets the IPNS record to the empty
+-- machine DAG node.
 createMachine :: IO MachineId
 createMachine = do
-  id_ <- Ipfs.ipfsMachineCreate =<< UUID.uuid
-  case id_ of
-    Left e   -> throw (IpfsException e)
-    Right id -> pure (MachineId id)
+    uuid <- UUID.uuid
+    Ipfs.KeyGenResponse ipnsId <- Ipfs.keyGen uuid
+    Ipfs.namePublish ipnsId $ Ipfs.AddressIpfs Ipfs.emptyMachineCid
+    pure $ MachineId ipnsId
 
 -- | Publish to IPNS a machine entry index for a machine. Should only be issued
 -- by the writer.
