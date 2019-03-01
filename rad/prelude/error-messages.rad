@@ -5,7 +5,9 @@
  To verify changes, tests can be run with `stack exec -- radicle test/all.rad`"
  :exports
  '[missing-arg too-many-args missing-arg-for-opt invalid-arg-for-opt
-   invalid-opt-for-cmd]}
+   invalid-opt-for-cmd dir-already-exists git-clone-failure upstream-commit-failure
+   upstream-push-failure
+   ]}
 
 (import prelude/strings :unqualified)
 
@@ -56,3 +58,57 @@
 
 (:test "invalid-opt-for-cmd"
   [(invalid-opt-for-cmd "foo" "list") ==> "Invalid option \"foo\" for command list."])
+
+;; rad project specific errors
+
+(def dir-already-exists
+  "`rad project checkout` is aborted, if there is already a directory with the name
+  of the project `dir-name` in the current directory."
+  (fn [dir-name]
+    (string-append
+      "The directory \"" dir-name "\" already exists.\n"
+      "Refusing to continue.")))
+
+(:test "dir-already-exists"
+  [(dir-already-exists "foobar") ==>
+    "The directory \"foobar\" already exists.
+Refusing to continue."])
+
+(def git-clone-failure
+  "`rad project checkout` is aborted, if cloning the repo `name` form `origin` failed."
+  (fn [origin name]
+    (string-append
+      "The repo is currently not available. "
+      "Cloning \"" name "\" from \"" origin "\" failed.\n"
+      "This may be because you have no internet connection, "
+      "or the IPNS link is stale, or because no online node "
+      "with the data could be found.")))
+
+(:test "git-clone-failure"
+  [(git-clone-failure "foo" "bar") ==>
+    "The repo is currently not available. Cloning \"bar\" from \"foo\" failed.
+This may be because you have no internet connection, or the IPNS link is stale, or because no online node with the data could be found."])
+
+(def upstream-commit-failure
+  "`rad project init` is aborted when creating an empty commit failed in
+  preparation to setting the upstream master branch."
+  (fn []
+    (string-append
+      "Error: git commit --allow-empty --message \"Radicle Setup\" failed.\n"
+      "Make sure that git was initialized correctly and rerun 'rad project init'")))
+
+(:test "upstream-commit-failure"
+  [(upstream-commit-failure) ==> "Error: git commit --allow-empty --message \"Radicle Setup\" failed.
+Make sure that git was initialized correctly and rerun 'rad project init'"])
+
+(def upstream-push-failure
+  "`rad project init` is aborted when pushing the empty commit failed while setting
+  the upstream master branch."
+  (fn []
+    (string-append
+      "Error: git -u origin master failed.\n"
+      "Set the upstream branch manually and rerun 'rad project init'")))
+
+(:test "upstream-push-failure"
+  [(upstream-push-failure) ==> "Error: git -u origin master failed.
+Set the upstream branch manually and rerun 'rad project init'"])

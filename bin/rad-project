@@ -6,6 +6,9 @@
 (load! (find-module-file! "monadic/project.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
 
+(file-module! "prelude/error-messages.rad")
+(import prelude/error-messages :as 'error)
+
 (import prelude/validation :as 'validation)
 (import prelude/cmd-parsing :unqualified)
 
@@ -68,19 +71,12 @@
     (config-ipfs-api-url! origin)
     (match (process! "test" ["-d" name] "")
       :ok (do
-            (put-str! (string-append
-                        "The directory \"" name "\" already exists.\n"
-                        "Refusing to continue."))
+            (put-str! (error/dir-already-exists name))
             (exit! 1))
       _   (put-str! name))
     (process-git-with-exit!
       ["clone" origin name]
-      (string-append
-        "The repo is currently not available. "
-        "Cloning \"" name "\" from \"" origin "\" failed.\n"
-        "This may be because you have no internet connection, "
-        "or the IPNS link is stale, or because no online node "
-        "with the data could be found."))
+      (error/git-clone-failure origin name))
     (cd! name)
     (set-git-config! "radicle.project-id" project)))
 
@@ -105,14 +101,10 @@
       []  (do
             (process-git-with-exit!
               ["commit" "--allow-empty" "--message" "Radicle Setup"]
-              (string-append
-                "Error: git --allow-empty --message \"Radicle Setup\" failed.\n"
-                "Make sure that git was initialized correctly and rerun 'rad project init'"))
+              (error/upstream-commit-failure))
             (process-git-with-exit!
               ["push" "-u" "origin" "master"]
-              (string-append
-                "Error: git -u origin master failed.\n"
-                "Set the upstream branch manually and rerun 'rad project init'")))
+              (error/upstream-push-failure)))
       _   :ok)))
 
 (def new-project!
