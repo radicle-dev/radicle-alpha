@@ -6,6 +6,9 @@
 (load! (find-module-file! "monadic/project.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
 
+(file-module! "prelude/error-messages.rad")
+(import prelude/error-messages :as 'error)
+
 (import prelude/validation :as 'validation)
 (import prelude/cmd-parsing :unqualified)
 
@@ -68,19 +71,12 @@
     (config-ipfs-api-url! origin)
     (match (process! "test" ["-d" name] "")
       :ok (do
-            (put-str! (string-append
-                        "The directory \"" name "\" already exists.\n"
-                        "Refusing to continue."))
+            (put-str! (error/dir-already-exists name))
             (exit! 1))
       _   (put-str! name))
     (process-git-with-exit!
       ["clone" origin name]
-      (string-append
-        "The repo is currently not available. "
-        "Cloning \"" name "\" from \"" origin "\" failed.\n"
-        "This may be because you have no internet connection, "
-        "or the IPNS link is stale, or because no online node "
-        "with the data could be found."))
+      (error/git-clone-failure origin name))
     (cd! name)
     (set-git-config! "radicle.project-id" project)))
 
@@ -98,6 +94,19 @@
            _   (do (put-str! "You must select either 1 or 2.")
                    (exit! 1)))))
 
+(def setup-upstream!
+  "Creates a commit to set the upstream to master, if master does not exist yet"
+  (fn []
+    (match (process-with-stdout! "git" ["show-ref" "refs/heads/master"] "")
+      []  (do
+            (process-git-with-exit!
+              ["commit" "--allow-empty" "--message" "Radicle Setup"]
+              (error/upstream-commit-failure))
+            (process-git-with-exit!
+              ["push" "-u" "origin" "master"]
+              (error/upstream-push-failure)))
+      _   :ok)))
+
 (def new-project!
   "Create a new project."
   (fn []
@@ -113,6 +122,7 @@
     (put-str! "=> Assembled rad-diff machine")
     (put-str! (string-append "=> project id: " project))
     (process! "git" ["remote" "add" "origin" repo] "")
+    (setup-upstream!)
     (add-rsm! project { :id repo :type :rad-repo })
     (add-rsm! project { :id issues :type :rad-issue })
     (add-rsm! project { :id diff :type :rad-diff })

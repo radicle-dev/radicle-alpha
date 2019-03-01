@@ -13,16 +13,27 @@ contain a lot more information on `radicle`.
 
 ## Installation
 
-You will need [`stack`](https://docs.haskellstack.org/en/stable/install_and_upgrade/) installed.
-
-Then run:
+To build Radicle from source you need [`stack`][stack].
 
 ```
 stack build
-stack install :rad
+stack install :rad :radicle
 ```
 
 Note: `stack` will need about 4GB of memory to compile successfully.
+
+To use Radicle you need to install [`ipfs`][ipfs] and
+[`git-remote-ipfs`][git-remote-ipfs]. Running Radicle requires you to run the
+Radicle daemon and the Radicle IPFS daemon
+
+```
+rad daemon-radicle
+rad daemon-ipfs
+```
+
+[stack]: https://docs.haskellstack.org/en/stable/install_and_upgrade/
+[ipfs]: https://docs.ipfs.io/introduction/install/
+[git-remote-ipfs]: https://github.com/oscoin/ipfs/tree/master/git-remote-ipfs#install
 
 ## Usage
 
@@ -52,8 +63,11 @@ into version control.
 
 ### End-to-end Tests
 
-The end-to-end test suite is run with `stack test :e2e`. It requires you to
-start up an IPFS test network and the Raicle daemon.
+The end-to-end test suite is run with
+
+    RAD_IPFS_API_URL=http://localhost:19301 stack test :e2e
+
+It requires you to start up an IPFS test network and the Raicle daemon.
 
     docker-compose -f test/docker-compose.yaml up -d ipfs-test-network
     RAD_IPFS_API_URL=http://localhost:19301 stack exec -- \
@@ -70,6 +84,17 @@ with the output of `docker-machine ip`.
 
 You can reset the test daemon’s machine configuration by removing the file
 `/tmp/radicle-machines.json`.
+
+### Packaging
+
+Packages can be built with the `./packaging/build-package.sh` script. Run it
+with `-h` for more information. The script requires [`fpm`][fpm].
+
+On CI a Debian package is built for every commit and uploaded to
+`http://static.radicle.xyz/releases`. The package uses the commit hash as the
+version.
+
+[fpm]: https://github.com/jordansissel/fpm
 
 ### Troubleshooting
 

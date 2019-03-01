@@ -110,7 +110,8 @@ runTestCommand' :: (HasCallStack) => FilePath -> [Text] -> [Text] -> TestM Text
 runTestCommand' bin args inputLines = do
     TestEnv {..} <- ask
     searchPath <- liftIO $ getEnv "PATH"
-    let env = [("PATH", searchPath), ("HOME", homeDir), ("RADPATH", projectDir </> "rad")]
+    radIpfsApiUrl <- liftIO $ getEnv "RAD_IPFS_API_URL"
+    let env = [("PATH", searchPath), ("HOME", homeDir), ("RADPATH", projectDir </> "rad"), ("RAD_IPFS_API_URL", radIpfsApiUrl)]
     let argsString = map toS args
     let procSpec = (proc bin argsString) { env = Just env }
     let input = T.unpack $ T.intercalate "\n" inputLines

@@ -22,22 +22,31 @@
 
 (def help
   (string-append
-  "rad-issue - Radicle issue CLI
+  "rad issue - Radicle Issue CLI
 
    Usage:
-        rad-issue list " list-opts-help "
-        rad-issue new
-        rad-issue [show | close] <issue-number>
-        rad-issue comment <issue-number> <comment>
-        rad-issue help
+        rad issue list " list-opts-help "
+        rad issue new
+        rad issue [show | close] <issue-number>
+        rad issue comment <issue-number> <comment>
+        rad issue help
 
-     list         - Select from issues to view or comment on
+     list         - Lists all issues
+                    The list can be filtered by state:
+                      " (string/intercalate ", " valid-states) "
+                    The flags for filtering by state:
+                      " (string/intercalate ", " status-opts) "
+                    Filtering by multiple states is possible via '-s <state1> -s
+                    <state2> ...'.
+                    If the option '--fancy' is appended, the list is opened via
+                    fzf (note that fzf has to be installed).
      new          - Create a new issue in $EDITOR
      show         - Show an issue
+     comment      - Add a comment to an issue
      close        - Close an issue
-     comment      - Shortcut for adding a comment
+                    This command is restricted to the maintainer of the project.
      help         - Print this help and exit
-   "))
+       "))
 
 (def cmd-parse-failure
   (fn [error]

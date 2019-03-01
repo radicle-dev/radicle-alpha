@@ -1,0 +1,10 @@
+[Unit]
+Description=IPFS daemon for the Radicle network
+
+[Service]
+ExecStart=/usr/bin/rad daemon-ipfs
+Restart=on-failure
+SyslogIdentifier=radicle-ipfs
+
+[Install]
+WantedBy=default.target

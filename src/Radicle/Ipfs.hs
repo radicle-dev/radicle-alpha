@@ -8,6 +8,9 @@ module Radicle.Ipfs
     , addressToText
     , addressFromText
 
+    , VersionResponse(..)
+    , version
+
     , KeyGenResponse(..)
     , keyGen
 
@@ -55,30 +58,39 @@ data IpfsException
   = IpfsException Text
   | IpfsExceptionErrResp Text
   | IpfsExceptionErrRespNoMsg
-  -- | The request to the IPFS daemon timed out.
-  | IpfsExceptionTimeout
+  -- | The request to the IPFS daemon timed out. The constructor
+  -- parameter is the API path.
+  | IpfsExceptionTimeout Text
   -- | JSON response from the IPFS Api cannot be parsed. First
   -- argument is the request path, second argument the JSON parsing
   -- error
   | IpfsExceptionInvalidResponse Text Text
   -- | The IPFS daemon is not running.
   | IpfsExceptionNoDaemon
+  -- | Failed to parse IPLD document returned by @dag/get@ with
+  -- 'Aeson.fromJSON'. First argument is the IPFS address, second argument is
+  -- the Aeson parse error.
+  | IpfsExceptionIpldParse Address Text
   deriving (Show)
 
 instance Exception IpfsException where
     displayException e = "ipfs: " <> case e of
-      IpfsException msg -> toS msg
-      IpfsExceptionNoDaemon -> "Cannot connect to " <> name
-      IpfsExceptionInvalidResponse url _ -> "Cannot parse " <> name <> " response for " <> toS url
-      IpfsExceptionTimeout -> name <> " took too long to respond"
-      IpfsExceptionErrResp msg -> toS msg
-      IpfsExceptionErrRespNoMsg -> name <> " failed with no error message"
+        IpfsException msg -> toS msg
+        IpfsExceptionNoDaemon -> "Cannot connect to " <> name
+        IpfsExceptionInvalidResponse url _ -> "Cannot parse " <> name <> " response for " <> toS url
+        IpfsExceptionTimeout apiPath -> name <> " took too long to respond for " <> toS apiPath
+        IpfsExceptionErrResp msg -> toS msg
+        IpfsExceptionErrRespNoMsg -> name <> " failed with no error message"
+        IpfsExceptionIpldParse addr parseError ->
+            toS $ "Failed to parse IPLD document " <> addressToText addr <> ": " <> parseError
       where
         name = "Radicle IPFS daemon"
 
 -- | Catches 'HttpException's and re-throws them as 'IpfsException's.
-mapHttpException :: forall a. IO a -> IO a
-mapHttpException io = catch io (throw . mapHttpExceptionData)
+--
+-- @path@ is the IPFS API path that is added to some errors.
+mapHttpException :: Text -> IO a -> IO a
+mapHttpException path io = catch io (throw . mapHttpExceptionData)
   where
     mapHttpExceptionData :: HttpException -> IpfsException
     mapHttpExceptionData = \case
@@ -91,7 +103,7 @@ mapHttpException io = catch io (throw . mapHttpExceptionData)
           (Aeson.decodeStrict ->
              Just (Aeson.Object (HashMap.lookup "Message" ->
                      Just (Aeson.String msg))))) -> (IpfsExceptionErrResp msg)
-        Http.ResponseTimeout -> IpfsExceptionTimeout
+        Http.ResponseTimeout -> IpfsExceptionTimeout path
         ConnectionFailure _ -> IpfsExceptionNoDaemon
         _ -> IpfsExceptionErrRespNoMsg
 
@@ -144,6 +156,16 @@ addressFromText t =
 --------------------------------------------------------------------------
 -- * IPFS node API
 --------------------------------------------------------------------------
+
+newtype VersionResponse = VersionResponse Text
+
+instance FromJSON VersionResponse where
+    parseJSON = Aeson.withObject "VersionResponse" $ \o -> do
+        v <- o .: "Version"
+        pure $ VersionResponse v
+
+version :: IO VersionResponse
+version = ipfsHttpGet "version" []
 
 data PubsubMessage = PubsubMessage
     { messageTopicIDs :: [Text]
@@ -237,7 +259,7 @@ dagGet :: FromJSON a => Address -> IO a
 dagGet addr = do
     result <- ipfsHttpGet "dag/get" [("arg", addressToText addr)]
     case Aeson.fromJSON result of
-        Aeson.Error _   -> throw $ IpfsException $ "Invalid machine log entry at " <> addressToText addr
+        Aeson.Error err -> throw $ IpfsExceptionIpldParse addr (toS err)
         Aeson.Success a -> pure a
 
 namePublish :: IpnsId -> Address -> IO ()
@@ -270,7 +292,7 @@ ipfsHttpGet
     => Text  -- ^ Path of the endpoint under "/api/v0/"
     -> [(Text, Text)] -- ^ URL query parameters
     -> IO a
-ipfsHttpGet path params = mapHttpException $ do
+ipfsHttpGet path params = mapHttpException path $ do
     let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
     res <- Wreq.getWith opts (toS url)
@@ -283,7 +305,7 @@ ipfsHttpPost
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
     -> IO a
-ipfsHttpPost path params payloadArgName payload = mapHttpException $ do
+ipfsHttpPost path params payloadArgName payload = mapHttpException path $ do
     res <- ipfsHttpPost' path params payloadArgName payload
     getJsonResponseBody path res
 
@@ -293,7 +315,7 @@ ipfsHttpPost'
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
     -> IO (Wreq.Response LByteString)
-ipfsHttpPost' path params payloadArgName payload = mapHttpException $ do
+ipfsHttpPost' path params payloadArgName payload = mapHttpException path $ do
     let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
     Wreq.postWith opts (toS url) (Wreq.partLBS payloadArgName payload)

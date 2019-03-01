@@ -20,6 +20,7 @@ import           Protolude
 import           Radicle (LangError, Value, renderCompactPretty)
 import           Radicle.Daemon.Common
 import           Radicle.Daemon.Ipfs
+import           Radicle.Daemon.Logging
 import           Radicle.Ipfs
 
 
@@ -32,12 +33,12 @@ runDaemon env (Daemon x) = runReaderT (runExceptT x) env
 liftExceptT :: (e -> Error) -> ExceptT e IO a -> Daemon a
 liftExceptT makeError action = Daemon $ mapExceptT (lift . fmap (first makeError)) action
 
+instance MonadLog Daemon where
+    askLogLevel = asks logLevel
+
 -- * Environment
 
 type FileLock = MVar ()
-
-data LogLevel = Normal | Debug
-  deriving (Eq, Ord)
 
 data Env = Env
   { machineConfigFileLock :: FileLock
@@ -60,10 +61,12 @@ data MachineError
 data Error
   = MachineError MachineId MachineError
   | CouldNotCreateMachine IpfsException
+  | IpfsDaemonNotReachable
 
 displayError :: Error -> (Text, [(Text,Text)])
 displayError = \case
   CouldNotCreateMachine (ipfsErr -> (msg, infos)) -> ("Could not create IPFS machine", ("message", msg) : infos)
+  IpfsDaemonNotReachable -> ("Could not connect to Radicle IPFS daemon", [])
   MachineError id e -> let mid = ("machine-id", getMachineId id) in
     case e of
       InvalidInput err -> ("Invalid radicle input", [mid, ("radicle-error", renderCompactPretty err)])
@@ -76,6 +79,8 @@ displayError = \case
       IpfsException msg -> ("There was an error using the IPFS daemon", [("ipfs-error", msg)])
       IpfsExceptionErrResp msg -> ("The IPFS daemon returned an error", [("ipfs-error", msg)])
       IpfsExceptionErrRespNoMsg -> ("There was an unknown error using IPFS", [])
-      IpfsExceptionTimeout -> ("Timeout communicating with IPFS daemon", [])
+      IpfsExceptionTimeout apiPath -> ("Timeout communicating with IPFS daemon", [("api-path", apiPath)])
       IpfsExceptionInvalidResponse url parseError -> ("Cannot parse IPFS daemon response", [("url", url), ("parse-error", parseError)])
       IpfsExceptionNoDaemon -> ("Cannot connect to the IPFS daemon", [])
+      IpfsExceptionIpldParse addr parseError ->
+            ("Failed to parse IPLD document ", [("addr", addressToText addr), ("parse-error", parseError)])

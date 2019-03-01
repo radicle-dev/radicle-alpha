@@ -1,0 +1,114 @@
+{:module 'prelude/error-messages
+ :doc "Functions for user facing error messages.
+ Functions should either have a descriptive name or additional comment so that
+ the text can be edited without knowledge of where they are used.
+ To verify changes, tests can be run with `stack exec -- radicle test/all.rad`"
+ :exports
+ '[missing-arg too-many-args missing-arg-for-opt invalid-arg-for-opt
+   invalid-opt-for-cmd dir-already-exists git-clone-failure upstream-commit-failure
+   upstream-push-failure
+   ]}
+
+(import prelude/strings :unqualified)
+
+;; parsing
+
+(def missing-arg
+  (fn [arg cmd]
+    (string-append "Missing argument \"" arg "\" for command \"" cmd "\"")))
+
+(:test "missing-arg"
+  [(missing-arg "foo" "bar") ==> "Missing argument \"foo\" for command \"bar\""])
+
+(def too-many-args
+  (fn [cmd]
+    (string-append "Too many arguments for command \"" cmd "\"")))
+
+(:test "too-many-args"
+  [(too-many-args "foobar") ==> "Too many arguments for command \"foobar\""])
+
+(def valid-args-help
+  (fn [args]
+    (string-append "Valid arguments: " (intercalate ", " args))))
+
+(:test "valid-args-help"
+  [(valid-args-help ["foo" "bar"]) ==> "Valid arguments: foo, bar"])
+
+(def missing-arg-for-opt
+  (fn [opt valid-args]
+    (string-append
+      "Missing argument for option \"" opt "\". "
+      (valid-args-help valid-args))))
+
+(:test "missing-arg-for-opt"
+  [(missing-arg-for-opt "-s" ["foo" "bar"]) ==> "Missing argument for option \"-s\". Valid arguments: foo, bar"])
+
+(def invalid-arg-for-opt
+  (fn [arg opt valid-args]
+    (string-append
+      "Invalid argument \"" arg "\" for option \"" opt "\". "
+      (valid-args-help valid-args))))
+
+(:test "invalid-arg-for-opt"
+  [(invalid-arg-for-opt "foobar" "-s" ["foo" "bar"]) ==> "Invalid argument \"foobar\" for option \"-s\". Valid arguments: foo, bar"])
+
+(def invalid-opt-for-cmd
+  (fn [opt cmd]
+    (string-append "Invalid option \"" opt "\" for command " cmd ".")))
+
+(:test "invalid-opt-for-cmd"
+  [(invalid-opt-for-cmd "foo" "list") ==> "Invalid option \"foo\" for command list."])
+
+;; rad project specific errors
+
+(def dir-already-exists
+  "`rad project checkout` is aborted, if there is already a directory with the name
+  of the project `dir-name` in the current directory."
+  (fn [dir-name]
+    (string-append
+      "The directory \"" dir-name "\" already exists.\n"
+      "Refusing to continue.")))
+
+(:test "dir-already-exists"
+  [(dir-already-exists "foobar") ==>
+    "The directory \"foobar\" already exists.
+Refusing to continue."])
+
+(def git-clone-failure
+  "`rad project checkout` is aborted, if cloning the repo `name` form `origin` failed."
+  (fn [origin name]
+    (string-append
+      "The repo is currently not available. "
+      "Cloning \"" name "\" from \"" origin "\" failed.\n"
+      "This may be because you have no internet connection, "
+      "or the IPNS link is stale, or because no online node "
+      "with the data could be found.")))
+
+(:test "git-clone-failure"
+  [(git-clone-failure "foo" "bar") ==>
+    "The repo is currently not available. Cloning \"bar\" from \"foo\" failed.
+This may be because you have no internet connection, or the IPNS link is stale, or because no online node with the data could be found."])
+
+(def upstream-commit-failure
+  "`rad project init` is aborted when creating an empty commit failed in
+  preparation to setting the upstream master branch."
+  (fn []
+    (string-append
+      "Error: git commit --allow-empty --message \"Radicle Setup\" failed.\n"
+      "Make sure that git was initialized correctly and rerun 'rad project init'")))
+
+(:test "upstream-commit-failure"
+  [(upstream-commit-failure) ==> "Error: git commit --allow-empty --message \"Radicle Setup\" failed.
+Make sure that git was initialized correctly and rerun 'rad project init'"])
+
+(def upstream-push-failure
+  "`rad project init` is aborted when pushing the empty commit failed while setting
+  the upstream master branch."
+  (fn []
+    (string-append
+      "Error: git -u origin master failed.\n"
+      "Set the upstream branch manually and rerun 'rad project init'")))
+
+(:test "upstream-push-failure"
+  [(upstream-push-failure) ==> "Error: git -u origin master failed.
+Set the upstream branch manually and rerun 'rad project init'"])

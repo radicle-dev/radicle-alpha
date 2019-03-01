@@ -1,27 +1,38 @@
-#!/usr/bin/env  bash
+#!/usr/bin/env bash
 #
 # Run the IPFS daemon with configuration for the Radicle network.
 
 set -euo pipefail
 
+vendored_ipfs=/usr/lib/radicle/bin/ipfs
+if which ipfs >/dev/null 2>/dev/null; then
+  ipfs=ipfs
+elif [ -f "$vendored_ipfs" ]; then
+  ipfs=$vendored_ipfs
+else
+  echo "ERROR: Command not found: ipfs" 1>&2
+  echo "To install IPFS follow the instructions here: https://docs.ipfs.io/introduction/install/" 1>&2
+  exit 1
+fi
+
 export IPFS_PATH=${IPFS_PATH:-"$HOME/.local/share/radicle/ipfs"}
-if [[ ! -d "$IPFS_PATH" ]]; then
+if [[ ! -f "$IPFS_PATH/config" ]]; then
   mkdir -p "$IPFS_PATH"
-  ipfs init
+  $ipfs init
   cat >"$IPFS_PATH/swarm.key" <<DOC
 /key/swarm/psk/1.0.0/
 /base16/
 420076a5ac043665bf6b78ebff1bbf17b3d5b29919e38792ff3e430cf889cef8
 DOC
-  ipfs bootstrap rm all
-  ipfs bootstrap add \
+  $ipfs bootstrap rm all
+  $ipfs bootstrap add \
       "/ip4/35.187.83.104/tcp/4000/ipfs/QmQqaBdD5g9o4L6KEtjL1RJbTSbb9gxUWgSF7FBxBqwvjr" \
       "/ip4/35.187.83.104/tcp/4001/ipfs/QmVdMvYQL6WuC4uaKV39SpQfNMmEZptzf6hoXenkcHKozU"
-  echo '{"radicle": true}' | ipfs dag put --pin
+  echo '{"radicle": true}' | $ipfs dag put --pin
 
-  ipfs config Addresses.API "/ip4/127.0.0.1/tcp/9301"
-  ipfs config Addresses.Gateway "/ip4/127.0.0.1/tcp/9302"
-  ipfs config --json Addresses.Swarm '["/ip4/0.0.0.0/tcp/9303", "/ip6/::/tcp/9303"]'
+  $ipfs config Addresses.API "/ip4/127.0.0.1/tcp/9301"
+  $ipfs config Addresses.Gateway "/ip4/127.0.0.1/tcp/9302"
+  $ipfs config --json Addresses.Swarm '["/ip4/0.0.0.0/tcp/9303", "/ip6/::/tcp/9303"]'
 fi
 
-ipfs daemon --enable-pubsub-experiment "$@"
+exec $ipfs daemon --enable-pubsub-experiment "$@"

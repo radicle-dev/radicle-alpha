@@ -5,16 +5,20 @@
 (import prelude/key-management :as 'key-mgmt)
 
 (def help
-  "rad-create-keys - Radicle Key Management CLI
+  "rad create-keys - Radicle Key Management CLI
 
    Usage:
-        rad-create-keys [--force]
-        rad-create-keys help
+        rad create-keys [--force]
+        rad create-keys help
 
-   Create a new key pair with `rad-create-keys`. If `--force` is appended, an
+   Create a new key pair with `rad create-keys`. If `--force` is appended, an
    existing key pair file will be overwritten.
    Per default, key pairs are stored in `$HOME/.config/radicle/my-keys.rad`
-   this can be adjusted by setting `$XDG_CONFIG_HOME`.")
+   this can be adjusted by setting `$XDG_CONFIG_HOME`.
+
+   The key pair is used for signing actions in the apps. Note that some actions
+   are restricted to certain key pairs so deleting or overwriting your key pair
+   can lead to loss of some authorisations.")
 
 (def make-keys
   (fn []

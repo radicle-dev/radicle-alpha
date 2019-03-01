@@ -4,15 +4,12 @@ module Radicle.Daemon.Common
   , Machine(..)
   , CachedMachine(..)
   , CachedMachines(..)
-  , logInfo
-  , logErr
   , advanceChain
   ) where
 
 import           Protolude hiding (log)
 
 import qualified Data.Aeson as A
-import qualified Data.Text as T
 import qualified Data.Time.Clock.System as Time
 
 import           Radicle
@@ -54,25 +51,6 @@ data CachedMachine
   | Cached Machine
 
 newtype CachedMachines = CachedMachines { getMachines :: CMap.CMap MachineId CachedMachine }
-
--- | Log a message to @stdout@.
---
--- The second argument is a list of key-value pairs that will be joined with "="
--- and appended to the message.
---
--- @
---      log "INFO" "the message" [("foo", "5)]
---      -- prints "INFO   the message foo=5"
--- @
-log :: MonadIO m => Text -> Text -> [(Text, Text)] -> m ()
-log typ msg dat = do
-    putStrLn $ typ <> "  " <> msg <> datString
-  where
-    datString = T.intercalate "" $ map (\(key, val) -> " " <> key <> "=" <> val) dat
-
-logInfo, logErr :: MonadIO m => Text -> [(Text, Text)] -> m ()
-logInfo = log "INFO "
-logErr  = log "ERROR"
 
 advanceChain :: Machine -> [Value] -> Either (LangError Value) ([Value], Bindings (PrimFns Identity))
 advanceChain chain vals =

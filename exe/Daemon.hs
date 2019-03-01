@@ -7,8 +7,9 @@
 -- the RFC>.
 module Daemon (main) where
 
-import           Protolude hiding (fromStrict, option, poll)
+import           Protolude hiding (catch, fromStrict, option, poll, tryJust)
 
+import           Control.Exception.Safe hiding (Handler)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Time.Clock.System as Time
@@ -17,10 +18,10 @@ import           Options.Applicative
 import           Servant
 import           System.IO (BufferMode(..), hSetBuffering)
 
-import           Radicle.Daemon.Common hiding (logInfo)
-import qualified Radicle.Daemon.Common as Common
+import           Radicle.Daemon.Common
 import qualified Radicle.Daemon.HttpApi as Api
 import           Radicle.Daemon.Ipfs
+import           Radicle.Daemon.Logging
 import           Radicle.Daemon.MachineConfig
 import           Radicle.Daemon.Monad
 
@@ -34,7 +35,7 @@ import qualified Radicle.Internal.UUID as UUID
 -- * Types
 
 logDaemonError :: MonadIO m => Error -> m ()
-logDaemonError (displayError -> (m, xs)) = logErr m xs
+logDaemonError (displayError -> (m, xs)) = logError' m xs
 
 -- * Main
 
@@ -80,6 +81,38 @@ opts defaultMachineConfigFile = do
         )
     pure $ Opts{..}
 
+-- | Repeatedly tries to connect to the Radicle IPFS daemon API until
+-- succesfull. Times out after five seconds and throws 'IpfsDaemonNotReachable'.
+waitForIpfsDaemon :: Daemon ()
+waitForIpfsDaemon = do
+    isOnline <- checkIpfsIsOnline
+    if isOnline
+    then pure ()
+    else do
+        logInfo "Waiting for Radicle IPFS daemon" []
+        go 5
+  where
+    go :: Int -> Daemon ()
+    go 0 = throwError IpfsDaemonNotReachable
+    go n = do
+        isOnline <- checkIpfsIsOnline
+        if isOnline
+        then pure ()
+        else do
+            liftIO $ threadDelay (1000 * 1000)
+            go (n - 1)
+
+    checkIpfsIsOnline :: Daemon Bool
+    checkIpfsIsOnline = liftIO $ do
+        result <- tryJust isIpfsExceptionNoDaemon Ipfs.version
+        pure $ case result of
+            Left _  -> False
+            Right _ -> True
+
+    isIpfsExceptionNoDaemon :: Ipfs.IpfsException -> Maybe ()
+    isIpfsExceptionNoDaemon Ipfs.IpfsExceptionNoDaemon = Just ()
+    isIpfsExceptionNoDaemon _                          = Nothing
+
 -- We use 'Void' to enforce the use of 'exitFailure'
 main :: IO Void
 main = do
@@ -87,9 +120,11 @@ main = do
     Opts{..} <- execParser =<< cliInfo
     machineConfigFileLock <- newMVar ()
     machines <- CachedMachines <$> CMap.empty
-    let env = Env{ logLevel = if debug then Debug else Normal, ..}
+    let env = Env{ logLevel = if debug then LogDebug else LogInfo, ..}
     machineConfig <- readMachineConfigIO machineConfigFileLock machineConfigFile
-    initRes <- runDaemon env (init machineConfig)
+    initRes <- runDaemon env $ do
+        waitForIpfsDaemon
+        init machineConfig
     case initRes of
       Left err -> do
         logDaemonError err
@@ -97,19 +132,19 @@ main = do
       Right _ -> do
         polling <- async $ initPolling env
         let app = serve Api.daemonApi (server env)
-        Common.logInfo "Start listening" [("port", show port)]
+        runDaemon env $ logInfo "Start listening" [("port", show port)]
         serv <- async $ run port app
         exc <- waitEitherCatchCancel polling serv
         case exc of
           Left (Left err) -> do
-            logErr "Polling failed with an exception" [("error", toS (displayException err))]
+            logError' "Polling failed with an exception" [("error", toS (displayException err))]
             exitFailure
           Left (Right void') -> absurd void'
           Right (Left err) -> do
-            logErr "Server failed with an exception" [("error", toS (displayException err))]
+            logError' "Server failed with an exception" [("error", toS (displayException err))]
             exitFailure
           Right (Right ()) -> do
-            logErr "Server stopped (this should not happen)" []
+            logError' "Server stopped (this should not happen)" []
             exitFailure
 
 server :: Env -> Server Api.DaemonApi
@@ -136,7 +171,7 @@ server env = hoistServer Api.daemonApi nt daemonServer
             InvalidInput _ -> err400
             AckTimeout     -> err504
             _              -> err500
-          CouldNotCreateMachine _ -> err500
+          _ -> err500
 
 -- * Init
 
@@ -155,7 +190,7 @@ newMachine :: Daemon Api.NewResponse
 newMachine = do
     id <- ipfs createMachine CouldNotCreateMachine
     sub <- initDaemonSubscription id
-    logInfo Normal "Created new IPFS machine" [("machine-id", getMachineId id)]
+    logInfo "Created new IPFS machine" [("machine-id", getMachineId id)]
     m <- liftIO $ emptyMachine id Writer sub
     insertNewMachine id (Cached m)
     actAsWriter m
@@ -175,7 +210,7 @@ query id (Api.QueryRequest v) = do
   case fst <$> runIdentity $ runLang (machineState m) $ eval v of
     Left err -> throwError $ MachineError id (InvalidInput err)
     Right rv -> do
-      logInfo Normal "Handled query" [("machine-id", getMachineId id)]
+      logInfo "Handled query" [("machine-id", getMachineId id)]
       pure (Api.QueryResponse rv)
 
 -- | Write a new expression to an IPFS machine.
@@ -199,7 +234,7 @@ send id (Api.SendRequest expressions) = do
       requestInput (machineSubscription m)
     Just (Cached Machine{ machineMode = Reader, ..}) -> requestInput machineSubscription
     Just (Cached Machine{ machineMode = Writer }) -> do
-      logInfo Normal "Applying input"
+      logInfo "Applying input"
         [ ("machine-id", getMachineId id)
         ]
       results <- writeInputs id expressions Nothing
@@ -212,14 +247,14 @@ send id (Api.SendRequest expressions) = do
       nonce <- liftIO $ UUID.uuid
       asyncMsg <- liftIO $ async $ subscribeOne sub ackWaitTime (matchMessage nonce)
       machineIpfs id $ publish id (Submit SubmitInputs{..})
-      logInfo Debug
+      logInfo
               "Sent input request to writer"
               [ ("machine-id", getMachineId id)
               , ("expressions", prValues expressions) ]
       msg_ <- machineIpfs id $ wait asyncMsg
       case msg_ of
         Just results -> do
-          logInfo Normal
+          logInfo
                  "Writer accepted input request"
                  [ ("machine-id", getMachineId id)
                  , ("results", prValues results)
@@ -232,14 +267,6 @@ send id (Api.SendRequest expressions) = do
     prValues = T.intercalate "," . (renderCompactPretty <$>)
 
 -- * Helpers
-
-logInfo :: LogLevel -> Text -> [(Text,Text)] -> Daemon ()
-logInfo l msg infos = do
-  l' <- asks logLevel
-  if l <= l'
-    then Common.logInfo msg infos
-    else pure ()
-
 
 lookupMachine :: MachineId -> Daemon (Maybe CachedMachine)
 lookupMachine id = do
@@ -280,7 +307,7 @@ initDaemonSubscription id =
     machineIpfs id $ initSubscription id logNonDecodableMsg
   where
     logNonDecodableMsg bad =
-        Common.logInfo "Non-decodable message on machine's pubsub topic"
+        logError' "Non-decodable message on machine's pubsub topic"
             [("machine-id", getMachineId id), ("message", bad)]
 
 -- | Turns a 'Daemon' subscription handler into an IO one. Errors which are
@@ -342,7 +369,7 @@ machineIpfs id io = ipfs io (MachineError id . IpfsError)
 bumpPolling :: MachineId -> Daemon ()
 bumpPolling id = do
   modifyMachine id $ \m -> pure (m { machinePolling = highFreq }, () )
-  logInfo Debug "Reset to high-frequency polling" [("machine-id", getMachineId id)]
+  logDebug "Reset to high-frequency polling" [("machine-id", getMachineId id)]
 
 -- | Insert a new machine into the cache.
 insertNewMachine :: MachineId -> CachedMachine -> Daemon ()
@@ -394,8 +421,8 @@ initAsReader id = do
     m <- loadMachine Reader id
     env <- ask
     _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env onMsg)
-    logInfo Normal "Following as reader" [ ("machine-id", getMachineId id)
-                                         , ("current-input-index", show (machineLastIndex m)) ]
+    logInfo "Following as reader" [ ("machine-id", getMachineId id)
+                                  , ("current-input-index", show (machineLastIndex m)) ]
     pure m
   where
     onMsg :: Message -> Daemon ()
@@ -421,7 +448,7 @@ newReader id = do
 initReaderNoFail :: MachineId -> Daemon ()
 initReaderNoFail id = catchError (initAsReader id $> ()) $ \err -> do
   let (msg, infos) = displayError err
-  logErr "Could not initiate reader-mode machine on startup" $ ("init-error", msg) : infos
+  logError' "Could not initiate reader-mode machine on startup" $ ("init-error", msg) : infos
   t <- liftIO Time.getSystemTime
   insertNewMachine id (UninitialisedReader t)
 
@@ -435,13 +462,13 @@ refreshAsReader id = modifyMachine id refresh
       (newIdx, is) <- machineIpfs id $ machineInputsFrom (machineId m) (Just currentIdx)
       if currentIdx == newIdx
         then do
-          logInfo Debug
+          logDebug
                   "Reader is already up to date"
                   [mid, ("input-index",  show newIdx)]
           pure (m, m)
         else do
           (m', _) <- addInputs is (pure newIdx) (const (pure ())) m
-          logInfo Debug
+          logDebug
                   "Updated reader"
                   [mid, ("n", show (length is)), ("input-index",  show newIdx)]
           pure (m', m')
@@ -462,7 +489,7 @@ actAsWriter :: Machine -> Daemon ()
 actAsWriter m = do
     env <- ask
     _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env onMsg)
-    logInfo Normal "Acting as writer" [("machine-id", getMachineId id)]
+    logInfo "Acting as writer" [("machine-id", getMachineId id)]
   where
     id = machineId m
     onMsg = \case
@@ -479,8 +506,10 @@ writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs id is nonce = do
     (rs, idx) <- modifyMachine id (addInputs is write pub)
     writeMachineConfig
-    logInfo Debug "Wrote inputs to IPFS" [ ("machine-id", getMachineId id)
-                                         , ("new-input-index", show idx) ]
+    logDebug "Wrote inputs to IPFS"
+        [ ("machine-id", getMachineId id)
+        , ("new-input-index", show idx)
+        ]
     pure rs
   where
     write = machineIpfs id $ writeIpfs id is
@@ -510,7 +539,7 @@ poll = do
                 -- Low frequency polling is every 10 seconds.
                 LowFreq -> (delta > lowFreqPollPeriod, LowFreq)
         when shouldPoll $ do
-          logInfo Debug "Polling.." [("machine-id", getMachineId machineId)]
+          logDebug "Polling.." [("machine-id", getMachineId machineId)]
           refreshAsReader machineId >> pure ()
         modifyMachine machineId $ \m' -> pure (m' { machinePolling = newPoll }, ())
       UninitialisedReader t -> do

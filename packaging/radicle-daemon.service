@@ -1,0 +1,11 @@
+[Unit]
+Description=Radicle daemon for interacting with Radicle machines
+Requires=radicle-ipfs.service
+
+[Service]
+ExecStart=/usr/bin/rad daemon-radicle
+SyslogIdentifier=radicle-daemon
+
+[Install]
+WantedBy=default.target
+
