@@ -146,5 +146,5 @@
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
           ["--help"] (put-str! help)
-          (/cons 'cmd _) (parse-failure (string-append "Unknown command: " cmd) help)
+          (/cons 'cmd _) (parse-failure (error/unknown-command cmd) help)
           [] (put-str! help))))
