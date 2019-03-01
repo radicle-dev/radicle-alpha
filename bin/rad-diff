@@ -386,7 +386,7 @@
           (/cmd-1 "retract" 'diff-number help) (edit-diff-state! (machine-name) (read diff-number) :retracted)
           (/cmd-1 "accept" 'diff-number help) (edit-diff-state! (machine-name) (read diff-number) :accepted)
           (/cmd-1 "reject" 'diff-number help) (edit-diff-state! (machine-name) (read diff-number) :rejected)
-          ["comment" 'diff-number 'comment] (create-comment! (machine-name) (read diff-number) comment)
+          (/cmd-2 "comment" 'diff-number 'comment help) (create-comment! (machine-name) (read diff-number) comment)
           (/cmd-0 "create-machine" help) (new-diff-machine! (machine-name))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
