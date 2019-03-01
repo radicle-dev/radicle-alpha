@@ -82,3 +82,5 @@ displayError = \case
       IpfsExceptionTimeout apiPath -> ("Timeout communicating with IPFS daemon", [("api-path", apiPath)])
       IpfsExceptionInvalidResponse url parseError -> ("Cannot parse IPFS daemon response", [("url", url), ("parse-error", parseError)])
       IpfsExceptionNoDaemon -> ("Cannot connect to the IPFS daemon", [])
+      IpfsExceptionIpldParse addr parseError ->
+            ("Failed to parse IPLD document ", [("addr", addressToText addr), ("parse-error", parseError)])
