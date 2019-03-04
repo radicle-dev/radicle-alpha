@@ -780,6 +780,11 @@ works for strings
 Matches sequences that start with ``prefix`` and bind the rest of that
 sequence to ``rest-pat``. Also works for strings.
 
+``(concat ss)``
+~~~~~~~~~~~~~~~
+
+Concatenate a sequence of sequences.
+
 ``prelude/strings``
 -------------------
 

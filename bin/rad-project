@@ -94,15 +94,15 @@
     (def current-remote (get-git-config! "remote.origin.url"))
     (def question
       (unlines
-       (<>
-        ["? What kind of repository would you like to use?"
-        "1. New peer-to-peer repository (git-ipfs **EXPERIMENTAL**)"
-        "2. Add your own remote (e.g.: github / gitlab / ...)"
-         "    (see radicle.xyz/docs/storage for more info)\n"]
-        (match current-remote
+       (concat
+        [["? What kind of repository would you like to use?"
+          "1. New peer-to-peer repository (git-ipfs **EXPERIMENTAL**)"
+          "2. Add your own remote (e.g.: github / gitlab / ...)"]
+         (match current-remote
                "" []
                'url ["3. Remote origin of existing current git repository:"
-                     (string-append "    " url "\n")]))))
+                     (string-append "   " url)])
+         ["(see radicle.xyz/docs/storage for more info)\n"]])))
     (match (prompt! question)
            "1" (init-git-ipfs-repo cid-of-empty-repo)
            "2" (prompt! "Please input the remote git repo URL: ")
