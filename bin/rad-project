@@ -95,7 +95,7 @@
                    (exit! 1)))))
 
 (def setup-upstream!
-  "Creates a commit to set the upstream to master, if master does not exist yet"
+  "Creates a commit to set the upstream to master, if master does not exist yet."
   (fn []
     (match (process-with-stdout! "git" ["show-ref" "refs/heads/master"] "")
       []  (do
@@ -107,21 +107,32 @@
               (error/upstream-push-failure)))
       _   :ok)))
 
+(def detect-git!
+  "Detect if the directory is already a git repository."
+  (fn []
+    (match (process! "test" ["-d" ".git"] "")
+         :ok #t
+         _   #f)))
+
 (def new-project!
   "Create a new project."
   (fn []
     (def meta (prompt-for-metadata!))
     (def project (create-project! meta))
-    (process! "git" ["init"] "")
+    (if (not (detect-git!))
+      (process! "git" ["init"] "")
+      :ok)
     (def repo (setup-repo!))
     (config-ipfs-api-url! repo)
-    (put-str! (string-append "=> adding \"origin\" remote: " repo))
     (def issues (create-issue-machine!))
     (put-str! "=> Assembled rad-issue machine")
     (def diff (create-diff-machine!))
     (put-str! "=> Assembled rad-diff machine")
     (put-str! (string-append "=> project id: " project))
-    (process! "git" ["remote" "add" "origin" repo] "")
+    (if (eq? "" (get-git-config! "remote.origin.url"))
+      (do (put-str! (string-append "=> adding \"origin\" remote: " repo))
+          (process! "git" ["remote" "add" "origin" repo] ""))
+      :ok)
     (setup-upstream!)
     (add-rsm! project { :id repo :type :rad-repo })
     (add-rsm! project { :id issues :type :rad-issue })
