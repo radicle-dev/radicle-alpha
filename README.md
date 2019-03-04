@@ -13,7 +13,9 @@ contain a lot more information on `radicle`.
 
 ## Installation
 
-To build Radicle from source you need [`stack`][stack].
+To build Radicle from source you will need [`stack`][stack].
+
+With the executable in your $PATH: `export PATH=$HOME/.local/bin:$PATH`
 
 ```
 stack build
@@ -22,9 +24,9 @@ stack install :rad :radicle
 
 Note: `stack` will need about 4GB of memory to compile successfully.
 
-To use Radicle you need to install [`ipfs`][ipfs] and
-[`git-remote-ipfs`][git-remote-ipfs]. Running Radicle requires you to run the
-Radicle daemon and the Radicle IPFS daemon
+To use Radicle you will also need to install [`ipfs`][ipfs] and
+[`git-remote-ipfs`][git-remote-ipfs]. Running Radicle requires you to keep both the
+Radicle daemon and Radicle IPFS daemon running.
 
 ```
 rad daemon-ipfs
