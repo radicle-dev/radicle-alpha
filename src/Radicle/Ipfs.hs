@@ -188,7 +188,8 @@ instance FromJSON PubsubMessage where
 subscribe :: Text -> (PubsubMessage -> IO ()) -> IO ()
 subscribe topic messageHandler = runResourceT $ do
     mgr <- liftIO $ HTTP.newManager HTTP.defaultManagerSettings
-    req <- HTTP.parseRequest "http://localhost:9301/api/v0/pubsub/sub" <&>
+    url <- liftIO $ ipfsApiUrl "pubsub/sub"
+    req <- HTTP.parseRequest (toS url) <&>
         HTTP.setQueryString
         [ ("arg", Just $ T.encodeUtf8 topic)
         , ("encoding", Just "json")
