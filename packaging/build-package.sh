@@ -15,6 +15,7 @@ ENVIRONMENT VARIABLES
 
     - debian
     - pacman
+    - darwin
 
   VERSION (required)
     Version of the package.
@@ -107,6 +108,7 @@ function package () {
 }
 
 function package-pacman () {
+  radicle_bindir=/usr/lib/radicle/bin
   prepare-package-root
   package \
     --output-type pacman \
@@ -116,6 +118,7 @@ function package-pacman () {
 }
 
 function package-debian () {
+  radicle_bindir=/usr/lib/radicle/bin
   include_ipfs=1
   prepare-package-root
   package \
@@ -127,6 +130,7 @@ function package-debian () {
 }
 
 function package-darwin () {
+  radicle_bindir=/usr/local/lib/radicle/bin
   tarball="$project_dir/packaging/out/radicle_${VERSION}_x86_64-darwin.tar.gz"
   prepare-package-root
   tar -czf "$tarball" -C "$package_root" .
@@ -157,7 +161,6 @@ set -x
 
 include_ipfs=0
 project_dir=$(realpath "$(dirname $BASH_SOURCE)/..")
-radicle_bindir=/usr/lib/radicle/bin
 radpath=/usr/lib/radicle/modules
 stack_bin_install_dir=$(stack path --local-install-root)/bin
 
