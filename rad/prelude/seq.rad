@@ -1,7 +1,7 @@
 {:module 'prelude/seq
  :doc "Functions for manipulating sequences, that is lists and vectors."
  :exports '[empty? seq? reverse filter take-while starts-with? /prefix
-           ]}
+            concat]}
 
 (import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
@@ -144,3 +144,14 @@
       )
     ==> :fall-through ]
   )
+
+(def concat
+  "Concatenate a sequence of sequences."
+  (fn [ss] (foldl <> [] ss)))
+
+(:test "concat"
+       [ (concat []) ==> [] ]
+       [ (concat [[]]) ==> [] ]
+       [ (concat [[] []]) ==> [] ]
+       [ (concat [[1 2] [3 4] [5]]) ==> [1 2 3 4 5]]
+       [ (concat [[] [1 2] [] [3 4] [5] []]) ==> [1 2 3 4 5]])
