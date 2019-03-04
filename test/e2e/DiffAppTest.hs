@@ -10,7 +10,7 @@ import           Test.E2ESupport
 test_diff_propose :: TestTree
 test_diff_propose = testCaseSteps "diff propose" $ \step -> do
     step "Init project"
-    _ <- runTestCommand "rad-create-keys" []
+    _ <- runTestCommand "rad-key" ["create"]
     _ <- runTestCommand "git" ["config", "--global", "user.name", "Alice"]
     _ <- runTestCommand "git" ["config", "--global", "user.email", "alice@example.com"]
     _ <- runTestCommand' "rad-project" ["init"] ["project-name", "project desc", "1"]

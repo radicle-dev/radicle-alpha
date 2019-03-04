@@ -4,7 +4,6 @@ module Radicle.Daemon.Common
   , Machine(..)
   , CachedMachine(..)
   , CachedMachines(..)
-  , advanceChain
   ) where
 
 import           Protolude hiding (log)
@@ -51,10 +50,3 @@ data CachedMachine
   | Cached Machine
 
 newtype CachedMachines = CachedMachines { getMachines :: CMap.CMap MachineId CachedMachine }
-
-advanceChain :: Machine -> [Value] -> Either (LangError Value) ([Value], Bindings (PrimFns Identity))
-advanceChain chain vals =
-  let (r_, newSt) = runIdentity $ runLang (machineState chain) $ traverse eval vals
-  in case r_ of
-    Left e  -> Left e
-    Right r -> pure (r, newSt)

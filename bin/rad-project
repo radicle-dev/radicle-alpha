@@ -51,14 +51,16 @@
     (def remote (string-append "ipfs://ipns/" key))
     remote))
 
+(def ipfs-api-url
+  "IPFS API url to use."
+  (match (shell-with-stdout! "echo $RAD_IPFS_API_URL" "")
+         [""] "http://localhost:9301"
+         ['url] url))
+
 (def config-ipfs-api-url!
   "For git-ipfs repositories, set the `ipfs.apiurl` git-config so that the git
   remote helper uses the radicle IPFS network."
   (fn [origin]
-    (def ipfs-api-url
-      (match (shell-with-stdout! "echo $RAD_IPFS_API_URL" "")
-             [""] "http://localhost:9301"
-             ['url] url))
     (if (starts-with? origin "ipfs://")
       (set-git-config! "ipfs.apiurl" ipfs-api-url)
       :ok)))
@@ -68,34 +70,51 @@
   (fn [project]
     (def name (lookup :name (get-meta! project)))
     (def origin (lookup :id (first-rsm-of-type! project :rad-repo)))
-    (config-ipfs-api-url! origin)
     (match (process! "test" ["-d" name] "")
       :ok (do
             (put-str! (error/dir-already-exists name))
             (exit! 1))
       _   (put-str! name))
-    (process-git-with-exit!
-      ["clone" origin name]
-      (error/git-clone-failure origin name))
+    (process! "mkdir" [name] "")
     (cd! name)
+    (process-git-with-exit!
+      ["init"]
+      (error/git-clone-failure origin name))
+    (config-ipfs-api-url! origin)
+    (process-git-with-exit!
+      ["remote" "add" "origin" origin]
+      (error/git-clone-failure origin name))
+    (process-git-with-exit!
+      ["fetch"]
+      (error/git-clone-failure origin name))
     (set-git-config! "radicle.project-id" project)))
 
 (def setup-repo!
   (fn []
+    (def current-remote (get-git-config! "remote.origin.url"))
     (def question
       (unlines
-       ["? What kind of repository would you like to use?"
-        "1. New peer-to-peer repository (git-ipfs **EXPERIMENTAL**)"
-        "2. Add your own remote (e.g.: github / gitlab / ...)"
-        "    (see radicle.xyz/docs/storage for more info)\n"]))
+       (concat
+        [["? What kind of repository would you like to use?"
+          "1. New peer-to-peer repository (git-ipfs **EXPERIMENTAL**)"
+          "2. Add your own remote (e.g.: github / gitlab / ...)"]
+         (match current-remote
+               "" []
+               'url ["3. Remote origin of existing current git repository:"
+                     (string-append "   " url)])
+         ["(see radicle.xyz/docs/storage for more info)\n"]])))
     (match (prompt! question)
            "1" (init-git-ipfs-repo cid-of-empty-repo)
-           "2" (prompt! "Please input the remote git repo URL:")
+           "2" (prompt! "Please input the remote git repo URL: ")
+           "3" (if (eq? current-remote "")
+                 (do (put-str! "No current remote origin set; please select 1 or 2.")
+                     (exit! !))
+                 current-remote)
            _   (do (put-str! "You must select either 1 or 2.")
                    (exit! 1)))))
 
 (def setup-upstream!
-  "Creates a commit to set the upstream to master, if master does not exist yet"
+  "Creates a commit to set the upstream to master, if master does not exist yet."
   (fn []
     (match (process-with-stdout! "git" ["show-ref" "refs/heads/master"] "")
       []  (do
@@ -107,21 +126,32 @@
               (error/upstream-push-failure)))
       _   :ok)))
 
+(def detect-git!
+  "Detect if the directory is already a git repository."
+  (fn []
+    (match (process! "test" ["-d" ".git"] "")
+         :ok #t
+         _   #f)))
+
 (def new-project!
   "Create a new project."
   (fn []
     (def meta (prompt-for-metadata!))
     (def project (create-project! meta))
-    (process! "git" ["init"] "")
+    (if (not (detect-git!))
+      (process! "git" ["init"] "")
+      :ok)
     (def repo (setup-repo!))
     (config-ipfs-api-url! repo)
-    (put-str! (string-append "=> adding \"origin\" remote: " repo))
     (def issues (create-issue-machine!))
     (put-str! "=> Assembled rad-issue machine")
     (def diff (create-diff-machine!))
     (put-str! "=> Assembled rad-diff machine")
     (put-str! (string-append "=> project id: " project))
-    (process! "git" ["remote" "add" "origin" repo] "")
+    (if (eq? "" (get-git-config! "remote.origin.url"))
+      (do (put-str! (string-append "=> adding \"origin\" remote: " repo))
+          (process! "git" ["remote" "add" "origin" repo] ""))
+      :ok)
     (setup-upstream!)
     (add-rsm! project { :id repo :type :rad-repo })
     (add-rsm! project { :id issues :type :rad-issue })

@@ -253,7 +253,8 @@
         (catch 'daemon-error
                (do
                  (verify-issue-number n machine)
-                 (simple-edit-issue! machine n {:state :closed}))
+                 (simple-edit-issue! machine n {:state :closed})
+                 (put-str! (string-append "Issue #" (show n) " has been closed.")))
                (fn [_]
                  (put-str! (error/state-change-failure :issue "closed"))
                  (exit! 1)))
@@ -268,7 +269,7 @@
         (do
           (verify-issue-number n machine)
           (simple-add-comment! machine n comment (get-git-username!))
-          (put-str! (string-append "Added comment to issue " (show n))))
+          (put-str! (string-append "Added comment to issue #" (show n))))
         (cmd-parse-failure (error/whole-item-number :issue)))
     (cmd-parse-failure (error/missing-item-number :issue "comment on")))))
 

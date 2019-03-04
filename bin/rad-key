@@ -5,14 +5,14 @@
 (import prelude/key-management :as 'key-mgmt)
 
 (def help
-  "rad create-keys - Radicle Key Management CLI
+  "rad key - Radicle Key Management CLI
 
    Usage:
-        rad create-keys [--force]
-        rad create-keys help
+        rad key create [--force]
+        rad key help
 
-   Create a new key pair with `rad create-keys`. If `--force` is appended, an
-   existing key pair file will be overwritten.
+   Creates a new key pair. If `--force` is appended, an existing key pair
+   file will be overwritten.
    Per default, key pairs are stored in `$HOME/.config/radicle/my-keys.rad`
    this can be adjusted by setting `$XDG_CONFIG_HOME`.
 
@@ -31,10 +31,18 @@
     (match (key-mgmt/read-keys!)
       :nothing  (make-keys)
       _         (put-str! "The `my-keys.rad` file already exists.
-If you are sure that you want to replace your key pair, run `rad-create-keys --force`"))))
+If you are sure that you want to replace your key pair, run `rad key create --force`"))))
+
+(def cmd-parse-failure
+  (fn [error]
+    (parse-failure error help)))
 
 (def args (get-args!))
 (match args
-  ["--force"] (make-keys)
-  []          (safe-make-keys)
-  _           (put-str! help))
+  ["create" "--force"]    (make-keys)
+  (/cmd-0 "create" help)  (safe-make-keys)
+  ["help"]                (put-str! help)
+  ["-h"]                  (put-str! help)
+  ["--help"]              (put-str! help)
+  (/cons 'cmd _)          (cmd-parse-failure (string-append "Unknown command: " cmd))
+  _                       (put-str! help))

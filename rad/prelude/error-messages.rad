@@ -268,8 +268,8 @@ This may be because you have no internet connection, you are not authorized to p
   (fn []
     (string-append
       "Missing file: my-keys.rad\n"
-      "Do `rad create-keys` to create your own key pair and rerun your command.")))
+      "Do `rad key create` to create your own key pair and rerun your command.")))
 
 (:test "missing-key-file"
   [(missing-key-file) ==> "Missing file: my-keys.rad
-Do `rad create-keys` to create your own key pair and rerun your command."])
+Do `rad key create` to create your own key pair and rerun your command."])
