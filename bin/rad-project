@@ -51,14 +51,16 @@
     (def remote (string-append "ipfs://ipns/" key))
     remote))
 
+(def ipfs-api-url
+  "IPFS API url to use."
+  (match (shell-with-stdout! "echo $RAD_IPFS_API_URL" "")
+         [""] "http://localhost:9301"
+         ['url] url))
+
 (def config-ipfs-api-url!
   "For git-ipfs repositories, set the `ipfs.apiurl` git-config so that the git
   remote helper uses the radicle IPFS network."
   (fn [origin]
-    (def ipfs-api-url
-      (match (shell-with-stdout! "echo $RAD_IPFS_API_URL" "")
-             [""] "http://localhost:9301"
-             ['url] url))
     (if (starts-with? origin "ipfs://")
       (set-git-config! "ipfs.apiurl" ipfs-api-url)
       :ok)))
@@ -68,16 +70,23 @@
   (fn [project]
     (def name (lookup :name (get-meta! project)))
     (def origin (lookup :id (first-rsm-of-type! project :rad-repo)))
-    (config-ipfs-api-url! origin)
     (match (process! "test" ["-d" name] "")
       :ok (do
             (put-str! (error/dir-already-exists name))
             (exit! 1))
       _   (put-str! name))
-    (process-git-with-exit!
-      ["clone" origin name]
-      (error/git-clone-failure origin name))
+    (process! "mkdir" [name] "")
     (cd! name)
+    (process-git-with-exit!
+      ["init"]
+      (error/git-clone-failure origin name))
+    (config-ipfs-api-url! origin)
+    (process-git-with-exit!
+      ["remote" "add" "origin" origin]
+      (error/git-clone-failure origin name))
+    (process-git-with-exit!
+      ["fetch"]
+      (error/git-clone-failure origin name))
     (set-git-config! "radicle.project-id" project)))
 
 (def setup-repo!
