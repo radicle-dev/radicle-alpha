@@ -130,6 +130,7 @@ function package-debian () {
 }
 
 function package-darwin () {
+  radpath=/usr/local/lib/radicle/modules
   radicle_bindir=/usr/local/lib/radicle/bin
   tarball="$project_dir/packaging/out/radicle_${VERSION}_x86_64-darwin.tar.gz"
   prepare-package-root
