@@ -264,7 +264,10 @@ dagGet addr = do
 
 namePublish :: IpnsId -> Address -> IO ()
 namePublish ipnsId addr = do
-    _ :: Aeson.Value <- ipfsHttpGet "name/publish" [("arg", addressToText addr), ("key", ipnsId)]
+    _ :: Aeson.Value <- ipfsHttpGet "name/publish" [ ("arg", addressToText addr)
+                                                   , ("nocache", "true")
+                                                   , ("key", ipnsId)
+                                                   ]
     pure ()
 
 
