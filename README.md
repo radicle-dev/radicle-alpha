@@ -27,8 +27,8 @@ To use Radicle you need to install [`ipfs`][ipfs] and
 Radicle daemon and the Radicle IPFS daemon
 
 ```
-rad daemon-radicle
 rad daemon-ipfs
+rad daemon-radicle
 ```
 
 [stack]: https://docs.haskellstack.org/en/stable/install_and_upgrade/
