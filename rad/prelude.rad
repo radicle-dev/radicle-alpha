@@ -3,6 +3,10 @@
 
 (file-module! "prelude/basic.rad")
 (file-module! "prelude/patterns.rad")
+;; Adds the special function `match-pat` to the global scope. This is
+;; required for the extended `match` to work in the modules loaded
+;; after.
+(import prelude/patterns :unqualified)
 (file-module! "prelude/bool.rad")
 (file-module! "prelude/seq.rad")
 (file-module! "prelude/strings.rad")
@@ -28,7 +32,6 @@
 (file-module! "prelude/cmd-parsing.rad")
 
 (import prelude/basic :unqualified)
-(import prelude/patterns :unqualified)
 (import prelude/bool :unqualified)
 (import prelude/seq :unqualified)
 (import prelude/strings :as 'string)
