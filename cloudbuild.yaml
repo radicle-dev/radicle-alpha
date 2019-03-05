@@ -206,7 +206,12 @@ steps:
 
       stack exec -- rad-daemon-radicle &
 
-      stack test :e2e
+      stack test :e2e || {
+        # Get some debugging information from the IPFS container
+        docker exec test_ipfs-test-network_1 ipfs swarm peers
+        docker logs test_ipfs-test-network_1
+        false
+      }
 
   - id: "Package"
     waitFor:
@@ -219,6 +224,14 @@ steps:
     - |
       set -euxo pipefail
 
-      version="$(date +%Y.%m.%d)-$SHORT_SHA"
+      date=$(date +%Y.%m.%d)
+      version="$date-$SHORT_SHA"
       VERSION=$version TARGET=debian ./packaging/build-package.sh
+
+      if [ "$BRANCH_NAME" == "master" ]; then
+        cp  \
+          "packaging/out/radicle_${version}_amd64.deb" \
+          "packaging/out/radicle_${date}_amd64.deb"
+      fi
+
       ./packaging/upload.sh
