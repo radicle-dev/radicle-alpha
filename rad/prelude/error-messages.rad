@@ -9,7 +9,9 @@
    upstream-push-failure item-not-found whole-item-number missing-item-number
    state-change-failure no-number-returned unknown-command unknown-commit
    checkout-new-branch-failure checkout-master-failure applying-patch-failure
-   applying-accepted-patch-failure push-diff-failure missing-key-file]}
+   applying-accepted-patch-failure push-diff-failure missing-key-file
+   rad-ipfs-name-publish-failure rad-ipfs-key-gen-failure
+   ]}
 
 (import prelude/strings :unqualified)
 
@@ -273,3 +275,26 @@ This may be because you have no internet connection, you are not authorized to p
 (:test "missing-key-file"
   [(missing-key-file) ==> "Missing file: my-keys.rad
 Do `rad key create` to create your own key pair and rerun your command."])
+
+(def rad-ipfs-key-gen-failure
+  "Printed when the `rad ipfs key gen` command in `init-git-ipfs-repo`
+  in `rad-project` fails. Takes stderr of the command as an argument."
+  (fn [stderr]
+    (string-append
+      "error: Failed to create key for Git IPFS repository:\n"
+      stderr)))
+
+(:test "rad-ipfs-key-gen-failure"
+  [(rad-ipfs-key-gen-failure "stderr") ==>  "error: Failed to create key for Git IPFS repository:\nstderr"])
+
+(def rad-ipfs-name-publish-failure
+  "Printed when the `rad ipfs name publish` command in
+  `init-git-ipfs-repo` in `rad-project` fails. Takes stderr of the
+  command as an argument."
+  (fn [stderr]
+    (string-append
+      "error: Failed to publish key for Git IPFS repository:\n"
+      stderr)))
+
+(:test "rad-ipfs-name-publish-failure"
+  [(rad-ipfs-name-publish-failure "stderr") ==>  "error: Failed to publish key for Git IPFS repository:\nstderr"])

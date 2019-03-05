@@ -908,7 +908,8 @@ user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
 
 Executes ``command`` using ``execvp`` with ``to-write`` as input. Stdout
 and stderr are inherited. See ``man exec`` for more information on
-``execvp``. Example: ``(process! "ls" ["-Glah"] "")``.
+``execvp``. Returns ``:ok`` if the process exited normally and
+``[:error n]`` otherwise. Example: ``(process! "ls" ["-Glah"] "")``.
 
 ``(read-line!)``
 ~~~~~~~~~~~~~~~~
@@ -990,7 +991,8 @@ This requires the ``prelude/test/primitive-stub`` script to be loaded.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Like ``process-with-stdout!``, but returns a vec
-``[stdout stderr exitcode]``.
+``[stdout stderr exitcode]``. ``exitcode`` is either ``:ok`` or
+``[:error n]`` where ``n`` is a number.
 
 ``(prompt! prompt)``
 ~~~~~~~~~~~~~~~~~~~~
