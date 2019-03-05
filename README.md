@@ -15,7 +15,8 @@ contain a lot more information on `radicle`.
 
 To build Radicle from source you will need [`stack`][stack].
 
-With the executable in your $PATH: `export PATH=$HOME/.local/bin:$PATH`
+And make sure the location at which stack installs executables is in your
+`PATH`: `export PATH=$HOME/.local/bin:$PATH`.
 
 ```
 stack build
