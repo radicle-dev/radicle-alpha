@@ -310,15 +310,6 @@ initDaemonSubscription id =
         logError' "Non-decodable message on machine's pubsub topic"
             [("machine-id", getMachineId id), ("message", bad)]
 
--- | Turns a 'Daemon' subscription handler into an IO one. Errors which are
--- encountered in a subscription handler are just logged.
-daemonHandler :: Env -> (Message -> Daemon ()) -> Message -> IO ()
-daemonHandler env h msg = do
-  x_ <- runDaemon env (h msg)
-  case x_ of
-    Left err -> logDaemonError err
-    Right _  -> pure ()
-
 -- | Loads a machine fresh from IPFS.
 loadMachine :: ReaderOrWriter -> MachineId -> Daemon Machine
 loadMachine mode id = do
@@ -416,8 +407,7 @@ emptyMachine id mode sub = do
 initAsReader :: MachineId -> Daemon Machine
 initAsReader id = do
     m <- loadMachine Reader id
-    env <- ask
-    _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env onMsg)
+    installMachineMessageHandler m onMsg
     logInfo "Following as reader" [ ("machine-id", getMachineId id)
                                   , ("current-input-index", show (machineLastIndex m)) ]
     pure m
@@ -484,14 +474,25 @@ initAsWriter id idx = do
 -- input requests.
 actAsWriter :: Machine -> Daemon ()
 actAsWriter m = do
-    env <- ask
-    _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env onMsg)
+    installMachineMessageHandler m onMsg
     logInfo "Acting as writer" [("machine-id", getMachineId id)]
   where
     id = machineId m
     onMsg = \case
       Submit SubmitInputs{..} -> writeInputs id expressions (Just nonce) >> pure ()
       _ -> pure ()
+
+-- | Installs a handler for messages sent on the machine's IPFS pubsub channel.
+--
+-- If the handler produces an error it is logged.
+installMachineMessageHandler :: Machine -> (Message -> Daemon ()) -> Daemon ()
+installMachineMessageHandler m handleMessage = do
+    env <- ask
+    void $ liftIO $ addHandler (machineSubscription m) $ \msg -> do
+        result <- runDaemon env (handleMessage msg)
+        case result of
+            Left err -> logDaemonError err
+            Right () -> pure ()
 
 -- | Write and evaluate inputs in a machine we control.
 --
