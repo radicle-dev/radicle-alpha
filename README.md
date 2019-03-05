@@ -35,6 +35,18 @@ rad daemon-ipfs
 [ipfs]: https://docs.ipfs.io/introduction/install/
 [git-remote-ipfs]: https://github.com/oscoin/ipfs/tree/master/git-remote-ipfs#install
 
+### Debian/Ubuntu
+
+We provide `.deb` packages for Debian-based systems.
+
+    wget https://storage.googleapis.com/static.radicle.xyz/releases/radicle_2019.03.01_amd64.deb
+    apt install ./radicle_2019.03.01_amd64.deb
+
+To use Radicle you need to start the Radicle daemon
+
+    systemctl --user start radicle-daemon
+    systemctl --user status radicle-daemon
+
 ## Usage
 
 ```
@@ -48,7 +60,7 @@ rad> (fac 6)
 
 We are currently using `radicle` itself to manage issues, and have therefore
 disabled issues on Github. You can create and see issues with the
-`bin/rad-issue` script. You can also reach us on the `radicle` IRC channel on
+`bin/rad-issues` script. You can also reach us on the `radicle` IRC channel on
 `#freenode`.
 
 ## Development
