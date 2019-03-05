@@ -37,9 +37,10 @@ jobs:
 
             command -v stack || {
               curl -sSL https://get.haskellstack.org/ | sh
-              stack config set system-ghc --global true
-              stack config set install-ghc --global false
             }
+
+            stack config set system-ghc --global true
+            stack config set install-ghc --global false
 
             echo 'export PATH="$HOME/.cabal/bin:$HOME/.ghcup/bin:$PATH"' >> $BASH_ENV
 
@@ -64,10 +65,9 @@ jobs:
 
       - restore_cache:
           keys:
-            - stack-root-v3-pkg-1-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
-            - stack-root-v3-pkg-1-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}
-            - stack-root-v3-pkg-1-{{ arch }}-ghc8.6.3-
-            - stack-root-v2-{{ arch }}-ghc8.6.3-
+            - stack-root-v4-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
+            - stack-root-v4-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}
+            - stack-root-v4-{{ arch }}-ghc8.6.3-
 
       - run:
           name: Build Dependencies
@@ -82,7 +82,7 @@ jobs:
             rm -rf ~/.stack/indices/Hackage/00-index.tar*
 
       - save_cache:
-          key: stack-root-v3-pkg-1-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
+          key: stack-root-v4-{{ arch }}-ghc8.6.3-{{ checksum "snapshot.yaml" }}-{{ checksum "package.yaml" }}
           paths:
             - "~/.stack"
 
