@@ -206,7 +206,12 @@ steps:
 
       stack exec -- rad-daemon-radicle &
 
-      stack test :e2e
+      stack test :e2e || {
+        # Get some debugging information from the IPFS container
+        docker exec test_ipfs-test-network_1 ipfs swarm peers
+        docker logs test_ipfs-test-network_1
+        false
+      }
 
   - id: "Package"
     waitFor:
