@@ -87,6 +87,9 @@
     (process-git-with-exit!
       ["fetch"]
       (error/git-clone-failure origin name))
+    (process-git-with-exit!
+      ["checkout" "master"]
+      (error/git-clone-failure origin name))
     (set-git-config! "radicle.project-id" project)))
 
 (def setup-repo!
