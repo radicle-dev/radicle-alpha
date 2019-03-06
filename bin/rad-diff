@@ -167,21 +167,10 @@
    :author      20
    :modified-at 20})
 
-(def pad-to
- (fn [l x]
-   (if (< l 1)
-     ""
-     (do
-       (def pad (string/intercalate "" (map (fn [x] " ") (range 1 l))))
-       (def x-length (length x))
-       (if (> x-length (- l 1))
-         (take l x)
-         (string-append x (take (- l x-length) pad)))))))
-
 (def wrap-cell
   (fn [phrase cell-key]
     (def c-length (lookup cell-key cells))
-    (string-append (pad-to c-length phrase) " ")))
+    (string-append (string/pad-to c-length phrase) " ")))
 
 (def pretty-table-header
   (fn []
@@ -200,12 +189,12 @@
         :state s
         :author-name an
         :modified-at m-a}
-      (string-append
-        (pretty-state s) " "
-        (show n) " "
-        tit " "
-        an " "
-        m-a " "))))
+      (string/unwords
+        [(pretty-state s)
+         (show n)
+         tit
+         an
+         m-a]))))
 
 (def pretty-row
   (fn [i]
