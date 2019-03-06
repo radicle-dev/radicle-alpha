@@ -8,6 +8,8 @@ module Test.E2ESupport
     , projectDir
 
     , testCaseSteps
+    , testCase
+
     , runTestCommand
     , runTestCommand'
 
@@ -75,6 +77,10 @@ testCaseSteps name mkTest =
     HUnit.testCaseSteps name $ \step ->
         let step' = liftIO . step . toS
         in runTestM (mkTest step')
+
+testCase :: TestName -> TestM () -> TestTree
+testCase name test =
+    HUnit.testCase name $ runTestM test
 
 
 assertEqual :: (HasCallStack, MonadIO m, Eq a, Show a) => Text -> a -> a -> m ()
