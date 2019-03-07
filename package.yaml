@@ -125,6 +125,7 @@ tests:
     - tasty-hunit
     - temporary
     - text
+    - unliftio
 
 executables:
   rad:

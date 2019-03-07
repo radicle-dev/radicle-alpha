@@ -10,6 +10,8 @@ module Test.E2ESupport
     , testCaseSteps
     , testCase
 
+    , prepareRadicle
+
     , runTestCommand
     , runTestCommand'
 
@@ -96,6 +98,15 @@ assertContains str substr =
     if substr `T.isInfixOf` str
     then pure ()
     else assertFailure $ "\"" <> substr <> "\" is not contained in \"" <> str <> "\""
+
+-- * Setup
+
+-- | Runs @rad key create@ and sets the Git user name and email.
+prepareRadicle :: TestM Text
+prepareRadicle = do
+    _ <- runTestCommand "rad-key" ["create"]
+    _ <- runTestCommand "git" ["config", "--global", "user.name", "Alice"]
+    runTestCommand "git" ["config", "--global", "user.email", "alice@example.com"]
 
 -- * Run commands
 

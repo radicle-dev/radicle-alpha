@@ -17,7 +17,7 @@
 
 (import monadic/issue '[create-issue-machine!] :unqualified)
 (import monadic/project
-  '[get-project-url! get-meta create-project! add-rsm! first-rsm-of-type!]
+  '[get-project-url! get-meta! create-project! add-rsm! first-rsm-of-type!]
   :unqualified)
 
 (def help
