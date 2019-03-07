@@ -785,6 +785,21 @@ sequence to ``rest-pat``. Also works for strings.
 
 Concatenate a sequence of sequences.
 
+``prelude/list``
+----------------
+
+Functions for creating lists. See also ``prelude/seq``.
+
+``nil``
+~~~~~~~
+
+The empty list.
+
+``(range from to)``
+~~~~~~~~~~~~~~~~~~~
+
+Returns a list with all integers from ``from`` to ``to``, inclusive.
+
 ``prelude/strings``
 -------------------
 
@@ -837,6 +852,12 @@ Reverses ``str``. E.g.: ``(reverse-string "abc")`` == ``"cba"``.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 True if ``str`` ends with ``substr``
+
+``(pad-right-to l word)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Appends the ``word`` with whitespace to get to length ``l``. If ``word``
+is longer than ``l``, the whole word is returned without padding.
 
 ``prelude/dict``
 ----------------
@@ -1003,21 +1024,6 @@ Ask for user input with a prompt.
 ---------------------
 
 Tests for exceptions.
-
-``prelude/list``
-----------------
-
-Functions for creating lists. See also ``prelude/seq``.
-
-``nil``
-~~~~~~~
-
-The empty list.
-
-``(range from to)``
-~~~~~~~~~~~~~~~~~~~
-
-Returns a list with all integers from ``from`` to ``to``, inclusive.
 
 ``prelude/set``
 ---------------

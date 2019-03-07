@@ -1,10 +1,11 @@
 {:module 'prelude/strings
  :doc    "String manipulation functions."
  :exports '[intercalate unlines unwords split-by words lines map-string
-            reverse-string ends-with?] }
+            reverse-string ends-with? pad-right-to] }
 
 (import prelude/basic :unqualified)
 (import prelude/seq :unqualified)
+(import prelude/list :unqualified)
 (import prelude/patterns :unqualified)
 
 (def intercalate
@@ -106,6 +107,26 @@
   [ (lines "foo bar\n\n\nfoo") ==> ["foo bar" "foo"]]
   [ (lines " \n \t") ==> [" " " \t"]]
   [ (lines "") ==> []])
+
+;; pad-to
+
+(def pad-right-to
+  "Appends the `word` with whitespace to get to length `l`. If `word` is longer
+  than `l`, the whole word is returned without padding."
+  (fn [l word]
+    (def w-length (length word))
+    (if (< (- l 1) w-length)
+      word
+      (do
+        (def pad (intercalate "" (map (fn [x] " ") (range 1 l))))
+        (string-append word (take (- l w-length) pad))))))
+
+(:test "pad-right-to"
+  [ (pad-right-to 0 "foobar") ==> "foobar"]
+  [ (pad-right-to 3 "foobar") ==> "foobar"]
+  [ (pad-right-to 6 "") ==> "      "]
+  [ (pad-right-to 6 "foobar") ==> "foobar"]
+  [ (pad-right-to 7 "foobar") ==> "foobar "])
 
 ;; map-string
 
