@@ -4,7 +4,7 @@
 (import prelude/machine '[send-code!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
-(import prelude/key-management '[set-fake-keys! use-fake-keys! read-keys!] :unqualified)
+(import prelude/key-management '[set-fake-keys! use-fake-keys! get-keys!] :unqualified)
 
 (def radicle-diff-machine-id
   "The name of this machine."
@@ -13,7 +13,7 @@
 (def create-diff-machine!
   "Create a remote diff machine. Returns the machine id"
   (fn []
-    (def owner-keys (lookup :public-key (read-keys!)))
+    (def owner-keys (lookup :public-key (get-keys!)))
     (def id (machine/new-machine!))
     (machine/send-prelude! id)
     (send-code! id (find-module-file! "monadic/diff-remote.rad"))

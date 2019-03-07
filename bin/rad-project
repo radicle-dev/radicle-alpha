@@ -151,6 +151,7 @@
 (def new-project!
   "Create a new project."
   (fn []
+    (get-keys!) ;; exit with error when key file does not exist
     (def meta (prompt-for-metadata!))
     (def project (create-project! meta))
     (if (not (detect-git!))
