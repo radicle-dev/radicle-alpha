@@ -959,15 +959,28 @@ Like ``shell!``, but inherits stdin. WARNING: using ``shell!`` with
 unsanitized user input is a security hazard! Example:
 ``(shell-no-stdin! "ls -Glah")``.
 
+``(write-file! filename contents)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Write ``contents`` to file ``filename``.
+
 ``(process-with-stdout! command args to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Like ``process!``, but captures stdout.
 
-``(write-file! filename contents)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(process-with-stdout-stderr-exitcode! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Write ``contents`` to file ``filename``.
+Like ``process-with-stdout!``, but returns a vec
+``[stdout stderr exitcode]``. ``exitcode`` is either ``:ok`` or
+``[:error n]`` where ``n`` is a number.
+
+``(process-with-stdout-strict! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``process-with-stdout!``, but prints an error message and exits if
+the command fails.
 
 ``(init-file-dict! file)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1007,13 +1020,6 @@ If
 is used.
 
 This requires the ``prelude/test/primitive-stub`` script to be loaded.
-
-``(process-with-stdout-stderr-exitcode! command args to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Like ``process-with-stdout!``, but returns a vec
-``[stdout stderr exitcode]``. ``exitcode`` is either ``:ok`` or
-``[:error n]`` where ``n`` is a number.
 
 ``(prompt! prompt)``
 ~~~~~~~~~~~~~~~~~~~~
