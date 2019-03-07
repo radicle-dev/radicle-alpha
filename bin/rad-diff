@@ -148,7 +148,7 @@
     (if (eq? (get-commit-parent! commit) (get-head-origin-master!))
       commit
       (do
-        (put-str! (error/invalid-patch commit))
+        (put-str! (error/parent-commit-not-master commit))
         (exit! 1)))))
 
 (def new-diff!

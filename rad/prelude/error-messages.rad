@@ -7,10 +7,10 @@
  '[missing-arg too-many-args missing-arg-for-opt invalid-arg-for-opt
    invalid-opt-for-cmd dir-already-exists git-clone-failure upstream-commit-failure
    upstream-push-failure item-not-found whole-item-number missing-item-number
-   state-change-failure no-number-returned unknown-command unknown-commit invalid-patch
-   checkout-new-branch-failure checkout-master-failure applying-patch-failure
-   applying-accepted-patch-failure push-diff-failure missing-key-file
-   rad-ipfs-name-publish-failure rad-ipfs-key-gen-failure
+   state-change-failure no-number-returned unknown-command unknown-commit
+   parent-commit-not-master checkout-new-branch-failure checkout-master-failure
+   applying-patch-failure applying-accepted-patch-failure push-diff-failure
+   missing-key-file rad-ipfs-name-publish-failure rad-ipfs-key-gen-failure
    ]}
 
 (import prelude/strings :unqualified)
@@ -144,15 +144,15 @@ Set the upstream branch manually and rerun 'rad project init'"])
 (:test "unknown-commit"
   [(unknown-commit "12345") ==> "Commit 12345 can't be found."])
 
-(def invalid-patch
+(def parent-commit-not-master
   "`rad diff propose` aborts if the provided commit is unknown."
   (fn [commit]
     (string-append
       "Commit " commit " is not on top of origin/master.\n"
       "Squash all commits on your branch and rebase if necessary.")))
 
-(:test "invalid-patch"
-  [(invalid-patch "12345") ==> "Commit 12345 is not on top of origin/master.
+(:test "parent-commit-not-master"
+  [(parent-commit-not-master "12345") ==> "Commit 12345 is not on top of origin/master.
 Squash all commits on your branch and rebase if necessary."])
 
 (def checkout-new-branch-failure
