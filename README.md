@@ -1,9 +1,6 @@
 # Radicle
 
-> because 'tis the Origin of the Root... The Radicle is likewise called the seminal Root.
-> — Vallemont, *Curiosities of nature and art in husbandry and gardening* (1707)
-
-A p2p stack for code collaboration.
+A peer-to-peer stack for code collaboration
 
 Radicle has a [webpage](http://radicle.xyz/) which contain a lot more information on `Radicle`.
 
@@ -45,15 +42,6 @@ To use Radicle you need to start the Radicle daemon
 
     systemctl --user start radicle-daemon
     systemctl --user status radicle-daemon
-
-## Usage
-
-```
-radicle ./rad/repl.rad
-rad> (print! "hello world")
-rad> (def-rec fac (fn [n] (if (eq? n 0) 1 (* n (fac (- n 1))))))
-rad> (fac 6)
-```
 
 ## Issues
 
