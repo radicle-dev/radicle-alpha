@@ -1,4 +1,9 @@
 ;; Helpers for setting up and interacting with project RSMs
+{:module  'monadic/project
+ :doc     "Interact with projects and project machines"
+ :exports '[get-project-url! get-meta! create-project! add-rsm!
+            first-rsm-of-type!
+           ]}
 
 (import prelude/lens :unqualified)
 (import prelude/machine '[send-code! send-signed-command! new-machine!] :unqualified)

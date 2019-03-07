@@ -1,7 +1,8 @@
 {:module 'prelude/io-utils
  :doc "IO-related utilities"
  :exports '[fzf-select! edit-in-editor! get-git-config! set-git-config!
-            get-git-commit-data! get-git-username!]}
+            get-git-commit-data! get-git-username! process-git-with-exit!
+            ]}
 
 (import prelude/io '[shell-with-stdout! write-file! process-with-stdout!] :unqualified)
 (import prelude/strings '[unlines] :unqualified)
