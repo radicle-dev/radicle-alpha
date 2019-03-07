@@ -39,15 +39,22 @@
   (fn [orig-cid]
     (def keyname (uuid!))
     (def key
-      (unlines
-        (process-with-stdout!
-          "rad"
-          ["ipfs" "key" "gen" "--type=ed25519" keyname]
-          "")))
-    (process-with-stdout!
-      "rad"
-      ["ipfs" "name" "publish" "--key" key orig-cid]
-      "")
+      (match
+        (process-with-stdout-stderr-exitcode!
+          "rad" ["ipfs" "key" "gen" "--type=ed25519" keyname] "")
+        ['stdout _ :ok] (unlines stdout)
+        ['stdout 'stderr _]
+          (do
+            (put-str! (error/rad-ipfs-key-gen-failure (unlines stderr)))
+            (exit! 1))))
+    (match
+      (process-with-stdout-stderr-exitcode!
+        "rad" ["ipfs" "name" "publish" "--key" key orig-cid] "")
+      ['stdout _ :ok] :ok
+      ['stdout 'stderr _]
+        (do
+          (put-str! (error/rad-ipfs-name-publish-failure (unlines stderr)))
+          (exit! 1)))
     (def remote (string-append "ipfs://ipns/" key))
     remote))
 
