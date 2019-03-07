@@ -4,7 +4,7 @@
 (file-module! "prelude/io-utils.rad")
 (file-module! "prelude/error-messages.rad")
 (file-module! "monadic/issue.rad")
-(load! (find-module-file! "monadic/diff.rad"))
+(load! (find-module-file! "monadic/patch.rad"))
 (file-module! "monadic/project.rad")
 
 (import prelude/strings '[unlines] :unqualified)
@@ -161,8 +161,8 @@
     (config-ipfs-api-url! repo)
     (def issues (create-issue-machine!))
     (put-str! "=> Assembled rad-issue machine")
-    (def diff (create-diff-machine!))
-    (put-str! "=> Assembled rad-diff machine")
+    (def patch (create-patch-machine!))
+    (put-str! "=> Assembled rad-patch machine")
     (put-str! (string-append "=> project id: " project))
     (if (eq? "" (get-git-config! "remote.origin.url"))
       (do (put-str! (string-append "=> adding \"origin\" remote: " repo))
@@ -171,7 +171,7 @@
     (setup-upstream!)
     (add-rsm! project { :id repo :type :rad-repo })
     (add-rsm! project { :id issues :type :rad-issue })
-    (add-rsm! project { :id diff :type :rad-diff })
+    (add-rsm! project { :id patch :type :rad-patch })
     (set-git-config! "radicle.project-id" project)
     (put-str! "=> project created!")))
 
