@@ -68,6 +68,7 @@ library:
   - template-haskell
   - text
   - time
+  - unliftio-core
   - unordered-containers
   - uuid
   - wreq

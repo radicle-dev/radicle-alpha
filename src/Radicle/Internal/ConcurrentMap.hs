@@ -11,6 +11,7 @@ module Radicle.Internal.ConcurrentMap
 
 import           Protolude hiding (empty)
 
+import           Control.Monad.IO.Unlift
 import qualified Data.Map.Strict as Map
 
 -- | A Map which offers atomic operations on the values associated to
@@ -52,28 +53,28 @@ insert k v (CMap m_) = modifyMVar m_ $ \m -> do
 -- | Atomically modifies a value associated to a key but only if it
 -- exists. There is no guarantee the value is still associated with
 -- the same key, or any key, by the time the operation completes.
-modifyExistingValue :: Ord k => k -> CMap k v -> (v -> IO (v, a)) -> IO (Maybe a)
-modifyExistingValue k (CMap m_) f = do
-  m <- readMVar m_
+modifyExistingValue :: (MonadUnliftIO m, Ord k) => k -> CMap k v -> (v -> m (v, a)) -> m (Maybe a)
+modifyExistingValue k (CMap m_) f = withRunInIO $ \runInIO -> do
+  m <- liftIO $ readMVar m_
   case Map.lookup k m of
     Nothing -> pure Nothing
     Just v_ -> do
-      x <- modifyMVar v_ f
+      x <- modifyMVar v_ (runInIO . f)
       pure (Just x)
 
 -- | Atomically modifies the value associated to a key.
-modifyValue :: Ord k => k -> CMap k v -> (Maybe v -> IO (Maybe v, a)) -> IO a
-modifyValue k (CMap m_) f = modifyMVar m_ $ \m ->
+modifyValue :: (MonadUnliftIO m, Ord k) => k -> CMap k v -> (Maybe v -> m (Maybe v, a)) -> m a
+modifyValue k (CMap m_) f = withRunInIO $ \runInIO -> modifyMVar m_ $ \m ->
   case Map.lookup k m of
     Nothing -> do
-      (maybev, x) <- f Nothing
+      (maybev, x) <- runInIO $ f Nothing
       case maybev of
         Just v -> do
           v_ <- newMVar v
           pure (Map.insert k v_ m, x)
         Nothing -> pure (m, x)
     Just v_ -> modifyMVar v_ $ \v -> do
-      (maybev', x) <- f (Just v)
+      (maybev', x) <- runInIO $ f (Just v)
       case maybev' of
         Just v' -> pure (v', (m, x))
         Nothing -> pure (v, (Map.delete k m, x))

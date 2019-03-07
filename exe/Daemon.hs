@@ -369,20 +369,19 @@ insertNewMachine id m = do
 -- machine isn't in the cache already.
 modifyMachine :: forall a. MachineId -> (Machine -> Daemon (Machine, a)) -> Daemon a
 modifyMachine id f = do
-    env <- ask
-    res <- liftIO $ CMap.modifyExistingValue id (getMachines (machines env)) (modCached env)
+    CachedMachines machineMap <- asks machines
+    res <- CMap.modifyExistingValue id machineMap modCached
     case res of
-      Nothing         -> throwError (MachineError id MachineNotCached)
-      Just (Left err) -> throwError err
-      Just (Right y)  -> pure y
+      Nothing -> throwError (MachineError id MachineNotCached)
+      Just a  -> pure a
   where
-    modCached :: Env -> CachedMachine -> IO (CachedMachine, Either Error a)
-    modCached _ u@(UninitialisedReader _) = pure (u, Left (MachineError id MachineNotCached))
-    modCached env (Cached m) = do
-      x <- runDaemon env (f m)
-      pure $ case x of
-        Left err      -> (Cached m, Left err)
-        Right (m', y) -> (Cached m', Right y)
+    modCached :: CachedMachine -> Daemon (CachedMachine, a)
+    modCached = \case
+        UninitialisedReader _ -> throwError $ MachineError id MachineNotCached
+        Cached m -> do
+            (m', a) <- f m
+            pure (Cached m', a)
+
 
 emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IO Machine
 emptyMachine id mode sub = do
