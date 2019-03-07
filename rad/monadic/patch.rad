@@ -1,0 +1,106 @@
+(load! (find-module-file! "prelude.rad"))
+
+(import prelude/lens :unqualified)
+(import prelude/machine '[send-code!] :unqualified)
+(import prelude/time '[install-fake-clock] :unqualified)
+(import prelude/io :as 'io)
+(import prelude/key-management '[set-fake-keys! use-fake-keys! get-keys!] :unqualified)
+
+(def radicle-patch-machine-id
+  "The name of this machine."
+  "monadic/radicle/patch")
+
+(def create-patch-machine!
+  "Create a remote patch machine. Returns the machine id"
+  (fn []
+    (def owner-keys (lookup :public-key (get-keys!)))
+    (def id (machine/new-machine!))
+    (machine/send-prelude! id)
+    (send-code! id (find-module-file! "monadic/patch-remote.rad"))
+    (machine/send-signed-command! id radicle-patch-machine-id 'add-admin {:key owner-keys})
+    id))
+
+(def simple-patch
+  "Create an open patch with no comments or labels."
+  (fn [p]
+  (def t (now!))
+  (<> {:state       :pending
+      :comments    []
+      :created-at  t
+      :modified-at t}
+     p)))
+
+(def simple-comment
+  "Create a comment for an issue."
+  (fn [patch-number bod author-name]
+   (def t (now!))
+   {:body         bod
+    :author-name  author-name
+    :patch-number  patch-number
+    :created-at   t
+    :modified-at  t}))
+
+(def edit-patch!
+  "Edit a remote patch with the keys in `my-keys.rad`."
+ (fn [machine i]
+   (machine/send-signed-command! machine radicle-patch-machine-id 'edit-patch i)))
+
+(def simple-edit-patch!
+ (fn [machine n i]
+   (edit-patch! machine
+                (<> {:patch-number n
+                     :modified-at (now!)}
+                    i))))
+
+(def create-patch!
+  "Create a new remote patch with the keys in `my-keys.rad`."
+ (fn [machine i]
+ (machine/send-signed-command! machine radicle-patch-machine-id 'create-patch i)))
+
+(def add-comment!
+  "Create a remote comment with the keys in `my-keys.rad`."
+  (fn [machine c]
+   (machine/send-signed-command! machine radicle-patch-machine-id 'add-comment c)))
+
+(def simple-create-patch!
+  "Create a remote patch with sensible defaults."
+  (fn [machine patch]
+    (create-patch! machine (simple-patch patch))))
+
+(def simple-add-comment!
+  "Create a remote comment."
+  (fn [machine n b name]
+    (add-comment! machine (simple-comment n b name))))
+
+(def list-patches
+  "Return the full map of patches."
+  (fn [machine]
+  (machine/query! machine '(list-patches))))
+
+(:test
+ "The monadic patch machine works."
+ [:setup
+  (do (machine/install-remote-machine-fake)
+      (def owner-keys (gen-key-pair! (default-ecc-curve)))
+      (def non-owner-keys (gen-key-pair! (default-ecc-curve)))
+      (set-fake-keys! owner-keys)
+      (def machine (create-patch-machine!))
+      (simple-create-patch! machine {:title "title0" :description "desc0" :patch "patch0"})
+      (simple-create-patch! machine {:title "title1" :description "desc1" :patch "patch1"})
+      (simple-add-comment! machine 0 "comment0" "name0")
+      (simple-add-comment! machine 1 "comment1" "name1")
+      (simple-edit-patch! machine 0 {:state :accepted})
+      (def patches (list-patches machine)))]
+   [ (length (seq patches)) ==> 2 ]
+   [ (view (.. (@ 0) (@ :title)) patches) ==> "title0" ]
+   [ (view (.. (@ 1) (@ :title)) patches) ==> "title1" ]
+   [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment0" ]
+   [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment1" ]
+   [ (view (.. (@ 0) (@ :state)) patches) ==> :accepted ]
+   ;; authorization
+   [ (do
+        (set-fake-keys! non-owner-keys)
+        (catch 'validation-failure
+               (simple-edit-patch! machine 1 {:state :accepted})
+               (fn [_] :ok))) ==> :ok ]
+)

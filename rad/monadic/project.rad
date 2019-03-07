@@ -59,9 +59,9 @@
   (fn [machine id]
     (add-rsm! machine { :id id :type :rad-issue })))
 
-(def add-diff-rsm!
+(def add-patch-rsm!
   (fn [machine id]
-    (add-rsm! machine { :id id :type :rad-diff })))
+    (add-rsm! machine { :id id :type :rad-patch })))
 
 (def add-repo-rsm!
   (fn [machine id]
@@ -87,20 +87,20 @@
       (install-fake-clock)
       (def machine (create-project! {:name "test" :description "test project"}))
       (add-issue-rsm! machine "a")
-      (add-diff-rsm! machine "b")
+      (add-patch-rsm! machine "b")
       (add-repo-rsm! machine "c"))
   ]
 
   [ (get-meta! machine) ==> { :name "test" :description "test project" }]
   [ (lookup :id (first-rsm-of-type! machine :rad-issue)) ==> "a" ]
-  [ (lookup :id (first-rsm-of-type! machine :rad-diff)) ==> "b" ]
+  [ (lookup :id (first-rsm-of-type! machine :rad-patch)) ==> "b" ]
   [ (lookup :id (first-rsm-of-type! machine :rad-repo)) ==> "c" ]
   ;; authorization
   [ (do
        (set-fake-keys! non-owner-keys)
        (def originally (length (list-rsms! machine)))
        (def res (catch 'validation-failure
-              (do (add-diff-rsm! machine "d")
+              (do (add-patch-rsm! machine "d")
                   :valid)
               ;; check that the machine has in fact not been added
               (fn [_] :not-valid)))

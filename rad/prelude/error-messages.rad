@@ -9,7 +9,7 @@
    upstream-push-failure item-not-found whole-item-number missing-item-number
    state-change-failure no-number-returned unknown-command unknown-commit
    parent-commit-not-master checkout-new-branch-failure checkout-master-failure
-   applying-patch-failure applying-accepted-patch-failure push-diff-failure
+   applying-patch-failure applying-accepted-patch-failure push-patch-failure
    missing-key-file rad-ipfs-name-publish-failure rad-ipfs-key-gen-failure
    ]}
 
@@ -73,11 +73,11 @@
 
 (def uppercase-item
   (fn [item]
-    (lookup item {:issue "Issue" :diff  "Diff"})))
+    (lookup item {:issue "Issue" :patch  "Patch"})))
 
 (def lowercase-item
   (fn [item]
-    (lookup item {:issue "issue" :diff  "diff"})))
+    (lookup item {:issue "issue" :patch  "patch"})))
 
 ;; rad project specific errors
 
@@ -133,10 +133,10 @@ Make sure that git was initialized correctly and rerun 'rad project init'"])
   [(upstream-push-failure) ==> "Error: git -u origin master failed.
 Set the upstream branch manually and rerun 'rad project init'"])
 
-;; rad diff specific errors
+;; rad patch specific errors
 
 (def unknown-commit
-  "`rad diff propose` aborts if the provided commit is unknown."
+  "`rad patch propose` aborts if the provided commit is unknown."
   (fn [commit]
     (string-append
       "Commit " commit " can't be found.")))
@@ -145,7 +145,7 @@ Set the upstream branch manually and rerun 'rad project init'"])
   [(unknown-commit "12345") ==> "Commit 12345 can't be found."])
 
 (def parent-commit-not-master
-  "`rad diff propose` aborts if the provided commit is unknown."
+  "`rad patch propose` aborts if the provided commit is unknown."
   (fn [commit]
     (string-append
       "Commit " commit " is not on top of origin/master.\n"
@@ -156,15 +156,15 @@ Set the upstream branch manually and rerun 'rad project init'"])
 Squash all commits on your branch and rebase if necessary."])
 
 (def checkout-new-branch-failure
-  "`rad diff checkout` aborts if creating and switching to the diff branch fails."
+  "`rad patch checkout` aborts if creating and switching to the patch branch fails."
   (fn [branch]
     (string-append "Creating and switching to branch " branch " failed.")))
 
 (:test "checkout-new-branch-failure"
-  [(checkout-new-branch-failure "diff/3") ==> "Creating and switching to branch diff/3 failed."])
+  [(checkout-new-branch-failure "patch/3") ==> "Creating and switching to branch patch/3 failed."])
 
 (def checkout-master-failure
-  "`rad diff accept` aborts if checking out the master branch fails."
+  "`rad patch accept` aborts if checking out the master branch fails."
   (fn []
     (string-append
       "Checkout branch master failed.\n"
@@ -175,7 +175,7 @@ Squash all commits on your branch and rebase if necessary."])
 Refusing to continue."])
 
 (def applying-patch-failure
-  "`rad diff checkout` aborts if applying the patch to the diff branch fails.
+  "`rad patch checkout` aborts if applying the patch to the patch branch fails.
   Conflicts have to be resolved manually."
   (fn []
     (string-append
@@ -187,7 +187,7 @@ Refusing to continue."])
 Abort or resolve any conflicts via 'git am'."])
 
 (def applying-accepted-patch-failure
-  "`rad diff accept` aborts if applying the patch to master fails.
+  "`rad patch accept` aborts if applying the patch to master fails.
   Conflicts have to be resolved manually as well as pushing the commit."
   (fn []
     (string-append
@@ -199,42 +199,42 @@ Abort or resolve any conflicts via 'git am'."])
 Abort or resolve any conflicts via 'git am'.
 Then run 'git push'."])
 
-(def push-diff-failure
-  "`rad diff accept` aborts if pushing the diff failed."
+(def push-patch-failure
+  "`rad patch accept` aborts if pushing the patch failed."
   (fn []
     (string-append
-      "Pushing the diff failed.\n"
+      "Pushing the patch failed.\n"
       "This may be because you have no internet connection, "
       "you are not authorized to push to origin, "
       "or the remote is currently not reachable.")))
 
-(:test "push-diff-failure"
-  [(push-diff-failure) ==> "Pushing the diff failed.
+(:test "push-patch-failure"
+  [(push-patch-failure) ==> "Pushing the patch failed.
 This may be because you have no internet connection, you are not authorized to push to origin, or the remote is currently not reachable."])
 
 ;; shared app errors
 
 (def item-not-found
-  "Any command on a specific diff/issue aborts if it does not exist."
+  "Any command on a specific patch/issue aborts if it does not exist."
   (fn [item item-number]
     (string-append (uppercase-item item) " #" item-number " does not exist.")))
 
 (:test "item-not-found"
-  [(item-not-found :diff "2") ==> "Diff #2 does not exist."]
+  [(item-not-found :patch "2") ==> "Patch #2 does not exist."]
   [(item-not-found :issue "3") ==> "Issue #3 does not exist."])
 
 (def whole-item-number
-  "Any command on a specific diff/issue aborts if the provided `item-number`
+  "Any command on a specific patch/issue aborts if the provided `item-number`
   is not a whole number."
   (fn [item]
     (string-append (uppercase-item item) " numbers must be whole numbers!")))
 
 (:test "whole-item-number"
-  [(whole-item-number :diff) ==> "Diff numbers must be whole numbers!"]
+  [(whole-item-number :patch) ==> "Patch numbers must be whole numbers!"]
   [(whole-item-number :issue) ==> "Issue numbers must be whole numbers!"])
 
 (def missing-item-number
-  "Any command on a specific diff/issue aborts if the `item-number` is not provided."
+  "Any command on a specific patch/issue aborts if the `item-number` is not provided."
   (fn [item action]
     (def item-name (lowercase-item item))
     (string-append
@@ -242,28 +242,28 @@ This may be because you have no internet connection, you are not authorized to p
       ", please provide the " item-name " number.")))
 
 (:test "missing-item-number"
-  [(missing-item-number :diff "change the state of") ==> "To change the state of a diff, please provide the diff number."]
+  [(missing-item-number :patch "change the state of") ==> "To change the state of a patch, please provide the patch number."]
   [(missing-item-number :issue "show") ==> "To show an issue, please provide the issue number."])
 
 (def state-change-failure
-  "On changing the state of a diff/issue if the daemon returned an error."
+  "On changing the state of a patch/issue if the daemon returned an error."
   (fn [item state]
     (string-append
       (uppercase-item item) " could not be " state ". "
       "Are you authorized to do so?")))
 
 (:test "state-change-failure"
-  [(state-change-failure :diff "rejected") ==> "Diff could not be rejected. Are you authorized to do so?"]
+  [(state-change-failure :patch "rejected") ==> "Patch could not be rejected. Are you authorized to do so?"]
   [(state-change-failure :issue "closed") ==> "Issue could not be closed. Are you authorized to do so?"])
 
 (def no-number-returned
-  "On creating a diff/issue, when the creation was successful,
-  but no diff/issue number was returned."
+  "On creating a patch/issue, when the creation was successful,
+  but no patch/issue number was returned."
   (fn [item]
     (string-append (uppercase-item item) " created but unexpected results returned.")))
 
 (:test "no-number-returned"
-  [(no-number-returned :diff) ==> "Diff created but unexpected results returned."]
+  [(no-number-returned :patch) ==> "Patch created but unexpected results returned."]
   [(no-number-returned :issue) ==> "Issue created but unexpected results returned."])
 
 (def unknown-command
