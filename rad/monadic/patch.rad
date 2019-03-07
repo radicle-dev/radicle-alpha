@@ -72,10 +72,10 @@
   (fn [machine n b name]
     (add-comment! machine (simple-comment n b name))))
 
-(def list-patchs
-  "Return the full map of patchs."
+(def list-patches
+  "Return the full map of patches."
   (fn [machine]
-  (machine/query! machine '(list-patchs))))
+  (machine/query! machine '(list-patches))))
 
 (:test
  "The monadic patch machine works."
@@ -90,13 +90,13 @@
       (simple-add-comment! machine 0 "comment0" "name0")
       (simple-add-comment! machine 1 "comment1" "name1")
       (simple-edit-patch! machine 0 {:state :accepted})
-      (def patchs (list-patchs machine)))]
-   [ (length (seq patchs)) ==> 2 ]
-   [ (view (.. (@ 0) (@ :title)) patchs) ==> "title0" ]
-   [ (view (.. (@ 1) (@ :title)) patchs) ==> "title1" ]
-   [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) patchs) ==> "comment0" ]
-   [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) patchs) ==> "comment1" ]
-   [ (view (.. (@ 0) (@ :state)) patchs) ==> :accepted ]
+      (def patches (list-patches machine)))]
+   [ (length (seq patches)) ==> 2 ]
+   [ (view (.. (@ 0) (@ :title)) patches) ==> "title0" ]
+   [ (view (.. (@ 1) (@ :title)) patches) ==> "title1" ]
+   [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment0" ]
+   [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment1" ]
+   [ (view (.. (@ 0) (@ :state)) patches) ==> :accepted ]
    ;; authorization
    [ (do
         (set-fake-keys! non-owner-keys)
