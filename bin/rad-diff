@@ -99,6 +99,14 @@
   (fn [commit]
     (string/unlines (process-with-stdout! "git" ["rev-parse" "--short" commit] ""))))
 
+(def get-commit-parent!
+  (fn [commit]
+    (string/unlines (process-with-stdout! "git" ["rev-parse" (string-append commit "^")] ""))))
+
+(def get-head-origin-master!
+  (fn []
+    (string/unlines (process-with-stdout! "git" ["rev-parse" "origin/master"] ""))))
+
 (def apply-patch!
   "Given a patch, apply it to the current branch"
   (fn [patch msg]
@@ -133,10 +141,21 @@
       ["push"]
       (error/push-diff-failure))))
 
+
+(def verify-patch
+  "Verify that the patch is on top of origin/master"
+  (fn [commit]
+    (if (eq? (get-commit-parent! commit) (get-head-origin-master!))
+      commit
+      (do
+        (put-str! (error/invalid-patch commit))
+        (exit! 1)))))
+
 (def new-diff!
   "Creates a new diff on `machine` with a patch from the given `commit`."
   (fn [machine commit]
     (verify-commit commit)
+    (verify-patch commit)
     (def patch (get-patch! commit))
     (def author-name (get-author-name! commit))
     (def author-email (get-author-name! commit))
