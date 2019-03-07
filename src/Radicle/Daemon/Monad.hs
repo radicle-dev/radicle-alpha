@@ -21,9 +21,9 @@ import           Control.Exception.Safe
 import           Control.Monad.Except
 import           Control.Monad.IO.Unlift
 
-import           Radicle.Daemon.Common
 import           Radicle.Daemon.Error
 import           Radicle.Daemon.Logging
+import           Radicle.Daemon.MachineStore
 
 
 newtype Daemon a = Daemon (ExceptT Error (ReaderT Env IO) a)
@@ -47,6 +47,9 @@ liftExceptT makeError action = Daemon $ mapExceptT (lift . fmap (first makeError
 
 instance MonadLog Daemon where
     askLogLevel = asks logLevel
+
+instance MonadMachineStore Daemon where
+    askMachines = asks machines
 
 -- * Environment
 
