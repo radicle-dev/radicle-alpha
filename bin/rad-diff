@@ -170,7 +170,7 @@
 (def wrap-cell
   (fn [phrase cell-key]
     (def c-length (lookup cell-key cells))
-    (string-append (string/pad-to c-length phrase) " ")))
+    (string-append (take c-length (string/pad-right-to c-length phrase)) " ")))
 
 (def pretty-table-header
   (fn []

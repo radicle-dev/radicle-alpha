@@ -1,7 +1,7 @@
 {:module 'prelude/strings
  :doc    "String manipulation functions."
  :exports '[intercalate unlines unwords split-by words lines map-string
-            reverse-string ends-with? pad-to] }
+            reverse-string ends-with? pad-right-to] }
 
 (import prelude/basic :unqualified)
 (import prelude/seq :unqualified)
@@ -110,25 +110,23 @@
 
 ;; pad-to
 
-(def pad-to
+(def pad-right-to
   "Appends the `word` with whitespace to get to length `l`. If `word` is longer
-  than `l` it is truncated."
+  than `l`, the whole word is returned without padding."
   (fn [l word]
-    (if (< l 1)
-      ""
+    (def w-length (length word))
+    (if (< (- l 1) w-length)
+      word
       (do
         (def pad (intercalate "" (map (fn [x] " ") (range 1 l))))
-        (def w-length (length word))
-        (if (> w-length (- l 1))
-          (take l word)
-          (string-append word (take (- l w-length) pad)))))))
+        (string-append word (take (- l w-length) pad))))))
 
-(:test "pad-to"
-  [ (pad-to 0 "foobar") ==> ""]
-  [ (pad-to 6 "") ==> "      "]
-  [ (pad-to 6 "foobar") ==> "foobar"]
-  [ (pad-to 3 "foobar") ==> "foo"]
-  [ (pad-to 7 "foobar") ==> "foobar "])
+(:test "pad-right-to"
+  [ (pad-right-to 0 "foobar") ==> "foobar"]
+  [ (pad-right-to 3 "foobar") ==> "foobar"]
+  [ (pad-right-to 6 "") ==> "      "]
+  [ (pad-right-to 6 "foobar") ==> "foobar"]
+  [ (pad-right-to 7 "foobar") ==> "foobar "])
 
 ;; map-string
 
