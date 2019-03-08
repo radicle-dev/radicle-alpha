@@ -1,6 +1,5 @@
 module Radicle.Internal.ConcurrentMap
   ( empty
-  , fromMap
   , lookup
   , nonAtomicRead
   , insert
@@ -14,26 +13,23 @@ import           Protolude hiding (empty)
 import           Control.Monad.IO.Unlift
 import qualified Data.Map.Strict as Map
 
--- | A Map which offers atomic operations on the values associated to
--- keys. Assumes that the values are independent of one another; does
--- not offer a consistent view over the values. Therefore this is best
--- used when the keys uniquely identify the resources represented by
--- the values.
-newtype CMap k v = CMap (MVar (Map k (MVar v)))
+-- | A mutable Map that serializes operations on the same key.
+--
+-- Calls to the 'lookup', 'insert', 'modifyValue', and
+-- 'modifyExistingValue' with the same key are serialized. Calls to
+-- these functions with different keys can run concurrently.
+newtype CMap k v = CMap (MVar (Map k (MVar (Maybe v))))
 
 -- | Create a new empty 'CMap'.
 empty :: IO (CMap k v)
 empty = CMap <$> newMVar Map.empty
-
-fromMap :: Map k v -> IO (CMap k v)
-fromMap m = CMap <$> (traverse newMVar m >>= newMVar)
 
 -- | Atomically lookup a value.
 lookup :: Ord k => k -> CMap k v -> IO (Maybe v)
 lookup k (CMap m_) = withMVar m_ $ \m -> do
    case Map.lookup k m of
      Nothing -> pure Nothing
-     Just v_ -> pure <$> readMVar v_
+     Just v_ -> readMVar v_
 
 -- | Non-atmoically read the contents of a 'CMap'. Provides a
 -- consistent shapshot of which keys were present at some
@@ -41,40 +37,39 @@ lookup k (CMap m_) = withMVar m_ $ \m -> do
 nonAtomicRead :: CMap k v -> IO (Map k v)
 nonAtomicRead (CMap m_) = do
   m <- readMVar m_
-  traverse readMVar m
+  Map.mapMaybe identity <$> traverse readMVar m
 
 -- | Atomically insert a key-value pair into a 'CMap'.
 insert :: Ord k => k -> v -> CMap k v -> IO ()
 insert k v (CMap m_) = modifyMVar m_ $ \m -> do
-  v_ <- newMVar v
+  v_ <- newMVar (Just v)
   let m' = Map.insert k v_ m
   pure (m', ())
 
 -- | Atomically modifies a value associated to a key but only if it
--- exists. There is no guarantee the value is still associated with
--- the same key, or any key, by the time the operation completes.
+-- exists. Blocks all operations on @k@ while @f@ is running.
 modifyExistingValue :: (MonadUnliftIO m, Ord k) => k -> CMap k v -> (v -> m (v, a)) -> m (Maybe a)
-modifyExistingValue k (CMap m_) f = withRunInIO $ \runInIO -> do
-  m <- liftIO $ readMVar m_
-  case Map.lookup k m of
-    Nothing -> pure Nothing
-    Just v_ -> do
-      x <- modifyMVar v_ (runInIO . f)
-      pure (Just x)
-
--- | Atomically modifies the value associated to a key.
-modifyValue :: (MonadUnliftIO m, Ord k) => k -> CMap k v -> (Maybe v -> m (Maybe v, a)) -> m a
-modifyValue k (CMap m_) f = withRunInIO $ \runInIO -> modifyMVar m_ $ \m ->
-  case Map.lookup k m of
-    Nothing -> do
-      (maybev, x) <- runInIO $ f Nothing
-      case maybev of
+modifyExistingValue k c f =
+    modifyValue k c $ \case
+        Nothing -> pure (Nothing, Nothing)
         Just v -> do
-          v_ <- newMVar v
-          pure (Map.insert k v_ m, x)
-        Nothing -> pure (m, x)
-    Just v_ -> modifyMVar v_ $ \v -> do
-      (maybev', x) <- runInIO $ f (Just v)
-      case maybev' of
-        Just v' -> pure (v', (m, x))
-        Nothing -> pure (v, (Map.delete k m, x))
+            (v', a) <- f v
+            pure (Just v', Just a)
+
+-- | Atomically modifies a value associated to a key. Blocks all
+-- operations on @k@ while @f@ is running.
+modifyValue :: forall k v a m. (MonadUnliftIO m, Ord k) => k -> CMap k v -> (Maybe v -> m (Maybe v, a)) -> m a
+modifyValue k (CMap m_) f = withRunInIO $ \runInIO -> do
+    valueVar <- modifyMVar m_ $ \m ->
+        case Map.lookup k m of
+            Nothing -> do
+                valueVar <- newMVar Nothing
+                pure (Map.insert k valueVar m, valueVar)
+            Just valueVar -> do
+                pure (m, valueVar)
+    -- To prevent space leaks we probably should remove the key from
+    -- the map if @maybeValue'@ is 'Nothing'. We need to be very
+    -- careful if we implement this: If we remove an MVar from the map
+    -- another `modifyValue` thread might still have a reference to it
+    -- and run `modifyMVar`.
+    modifyMVar valueVar (runInIO . f)
