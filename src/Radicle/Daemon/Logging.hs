@@ -14,9 +14,12 @@ module Radicle.Daemon.Logging
     , logInfo
     , logError
     , logError'
+    , logDaemonError
     ) where
 
 import           Protolude hiding (log)
+
+import           Radicle.Daemon.Error (Error, displayError)
 
 data LogLevel = LogError | LogInfo | LogDebug
   deriving (Eq, Ord)
@@ -57,3 +60,6 @@ logError = log LogError
 -- Always logs the error.
 logError' :: MonadIO m => Text -> [(Text,Text)] -> m ()
 logError' = log' LogError
+
+logDaemonError :: MonadIO m => Error -> m ()
+logDaemonError (displayError -> (m, xs)) = logError' m xs
