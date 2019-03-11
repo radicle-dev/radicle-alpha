@@ -4,7 +4,7 @@
 module Radicle.Daemon.Monad
     ( Daemon
     , runDaemon
-    , liftExceptT
+    , wrapException
 
     , Env(..)
     , FileLock
@@ -15,10 +15,9 @@ module Radicle.Daemon.Monad
     , displayError
     ) where
 
-import           Protolude hiding (try)
+import           Protolude hiding (catch, try)
 
 import           Control.Exception.Safe
-import           Control.Monad.Except
 import           Control.Monad.IO.Unlift
 
 import           Radicle.Daemon.Error
@@ -26,24 +25,14 @@ import           Radicle.Daemon.Logging
 import           Radicle.Daemon.MachineStore
 
 
-newtype Daemon a = Daemon (ExceptT Error (ReaderT Env IO) a)
-  deriving (Functor, Applicative, Monad, MonadError Error, MonadIO, MonadReader Env)
-
-instance MonadUnliftIO Daemon where
-    withRunInIO inner = do
-        env <- ask
-        result <- liftIO $ try $ inner $ \d -> do
-            result <- runDaemon env d
-            case result of
-                Left err -> throw err
-                Right a  -> pure a
-        liftEither result
+newtype Daemon a = Daemon (ReaderT Env IO a)
+  deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO, MonadReader Env, MonadUnliftIO)
 
 runDaemon :: Env -> Daemon a -> IO (Either Error a)
-runDaemon env (Daemon x) = runReaderT (runExceptT x) env
+runDaemon env (Daemon x) = try $ runReaderT x env
 
-liftExceptT :: (e -> Error) -> ExceptT e IO a -> Daemon a
-liftExceptT makeError action = Daemon $ mapExceptT (lift . fmap (first makeError)) action
+wrapException :: (MonadCatch m, Exception e, Exception e') => (e -> e') -> m a -> m a
+wrapException f action = action `catch` (throw . f)
 
 instance MonadLog Daemon where
     askLogLevel = asks logLevel

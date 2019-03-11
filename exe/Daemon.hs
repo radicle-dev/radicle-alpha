@@ -93,7 +93,7 @@ waitForIpfsDaemon = do
         go 5
   where
     go :: Int -> Daemon ()
-    go 0 = throwError IpfsDaemonNotReachable
+    go 0 = throw IpfsDaemonNotReachable
     go n = do
         isOnline <- checkIpfsIsOnline
         if isOnline
@@ -188,7 +188,7 @@ init follows = traverse_ initMachine (Map.toList follows)
 -- /writer/.
 newMachine :: Daemon Api.NewResponse
 newMachine = do
-    id <- ipfs createMachine CouldNotCreateMachine
+    id <- wrapException CouldNotCreateMachine (liftIO createMachine)
     sub <- initDaemonSubscription id
     logInfo "Created new IPFS machine" [("machine-id", getMachineId id)]
     m <- emptyMachine id Writer sub
@@ -208,7 +208,7 @@ query id (Api.QueryRequest v) = do
   m <- ensureMachineLoaded id
   bumpPolling id
   case fst <$> runIdentity $ runLang (machineState m) $ eval v of
-    Left err -> throwError $ MachineError id (InvalidInput err)
+    Left err -> throw $ MachineError id (InvalidInput err)
     Right rv -> do
       logInfo "Handled query" [("machine-id", getMachineId id)]
       pure (Api.QueryResponse rv)
@@ -255,7 +255,7 @@ send id (Api.SendRequest expressions) = do
                  ]
           bumpPolling id
           pure Api.SendResponse{..}
-        Nothing -> throwError $ MachineError id AckTimeout
+        Nothing -> throw $ MachineError id AckTimeout
 
 
     prValues = T.intercalate "," . (renderCompactPretty <$>)
@@ -325,7 +325,7 @@ addInputs
 addInputs inputs index m = do
   let (result, newState) = runIdentity $ runLang (machineState m) $ traverse eval inputs
   case result of
-    Left err -> throwError $ MachineError (machineId m) (InvalidInput err)
+    Left err -> throw $ MachineError (machineId m) (InvalidInput err)
     Right outputs -> do
       t <- liftIO $ Time.getSystemTime
       let m' = m { machineState = newState
@@ -334,17 +334,9 @@ addInputs inputs index m = do
                  }
       pure (m', outputs)
 
--- | Run some IPFS IO.
-ipfs :: IO a -> (Ipfs.IpfsException -> Error) -> Daemon a
-ipfs io err = do
-  res <- liftIO $ (Right <$> io) `catch` \(e :: Ipfs.IpfsException) -> pure (Left e)
-  case res of
-    Left e  -> throwError (err e)
-    Right x -> pure x
-
 -- | Run some IPFS IO related to a specific machine.
 machineIpfs :: MachineId -> IO a -> Daemon a
-machineIpfs id io = ipfs io (MachineError id . IpfsError)
+machineIpfs id io = wrapException (MachineError id . IpfsError) (liftIO io)
 
 -- | Do some high-freq polling for a while.
 bumpPolling :: MachineId -> Daemon ()
@@ -381,7 +373,7 @@ initAsReader id = do
 -- | Try to initiate a reader, but don't fail in case of errors; just log a
 -- message.
 initReaderNoFail :: MachineId -> Daemon ()
-initReaderNoFail id = catchError (initAsReader id $> ()) $ \err -> do
+initReaderNoFail id = catch (initAsReader id $> ()) $ \err -> do
   let (msg, infos) = displayError err
   logError' "Could not initiate reader-mode machine on startup" $ ("init-error", msg) : infos
   insertUninitializedReader id

@@ -21,6 +21,7 @@ module Radicle.Daemon.MachineStore
 
 import           Protolude
 
+import           Control.Exception.Safe
 import           Control.Monad.IO.Unlift
 import qualified Data.Aeson as A
 import qualified Data.Map.Strict as Map
@@ -76,7 +77,7 @@ newtype CachedMachines = CachedMachines { getMachines :: CMap.CMap MachineId Cac
 
 -- * Machine access and modification
 
-class (MonadUnliftIO m, MonadError Error m) => MonadMachineStore m where
+class (MonadUnliftIO m, MonadThrow m) => MonadMachineStore m where
     askMachines :: m CachedMachines
 
 
@@ -88,12 +89,12 @@ modifyMachine id f = do
     machines <- askMachines
     res <- CMap.modifyExistingValue id (getMachines machines) modCached
     case res of
-      Nothing -> throwError (MachineError id MachineNotCached)
+      Nothing -> throw (MachineError id MachineNotCached)
       Just a  -> pure a
   where
     modCached :: CachedMachine -> m (CachedMachine, a)
     modCached = \case
-        UninitialisedReader _ -> throwError $ MachineError id MachineNotCached
+        UninitialisedReader _ -> throw $ MachineError id MachineNotCached
         Cached m -> do
             (m', a) <- f m
             pure (Cached m', a)
