@@ -21,6 +21,7 @@ import           Control.Exception.Safe
 import           Control.Monad.IO.Unlift
 
 import           Radicle.Daemon.Error
+import           Radicle.Daemon.Ipfs (MonadMachineIpfs)
 import           Radicle.Daemon.Logging
 import           Radicle.Daemon.MachineStore
 
@@ -39,6 +40,8 @@ instance MonadLog Daemon where
 
 instance MonadMachineStore Daemon where
     askMachines = asks machines
+
+instance MonadMachineIpfs Daemon
 
 -- * Environment
 
