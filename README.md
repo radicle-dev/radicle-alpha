@@ -1,15 +1,11 @@
-# radicle
+# Radicle
 
 > because 'tis the Origin of the Root... The Radicle is likewise called the seminal Root.
 > — Vallemont, *Curiosities of nature and art in husbandry and gardening* (1707)
 
-A LISP in the spirit of [Black](http://pllab.is.ocha.ac.jp/~asai/Black/) and
-other colors. Easily define and interact with shared and upgradable state
-machines.
+A p2p stack for code collaboration.
 
-Radicle has a [webpage](http://radicle.xyz/), and a [Getting Started
-Guide](http://docs.radicle.xyz/en/latest/guide/GettingStarted.html) which
-contain a lot more information on `radicle`.
+Radicle has a [webpage](http://radicle.xyz/) which contain a lot more information on `Radicle`.
 
 ## Installation
 
@@ -61,10 +57,23 @@ rad> (fac 6)
 
 ## Issues
 
-We are currently using `radicle` itself to manage issues, and have therefore
-disabled issues on Github. You can create and see issues with the
-`bin/rad-issues` script. You can also reach us on the `radicle` IRC channel on
-`#freenode`.
+We are currently using `Radicle` itself to manage issues, and have therefore
+disabled issues on Github. You can create and see issues with `rad issues list`
+in the project repo. To checkout the project, run:
+
+```
+rad project checkout 12D3KooWSKJexYNhJLEinqZTxhRt5RvmBquDaHPLDXjvpVu8VSWd
+```
+
+If you cloned the project from Github, you can instead, from the repo, run:
+
+```
+git config set radicle.project-id=12D3KooWSKJexYNhJLEinqZTxhRt5RvmBquDaHPLDXjvpVu8VSWd
+```
+
+You can also reach us on the `radicle` IRC channel on `#freenode`, or via the
+[mailing list](https://groups.google.com/a/monadic.xyz/forum/#!forum/radicle).
+
 
 ## Development
 
