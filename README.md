@@ -1,9 +1,10 @@
 # Radicle
 
-> because 'tis the Origin of the Root... The Radicle is likewise called the seminal Root.
-> — Vallemont, *Curiosities of nature and art in husbandry and gardening* (1707)
+A peer-to-peer stack for code collaboration
 
-A p2p stack for code collaboration.
+- peer-to-peer: The Radicle stack builds on IPFS, which means it works without a centralized server. No hassle with setting up your own hosting, and no need to trust companies with your data.
+- Terminal-first: A Radicle project contains a git repository as well as the issues and proposals associated with that repo. All accessible from your terminal.
+- Programmable: Ever wanted to tweak your code collaboration service? With Radicle each unit of functionality –a machine– is its own litte P2P program, written in the Radicle language. You can change them to suit your needs, or create entirely new ones.
 
 Radicle has a [webpage](http://radicle.xyz/) which contain a lot more information on `Radicle`.
 
@@ -45,15 +46,6 @@ To use Radicle you need to start the Radicle daemon
 
     systemctl --user start radicle-daemon
     systemctl --user status radicle-daemon
-
-## Usage
-
-```
-radicle ./rad/repl.rad
-rad> (print! "hello world")
-rad> (def-rec fac (fn [n] (if (eq? n 0) 1 (* n (fac (- n 1))))))
-rad> (fac 6)
-```
 
 ## Issues
 
