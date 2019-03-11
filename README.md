@@ -38,8 +38,8 @@ rad daemon-radicle
 
 We provide `.deb` packages for Debian-based systems.
 
-    wget https://storage.googleapis.com/static.radicle.xyz/releases/radicle_2019.03.01_amd64.deb
-    apt install ./radicle_2019.03.01_amd64.deb
+    wget https://storage.googleapis.com/static.radicle.xyz/releases/radicle_latest_amd64.deb
+    sudo apt install ./radicle_latest_amd64.deb
 
 To use Radicle you need to start the Radicle daemon
 

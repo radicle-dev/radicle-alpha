@@ -103,4 +103,14 @@ jobs:
 
             version="$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
             VERSION=$version TARGET=darwin ./packaging/build-package.sh
+            if [ "$CIRCLE_BRANCH" == "master" ]; then
+              # Upload package aliases for easier distribution
+              cp  \
+                "packaging/out/radicle_${version}_x86_64-darwin.tar.gz" \
+                "packaging/out/radicle_${date}_x86_64-darwin.tar.gz"
+
+              cp  \
+                "packaging/out/radicle_${version}_x86_64-darwin.tar.gz" \
+                "packaging/out/radicle_latest_x86_64-darwin.tar.gz"
+            fi
             ./packaging/upload.sh
