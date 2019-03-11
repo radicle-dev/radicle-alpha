@@ -9,10 +9,8 @@ import           Test.E2ESupport
 
 test_patch_propose :: TestTree
 test_patch_propose = testCaseSteps "patch propose" $ \step -> do
+    prepareRadicle
     step "Init project"
-    _ <- runTestCommand "rad-key" ["create"]
-    _ <- runTestCommand "git" ["config", "--global", "user.name", "Alice"]
-    _ <- runTestCommand "git" ["config", "--global", "user.email", "alice@example.com"]
     _ <- runTestCommand' "rad-project" ["init"] ["project-name", "project desc", "1"]
     _ <- runTestCommand "git" ["checkout", "-b", "f/test"]
     _ <- runTestCommand "touch" ["test"]
