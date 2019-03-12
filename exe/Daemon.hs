@@ -18,6 +18,7 @@ import           Options.Applicative
 import           Servant
 import           System.IO (BufferMode(..), hSetBuffering)
 
+import           Radicle.Daemon.Error
 import qualified Radicle.Daemon.HttpApi as Api
 import           Radicle.Daemon.Ipfs
 import           Radicle.Daemon.Logging
@@ -31,11 +32,6 @@ import           Radicle hiding (DaemonError, Env)
 import qualified Radicle.Internal.CLI as Local
 import qualified Radicle.Internal.ConcurrentMap as CMap
 import qualified Radicle.Internal.UUID as UUID
-
--- * Types
-
-logDaemonError :: MonadIO m => Error -> m ()
-logDaemonError (displayError -> (m, xs)) = logError' m xs
 
 -- * Main
 
