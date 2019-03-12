@@ -18,11 +18,11 @@ import           Options.Applicative
 import           Servant
 import           System.IO (BufferMode(..), hSetBuffering)
 
-import           Radicle.Daemon.Common
 import qualified Radicle.Daemon.HttpApi as Api
 import           Radicle.Daemon.Ipfs
 import           Radicle.Daemon.Logging
 import           Radicle.Daemon.MachineConfig
+import           Radicle.Daemon.MachineStore
 import           Radicle.Daemon.Monad
 
 import qualified Radicle.Ipfs as Ipfs
@@ -93,7 +93,7 @@ waitForIpfsDaemon = do
         go 5
   where
     go :: Int -> Daemon ()
-    go 0 = throwError IpfsDaemonNotReachable
+    go 0 = throw IpfsDaemonNotReachable
     go n = do
         isOnline <- checkIpfsIsOnline
         if isOnline
@@ -188,11 +188,11 @@ init follows = traverse_ initMachine (Map.toList follows)
 -- /writer/.
 newMachine :: Daemon Api.NewResponse
 newMachine = do
-    id <- ipfs createMachine CouldNotCreateMachine
+    id <- wrapException CouldNotCreateMachine (liftIO createMachine)
     sub <- initDaemonSubscription id
     logInfo "Created new IPFS machine" [("machine-id", getMachineId id)]
-    m <- liftIO $ emptyMachine id Writer sub
-    insertNewMachine id (Cached m)
+    m <- emptyMachine id Writer sub
+    insertMachine m
     actAsWriter m
     writeMachineConfig
     pure (Api.NewResponse id)
@@ -208,7 +208,7 @@ query id (Api.QueryRequest v) = do
   m <- ensureMachineLoaded id
   bumpPolling id
   case fst <$> runIdentity $ runLang (machineState m) $ eval v of
-    Left err -> throwError $ MachineError id (InvalidInput err)
+    Left err -> throw $ MachineError id (InvalidInput err)
     Right rv -> do
       logInfo "Handled query" [("machine-id", getMachineId id)]
       pure (Api.QueryResponse rv)
@@ -255,7 +255,7 @@ send id (Api.SendRequest expressions) = do
                  ]
           bumpPolling id
           pure Api.SendResponse{..}
-        Nothing -> throwError $ MachineError id AckTimeout
+        Nothing -> throw $ MachineError id AckTimeout
 
 
     prValues = T.intercalate "," . (renderCompactPretty <$>)
@@ -268,8 +268,7 @@ send id (Api.SendRequest expressions) = do
 -- into memory and start following its changes.
 ensureMachineLoaded :: MachineId -> Daemon Machine
 ensureMachineLoaded id = do
-  msCMap <- asks machines
-  m_ <- liftIO $ CMap.lookup id (getMachines msCMap)
+  m_ <- lookupMachine id
   case m_ of
     Nothing -> do
       -- In this case we have not seen the machine before so we act as
@@ -309,9 +308,9 @@ loadMachine :: ReaderOrWriter -> MachineId -> Daemon Machine
 loadMachine mode id = do
   (idx, is) <- machineIpfs id $ machineInputsFrom id Nothing
   sub <- initDaemonSubscription id
-  m <- liftIO $ emptyMachine id mode sub
+  m <- emptyMachine id mode sub
   (m', _) <- addInputs is idx m
-  insertNewMachine id (Cached m')
+  insertMachine m'
   pure m'
 
 -- | Add inputs to a machine and update its state
@@ -326,7 +325,7 @@ addInputs
 addInputs inputs index m = do
   let (result, newState) = runIdentity $ runLang (machineState m) $ traverse eval inputs
   case result of
-    Left err -> throwError $ MachineError (machineId m) (InvalidInput err)
+    Left err -> throw $ MachineError (machineId m) (InvalidInput err)
     Right outputs -> do
       t <- liftIO $ Time.getSystemTime
       let m' = m { machineState = newState
@@ -335,59 +334,15 @@ addInputs inputs index m = do
                  }
       pure (m', outputs)
 
--- | Run some IPFS IO.
-ipfs :: IO a -> (Ipfs.IpfsException -> Error) -> Daemon a
-ipfs io err = do
-  res <- liftIO $ (Right <$> io) `catch` \(e :: Ipfs.IpfsException) -> pure (Left e)
-  case res of
-    Left e  -> throwError (err e)
-    Right x -> pure x
-
 -- | Run some IPFS IO related to a specific machine.
 machineIpfs :: MachineId -> IO a -> Daemon a
-machineIpfs id io = ipfs io (MachineError id . IpfsError)
+machineIpfs id io = wrapException (MachineError id . IpfsError) (liftIO io)
 
 -- | Do some high-freq polling for a while.
 bumpPolling :: MachineId -> Daemon ()
 bumpPolling id = do
   modifyMachine id $ \m -> pure (m { machinePolling = highFreq }, () )
   logDebug "Reset to high-frequency polling" [("machine-id", getMachineId id)]
-
--- | Insert a new machine into the cache.
-insertNewMachine :: MachineId -> CachedMachine -> Daemon ()
-insertNewMachine id m = do
-    msCMap <- asks machines
-    liftIO $ CMap.insert id m (getMachines msCMap)
-
--- | Modify a machine that is already in the cache. Errors if the
--- machine isn't in the cache already.
-modifyMachine :: forall a. MachineId -> (Machine -> Daemon (Machine, a)) -> Daemon a
-modifyMachine id f = do
-    CachedMachines machineMap <- asks machines
-    res <- CMap.modifyExistingValue id machineMap modCached
-    case res of
-      Nothing -> throwError (MachineError id MachineNotCached)
-      Just a  -> pure a
-  where
-    modCached :: CachedMachine -> Daemon (CachedMachine, a)
-    modCached = \case
-        UninitialisedReader _ -> throwError $ MachineError id MachineNotCached
-        Cached m -> do
-            (m', a) <- f m
-            pure (Cached m', a)
-
-
-emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IO Machine
-emptyMachine id mode sub = do
-  t <- Time.getSystemTime
-  pure Machine{ machineId = id
-              , machineState = pureEnv
-              , machineLastIndex = emptyMachineEntryIndex
-              , machineMode = mode
-              , machineSubscription = sub
-              , machineLastUpdated = t
-              , machinePolling = highFreq
-              }
 
 -- ** Reader
 
@@ -418,11 +373,10 @@ initAsReader id = do
 -- | Try to initiate a reader, but don't fail in case of errors; just log a
 -- message.
 initReaderNoFail :: MachineId -> Daemon ()
-initReaderNoFail id = catchError (initAsReader id $> ()) $ \err -> do
+initReaderNoFail id = catch (initAsReader id $> ()) $ \err -> do
   let (msg, infos) = displayError err
   logError' "Could not initiate reader-mode machine on startup" $ ("init-error", msg) : infos
-  t <- liftIO Time.getSystemTime
-  insertNewMachine id (UninitialisedReader t)
+  insertUninitializedReader id
 
 -- | Updates a (already initialised) machine in the cache with new inputs pulled
 -- from IPFS.
@@ -503,11 +457,7 @@ writeInputs id inputs nonce = do
 
 -- | Fetch and apply new inputs for all machines in reader mode.
 poll :: Daemon ()
-poll = do
-    msVar <- asks machines
-    ms <- liftIO $ CMap.nonAtomicRead (getMachines msVar)
-    _ <- Map.traverseWithKey pollMachine ms
-    pure ()
+poll = traverseMachines pollMachine
   where
     pollMachine :: MachineId -> CachedMachine -> Daemon ()
     pollMachine id = \case
@@ -578,8 +528,3 @@ lowFreqPollPeriod = 10 * 1000
 -- a writer: 8 seconds.
 ackWaitTime :: Milliseconds
 ackWaitTime = 8 * 1000
-
--- | The amount of time a machine does high-frequency polling for
--- before it returns to low-frequency polling: 10 minutes.
-highFreq :: Polling
-highFreq = HighFreq (10 * 60 * 1000)

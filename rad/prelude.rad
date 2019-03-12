@@ -11,6 +11,7 @@
 (file-module! "prelude/seq.rad")
 (file-module! "prelude/list.rad")
 (file-module! "prelude/strings.rad")
+(file-module! "prelude/error-messages.rad")
 (file-module! "prelude/dict.rad")
 (file-module! "prelude/io.rad")
 (file-module! "prelude/maybe.rad")

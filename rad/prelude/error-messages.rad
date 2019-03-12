@@ -11,6 +11,7 @@
    parent-commit-not-master checkout-new-branch-failure checkout-master-failure
    applying-patch-failure applying-accepted-patch-failure push-patch-failure
    missing-key-file rad-ipfs-name-publish-failure rad-ipfs-key-gen-failure
+   process-exit-error
    ]}
 
 (import prelude/strings :unqualified)
@@ -18,6 +19,7 @@
 ;; parsing
 
 (def missing-arg
+  "Used for command line parsing when an argument to a command is missing."
   (fn [arg cmd]
     (string-append "Missing argument \"" arg "\" for command \"" cmd "\"")))
 
@@ -25,6 +27,7 @@
   [(missing-arg "foo" "bar") ==> "Missing argument \"foo\" for command \"bar\""])
 
 (def too-many-args
+  "Used for command line parsing when there are too many arguments passed to a command."
   (fn [cmd]
     (string-append "Too many arguments for command \"" cmd "\"")))
 
@@ -39,6 +42,7 @@
   [(valid-args-help ["foo" "bar"]) ==> "Valid arguments: foo, bar"])
 
 (def missing-arg-for-opt
+  "Used for command line parsing when an option requires an argument."
   (fn [opt valid-args]
     (string-append
       "Missing argument for option \"" opt "\". "
@@ -48,6 +52,7 @@
   [(missing-arg-for-opt "-s" ["foo" "bar"]) ==> "Missing argument for option \"-s\". Valid arguments: foo, bar"])
 
 (def invalid-arg-for-opt
+  "Used for command line parsing when the argument for an option is invalid."
   (fn [arg opt valid-args]
     (string-append
       "Invalid argument \"" arg "\" for option \"" opt "\". "
@@ -57,6 +62,7 @@
   [(invalid-arg-for-opt "foobar" "-s" ["foo" "bar"]) ==> "Invalid argument \"foobar\" for option \"-s\". Valid arguments: foo, bar"])
 
 (def invalid-opt-for-cmd
+  "Used for command line parsing when the option for a given command is unkown"
   (fn [opt cmd]
     (string-append "Invalid option \"" opt "\" for command " cmd ".")))
 
@@ -309,3 +315,21 @@ Do `rad key create` to create your own key pair and rerun your command."])
 
 (:test "rad-ipfs-name-publish-failure"
   [(rad-ipfs-name-publish-failure "stderr") ==>  "error: Failed to publish key for Git IPFS repository:\nstderr"])
+
+;; sub-processes
+
+(def process-exit-error
+  "Printed when the a sub process exits with a non-zero exit code.
+  Includes the stderr output in the message."
+  (fn [command args exit-code stderr]
+    (def command-line (intercalate " " (cons command args)))
+    (def message (string-append "error: Command \"" command-line "\" exited with status code " (show exit-code)))
+    (def stderr-output (map (fn [l] (string-append "  stderr: " l)) stderr))
+    (unlines (cons message stderr-output))
+    ))
+
+(:test "process-exit-error"
+  [(process-exit-error "foo" ["arg1" "arg2"] 5 ["fail1" "fail2"]) ==>
+"error: Command \"foo arg1 arg2\" exited with status code 5
+  stderr: fail1
+  stderr: fail2"])
