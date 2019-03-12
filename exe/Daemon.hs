@@ -82,6 +82,7 @@ main = do
     Cli.Opts{..} <- Cli.parse
     machineConfigFileLock <- newMVar ()
     machines <- CachedMachines <$> CMap.empty
+    envIpfsClient <- Ipfs.newClient
     let env = Env{ logLevel = if debug then LogDebug else LogInfo, ..}
     machineConfig <- readMachineConfigIO machineConfigFileLock machineConfigFile
     initRes <- runDaemon env $ do
