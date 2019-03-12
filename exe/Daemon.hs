@@ -109,7 +109,7 @@ waitForIpfsDaemon = do
             go (n - 1)
 
     checkIpfsIsOnline :: Daemon Bool
-    checkIpfsIsOnline = liftIO $ do
+    checkIpfsIsOnline = do
         result <- tryJust isIpfsExceptionNoDaemon Ipfs.version
         pure $ case result of
             Left _  -> False

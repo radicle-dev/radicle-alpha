@@ -51,7 +51,7 @@ valueToJson = Aeson.String . renderCompactPretty
 -- * Types
 
 
-class (MonadIO m, MonadThrow m, MonadUnliftIO m) => MonadMachineIpfs m
+class (MonadIO m, MonadThrow m, MonadUnliftIO m, Ipfs.MonadIpfs m) => MonadMachineIpfs m
 
 newtype MachineId = MachineId { getMachineId :: Text }
     deriving (Show, Eq, Ord, Generic)
@@ -162,7 +162,7 @@ instance Aeson.FromJSON MachineEntryIndex where
 -- TODO: we might want to make this safer by taking the expected head
 -- MachineEntryIndex as an argument.
 writeIpfs :: (MonadMachineIpfs m) => MachineId -> [Value] -> m MachineEntryIndex
-writeIpfs (MachineId ipnsId) values = liftIO $ do
+writeIpfs (MachineId ipnsId) values = do
     Ipfs.NameResolveResponse cid <- Ipfs.nameResolve ipnsId
     Ipfs.DagPutResponse newEntryCid <- Ipfs.dagPut $ MachineEntry values cid
     Ipfs.namePublish ipnsId $ Ipfs.AddressIpfs newEntryCid
@@ -176,11 +176,11 @@ machineTopic (MachineId id) = Topic ("radicle:machine:" <> id)
 
 -- | Publish a 'Message' on a machine's IPFS pubsub topic.
 publish :: (MonadMachineIpfs m) => MachineId -> Message -> m ()
-publish id msg = liftIO $ Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
+publish id msg = Ipfs.publish (getTopic (machineTopic id)) (Aeson.encode msg)
 
 -- | Subscribe to messages on a machine's IPFS pubsub topic.
 subscribeForever :: (MonadMachineIpfs m) => MachineId -> (Either Text Message -> IO ()) -> m ()
-subscribeForever id messageHandler = liftIO $ Ipfs.subscribe topic pubsubHandler
+subscribeForever id messageHandler = Ipfs.subscribe topic pubsubHandler
   where
     Topic topic = machineTopic id
     pubsubHandler Ipfs.PubsubMessage{..} = messageHandler $ case decodeStrict messageData of
@@ -199,7 +199,7 @@ machineInputsFrom
     => MachineId -> Maybe MachineEntryIndex -> m (MachineEntryIndex, [Value])
 machineInputsFrom (MachineId ipnsId) maybeFrom = do
     let MachineEntryIndex fromCid = fromMaybe (MachineEntryIndex emptyMachineCid) maybeFrom
-    Ipfs.NameResolveResponse cid <- liftIO $ Ipfs.nameResolve ipnsId
+    Ipfs.NameResolveResponse cid <- Ipfs.nameResolve ipnsId
     blocks <- getBlocks cid fromCid
     pure $ (MachineEntryIndex cid, blocks)
   where
@@ -209,8 +209,8 @@ machineInputsFrom (MachineId ipnsId) maybeFrom = do
         then pure []
         else do
             let addr = Ipfs.AddressIpfs cid
-            entry <- liftIO $ Ipfs.dagGet addr
-            _ <- liftIO $ Ipfs.pinAdd addr
+            entry <- Ipfs.dagGet addr
+            _ <- Ipfs.pinAdd addr
             rest <- getBlocks (entryPrevious entry) fromCid
             pure $ rest <> entryExpressions entry
 
@@ -231,8 +231,8 @@ emptyMachineCid =
 -- Generates a new IPNS key and sets the IPNS record to the empty
 -- machine DAG node.
 createMachine :: (MonadMachineIpfs m) => m MachineId
-createMachine = liftIO $ do
-    uuid <- UUID.uuid
+createMachine = do
+    uuid <- liftIO UUID.uuid
     Ipfs.KeyGenResponse ipnsId <- Ipfs.keyGen uuid
     Ipfs.namePublish ipnsId $ Ipfs.AddressIpfs emptyMachineCid
     pure $ MachineId ipnsId
@@ -240,7 +240,7 @@ createMachine = liftIO $ do
 -- | Publish to IPNS a machine entry index for a machine. Should only be issued
 -- by the writer.
 ipnsPublish :: (MonadMachineIpfs m) => MachineId -> MachineEntryIndex -> m ()
-ipnsPublish id (MachineEntryIndex cid) = liftIO $ Ipfs.namePublish (getMachineId id) $ Ipfs.AddressIpfs cid
+ipnsPublish id (MachineEntryIndex cid) = Ipfs.namePublish (getMachineId id) $ Ipfs.AddressIpfs cid
 
 -- * Topic subscriptions
 

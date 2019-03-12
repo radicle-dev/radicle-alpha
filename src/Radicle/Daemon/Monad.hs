@@ -24,6 +24,7 @@ import           Radicle.Daemon.Error
 import           Radicle.Daemon.Ipfs (MonadMachineIpfs)
 import           Radicle.Daemon.Logging
 import           Radicle.Daemon.MachineStore
+import qualified Radicle.Ipfs as Ipfs
 
 
 newtype Daemon a = Daemon (ReaderT Env IO a)
@@ -40,6 +41,8 @@ instance MonadLog Daemon where
 
 instance MonadMachineStore Daemon where
     askMachines = asks machines
+
+instance Ipfs.MonadIpfs Daemon
 
 instance MonadMachineIpfs Daemon
 
