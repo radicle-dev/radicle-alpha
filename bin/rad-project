@@ -121,7 +121,7 @@
                "" []
                'url ["3. Remote origin of existing current git repository:"
                      (string-append "   " url)])
-         ["(see radicle.xyz/docs/storage for more info)\n"]])))
+         ["(see www.radicle.xyz/docs/storage for more info)\n"]])))
     (match (prompt! question)
            "1" (init-git-ipfs-repo cid-of-empty-repo)
            "2" (do
