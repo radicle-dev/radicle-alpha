@@ -198,8 +198,8 @@
     (def items
       (map mk-key
           (map (fn [i] (enrich machine i))
-          (filter filt
-            (reverse (values (list-issues machine)))))))
+               (filter filt
+                       (reverse (values (list-issues machine)))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
