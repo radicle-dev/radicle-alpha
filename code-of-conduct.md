@@ -4,7 +4,7 @@ We, the Radicle maintainers, intend to create a developer community based on com
 
 By engaging with the Radicle repository you agree to these standards of exchange that we consider necessary to ensure the health of the Radicle community overall.
 
-We consider this a living document that should be updated according to the needs of the Radicle developer community. We welcome comments and proposals for future iterations and invite you to visit the git history if you are interested its evolution.
+We consider this a living document that should be updated according to the needs of the Radicle developer community. We welcome comments and proposals for future iterations and invite you to visit the git history if you are interested its in evolution.
 
 # Standards for Acceptable Contribution:
 
