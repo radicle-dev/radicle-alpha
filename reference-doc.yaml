@@ -138,6 +138,7 @@ modules:
 - prelude/seq
 - prelude/list
 - prelude/strings
+- prelude/error-messages
 - prelude/dict
 - prelude/io
 - prelude/exception

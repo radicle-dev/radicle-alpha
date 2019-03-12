@@ -859,6 +859,161 @@ True if ``str`` ends with ``substr``
 Appends the ``word`` with whitespace to get to length ``l``. If ``word``
 is longer than ``l``, the whole word is returned without padding.
 
+``prelude/error-messages``
+--------------------------
+
+Functions for user facing error messages. Functions should either have a
+descriptive name or additional comment so that the text can be edited
+without knowledge of where they are used. To verify changes, tests can
+be run with ``stack exec -- radicle test/all.rad``
+
+``(missing-arg arg cmd)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Used for command line parsing when an argument to a command is missing.
+
+``(too-many-args cmd)``
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Used for command line parsing when there are too many arguments passed
+to a command.
+
+``(missing-arg-for-opt opt valid-args)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Used for command line parsing when an option requires an argument.
+
+``(invalid-arg-for-opt arg opt valid-args)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Used for command line parsing when the argument for an option is
+invalid.
+
+``(invalid-opt-for-cmd opt cmd)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Used for command line parsing when the option for a given command is
+unkown
+
+``(dir-already-exists dir-name)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad project checkout`` is aborted, if there is already a directory
+with the name of the project ``dir-name`` in the current directory.
+
+``(git-clone-failure origin name)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad project checkout`` is aborted, if cloning the repo ``name`` form
+``origin`` failed.
+
+``(upstream-commit-failure)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad project init`` is aborted when creating an empty commit failed in
+preparation to setting the upstream master branch.
+
+``(upstream-push-failure)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad project init`` is aborted when pushing the empty commit failed
+while setting the upstream master branch.
+
+``(item-not-found item item-number)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Any command on a specific patch/issue aborts if it does not exist.
+
+``(whole-item-number item)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Any command on a specific patch/issue aborts if the provided
+``item-number`` is not a whole number.
+
+``(missing-item-number item action)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Any command on a specific patch/issue aborts if the ``item-number`` is
+not provided.
+
+``(state-change-failure item state)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On changing the state of a patch/issue if the daemon returned an error.
+
+``(no-number-returned item)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On creating a patch/issue, when the creation was successful, but no
+patch/issue number was returned.
+
+``(unknown-command cmd)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An unknown command for an app. E.g. ``rad issue foobar``
+
+``(unknown-commit commit)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch propose`` aborts if the provided commit is unknown.
+
+``(parent-commit-not-master commit)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch propose`` aborts if the provided commit is unknown.
+
+``(checkout-new-branch-failure branch)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch checkout`` aborts if creating and switching to the patch
+branch fails.
+
+``(checkout-master-failure)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch accept`` aborts if checking out the master branch fails.
+
+``(applying-patch-failure)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch checkout`` aborts if applying the patch to the patch branch
+fails. Conflicts have to be resolved manually.
+
+``(applying-accepted-patch-failure)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch accept`` aborts if applying the patch to master fails.
+Conflicts have to be resolved manually as well as pushing the commit.
+
+``(push-patch-failure)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch accept`` aborts if pushing the patch failed.
+
+``(missing-key-file)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Any request to the machine is aborted, when the key file can't be found.
+
+``(rad-ipfs-name-publish-failure stderr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Printed when the ``rad ipfs name publish`` command in
+``init-git-ipfs-repo`` in ``rad-project`` fails. Takes stderr of the
+command as an argument.
+
+``(rad-ipfs-key-gen-failure stderr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Printed when the ``rad ipfs key gen`` command in ``init-git-ipfs-repo``
+in ``rad-project`` fails. Takes stderr of the command as an argument.
+
+``(process-exit-error command args exit-code stderr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Printed when the a sub process exits with a non-zero exit code. Includes
+the stderr output in the message.
+
 ``prelude/dict``
 ----------------
 
@@ -959,15 +1114,28 @@ Like ``shell!``, but inherits stdin. WARNING: using ``shell!`` with
 unsanitized user input is a security hazard! Example:
 ``(shell-no-stdin! "ls -Glah")``.
 
+``(write-file! filename contents)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Write ``contents`` to file ``filename``.
+
 ``(process-with-stdout! command args to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Like ``process!``, but captures stdout.
 
-``(write-file! filename contents)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(process-with-stdout-stderr-exitcode! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Write ``contents`` to file ``filename``.
+Like ``process-with-stdout!``, but returns a vec
+``[stdout stderr exitcode]``. ``exitcode`` is either ``:ok`` or
+``[:error n]`` where ``n`` is a number.
+
+``(process-with-stdout-strict! command args to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``process-with-stdout!``, but prints an error message and exits if
+the command fails.
 
 ``(init-file-dict! file)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1007,13 +1175,6 @@ If
 is used.
 
 This requires the ``prelude/test/primitive-stub`` script to be loaded.
-
-``(process-with-stdout-stderr-exitcode! command args to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Like ``process-with-stdout!``, but returns a vec
-``[stdout stderr exitcode]``. ``exitcode`` is either ``:ok`` or
-``[:error n]`` where ``n`` is a number.
 
 ``(prompt! prompt)``
 ~~~~~~~~~~~~~~~~~~~~

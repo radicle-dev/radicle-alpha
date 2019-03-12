@@ -11,6 +11,7 @@
 (import prelude/error-messages :as 'error)
 (import prelude/validation :as 'validation)
 (import prelude/cmd-parsing :unqualified)
+(import prelude/io :as 'io)
 (import prelude/io-utils
   '[set-git-config get-git-config process-git-with-exit!]
   :unqualified)
@@ -123,7 +124,11 @@
          ["(see radicle.xyz/docs/storage for more info)\n"]])))
     (match (prompt! question)
            "1" (init-git-ipfs-repo cid-of-empty-repo)
-           "2" (prompt! "Please input the remote git repo URL: ")
+           "2" (do
+                 (def remote-url (prompt! "Please input the remote git repo URL: "))
+                 (io/process-with-stdout-strict!
+                   "git" ["remote" "add" "origin" remote-url] "")
+                 remote-url)
            "3" (if (eq? current-remote "")
                  (do (put-str! "No current remote origin set; please select 1 or 2.")
                      (exit! !))
