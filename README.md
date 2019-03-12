@@ -61,7 +61,7 @@ rad project checkout 12D3KooWPS3UXcvSZSXfi7P4J9Ut8MMVNvN63HHiCSP8rxj3RmtC
 If you cloned the project from Github, you can instead, from the repo, run:
 
 ```
-git config set radicle.project-id=12D3KooWPS3UXcvSZSXfi7P4J9Ut8MMVNvN63HHiCSP8rxj3RmtC
+git config radicle.project-id 12D3KooWPS3UXcvSZSXfi7P4J9Ut8MMVNvN63HHiCSP8rxj3RmtC
 ```
 
 You can also reach us on the `radicle` IRC channel on `#freenode`, or via the
