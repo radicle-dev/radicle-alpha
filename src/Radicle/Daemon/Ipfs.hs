@@ -4,12 +4,12 @@ module Radicle.Daemon.Ipfs
   , InputsApplied(..)
   , SubmitInputs(..)
   , writeIpfs
-  , Radicle.Daemon.Ipfs.publish
+  , publish
   , ipnsPublish
   , machineInputsFrom
   , createMachine
-  , Ipfs.MachineEntryIndex
   , emptyMachineEntryIndex
+  , MachineEntryIndex
   , TopicSubscription
   , initSubscription
   , subscribeOne
@@ -25,13 +25,12 @@ import           Control.Monad.Fail
 import           Data.Aeson (decodeStrict, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
+import           Data.IPLD.CID
 import qualified Data.Map.Strict as Map
-import qualified Data.Sequence as Seq
 import qualified Data.Unique as Unique
 import           System.Timeout
 
 import           Radicle.Internal.Core
-import qualified Radicle.Internal.MachineBackend.Ipfs as Ipfs
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import qualified Radicle.Internal.UUID as UUID
@@ -102,13 +101,66 @@ data SubmitInputs = SubmitInputs
   , expressions :: [Value]
   }
 
+
+-- | A node in the linked list of inputs of a machine.
+--
+-- Stored as an IPLD document with the IPFS DAG API. The document has
+-- the following shape
+-- @
+--      {
+--        "expressions": [
+--          "(def foo :hey)",
+--          "(get-value)"
+--        ],
+--        "previous": { "/": "QmA..." }
+--      }
+-- @
+data MachineEntry = MachineEntry
+    { entryExpressions :: [Value]
+    , entryPrevious    :: CID
+    } deriving (Eq, Show, Read, Generic)
+
+instance Aeson.FromJSON MachineEntry where
+    parseJSON = Aeson.withObject "MachineEntry" $ \o -> do
+        expressionCodes <- o .: "expressions"
+        let src = "[ipfs]"
+        entryExpressions :: [Value] <-
+            case traverse (parse src) expressionCodes of
+                Left err  -> fail $ "failed to parse Radicle expression: " <> show err
+                Right v -> pure v
+        entryPrevious <- Ipfs.parseIpldLink =<< o .: "previous"
+        pure MachineEntry {..}
+
+instance Aeson.ToJSON MachineEntry where
+    toJSON MachineEntry{..} =
+        let code = map renderCompactPretty entryExpressions
+        in Aeson.object
+            [ "expressions" .= code
+            , "previous" .= Ipfs.ipldLink entryPrevious
+            ]
+
+-- | Identifies a 'MachineEntry' stored on IPFS. Wraps 'CID'.
+newtype MachineEntryIndex = MachineEntryIndex CID
+    deriving (Show, Eq)
+
+instance Aeson.ToJSON MachineEntryIndex where
+  toJSON (MachineEntryIndex cid) = Ipfs.ipldLink cid
+
+instance Aeson.FromJSON MachineEntryIndex where
+  parseJSON = fmap MachineEntryIndex . Ipfs.parseIpldLink
+
+
 -- * Ipfs helpers
 
 -- | Write and pin some inputs to an IPFS machine.
 -- TODO: we might want to make this safer by taking the expected head
 -- MachineEntryIndex as an argument.
-writeIpfs :: MachineId -> [Value] -> IO Ipfs.MachineEntryIndex
-writeIpfs (MachineId id) vs = Ipfs.sendIpfs id (Seq.fromList vs)
+writeIpfs :: MachineId -> [Value] -> IO MachineEntryIndex
+writeIpfs (MachineId ipnsId) values = do
+    Ipfs.NameResolveResponse cid <- Ipfs.nameResolve ipnsId
+    Ipfs.DagPutResponse newEntryCid <- Ipfs.dagPut $ MachineEntry values cid
+    Ipfs.namePublish ipnsId $ Ipfs.AddressIpfs newEntryCid
+    pure $ MachineEntryIndex newEntryCid
 
 newtype Topic = Topic { getTopic :: Text }
 
@@ -129,9 +181,42 @@ subscribeForever id messageHandler = Ipfs.subscribe topic pubsubHandler
       Just msg -> Right msg
       Nothing  -> Left (toS messageData)
 
--- | Get and pin inputs of an IPFS machine from a certain index.
-machineInputsFrom :: MachineId -> Maybe Ipfs.MachineEntryIndex -> IO (Ipfs.MachineEntryIndex, [Value])
-machineInputsFrom = Ipfs.receiveIpfs . getMachineId
+-- | Get inputs of an IPFS machine from least to most recent.
+--
+-- The returned 'Ipfs.MachineEntryIndex' is the index of the most
+-- recent input.
+--
+-- If @maybeFrom@ is @Just index@ all inputs after (but not
+-- including) @index@ are returned. Otherwise all inputs are returned.
+machineInputsFrom :: MachineId -> Maybe MachineEntryIndex -> IO (MachineEntryIndex, [Value])
+machineInputsFrom (MachineId ipnsId) maybeFrom = do
+    let MachineEntryIndex fromCid = fromMaybe (MachineEntryIndex emptyMachineCid) maybeFrom
+    Ipfs.NameResolveResponse cid <- Ipfs.nameResolve ipnsId
+    blocks <- getBlocks cid fromCid
+    pure $ (MachineEntryIndex cid, blocks)
+  where
+    getBlocks :: CID -> CID -> IO [Value]
+    getBlocks cid fromCid = do
+        if cid == fromCid || cid == emptyMachineCid
+        then pure []
+        else do
+            let addr = Ipfs.AddressIpfs cid
+            entry <- Ipfs.dagGet addr
+            _ <- Ipfs.pinAdd addr
+            rest <- getBlocks (entryPrevious entry) fromCid
+            pure $ rest <> entryExpressions entry
+
+
+-- | If a machine points to this ID then its log is considered empty.
+-- The first entry in a machine log also points to this entry.
+--
+-- This is the CID produced by the document @{"radicle": true}@.
+emptyMachineCid :: CID
+emptyMachineCid =
+    case cidFromText "zdpuAyyGtvC37aeZid2zh7LAGKCbFTn9MzdqoPpbNQm3BCwWT" of
+        Left e    -> panic $ toS e
+        Right cid -> cid
+
 
 -- | Create an IPFS machine and return its ID.
 --
@@ -141,13 +226,13 @@ createMachine :: IO MachineId
 createMachine = do
     uuid <- UUID.uuid
     Ipfs.KeyGenResponse ipnsId <- Ipfs.keyGen uuid
-    Ipfs.namePublish ipnsId $ Ipfs.AddressIpfs Ipfs.emptyMachineCid
+    Ipfs.namePublish ipnsId $ Ipfs.AddressIpfs emptyMachineCid
     pure $ MachineId ipnsId
 
 -- | Publish to IPNS a machine entry index for a machine. Should only be issued
 -- by the writer.
-ipnsPublish :: MachineId -> Ipfs.MachineEntryIndex -> IO ()
-ipnsPublish id (Ipfs.MachineEntryIndex cid) = Ipfs.namePublish (getMachineId id) $ Ipfs.AddressIpfs cid
+ipnsPublish :: MachineId -> MachineEntryIndex -> IO ()
+ipnsPublish id (MachineEntryIndex cid) = Ipfs.namePublish (getMachineId id) $ Ipfs.AddressIpfs cid
 
 -- * Topic subscriptions
 
@@ -204,5 +289,5 @@ subscribeOne subscription t matchMessage = do
             (removeHandler subscription)
             (\_ -> readMVar msgVar)
 
-emptyMachineEntryIndex :: Ipfs.MachineEntryIndex
-emptyMachineEntryIndex = Ipfs.MachineEntryIndex Ipfs.emptyMachineCid
+emptyMachineEntryIndex :: MachineEntryIndex
+emptyMachineEntryIndex = MachineEntryIndex emptyMachineCid

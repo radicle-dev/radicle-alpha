@@ -1,13 +1,17 @@
 {:module 'prelude/io
  :doc "Some basic I/O functions."
  :exports '[print! shell! process! read-line! read-file-value! read-file-values!
-            shell-with-stdout! shell-no-stdin! process-with-stdout! write-file!
+            shell-with-stdout! shell-no-stdin! write-file!
+            process-with-stdout! process-with-stdout-stderr-exitcode!
+            process-with-stdout-strict!
             init-file-dict! read-file-key! write-file-key! ls! modify-file!
-            install-fake-filesystem! process-with-stdout-stderr-exitcode! prompt!
+            install-fake-filesystem! prompt!
            ]}
 
 (import prelude/patterns :unqualified)
+(import prelude/strings :as 'strings)
 (import prelude/dict :unqualified)
+(import prelude/error-messages :as 'error)
 
 (def read-line!
   "Read a single line of input and interpret it as radicle data."
@@ -187,6 +191,21 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
 (:test "process-with-stdout-stderr-exitcode!"
   [ (process-with-stdout-stderr-exitcode! "echo" ["hi"] "") ==> [["hi"] [] :ok] ]
   [ (process-with-stdout-stderr-exitcode! "false" [] "") ==> [[] [] [:error 1]] ]
+)
+
+(def process-with-stdout-strict!
+  "Like `process-with-stdout!`, but prints an error message and exits if the command fails."
+  (fn [command args to-write]
+    (match (process-with-stdout-stderr-exitcode! command args to-write)
+      ['stdout _ :ok] stdout
+      ['stdout 'stderr [:error 'exit-code]]
+        (do
+          (put-str! (error/process-exit-error command args exit-code stderr))
+          (exit! 1))
+      )))
+
+(:test "process-with-stdout-strict!"
+  [ (process-with-stdout-strict! "echo" ["hi"] "") ==> ["hi"] ]
 )
 
 ;; General utilities
