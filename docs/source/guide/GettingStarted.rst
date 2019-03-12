@@ -4,7 +4,7 @@ Getting Started
 The easiest way to play with `radicle` is to use the online REPL, available at
 the `radicle` website_.
 
-.. _website: http://radicle.xyz
+.. _website: http://www.radicle.xyz
 
 The online REPL is quite limited, however (and slow). So you will probably also
 want the `radicle` executable.
