@@ -11,6 +11,7 @@
 (import prelude/patterns :unqualified)
 (import prelude/strings :as 'strings)
 (import prelude/dict :unqualified)
+(import prelude/error-messages :as 'error)
 
 (def read-line!
   "Read a single line of input and interpret it as radicle data."
@@ -197,11 +198,9 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
   (fn [command args to-write]
     (match (process-with-stdout-stderr-exitcode! command args to-write)
       ['stdout _ :ok] stdout
-      ['stdout 'stderr [:error 'n]]
+      ['stdout 'stderr [:error 'exit-code]]
         (do
-          (def command-line (strings/intercalate " " (cons command args)))
-          (put-str! (string-append "error: Command \"" command-line "\" exited with status code " (show n)))
-          (map (fn [l] (put-str! (string-append "  stderr: " l))) stderr)
+          (put-str! (error/process-exit-error command args exit-code stderr))
           (exit! 1))
       )))
 
