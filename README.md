@@ -50,8 +50,8 @@ To use Radicle you need to start the Radicle daemon
 
 ## Issues
 
-We are currently using `Radicle` itself to manage issues, and have therefore
-disabled issues on Github. You can create and see issues with `rad issues list`
+We are currently using `Radicle` itself to manage issues (but you
+can still submit issues on Github). You can create and see issues with `rad issues list`
 in the project repo. To checkout the project, run:
 
 ```
