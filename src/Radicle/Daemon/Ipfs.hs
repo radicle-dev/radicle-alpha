@@ -27,7 +27,6 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import           Data.IPLD.CID
 import qualified Data.Map.Strict as Map
-import qualified Data.Text as T
 import qualified Data.Unique as Unique
 import           System.Timeout
 
@@ -123,10 +122,10 @@ data MachineEntry = MachineEntry
 
 instance Aeson.FromJSON MachineEntry where
     parseJSON = Aeson.withObject "MachineEntry" $ \o -> do
-        expressionCode <- o .: "expression"
+        expressionCodes <- o .: "expressions"
         let src = "[ipfs]"
-        entryExpressions <-
-            case parseValues src expressionCode of
+        entryExpressions :: [Value] <-
+            case traverse (parse src) expressionCodes of
                 Left err  -> fail $ "failed to parse Radicle expression: " <> show err
                 Right v -> pure v
         entryPrevious <- Ipfs.parseIpldLink =<< o .: "previous"
@@ -134,9 +133,9 @@ instance Aeson.FromJSON MachineEntry where
 
 instance Aeson.ToJSON MachineEntry where
     toJSON MachineEntry{..} =
-        let code = T.intercalate "\n" $ map renderCompactPretty entryExpressions
+        let code = map renderCompactPretty entryExpressions
         in Aeson.object
-            [ "expression" .= code
+            [ "expressions" .= code
             , "previous" .= Ipfs.ipldLink entryPrevious
             ]
 
