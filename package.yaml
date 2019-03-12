@@ -68,6 +68,7 @@ library:
   - template-haskell
   - text
   - time
+  - unliftio-core
   - unordered-containers
   - uuid
   - wreq
@@ -79,6 +80,7 @@ tests:
     - test/spec
     dependencies:
     - radicle
+    - async
     - containers
     - cryptonite
     - directory
@@ -90,6 +92,7 @@ tests:
     - quickcheck-instances
     - scientific
     - serialise
+    - stm
     - string-qq
     - tasty
     - tasty-hunit
@@ -122,6 +125,7 @@ tests:
     - tasty-hunit
     - temporary
     - text
+    - unliftio
 
 executables:
   rad:

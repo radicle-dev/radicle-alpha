@@ -15,6 +15,7 @@ ENVIRONMENT VARIABLES
 
     - debian
     - pacman
+    - darwin
 
   VERSION (required)
     Version of the package.
@@ -82,10 +83,14 @@ EOF
   install -D --mode 0644 "$project_dir/packaging/radicle-ipfs.service" -t "$package_root/usr/lib/systemd/user"
   install -D --mode 0644 "$project_dir/packaging/radicle-daemon.service" -t "$package_root/usr/lib/systemd/user"
 
+  install -D --mode 0644 "$project_dir/LICENSE" -t "$package_root/usr/share/doc/radicle"
+
   mkdir -p "$package_root/$radpath"
   cp --archive $project_dir/rad -T "$package_root/$radpath"
 
-  get-ipfs "$package_root/$radicle_bindir"
+  if [ $include_ipfs = 1 ]; then
+    get-ipfs "$package_root/$radicle_bindir"
+  fi
 }
 
 function package () {
@@ -96,12 +101,15 @@ function package () {
     --input-type dir \
     --name radicle \
     --version $VERSION \
+    --license MIT \
     "$@" \
     "$package_root/=/"
   popd
 }
 
 function package-pacman () {
+  radicle_bindir=/usr/lib/radicle/bin
+  prepare-package-root
   package \
     --output-type pacman \
     --depends git \
@@ -110,12 +118,23 @@ function package-pacman () {
 }
 
 function package-debian () {
+  radicle_bindir=/usr/lib/radicle/bin
+  include_ipfs=1
+  prepare-package-root
   package \
     --output-type deb \
     --depends git \
     --depends libgmp10 \
     --depends libc6 \
     --depends libncurses5
+}
+
+function package-darwin () {
+  radpath=/usr/local/lib/radicle/modules
+  radicle_bindir=/usr/local/lib/radicle/bin
+  tarball="$project_dir/packaging/out/radicle_${VERSION}_x86_64-darwin.tar.gz"
+  prepare-package-root
+  tar -czf "$tarball" -C "$package_root" .
 }
 
 
@@ -141,12 +160,11 @@ fi
 
 set -x
 
+include_ipfs=0
 project_dir=$(realpath "$(dirname $BASH_SOURCE)/..")
-radicle_bindir=/usr/lib/radicle/bin
 radpath=/usr/lib/radicle/modules
 stack_bin_install_dir=$(stack path --local-install-root)/bin
 
 package_root=$(mktemp -td "radicle-package.XXXX")
-prepare-package-root
 package-$TARGET
 rm -rf "$package_root"

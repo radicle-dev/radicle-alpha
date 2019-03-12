@@ -6,7 +6,11 @@
  :exports
  '[missing-arg too-many-args missing-arg-for-opt invalid-arg-for-opt
    invalid-opt-for-cmd dir-already-exists git-clone-failure upstream-commit-failure
-   upstream-push-failure
+   upstream-push-failure item-not-found whole-item-number missing-item-number
+   state-change-failure no-number-returned unknown-command unknown-commit
+   parent-commit-not-master checkout-new-branch-failure checkout-master-failure
+   applying-patch-failure applying-accepted-patch-failure push-patch-failure
+   missing-key-file rad-ipfs-name-publish-failure rad-ipfs-key-gen-failure
    ]}
 
 (import prelude/strings :unqualified)
@@ -58,6 +62,22 @@
 
 (:test "invalid-opt-for-cmd"
   [(invalid-opt-for-cmd "foo" "list") ==> "Invalid option \"foo\" for command list."])
+
+;; unexported helpers for app errors
+
+(def a-or-an
+  (fn [word]
+    (if (all (map (fn [x] (not (starts-with? word x))) ["a" "e" "i" "o" "u"]))
+      "a"
+      "an")))
+
+(def uppercase-item
+  (fn [item]
+    (lookup item {:issue "Issue" :patch  "Patch"})))
+
+(def lowercase-item
+  (fn [item]
+    (lookup item {:issue "issue" :patch  "patch"})))
 
 ;; rad project specific errors
 
@@ -112,3 +132,180 @@ Make sure that git was initialized correctly and rerun 'rad project init'"])
 (:test "upstream-push-failure"
   [(upstream-push-failure) ==> "Error: git -u origin master failed.
 Set the upstream branch manually and rerun 'rad project init'"])
+
+;; rad patch specific errors
+
+(def unknown-commit
+  "`rad patch propose` aborts if the provided commit is unknown."
+  (fn [commit]
+    (string-append
+      "Commit " commit " can't be found.")))
+
+(:test "unknown-commit"
+  [(unknown-commit "12345") ==> "Commit 12345 can't be found."])
+
+(def parent-commit-not-master
+  "`rad patch propose` aborts if the provided commit is unknown."
+  (fn [commit]
+    (string-append
+      "Commit " commit " is not on top of origin/master.\n"
+      "Squash all commits on your branch and rebase if necessary.")))
+
+(:test "parent-commit-not-master"
+  [(parent-commit-not-master "12345") ==> "Commit 12345 is not on top of origin/master.
+Squash all commits on your branch and rebase if necessary."])
+
+(def checkout-new-branch-failure
+  "`rad patch checkout` aborts if creating and switching to the patch branch fails."
+  (fn [branch]
+    (string-append "Creating and switching to branch " branch " failed.")))
+
+(:test "checkout-new-branch-failure"
+  [(checkout-new-branch-failure "patch/3") ==> "Creating and switching to branch patch/3 failed."])
+
+(def checkout-master-failure
+  "`rad patch accept` aborts if checking out the master branch fails."
+  (fn []
+    (string-append
+      "Checkout branch master failed.\n"
+      "Refusing to continue.")))
+
+(:test "checkout-master-failure"
+  [(checkout-master-failure) ==> "Checkout branch master failed.
+Refusing to continue."])
+
+(def applying-patch-failure
+  "`rad patch checkout` aborts if applying the patch to the patch branch fails.
+  Conflicts have to be resolved manually."
+  (fn []
+    (string-append
+      "Applying the patch failed.\n"
+      "Abort or resolve any conflicts via 'git am'.")))
+
+(:test "applying-patch-failure"
+  [(applying-patch-failure) ==> "Applying the patch failed.
+Abort or resolve any conflicts via 'git am'."])
+
+(def applying-accepted-patch-failure
+  "`rad patch accept` aborts if applying the patch to master fails.
+  Conflicts have to be resolved manually as well as pushing the commit."
+  (fn []
+    (string-append
+      (applying-patch-failure) "\n"
+      "Then run 'git push'.")))
+
+(:test "applying-accepted-patch-failure"
+  [(applying-accepted-patch-failure) ==> "Applying the patch failed.
+Abort or resolve any conflicts via 'git am'.
+Then run 'git push'."])
+
+(def push-patch-failure
+  "`rad patch accept` aborts if pushing the patch failed."
+  (fn []
+    (string-append
+      "Pushing the patch failed.\n"
+      "This may be because you have no internet connection, "
+      "you are not authorized to push to origin, "
+      "or the remote is currently not reachable.")))
+
+(:test "push-patch-failure"
+  [(push-patch-failure) ==> "Pushing the patch failed.
+This may be because you have no internet connection, you are not authorized to push to origin, or the remote is currently not reachable."])
+
+;; shared app errors
+
+(def item-not-found
+  "Any command on a specific patch/issue aborts if it does not exist."
+  (fn [item item-number]
+    (string-append (uppercase-item item) " #" item-number " does not exist.")))
+
+(:test "item-not-found"
+  [(item-not-found :patch "2") ==> "Patch #2 does not exist."]
+  [(item-not-found :issue "3") ==> "Issue #3 does not exist."])
+
+(def whole-item-number
+  "Any command on a specific patch/issue aborts if the provided `item-number`
+  is not a whole number."
+  (fn [item]
+    (string-append (uppercase-item item) " numbers must be whole numbers!")))
+
+(:test "whole-item-number"
+  [(whole-item-number :patch) ==> "Patch numbers must be whole numbers!"]
+  [(whole-item-number :issue) ==> "Issue numbers must be whole numbers!"])
+
+(def missing-item-number
+  "Any command on a specific patch/issue aborts if the `item-number` is not provided."
+  (fn [item action]
+    (def item-name (lowercase-item item))
+    (string-append
+      "To " action " " (a-or-an item-name) " " item-name
+      ", please provide the " item-name " number.")))
+
+(:test "missing-item-number"
+  [(missing-item-number :patch "change the state of") ==> "To change the state of a patch, please provide the patch number."]
+  [(missing-item-number :issue "show") ==> "To show an issue, please provide the issue number."])
+
+(def state-change-failure
+  "On changing the state of a patch/issue if the daemon returned an error."
+  (fn [item state]
+    (string-append
+      (uppercase-item item) " could not be " state ". "
+      "Are you authorized to do so?")))
+
+(:test "state-change-failure"
+  [(state-change-failure :patch "rejected") ==> "Patch could not be rejected. Are you authorized to do so?"]
+  [(state-change-failure :issue "closed") ==> "Issue could not be closed. Are you authorized to do so?"])
+
+(def no-number-returned
+  "On creating a patch/issue, when the creation was successful,
+  but no patch/issue number was returned."
+  (fn [item]
+    (string-append (uppercase-item item) " created but unexpected results returned.")))
+
+(:test "no-number-returned"
+  [(no-number-returned :patch) ==> "Patch created but unexpected results returned."]
+  [(no-number-returned :issue) ==> "Issue created but unexpected results returned."])
+
+(def unknown-command
+  "An unknown command for an app. E.g. `rad issue foobar`"
+  (fn [cmd]
+    (string-append "Unknown command: " cmd)))
+
+(:test "unknown-command"
+  [(unknown-command "foo") ==> "Unknown command: foo"])
+
+;; key management
+
+(def missing-key-file
+  "Any request to the machine is aborted, when the key file can't be found."
+  (fn []
+    (string-append
+      "Missing file: my-keys.rad\n"
+      "Do `rad key create` to create your own key pair and rerun your command.")))
+
+(:test "missing-key-file"
+  [(missing-key-file) ==> "Missing file: my-keys.rad
+Do `rad key create` to create your own key pair and rerun your command."])
+
+(def rad-ipfs-key-gen-failure
+  "Printed when the `rad ipfs key gen` command in `init-git-ipfs-repo`
+  in `rad-project` fails. Takes stderr of the command as an argument."
+  (fn [stderr]
+    (string-append
+      "error: Failed to create key for Git IPFS repository:\n"
+      stderr)))
+
+(:test "rad-ipfs-key-gen-failure"
+  [(rad-ipfs-key-gen-failure "stderr") ==>  "error: Failed to create key for Git IPFS repository:\nstderr"])
+
+(def rad-ipfs-name-publish-failure
+  "Printed when the `rad ipfs name publish` command in
+  `init-git-ipfs-repo` in `rad-project` fails. Takes stderr of the
+  command as an argument."
+  (fn [stderr]
+    (string-append
+      "error: Failed to publish key for Git IPFS repository:\n"
+      stderr)))
+
+(:test "rad-ipfs-name-publish-failure"
+  [(rad-ipfs-name-publish-failure "stderr") ==>  "error: Failed to publish key for Git IPFS repository:\nstderr"])

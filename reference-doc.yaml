@@ -136,11 +136,11 @@ modules:
 - prelude/patterns
 - prelude/bool
 - prelude/seq
+- prelude/list
 - prelude/strings
 - prelude/dict
 - prelude/io
 - prelude/exception
-- prelude/list
 - prelude/set
 - prelude/ref
 - prelude/lens

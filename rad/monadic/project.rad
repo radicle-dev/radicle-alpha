@@ -1,10 +1,15 @@
 ;; Helpers for setting up and interacting with project RSMs
+{:module  'monadic/project
+ :doc     "Interact with projects and project machines"
+ :exports '[get-project-url! get-meta! create-project! add-rsm!
+            first-rsm-of-type!
+           ]}
 
 (import prelude/lens :unqualified)
 (import prelude/machine '[send-code! send-signed-command! new-machine!] :unqualified)
 (import prelude/time '[install-fake-clock] :unqualified)
 (import prelude/io :as 'io)
-(import prelude/key-management '[use-fake-keys! read-keys!] :unqualified)
+(import prelude/key-management '[use-fake-keys! get-keys!] :unqualified)
 
 (def get-project-url!
   (fn []
@@ -32,7 +37,7 @@
 (def create-project!
   "Create a remote project RSM with the given url."
   (fn [meta]
-    (def owner-keys (lookup :public-key (read-keys!)))
+    (def owner-keys (lookup :public-key (get-keys!)))
     (def id (new-machine!))
     (machine/send-prelude! id)
     (send-code! id (find-module-file! "monadic/project-remote.rad"))
@@ -54,9 +59,9 @@
   (fn [machine id]
     (add-rsm! machine { :id id :type :rad-issue })))
 
-(def add-diff-rsm!
+(def add-patch-rsm!
   (fn [machine id]
-    (add-rsm! machine { :id id :type :rad-diff })))
+    (add-rsm! machine { :id id :type :rad-patch })))
 
 (def add-repo-rsm!
   (fn [machine id]
@@ -82,20 +87,20 @@
       (install-fake-clock)
       (def machine (create-project! {:name "test" :description "test project"}))
       (add-issue-rsm! machine "a")
-      (add-diff-rsm! machine "b")
+      (add-patch-rsm! machine "b")
       (add-repo-rsm! machine "c"))
   ]
 
   [ (get-meta! machine) ==> { :name "test" :description "test project" }]
   [ (lookup :id (first-rsm-of-type! machine :rad-issue)) ==> "a" ]
-  [ (lookup :id (first-rsm-of-type! machine :rad-diff)) ==> "b" ]
+  [ (lookup :id (first-rsm-of-type! machine :rad-patch)) ==> "b" ]
   [ (lookup :id (first-rsm-of-type! machine :rad-repo)) ==> "c" ]
   ;; authorization
   [ (do
        (set-fake-keys! non-owner-keys)
        (def originally (length (list-rsms! machine)))
        (def res (catch 'validation-failure
-              (do (add-diff-rsm! machine "d")
+              (do (add-patch-rsm! machine "d")
                   :valid)
               ;; check that the machine has in fact not been added
               (fn [_] :not-valid)))

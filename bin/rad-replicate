@@ -50,7 +50,7 @@
         "/query"))
     (match (process-with-stdout-stderr-exitcode!
              "curl"
-             ["-s" url "-d" "{ \"expression\": (+ 3 2) }" "-H" "Content-Type: application/json"]
+             ["-s" url "-d" "{ \"expression\": \"(+ 3 2)\" }" "-H" "Content-Type: application/json"]
              "")
            [_ _ :ok] :ok
            [_ _ _  ] (do

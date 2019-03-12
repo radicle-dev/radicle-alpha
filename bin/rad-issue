@@ -5,6 +5,9 @@
 (load! (find-module-file! "monadic/project.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
 
+(file-module! "prelude/error-messages.rad")
+(import prelude/error-messages :as 'error)
+
 (import prelude/validation :as 'validation)
 (import prelude/machine :as 'machine)
 
@@ -58,7 +61,7 @@
   (fn [issue-no machine]
     (match (lookup-default issue-no #f (list-issues machine))
       #f          (do
-                    (put-str! (string-append "ISSUE " (show issue-no) " does not exist."))
+                    (put-str! (error/item-not-found :issue (show issue-no)))
                     (exit! 1))
       'the-issue  the-issue)))
 
@@ -81,21 +84,10 @@
    :author      20
    :modified-at 20})
 
-(def pad-to
-  (fn [l x]
-    (if (< l 1)
-      ""
-      (do
-        (def pad (string/intercalate "" (map (fn [x] " ") (range 1 l))))
-        (def x-length (length x))
-        (if (> x-length (- l 1))
-          (take l x)
-          (string-append x (take (- l x-length) pad)))))))
-
 (def wrap-cell
   (fn [phrase cell-key]
     (def c-length (lookup cell-key cells))
-    (string-append (pad-to c-length phrase) " ")))
+    (string-append (take c-length (string/pad-right-to c-length phrase)) " ")))
 
 (def pretty-table-header
   (fn []
@@ -239,8 +231,8 @@
         (do
           (def issue (verify-issue-number n machine))
           (put-str! (pretty-issue (add-username-issue issue))))
-        (cmd-parse-failure "Issue numbers must be whole numbers!"))
-      (cmd-parse-failure "To show an issue, please provide the issue number."))))
+        (cmd-parse-failure (error/whole-item-number :issue)))
+      (cmd-parse-failure (error/missing-item-number :issue "show")))))
 
 (def close-issue
   (fn [issue-number machine]
@@ -250,12 +242,13 @@
         (catch 'daemon-error
                (do
                  (verify-issue-number n machine)
-                 (simple-edit-issue! machine n {:state :closed}))
+                 (simple-edit-issue! machine n {:state :closed})
+                 (put-str! (string-append "Issue #" (show n) " has been closed.")))
                (fn [_]
-                 (put-str! "Issue could not be closed. Are you authorized to do so?")
+                 (put-str! (error/state-change-failure :issue "closed"))
                  (exit! 1)))
-        (cmd-parse-failure "Issue numbers must be whole numbers!"))
-      (cmd-parse-failure "To close an issue, please provide the issue number."))))
+        (cmd-parse-failure (error/whole-item-number :issue)))
+      (cmd-parse-failure (error/missing-item-number :issue "close")))))
 
 (def create-comment!
   "Add a new `comment` to ISSUE."
@@ -265,9 +258,9 @@
         (do
           (verify-issue-number n machine)
           (simple-add-comment! machine n comment (get-git-username!))
-          (put-str! (string-append "Added comment to issue " (show n))))
-        (cmd-parse-failure "Issue numbers must be whole numbers!"))
-    (cmd-parse-failure "To create a comment, please provide the issue number."))))
+          (put-str! (string-append "Added comment to issue #" (show n))))
+        (cmd-parse-failure (error/whole-item-number :issue)))
+    (cmd-parse-failure (error/missing-item-number :issue "comment on")))))
 
 (def new-issue
   (fn [machine]
@@ -282,7 +275,7 @@
     (def author {:git-username (get-git-username!)})
     (match (create-issue!  machine (simple-issue (<> i author)))
            ['n] (put-str! (string-append "Created issue #" (show n) " in " machine))
-           _    (put-str! "Issue created but unexpected results returned."))))
+           _    (put-str! (error/no-number-returned :issue)))))
 
 (def cmd-options
   [
@@ -307,5 +300,5 @@
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
           ["--help"] (put-str! help)
-          (/cons 'cmd _) (cmd-parse-failure (string-append "Unknown command: " cmd))
+          (/cons 'cmd _) (cmd-parse-failure (error/unknown-command cmd))
           [] (put-str! help))))

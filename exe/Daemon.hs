@@ -205,7 +205,7 @@ newMachine = do
 -- fixed amount of time.
 query :: MachineId -> Api.QueryRequest -> Daemon Api.QueryResponse
 query id (Api.QueryRequest v) = do
-  m <- checkMachineLoaded id
+  m <- ensureMachineLoaded id
   bumpPolling id
   case fst <$> runIdentity $ runLang (machineState m) $ eval v of
     Left err -> throwError $ MachineError id (InvalidInput err)
@@ -224,21 +224,15 @@ query id (Api.QueryRequest v) = do
 --   ack.
 send :: MachineId -> Api.SendRequest -> Daemon Api.SendResponse
 send id (Api.SendRequest expressions) = do
-  cm_ <- lookupMachine id
-  case cm_ of
-    Nothing -> do
-      m <- newReader id
-      requestInput (machineSubscription m)
-    Just (UninitialisedReader _) -> do
-      m <- initAsReader id
-      requestInput (machineSubscription m)
-    Just (Cached Machine{ machineMode = Reader, ..}) -> requestInput machineSubscription
-    Just (Cached Machine{ machineMode = Writer }) -> do
-      logInfo "Applying input"
-        [ ("machine-id", getMachineId id)
-        ]
-      results <- writeInputs id expressions Nothing
-      pure Api.SendResponse{..}
+    Machine{machineMode, machineSubscription} <- ensureMachineLoaded id
+    case machineMode of
+        Reader -> requestInput machineSubscription
+        Writer -> do
+            logInfo "Applying input"
+                [ ("machine-id", getMachineId id)
+                ]
+            results <- writeInputs id expressions Nothing
+            pure Api.SendResponse{..}
   where
     matchMessage nonce = \case
         (New InputsApplied{results, nonce = Just nonce'}) | nonce' == nonce -> Just results
@@ -266,23 +260,23 @@ send id (Api.SendRequest expressions) = do
 
     prValues = T.intercalate "," . (renderCompactPretty <$>)
 
--- * Helpers
 
-lookupMachine :: MachineId -> Daemon (Maybe CachedMachine)
-lookupMachine id = do
+-- | Given an 'MachineId', makes sure the machine is loaded and
+-- fetch the latest inputs.
+--
+-- If the machine is not yet loaded into memory we fetch its inputs, load it
+-- into memory and start following its changes.
+ensureMachineLoaded :: MachineId -> Daemon Machine
+ensureMachineLoaded id = do
   msCMap <- asks machines
-  liftIO $ CMap.lookup id (getMachines msCMap)
-
--- | Given an 'MachineId', makes sure the machine is in the cache and
--- updated.
-checkMachineLoaded :: MachineId -> Daemon Machine
-checkMachineLoaded id = do
-  m_ <- lookupMachine id
+  m_ <- liftIO $ CMap.lookup id (getMachines msCMap)
   case m_ of
     Nothing -> do
       -- In this case we have not seen the machine before so we act as
       -- a reader.
-      newReader id
+      m <- initAsReader id
+      writeMachineConfig
+      pure m
     Just (UninitialisedReader _) ->
       -- We try to initialise the reader again.
       initAsReader id
@@ -310,48 +304,36 @@ initDaemonSubscription id =
         logError' "Non-decodable message on machine's pubsub topic"
             [("machine-id", getMachineId id), ("message", bad)]
 
--- | Turns a 'Daemon' subscription handler into an IO one. Errors which are
--- encountered in a subscription handler are just logged.
-daemonHandler :: Env -> (Message -> Daemon ()) -> Message -> IO ()
-daemonHandler env h msg = do
-  x_ <- runDaemon env (h msg)
-  case x_ of
-    Left err -> logDaemonError err
-    Right _  -> pure ()
-
 -- | Loads a machine fresh from IPFS.
 loadMachine :: ReaderOrWriter -> MachineId -> Daemon Machine
 loadMachine mode id = do
   (idx, is) <- machineIpfs id $ machineInputsFrom id Nothing
   sub <- initDaemonSubscription id
   m <- liftIO $ emptyMachine id mode sub
-  (m', _) <- addInputs is (pure idx) (const (pure ())) m
+  (m', _) <- addInputs is idx m
   insertNewMachine id (Cached m')
   pure m'
 
--- | Add inputs to a cached machine.
+-- | Add inputs to a machine and update its state
 addInputs
   :: [Value]
   -- ^ Inputs to add.
-  -> Daemon MachineEntryIndex
-  -- ^ Determine the new index.
-  -> ([Value] -> Daemon ())
-  -- ^ Performed after the chain is cached.
+  -> MachineEntryIndex
+  -- ^ The new index.
   -> Machine
-  -> Daemon (Machine, ([Value], MachineEntryIndex))
-  -- ^ Returns the updated machine, the results and the new index.
-addInputs is getIdx after m =
-  case advanceChain m is of
+  -> Daemon (Machine, [Value])
+  -- ^ Returns the updated machine and the produced outputs
+addInputs inputs index m = do
+  let (result, newState) = runIdentity $ runLang (machineState m) $ traverse eval inputs
+  case result of
     Left err -> throwError $ MachineError (machineId m) (InvalidInput err)
-    Right (rs, newState) -> do
-      idx <- getIdx
+    Right outputs -> do
       t <- liftIO $ Time.getSystemTime
       let m' = m { machineState = newState
-                 , machineLastIndex = idx
+                 , machineLastIndex = index
                  , machineLastUpdated = t
                  }
-      after rs
-      pure (m', (rs, idx))
+      pure (m', outputs)
 
 -- | Run some IPFS IO.
 ipfs :: IO a -> (Ipfs.IpfsException -> Error) -> Daemon a
@@ -381,20 +363,19 @@ insertNewMachine id m = do
 -- machine isn't in the cache already.
 modifyMachine :: forall a. MachineId -> (Machine -> Daemon (Machine, a)) -> Daemon a
 modifyMachine id f = do
-    env <- ask
-    res <- liftIO $ CMap.modifyExistingValue id (getMachines (machines env)) (modCached env)
+    CachedMachines machineMap <- asks machines
+    res <- CMap.modifyExistingValue id machineMap modCached
     case res of
-      Nothing         -> throwError (MachineError id MachineNotCached)
-      Just (Left err) -> throwError err
-      Just (Right y)  -> pure y
+      Nothing -> throwError (MachineError id MachineNotCached)
+      Just a  -> pure a
   where
-    modCached :: Env -> CachedMachine -> IO (CachedMachine, Either Error a)
-    modCached _ u@(UninitialisedReader _) = pure (u, Left (MachineError id MachineNotCached))
-    modCached env (Cached m) = do
-      x <- runDaemon env (f m)
-      pure $ case x of
-        Left err      -> (Cached m, Left err)
-        Right (m', y) -> (Cached m', Right y)
+    modCached :: CachedMachine -> Daemon (CachedMachine, a)
+    modCached = \case
+        UninitialisedReader _ -> throwError $ MachineError id MachineNotCached
+        Cached m -> do
+            (m', a) <- f m
+            pure (Cached m', a)
+
 
 emptyMachine :: MachineId -> ReaderOrWriter -> TopicSubscription -> IO Machine
 emptyMachine id mode sub = do
@@ -419,8 +400,7 @@ emptyMachine id mode sub = do
 initAsReader :: MachineId -> Daemon Machine
 initAsReader id = do
     m <- loadMachine Reader id
-    env <- ask
-    _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env onMsg)
+    installMachineMessageHandler m onMsg
     logInfo "Following as reader" [ ("machine-id", getMachineId id)
                                   , ("current-input-index", show (machineLastIndex m)) ]
     pure m
@@ -434,14 +414,6 @@ initAsReader id = do
         -- high-frequency.
         bumpPolling id
       _ -> pure ()
-
--- | Initiate a reader the daemon wasn't following before (adds it to the
--- follow-file).
-newReader :: MachineId -> Daemon Machine
-newReader id = do
-  m <- initAsReader id
-  writeMachineConfig
-  pure m
 
 -- | Try to initiate a reader, but don't fail in case of errors; just log a
 -- message.
@@ -467,7 +439,7 @@ refreshAsReader id = modifyMachine id refresh
                   [mid, ("input-index",  show newIdx)]
           pure (m, m)
         else do
-          (m', _) <- addInputs is (pure newIdx) (const (pure ())) m
+          (m', _) <- addInputs is newIdx m
           logDebug
                   "Updated reader"
                   [mid, ("n", show (length is)), ("input-index",  show newIdx)]
@@ -487,14 +459,25 @@ initAsWriter id idx = do
 -- input requests.
 actAsWriter :: Machine -> Daemon ()
 actAsWriter m = do
-    env <- ask
-    _ <- liftIO $ addHandler (machineSubscription m) (daemonHandler env onMsg)
+    installMachineMessageHandler m onMsg
     logInfo "Acting as writer" [("machine-id", getMachineId id)]
   where
     id = machineId m
     onMsg = \case
       Submit SubmitInputs{..} -> writeInputs id expressions (Just nonce) >> pure ()
       _ -> pure ()
+
+-- | Installs a handler for messages sent on the machine's IPFS pubsub channel.
+--
+-- If the handler produces an error it is logged.
+installMachineMessageHandler :: Machine -> (Message -> Daemon ()) -> Daemon ()
+installMachineMessageHandler m handleMessage = do
+    env <- ask
+    void $ liftIO $ addHandler (machineSubscription m) $ \msg -> do
+        result <- runDaemon env (handleMessage msg)
+        case result of
+            Left err -> logDaemonError err
+            Right () -> pure ()
 
 -- | Write and evaluate inputs in a machine we control.
 --
@@ -503,17 +486,18 @@ actAsWriter m = do
 -- Sends out a 'InputsApplied' message over pubsub that includes the
 -- outputs and the given nonce.
 writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
-writeInputs id is nonce = do
-    (rs, idx) <- modifyMachine id (addInputs is write pub)
+writeInputs id inputs nonce = do
+    (rs, idx) <- modifyMachine id $ \machine -> do
+        newIndex <- machineIpfs id $ writeIpfs id inputs
+        (machine', results) <- addInputs inputs newIndex machine
+        machineIpfs id $ publish id (New InputsApplied{results,nonce})
+        pure (machine', (results, machineLastIndex machine'))
     writeMachineConfig
     logDebug "Wrote inputs to IPFS"
         [ ("machine-id", getMachineId id)
         , ("new-input-index", show idx)
         ]
     pure rs
-  where
-    write = machineIpfs id $ writeIpfs id is
-    pub results = machineIpfs id $ publish id (New InputsApplied{..})
 
 -- * Polling
 

@@ -780,6 +780,26 @@ works for strings
 Matches sequences that start with ``prefix`` and bind the rest of that
 sequence to ``rest-pat``. Also works for strings.
 
+``(concat ss)``
+~~~~~~~~~~~~~~~
+
+Concatenate a sequence of sequences.
+
+``prelude/list``
+----------------
+
+Functions for creating lists. See also ``prelude/seq``.
+
+``nil``
+~~~~~~~
+
+The empty list.
+
+``(range from to)``
+~~~~~~~~~~~~~~~~~~~
+
+Returns a list with all integers from ``from`` to ``to``, inclusive.
+
 ``prelude/strings``
 -------------------
 
@@ -832,6 +852,12 @@ Reverses ``str``. E.g.: ``(reverse-string "abc")`` == ``"cba"``.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 True if ``str`` ends with ``substr``
+
+``(pad-right-to l word)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Appends the ``word`` with whitespace to get to length ``l``. If ``word``
+is longer than ``l``, the whole word is returned without padding.
 
 ``prelude/dict``
 ----------------
@@ -903,7 +929,8 @@ user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
 
 Executes ``command`` using ``execvp`` with ``to-write`` as input. Stdout
 and stderr are inherited. See ``man exec`` for more information on
-``execvp``. Example: ``(process! "ls" ["-Glah"] "")``.
+``execvp``. Returns ``:ok`` if the process exited normally and
+``[:error n]`` otherwise. Example: ``(process! "ls" ["-Glah"] "")``.
 
 ``(read-line!)``
 ~~~~~~~~~~~~~~~~
@@ -985,7 +1012,8 @@ This requires the ``prelude/test/primitive-stub`` script to be loaded.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Like ``process-with-stdout!``, but returns a vec
-``[stdout stderr exitcode]``.
+``[stdout stderr exitcode]``. ``exitcode`` is either ``:ok`` or
+``[:error n]`` where ``n`` is a number.
 
 ``(prompt! prompt)``
 ~~~~~~~~~~~~~~~~~~~~
@@ -996,21 +1024,6 @@ Ask for user input with a prompt.
 ---------------------
 
 Tests for exceptions.
-
-``prelude/list``
-----------------
-
-Functions for creating lists. See also ``prelude/seq``.
-
-``nil``
-~~~~~~~
-
-The empty list.
-
-``(range from to)``
-~~~~~~~~~~~~~~~~~~~
-
-Returns a list with all integers from ``from`` to ``to``, inclusive.
 
 ``prelude/set``
 ---------------
@@ -1151,6 +1164,12 @@ commands. Per default, key pairs are stored in
 
 Reads the keys stored in ``my-keys.rad`` or returns ``:nothing`` if the
 file doesn't exist.
+
+``(get-keys!)``
+~~~~~~~~~~~~~~~
+
+Like ``read-keys`` but prints an error message and exits the process if
+no key file was found.
 
 ``(create-keys!)``
 ~~~~~~~~~~~~~~~~~~

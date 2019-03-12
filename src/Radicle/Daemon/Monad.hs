@@ -15,7 +15,11 @@ module Radicle.Daemon.Monad
     , displayError
     ) where
 
-import           Protolude
+import           Protolude hiding (try)
+
+import           Control.Exception.Safe
+import           Control.Monad.Except
+import           Control.Monad.IO.Unlift
 
 import           Radicle (LangError, Value, renderCompactPretty)
 import           Radicle.Daemon.Common
@@ -26,6 +30,16 @@ import           Radicle.Ipfs
 
 newtype Daemon a = Daemon (ExceptT Error (ReaderT Env IO) a)
   deriving (Functor, Applicative, Monad, MonadError Error, MonadIO, MonadReader Env)
+
+instance MonadUnliftIO Daemon where
+    withRunInIO inner = do
+        env <- ask
+        result <- liftIO $ try $ inner $ \d -> do
+            result <- runDaemon env d
+            case result of
+                Left err -> throw err
+                Right a  -> pure a
+        liftEither result
 
 runDaemon :: Env -> Daemon a -> IO (Either Error a)
 runDaemon env (Daemon x) = runReaderT (runExceptT x) env
@@ -56,12 +70,18 @@ data MachineError
   | AckTimeout
   | DaemonError Text
   | MachineNotCached
+  deriving (Show)
+
+instance Exception MachineError
 
 -- | An error that the daemon can encounter.
 data Error
   = MachineError MachineId MachineError
   | CouldNotCreateMachine IpfsException
   | IpfsDaemonNotReachable
+  deriving (Show)
+
+instance Exception Error
 
 displayError :: Error -> (Text, [(Text,Text)])
 displayError = \case
