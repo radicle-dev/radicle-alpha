@@ -82,7 +82,7 @@
    :number      10
    :title       50
    :author      20
-   :modified-at 20})
+   :modified-at 22})
 
 (def wrap-cell
   (fn [phrase cell-key]
@@ -98,35 +98,38 @@
       (wrap-cell "author" :author)
       (wrap-cell "updated" :modified-at))))
 
+(def pretty-modified-at
+  (fn [i]
+    (string-append (lookup :modified-at i)
+                   (if (lookup :read? i) "  " " *"))))
+
 (def pretty-headline
   (fn [i]
     (match i
       '{:number n
         :title tit
         :state s
-        :username un
-        :modified-at m-a}
+        :username un}
       (string/unwords
         [(pretty-state s)
          (show n)
          tit
          un
-         m-a]))))
+         (pretty-modified-at i)]))))
 
 (def pretty-row
   (fn [i]
     (match i
-      '{:number n
+       '{:number n
         :title tit
         :state s
-        :username un
-        :modified-at m-a}
+        :username un}
       (string-append
         (wrap-cell (pretty-state s) :state)
         (wrap-cell (show n) :number)
         (wrap-cell tit :title)
         (wrap-cell un :author)
-        (wrap-cell m-a :modified-at)))))
+        (wrap-cell (pretty-modified-at i) :modified-at)))))
 
 (def pretty-comment
   "Markdown view of a comment. Assumes that the comment has been annotated with a
@@ -173,6 +176,10 @@
     (add-username
      (insert :comments (map add-username (lookup :comments i)) i))))
 
+(def enrich
+  (fn [machine i]
+    (insert :read? (newness/read-since-modified!? machine i) (add-username i))))
+
 (def list-items
   "Lists the recent items and uses an editor to add a relevant comment."
   (fn [machine options]
@@ -190,7 +197,7 @@
 
     (def items
       (map mk-key
-        (map (fn [i] (add-username-issue i))
+          (map (fn [i] (enrich machine i))
           (filter filt
             (reverse (values (list-issues machine)))))))
 
@@ -230,7 +237,8 @@
       (if (integral? n)
         (do
           (def issue (verify-issue-number n machine))
-          (put-str! (pretty-issue (add-username-issue issue))))
+          (put-str! (pretty-issue (enrich machine issue)))
+          (newness/mark-read! machine machine))
         (cmd-parse-failure (error/whole-item-number :issue)))
       (cmd-parse-failure (error/missing-item-number :issue "show")))))
 
@@ -243,7 +251,8 @@
                (do
                  (verify-issue-number n machine)
                  (simple-edit-issue! machine n {:state :closed})
-                 (put-str! (string-append "Issue #" (show n) " has been closed.")))
+                 (put-str! (string-append "Issue #" (show n) " has been closed."))
+                 (newness/mark-read! machine n))
                (fn [_]
                  (put-str! (error/state-change-failure :issue "closed"))
                  (exit! 1)))
@@ -258,7 +267,8 @@
         (do
           (verify-issue-number n machine)
           (simple-add-comment! machine n comment (get-git-username!))
-          (put-str! (string-append "Added comment to issue #" (show n))))
+          (put-str! (string-append "Added comment to issue #" (show n)))
+          (newness/mark-read! machine n))
         (cmd-parse-failure (error/whole-item-number :issue)))
     (cmd-parse-failure (error/missing-item-number :issue "comment on")))))
 
@@ -274,7 +284,8 @@
     (def i (read (edit-in-editor! template)))
     (def author {:git-username (get-git-username!)})
     (match (create-issue!  machine (simple-issue (<> i author)))
-           ['n] (put-str! (string-append "Created issue #" (show n) " in " machine))
+           ['n] (do (put-str! (string-append "Created issue #" (show n) " in " machine))
+                    (newness/mark-read! machine n))
            _    (put-str! (error/no-number-returned :issue)))))
 
 (def cmd-options

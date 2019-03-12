@@ -2,25 +2,39 @@
  :doc "Provides functions for marking items as `seen` or `read`. Per default,
  this is stored in a file in `$HOME/.config/radicle/item-newness.rad` this can
  be adjusted by setting `$XDG_CONFIG_HOME`."
- :exports '[init-newness-file! mark-read! get-item-newness!]}
+ :exports '[init-newness-file! mark-read! get-item-newness! read-since-modified!?]}
 
+(import prelude/basic :unqualified)
 (import prelude/io :as 'io)
 (import prelude/io-utils :as 'io)
+(import prelude/patterns :unqualified)
 
 (def path!
   (fn [id]
     (string-append (io/base-path!) "/" id "/item-newness.rad")))
 
 (def init-newness-file!
-  ""
   (fn [id]
     (io/shell! (string-append "mkdir -p " (io/base-path!) "/" id) "")
     (io/init-file-dict! (path! id))))
 
 (def mark-read!
   (fn [machine-id item-id]
+    (init-newness-file! machine-id)
     (io/write-file-key! (path! machine-id) item-id (now!))))
 
 (def get-item-newness!
   (fn [machine-id item-id]
-    (io/read-file-key! (path! machine-id) id)))
+    (init-newness-file! machine-id)
+    (match (io/read-file-key! (path! machine-id) item-id)
+           :nothing   :unread
+           (/just 'x) [:read x])))
+
+(def read-since-modified!?
+  "Returns true if an item has not been read, or if it has been modified since it
+  was last read. Assumes the item has a `:number` field for a unique ID, and a
+  `:modified-at` field containing the datetime at which it was last modified."
+  (fn [machine-id item]
+    (match (get-item-newness! machine-id (lookup :number item))
+           :unread #f
+           [:read 't] (<= (unix-epoch (lookup :modified-at item)) (unix-epoch t)))))
