@@ -2,9 +2,9 @@
 
 A peer-to-peer stack for code collaboration.
 
-- **peer-to-peer** : Radicle a decentralized, collaborative revision control system built on IPFS. Write open source software without giving your data to third parties or setting up a server.
-- **terminal-first** A Radicle project contains a git repository, plus the associated issues and proposals. Access all the conversations that happen around your codebase from your command line.
-- **programmable** : Each Radicle utility is a P2P program we call a Radicle *machine*. Need a custom issues system? Modify our version to suit your needs, or create an entirely new utility. Dev resources coming soon!
+- **peer-to-peer** : The Radicle stack builds on IPFS, and works without a centralized server. No hassle with setting up your own hosting, and no need to trust companies with your data.
+- **terminal-first** : A Radicle project contains a git repository, plus the associated issues and proposals. Access all the issues and proposals associated with your codebase right from your terminal. 
+- **programmable** : Ever wanted to tweak your code collaboration service? With Radicle each unit of functionality –a machine– is its own litte P2P program, written in the Radicle language. You can change them to suit your needs, or create entirely new ones.
 
 
 Radicle has a [webpage](http://radicle.xyz/) which contains a lot more information on `Radicle`.
