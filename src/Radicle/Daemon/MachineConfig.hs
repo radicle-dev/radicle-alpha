@@ -14,8 +14,8 @@ import qualified Data.Aeson as A
 import qualified Data.Map.Strict as Map
 import           System.Directory (doesFileExist)
 
-import           Radicle.Daemon.Common
 import           Radicle.Daemon.Ipfs
+import           Radicle.Daemon.MachineStore
 import           Radicle.Daemon.Monad
 import qualified Radicle.Internal.ConcurrentMap as CMap
 
