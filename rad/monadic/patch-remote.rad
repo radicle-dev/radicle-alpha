@@ -13,24 +13,24 @@
 
 (def machine-id
   "The name of this machine."
-  "monadic/radicle/diff")
+  "monadic/radicle/patch")
 
-(def diffs
-  "DIFFs are stored in a dict in a ref, keyed by diff-number."
+(def patches
+  "PATCHes are stored in a dict in a ref, keyed by patch-number."
   (ref {}))
 
-(def diff-counter
-  "We use a stateful counter for giving diff numbers."
+(def patch-counter
+  "We use a stateful counter for giving patch numbers."
   (make-counter))
 
 (def noncer (make-noncer))
 
 (def auth (make-simple-auth [:admin]))
 
-(def set-diffs
-  "A helper to set stuff in the diffs ref."
+(def set-patches
+  "A helper to set stuff in the patches ref."
   (fn [l v]
-    (set-ref diffs l v)))
+    (set-ref patches l v)))
 
 (def input-keys
   {:nonce      (noncer :validator)
@@ -59,9 +59,9 @@
    [(validator/keys input-keys)
     validator/signed]))
 
-(def validator/diff-number
-  "A validator for numbers which refer to existing diffs."
-  (validator/pred "Existing diff number" (fn [n] (member? n (read-ref diffs)))))
+(def validator/patch-number
+  "A validator for numbers which refer to existing patches."
+  (validator/pred "Existing patch number" (fn [n] (member? n (read-ref patches)))))
 
 (def comment-keys
   "A comment's body should be text that isn't too long."
@@ -70,9 +70,9 @@
 (def validator/full-comment
   (validator/keys comment-keys))
 
-(def validator/diff-reference
+(def validator/patch-reference
   "Refers to an existing issue."
-  (validator/optional-keys {:issue-number validator/diff-number}))
+  (validator/optional-keys {:issue-number validator/patch-number}))
 
 (def validator/comment-input
   "A comment input should refer to an existing issue."
@@ -80,32 +80,32 @@
    [validator/input
     validator/time-created
     validator/full-comment
-    validator/diff-reference]))
+    validator/patch-reference]))
 
-(def diff-keys
+(def patch-keys
   {:title       (validator/string-of-max-length 100)
    :description (validator/string-of-max-length 4000)
    :patch       (validator/type :string)
    :state       (validator/member [:pending :retracted :accepted :rejected])
    :comments    (validator/every validator/full-comment)})
 
-(def validator/full-diff (validator/keys diff-keys))
+(def validator/full-patch (validator/keys patch-keys))
 
-(def validator/diff-input
-  "An diff should have all the required fields, be a signed input, etc."
+(def validator/patch-input
+  "An patch should have all the required fields, be a signed input, etc."
   (validator/and
    [validator/input
     validator/time-created
-    validator/full-diff]))
+    validator/full-patch]))
 
 (def edit-keys
   (fn [ks]
     (<> ks
         (<> (keys input-keys)
-            [:diff-number :modified-at :author :signature]))))
+            [:patch-number :modified-at :author :signature]))))
 
-(def validator/diff-edit-input
-  "An input to edit an diff."
+(def validator/patch-edit-input
+  "An input to edit a patch."
   (fn [ed]
     (def auth-validation
       (match (lookup-default :state :nothing ed)
@@ -113,49 +113,49 @@
              :retracted (validator/pred "edit author == original author"
                           (fn [c]
                             (match c
-                                   {:diff-number 'n
+                                   {:patch-number 'n
                                     :author 'a}
-                                   (eq? (view-ref diffs (... [(@ n) (@ :author)]))
+                                   (eq? (view-ref patches (... [(@ n) (@ :author)]))
                                         a))))
              _          (auth [:allowed :admin])))
     ((validator/and
       [validator/input
        validator/time-modified
-       validator/diff-reference
+       validator/patch-reference
        auth-validation
-       (validator/contains-only (edit-keys (keys diff-keys)))]) ed)))
+       (validator/contains-only (edit-keys (keys patch-keys)))]) ed)))
 
 (def strip-input
   "After an entity input has been processed/verified, we no longer need some of
   the fields."
   (fn [e]
-    (delete-many [:machine-id :signature :nonce :diff-number] e)))
+    (delete-many [:machine-id :signature :nonce :patch-number] e)))
 
-(def create-diff
-  "Create an diff from a dict, checking that it is valid and storing it in `diffs`."
+(def create-patch
+  "Create a patch from a dict, checking that it is valid and storing it in `patches`."
   (fn [i]
-    (validator/diff-input i)
-    (def n (diff-counter :next))
+    (validator/patch-input i)
+    (def n (patch-counter :next))
     (def i_
       (strip-input
        (<> i
            {:number   n})))
-    (set-diffs (@ n) i_)
+    (set-patches (@ n) i_)
     (noncer [:use (lookup :nonce i)])
     n))
 
-(def over-diffs
-  "A helper to modify stuff in the diff ref."
+(def over-patches
+  "A helper to modify stuff in the patch ref."
   (fn [l f]
-    (over-ref diffs l f)))
+    (over-ref patches l f)))
 
 (def add-comment
-  "Add a comment to a diff."
+  "Add a comment to a patch."
   (fn [c]
     (validator/comment-input c)
     (def c_ (strip-input c))
-    (over-diffs
-      (.. (@ (lookup :diff-number c)) (@ :comments))
+    (over-patches
+      (.. (@ (lookup :patch-number c)) (@ :comments))
       (fn [cs] (add-right c_ cs)))
     (noncer [:use (lookup :nonce c)])))
 
@@ -164,22 +164,22 @@
     (fn [old]
       (<> old new))))
 
-(def edit-diff
-  "Modify some of the attributes of an diff."
+(def edit-patch
+  "Modify some of the attributes of a patch."
   (fn [i]
-    (validator/diff-edit-input i)
+    (validator/patch-edit-input i)
     (def i_ (delete :author (strip-input i)))
-    (over-diffs (@ (lookup :diff-number i)) (merge-new i_))))
+    (over-patches (@ (lookup :patch-number i)) (merge-new i_))))
 
-(def list-diffs
-  "List existing diffs."
-  (fn [] (read-ref diffs)))
+(def list-patches
+  "List existing patches."
+  (fn [] (read-ref patches)))
 
 (def commands
   "The set of allowed machine commands."
-  {'create-diff    create-diff
-   'list-diffs     list-diffs
-   'edit-diff      edit-diff
+  {'create-patch   create-patch
+   'list-patches   list-patches
+   'edit-patch     edit-patch
    'add-comment    add-comment
    'add-admin      (add-admin auth)})
 

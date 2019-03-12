@@ -1,7 +1,7 @@
 #!/usr/bin/env radicle
 
 (load! (find-module-file! "prelude.rad"))
-(load! (find-module-file! "monadic/diff.rad"))
+(load! (find-module-file! "monadic/patch.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
 (load! (find-module-file! "monadic/project.rad"))
 
@@ -10,7 +10,7 @@
 
 (import prelude/validation :as 'validation)
 
-(def machine-name (fn [] (get-rsm-of-type! :rad-diff)))
+(def machine-name (fn [] (get-rsm-of-type! :rad-patch)))
 
 (def valid-states
   ["pending" "retracted" "accepted" "rejected"])
@@ -25,16 +25,16 @@
 
 (def help
   (string-append
-  "rad diff - Radicle Diff CLI
+  "rad patch - Radicle Patch CLI
 
    Usage:
-        rad diff list " list-opts-help "
-        rad diff propose <commit>
-        rad diff [show | retract | accept | reject] <diff-number>
-        rad diff comment <diff-number> <comment>
-        rad diff help
+        rad patch list " list-opts-help "
+        rad patch propose <commit>
+        rad patch [show | retract | accept | reject] <patch-number>
+        rad patch comment <patch-number> <comment>
+        rad patch help
 
-     list         - Lists all diffs
+     list         - Lists all patches
                     The list can be filtered by state:
                       " (string/intercalate ", " valid-states) "
                     The flags for filtering by state:
@@ -43,16 +43,16 @@
                     <state2> ...'.
                     If the option '--fancy' is appended, the list is opened via
                     fzf (note that fzf has to be installed).
-     propose      - Create a new diff from a single commit
-     show         - Show a diff
-     comment      - Add a comment to a diff
-     retract      - Retract your own diff
-                    This command is restricted to the creator of the diff or the
+     propose      - Create a new patch from a single commit
+     show         - Show a patch
+     comment      - Add a comment to a patch
+     retract      - Retract your own patch
+                    This command is restricted to the creator of the patch or the
                     maintainer of the project.
-     accept       - Accept a diff
+     accept       - Accept a patch
                     Automatically merges to master and pushes to origin. This
                     command is restricted to the maintainer of the project.
-     reject       - Reject a diff
+     reject       - Reject a patch
                     This command is restricted to the maintainer of the project.
      help         - Print this help and exit
   "))
@@ -61,13 +61,13 @@
   (fn [error]
     (parse-failure error help)))
 
-(def verify-diff-number
-  (fn [diff-no machine]
-    (match (lookup-default diff-no #f (list-diffs machine))
+(def verify-patch-number
+  (fn [patch-no machine]
+    (match (lookup-default patch-no #f (list-patches machine))
       #f         (do
-                   (put-str! (error/item-not-found :diff (show diff-no)))
+                   (put-str! (error/item-not-found :patch (show patch-no)))
                    (exit! 1))
-      'the-diff  the-diff)))
+      'the-patch  the-patch)))
 
 ;; git interactions
 
@@ -99,6 +99,14 @@
   (fn [commit]
     (string/unlines (process-with-stdout! "git" ["rev-parse" "--short" commit] ""))))
 
+(def get-commit-parent!
+  (fn [commit]
+    (string/unlines (process-with-stdout! "git" ["rev-parse" (string-append commit "^")] ""))))
+
+(def get-head-origin-master!
+  (fn []
+    (string/unlines (process-with-stdout! "git" ["rev-parse" "origin/master"] ""))))
+
 (def apply-patch!
   "Given a patch, apply it to the current branch"
   (fn [patch msg]
@@ -107,54 +115,65 @@
     (write-file! file patch)
     (process-git-with-exit! ["am" file] msg)))
 
-(def checkout-diff!
-  "Creates a new branch diff/<DIFF-ID> based on the DIFF, and switches to it."
-  (fn [machine diff-no]
-    (def diff (verify-diff-number diff-no machine))
-    (def diff-branch (string-append "diff/" (show diff-no)))
+(def checkout-patch!
+  "Creates a new branch patch/<PATCH-ID> based on the PATCH, and switches to it."
+  (fn [machine patch-no]
+    (def patch (verify-patch-number patch-no machine))
+    (def patch-branch (string-append "patch/" (show patch-no)))
     (process-git-with-exit!
-      ["checkout" "-b" diff-branch]
-      (error/checkout-new-branch-failure diff-branch))
+      ["checkout" "-b" patch-branch]
+      (error/checkout-new-branch-failure patch-branch))
     (apply-patch!
-      (lookup :patch diff)
+      (lookup :patch patch)
       (error/applying-patch-failure))))
 
-(def push-diff!
-  "Merges the DIFF to master, and pushes the changes."
-  (fn [machine diff-no]
-    (def diff (verify-diff-number diff-no machine))
+(def push-patch!
+  "Merges the PATCH to master, and pushes the changes."
+  (fn [machine patch-no]
+    (def patch (verify-patch-number patch-no machine))
     (process-git-with-exit!
       ["checkout" "master"]
       (error/checkout-master-failure))
     (apply-patch!
-      (lookup :patch diff)
+      (lookup :patch patch)
       (error/applying-accepted-patch-failure))
     (process-git-with-exit!
       ["push"]
-      (error/push-diff-failure))))
+      (error/push-patch-failure))))
 
-(def new-diff!
-  "Creates a new diff on `machine` with a patch from the given `commit`."
+
+(def verify-patch
+  "Verify that the patch is on top of origin/master"
+  (fn [commit]
+    (if (eq? (get-commit-parent! commit) (get-head-origin-master!))
+      commit
+      (do
+        (put-str! (error/parent-commit-not-master commit))
+        (exit! 1)))))
+
+(def new-patch!
+  "Creates a new patch on `machine` with a patch from the given `commit`."
   (fn [machine commit]
     (verify-commit commit)
+    (verify-patch commit)
     (def patch (get-patch! commit))
     (def author-name (get-author-name! commit))
     (def author-email (get-author-name! commit))
     (def short-hash (get-short-hash! commit))
     (def title (get-title! commit))
     (def description (get-description! commit))
-    (def diff {:short-hash    short-hash
+    (def patch {:short-hash    short-hash
                :title         title
                :description   description
                :author-name   author-name
                :author-email  author-email
                :patch         patch})
-    (match (simple-create-diff! machine diff)
-           ['n] (put-str! (string-append "Proposing diff #" (show n)
+    (match (simple-create-patch! machine patch)
+           ['n] (put-str! (string-append "Proposing patch #" (show n)
                                          " to " machine))
-           _    (put-str! (error/no-number-returned :diff)))))
+           _    (put-str! (error/no-number-returned :patch)))))
 
-;; showing diffs
+;; showing patches
 
 (def pretty-state
   (fn [state]
@@ -167,21 +186,10 @@
    :author      20
    :modified-at 20})
 
-(def pad-to
- (fn [l x]
-   (if (< l 1)
-     ""
-     (do
-       (def pad (string/intercalate "" (map (fn [x] " ") (range 1 l))))
-       (def x-length (length x))
-       (if (> x-length (- l 1))
-         (take l x)
-         (string-append x (take (- l x-length) pad)))))))
-
 (def wrap-cell
   (fn [phrase cell-key]
     (def c-length (lookup cell-key cells))
-    (string-append (pad-to c-length phrase) " ")))
+    (string-append (take c-length (string/pad-right-to c-length phrase)) " ")))
 
 (def pretty-table-header
   (fn []
@@ -200,12 +208,12 @@
         :state s
         :author-name an
         :modified-at m-a}
-      (string-append
-        (pretty-state s) " "
-        (show n) " "
-        tit " "
-        an " "
-        m-a " "))))
+      (string/unwords
+        [(pretty-state s)
+         (show n)
+         tit
+         an
+         m-a]))))
 
 (def pretty-row
   (fn [i]
@@ -230,7 +238,7 @@
        :author-name a-n}
      (string-append "### " a-n " [" c-a "]\n\n" b "\n"))))
 
-(def pretty-diff
+(def pretty-patch
   (fn [i]
     (match i
       '{:patch p
@@ -253,16 +261,16 @@
      x)))
 
 (def list-items
-  "Lists all diffs and filters them by `options`. If `--new` is passed as an
+  "Lists all patches and filters them by `options`. If `--new` is passed as an
   option only recent items are shown. If `--fancy is passed, the list is opened
   via fzf."
   (fn [machine options]
 
     (def mk-key
-      (fn [diff]
+      (fn [patch]
         (if (lookup :fancy options)
-          [(pretty-headline diff) diff]
-          [(pretty-row diff) diff])))
+          [(pretty-headline patch) patch]
+          [(pretty-row patch) patch])))
 
     (def filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
@@ -272,21 +280,21 @@
   (def items
     (map mk-key
       (filter filt
-        (reverse (values (list-diffs machine))))))
+        (reverse (values (list-patches machine))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
-      (put-str! "No diffs!")
+      (put-str! "No patches!")
       (if (lookup :fancy options)
         (match (fzf-select-with-preview!
                  (map first items)
-                 (fn [s] (pretty-diff (lookup s items-dict))))
+                 (fn [s] (pretty-patch (lookup s items-dict))))
                (/just 's)
                (do (def selected (lookup s items-dict))
-                   (def diff-number (match selected {:number 'n} n))
+                   (def patch-number (match selected {:number 'n} n))
                    (def pretty-item
                      (add-comment-md
-                       (pretty-diff selected)))
+                       (pretty-patch selected)))
                    (def edited-item (edit-in-editor! pretty-item))
                    (def added-comment
                      (string/unlines
@@ -295,26 +303,26 @@
                    (put-str!
                     (if (eq? added-comment "")
                       "Item was not updated."
-                      (do (simple-add-comment! machine diff-number added-comment (get-git-username!))
+                      (do (simple-add-comment! machine patch-number added-comment (get-git-username!))
                           (string-append "Sent comment: " added-comment)))))
                _ (put-str! "No selection made."))
          (do
            (put-str! (pretty-table-header))
            (map (fn [d] (put-str! (first d))) items))))))
 
-(def show-diff!
-  "Shows a single DIFF `n`"
+(def show-patch!
+  "Shows a single PATCH `n`"
   (fn [machine n]
     (if (number? n)
       (if (integral? n)
         (do
-          (def diff (verify-diff-number n machine))
-          (put-str! (pretty-diff diff)))
-        (cmd-parse-failure (error/whole-item-number :diff)))
-      (cmd-parse-failure (error/missing-item-number :diff "show")))))
+          (def patch (verify-patch-number n machine))
+          (put-str! (pretty-patch patch)))
+        (cmd-parse-failure (error/whole-item-number :patch)))
+      (cmd-parse-failure (error/missing-item-number :patch "show")))))
 
-(def edit-diff-state!
-  "Edit the state of a DIFF. If the new state is `:accepted` the DIFF is then
+(def edit-patch-state!
+  "Edit the state of a PATCH. If the new state is `:accepted` the PATCH is then
   also merged to master and the changes pushed."
   (fn [machine n new-state]
     (if (number? n)
@@ -323,34 +331,34 @@
           (def edit-state-with-feedback!
             (fn [message]
               (catch 'daemon-error
-                (simple-edit-diff! machine n {:state new-state})
+                (simple-edit-patch! machine n {:state new-state})
                 (fn [x]
                    (put-str!
-                     (error/state-change-failure :diff (pretty-state new-state)))
+                     (error/state-change-failure :patch (pretty-state new-state)))
                    (exit! 1)))
               (put-str! message)))
-          (verify-diff-number n machine)
+          (verify-patch-number n machine)
           (if (eq? new-state :accepted)
-            (match (push-diff! machine n)
+            (match (push-patch! machine n)
               :ok (edit-state-with-feedback!
-                    (string-append "Diff #" (show n) " has been " (pretty-state new-state) " and merged."))
+                    (string-append "Patch #" (show n) " has been " (pretty-state new-state) " and merged."))
               _   (exit! 1))
             (edit-state-with-feedback!
-              (string-append "Diff #" (show n) " has been " (pretty-state new-state)))))
-        (cmd-parse-failure (error/whole-item-number :diff)))
-    (cmd-parse-failure (error/missing-item-number :issue "change the state of")))))
+              (string-append "Patch #" (show n) " has been " (pretty-state new-state)))))
+        (cmd-parse-failure (error/whole-item-number :patch)))
+    (cmd-parse-failure (error/missing-item-number :patch "change the state of")))))
 
 (def create-comment!
-  "Add a new `comment` to DIFF."
+  "Add a new `comment` to PATCH."
   (fn [machine n comment]
     (if (number? n)
       (if (integral? n)
         (do
-          (verify-diff-number n machine)
+          (verify-patch-number n machine)
           (simple-add-comment! machine n comment (get-git-username!))
-          (put-str! (string-append "Added comment to diff #" (show n))))
-        (cmd-parse-failure (error/whole-item-number :diff)))
-    (cmd-parse-failure (error/missing-item-number :issue "comment on")))))
+          (put-str! (string-append "Added comment to patch #" (show n))))
+        (cmd-parse-failure (error/whole-item-number :patch)))
+    (cmd-parse-failure (error/missing-item-number :patch "comment on")))))
 
 (def cmd-options
   [
@@ -368,14 +376,14 @@
  (fn []
    (match args
           (/list-cmd 'options) (list-items (machine-name) options)
-          (/cmd-1 "propose" 'commit help) (new-diff! (machine-name) commit)
-          (/cmd-1 "checkout" 'diff-number help) (checkout-diff! (machine-name) (read diff-number))
-          (/cmd-1 "show" 'diff-number help) (show-diff! (machine-name) (read diff-number))
-          (/cmd-1 "retract" 'diff-number help) (edit-diff-state! (machine-name) (read diff-number) :retracted)
-          (/cmd-1 "accept" 'diff-number help) (edit-diff-state! (machine-name) (read diff-number) :accepted)
-          (/cmd-1 "reject" 'diff-number help) (edit-diff-state! (machine-name) (read diff-number) :rejected)
-          (/cmd-2 "comment" 'diff-number 'comment help) (create-comment! (machine-name) (read diff-number) comment)
-          (/cmd-0 "create-machine" help) (new-diff-machine! (machine-name))
+          (/cmd-1 "propose" 'commit help) (new-patch! (machine-name) commit)
+          (/cmd-1 "checkout" 'patch-number help) (checkout-patch! (machine-name) (read patch-number))
+          (/cmd-1 "show" 'patch-number help) (show-patch! (machine-name) (read patch-number))
+          (/cmd-1 "retract" 'patch-number help) (edit-patch-state! (machine-name) (read patch-number) :retracted)
+          (/cmd-1 "accept" 'patch-number help) (edit-patch-state! (machine-name) (read patch-number) :accepted)
+          (/cmd-1 "reject" 'patch-number help) (edit-patch-state! (machine-name) (read patch-number) :rejected)
+          (/cmd-2 "comment" 'patch-number 'comment help) (create-comment! (machine-name) (read patch-number) comment)
+          (/cmd-0 "create-machine" help) (new-patch-machine! (machine-name))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
           ["--help"] (put-str! help)

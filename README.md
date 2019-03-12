@@ -1,15 +1,12 @@
-# radicle
+# Radicle
 
-> because 'tis the Origin of the Root... The Radicle is likewise called the seminal Root.
-> — Vallemont, *Curiosities of nature and art in husbandry and gardening* (1707)
+A peer-to-peer stack for code collaboration
 
-A LISP in the spirit of [Black](http://pllab.is.ocha.ac.jp/~asai/Black/) and
-other colors. Easily define and interact with shared and upgradable state
-machines.
+- peer-to-peer: The Radicle stack builds on IPFS, which means it works without a centralized server. No hassle with setting up your own hosting, and no need to trust companies with your data.
+- Terminal-first: A Radicle project contains a git repository as well as the issues and proposals associated with that repo. All accessible from your terminal.
+- Programmable: Ever wanted to tweak your code collaboration service? With Radicle each unit of functionality –a machine– is its own litte P2P program, written in the Radicle language. You can change them to suit your needs, or create entirely new ones.
 
-Radicle has a [webpage](http://radicle.xyz/), and a [Getting Started
-Guide](http://docs.radicle.xyz/en/latest/guide/GettingStarted.html) which
-contain a lot more information on `radicle`.
+Radicle has a [webpage](http://radicle.xyz/) which contain a lot more information on `Radicle`.
 
 ## Installation
 
@@ -42,29 +39,33 @@ rad daemon-radicle
 
 We provide `.deb` packages for Debian-based systems.
 
-    wget https://storage.googleapis.com/static.radicle.xyz/releases/radicle_2019.03.01_amd64.deb
-    apt install ./radicle_2019.03.01_amd64.deb
+    wget https://storage.googleapis.com/static.radicle.xyz/releases/radicle_latest_amd64.deb
+    sudo apt install ./radicle_latest_amd64.deb
 
 To use Radicle you need to start the Radicle daemon
 
     systemctl --user start radicle-daemon
     systemctl --user status radicle-daemon
 
-## Usage
-
-```
-radicle ./rad/repl.rad
-rad> (print! "hello world")
-rad> (def-rec fac (fn [n] (if (eq? n 0) 1 (* n (fac (- n 1))))))
-rad> (fac 6)
-```
-
 ## Issues
 
-We are currently using `radicle` itself to manage issues, and have therefore
-disabled issues on Github. You can create and see issues with the
-`bin/rad-issues` script. You can also reach us on the `radicle` IRC channel on
-`#freenode`.
+We are currently using `Radicle` itself to manage issues, and have therefore
+disabled issues on Github. You can create and see issues with `rad issues list`
+in the project repo. To checkout the project, run:
+
+```
+rad project checkout 12D3KooWPS3UXcvSZSXfi7P4J9Ut8MMVNvN63HHiCSP8rxj3RmtC
+```
+
+If you cloned the project from Github, you can instead, from the repo, run:
+
+```
+git config set radicle.project-id=12D3KooWPS3UXcvSZSXfi7P4J9Ut8MMVNvN63HHiCSP8rxj3RmtC
+```
+
+You can also reach us on the `radicle` IRC channel on `#freenode`, or via the
+[mailing list](https://groups.google.com/a/monadic.xyz/forum/#!forum/radicle).
+
 
 ## Development
 

@@ -28,7 +28,11 @@ runCommand [] = do
     putStrLn @Text "Available commands:"
     putStr $ T.unlines $ ["   " <> T.pack c | c <- availableCommands]
 runCommand ("version":_) =
-    putStrLn ("radicle version " <> toS (showVersion version) :: Text)
+    putStrLn radicleVersion
+runCommand ("--version":_) =
+    putStrLn radicleVersion
+runCommand ("-v":_) =
+    putStrLn radicleVersion
 runCommand ("help":_) =
     runCommand []
 runCommand ("--help":_) =
@@ -45,6 +49,10 @@ runCommand (name:args) = do
                 [ "rad:", "'" <> toS name <> "'"
                 , "is not a rad command. See 'rad help' for a list of available commands."
                 ]
+
+-- | Returns the radicle version
+radicleVersion :: Text
+radicleVersion = "radicle version " <> toS (showVersion version) :: Text
 
 -- | Built-in commands.
 builtinCommands :: [String]

@@ -8,6 +8,10 @@ module Test.E2ESupport
     , projectDir
 
     , testCaseSteps
+    , testCase
+
+    , prepareRadicle
+
     , runTestCommand
     , runTestCommand'
 
@@ -76,6 +80,10 @@ testCaseSteps name mkTest =
         let step' = liftIO . step . toS
         in runTestM (mkTest step')
 
+testCase :: TestName -> TestM () -> TestTree
+testCase name test =
+    HUnit.testCase name $ runTestM test
+
 
 assertEqual :: (HasCallStack, MonadIO m, Eq a, Show a) => Text -> a -> a -> m ()
 assertEqual msg a a' = liftIO $ HUnit.assertEqual (toS msg) a a'
@@ -90,6 +98,15 @@ assertContains str substr =
     if substr `T.isInfixOf` str
     then pure ()
     else assertFailure $ "\"" <> substr <> "\" is not contained in \"" <> str <> "\""
+
+-- * Setup
+
+-- | Runs @rad key create@ and sets the Git user name and email.
+prepareRadicle :: TestM Text
+prepareRadicle = do
+    _ <- runTestCommand "rad-key" ["create"]
+    _ <- runTestCommand "git" ["config", "--global", "user.name", "Alice"]
+    runTestCommand "git" ["config", "--global", "user.email", "alice@example.com"]
 
 -- * Run commands
 
