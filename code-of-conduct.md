@@ -14,6 +14,6 @@ Communication should always come from a place of respect for other contributors.
 
 Comments that denigrate an individual’s identity create a climate of fear that drives contributors to exit, and diminishing this community does not serve our shared purpose.
 
-Should you feel certain behaviour constitutes a transgression of our community standards or that community members have been placed at risk, please email <radicle@monadic.xyz>. Project maintainers are responsible for addressing these concerns will use their discretion to secure the health of the Radicle developer community.
+Should you feel certain behaviour constitutes a transgression of our community standards or that community members have been placed at risk, please email <radicle@monadic.xyz>. Project maintainers are responsible for addressing these concerns and will use their discretion to secure the health of the Radicle developer community.
 
 This code of conduct takes inspiration from: [Richard Stallman’s GNU Kind Communications Guidelines](https://www.gnu.org/philosophy/kind-communication.html), [Stackoverflow’s Code of Conduct](https://stackoverflow.com/conduct), [Recurse Center’s Code of Conduct](https://www.recurse.com/code-of-conduct) and [IPFS’s Community Code of Conduct](https://github.com/ipfs/community/blob/master/code-of-conduct.md).
