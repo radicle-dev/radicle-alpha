@@ -54,13 +54,13 @@ disabled issues on Github. You can create and see issues with `rad issues list`
 in the project repo. To checkout the project, run:
 
 ```
-rad project checkout 12D3KooWSKJexYNhJLEinqZTxhRt5RvmBquDaHPLDXjvpVu8VSWd
+rad project checkout 12D3KooWPS3UXcvSZSXfi7P4J9Ut8MMVNvN63HHiCSP8rxj3RmtC
 ```
 
 If you cloned the project from Github, you can instead, from the repo, run:
 
 ```
-git config set radicle.project-id=12D3KooWSKJexYNhJLEinqZTxhRt5RvmBquDaHPLDXjvpVu8VSWd
+git config set radicle.project-id=12D3KooWPS3UXcvSZSXfi7P4J9Ut8MMVNvN63HHiCSP8rxj3RmtC
 ```
 
 You can also reach us on the `radicle` IRC channel on `#freenode`, or via the
