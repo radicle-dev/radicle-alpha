@@ -663,6 +663,11 @@ Reads a radicle value from a string.
 
 Reads many radicle values from a string.
 
+``(<= x y)``
+~~~~~~~~~~~~
+
+Test if ``x`` is less than or equal to ``y``.
+
 ``prelude/patterns``
 --------------------
 
@@ -1311,6 +1316,57 @@ Like ``set``, but for refs.
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 Like ``over``, but for refs.
+
+``prelude/io-utils``
+--------------------
+
+IO-related utilities
+
+``(fzf-select! xs)``
+~~~~~~~~~~~~~~~~~~~~
+
+Select one of many strings with ``fzf``. Requires that ``fzf`` be on the
+path. Returns ``[:just x]`` where ``x`` is the selected string, or
+``:nothing`` if nothing was selected.
+
+``(edit-in-editor! orig)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Open ``$EDITOR`` on a file prepopulated with ``orig``. Returns the
+contents of the edited file when the editor exits.
+
+``(get-git-config! key)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Get the value associated with a key in git config.
+
+``(set-git-config! key value)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Set the value associated with a key in git config.
+
+``(get-git-commit-data! format commit)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Get data from a ``commit`` via ``show`` specified by ``format``
+
+``(get-git-username!)``
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Get the user name stored in git config.
+
+``(process-git-with-exit! args msg)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Processes a git command ``args``. If it fails, the message ``msg`` is
+shown and the process exits, otherwise ``:ok`` is passed.
+
+``(base-path!)``
+~~~~~~~~~~~~~~~~
+
+Returns the base path for storage of radicle related config files. By
+default this is ``$HOME/.config/radicle``. This can be adjusted by
+setting ``$XDG_CONFIG_HOME``.
 
 ``prelude/key-management``
 --------------------------
