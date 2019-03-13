@@ -472,10 +472,8 @@ poll = traverseMachines pollMachine
           logDebug "Polling.." [("machine-id", getMachineId machineId)]
           refreshAsReader machineId >> pure ()
         modifyMachine machineId $ \m' -> pure (m' { machinePolling = newPoll }, ())
-      UninitialisedReader t -> do
-        delta <- liftIO $ timeSince t
-        when (delta > lowFreqPollPeriod) $ initReaderNoFail id $> ()
-      _ -> pure () -- Writers don't require any polling.
+      -- Don't update owned and unavailable machines.
+      _ -> pure ()
 
 -- | Returns the amount of time since the last time the machine was
 -- updated.
