@@ -69,7 +69,7 @@ newClient :: MonadIO m => m Client
 newClient = liftIO $ do
     baseUrl <- fromMaybe "http://localhost:9301" <$> lookupEnv "RAD_IPFS_API_URL"
     clientBaseRequest <- HttpClient.parseUrlThrow baseUrl
-    clientHttpManager <- HttpClient.newManager HttpClient.defaultManagerSettings
+    clientHttpManager <- HttpClient.newManager (HttpClient.defaultManagerSettings { HttpClient.managerResponseTimeout = HttpClient.responseTimeoutMicro (60 * 1000000) })
     pure Client{clientBaseRequest, clientHttpManager}
 
 data IpfsException
@@ -291,7 +291,7 @@ newtype NameResolveResponse
     = NameResolveResponse CID
 
 nameResolve :: (MonadIpfs m) => IpnsId -> m NameResolveResponse
-nameResolve ipnsId = ipfsHttpGet "name/resolve" [("arg", ipnsId), ("recursive", "true")]
+nameResolve ipnsId = ipfsHttpGet "name/resolve" [("arg", ipnsId), ("recursive", "true"), ("dht-timeout", ipfsTimeout)]
 
 instance FromJSON NameResolveResponse where
     parseJSON = Aeson.withObject "v0/name/resolve response" $ \o -> do
@@ -361,6 +361,9 @@ makeIpfsRequest baseRequest method path params =
   where
     params' = [ (encodeUtf8 key, Just (encodeUtf8 value)) | (key, value) <- params]
 
+-- | Timeout for IPFS API.
+ipfsTimeout :: Text
+ipfsTimeout = "60s"
 
 -- | Parses response body as JSON and returns the parsed value. @path@
 -- is the IPFS API the response was obtained from. Throws
