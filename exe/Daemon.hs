@@ -438,8 +438,8 @@ installMachineMessageHandler m handleMessage = do
 writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs id inputs nonce = do
     (rs, idx) <- modifyMachine id $ \machine -> do
-        newIndex <- machineIpfs id $ writeIpfs id inputs
         (machine', results) <- addInputs inputs newIndex machine
+        newIndex <- machineIpfs id $ writeIpfs id inputs
         machineIpfs id $ publish id (New InputsApplied{results,nonce})
         pure (machine', (results, machineLastIndex machine'))
     writeMachineConfig
