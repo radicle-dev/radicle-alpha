@@ -305,30 +305,36 @@ loadMachine mode id = do
   (idx, is) <- machineIpfs id $ machineInputsFrom id Nothing
   sub <- initDaemonSubscription id
   m <- emptyMachine id mode sub
-  (m', _) <- addInputs is idx m
+  m' <- addInputs is idx m
   insertMachine m'
   pure m'
 
--- | Add inputs to a machine and update its state
-addInputs
-  :: [Value]
-  -- ^ Inputs to add.
-  -> MachineEntryIndex
-  -- ^ The new index.
-  -> Machine
-  -> Daemon (Machine, [Value])
-  -- ^ Returns the updated machine and the produced outputs
-addInputs inputs index m = do
+-- | Runs some inputs over the state of a cached machine. Returns the new state
+-- that would result, and the outputs. Throws an error if the inputs are
+-- invalid.
+runInputs :: Machine -> [Value] -> Daemon (Bindings (PrimFns Identity), [Value])
+runInputs m inputs = do
   let (result, newState) = runIdentity $ runLang (machineState m) $ traverse eval inputs
   case result of
-    Left err -> throw $ MachineError (machineId m) (InvalidInput err)
-    Right outputs -> do
-      t <- liftIO $ Time.getSystemTime
-      let m' = m { machineState = newState
-                 , machineLastIndex = index
-                 , machineLastUpdated = t
-                 }
-      pure (m', outputs)
+    Left err      -> throw $ MachineError (machineId m) (InvalidInput err)
+    Right outputs -> pure (newState, outputs)
+
+-- | Modify the state and index of a cached machine.
+updateState :: Bindings (PrimFns Identity) -> MachineEntryIndex -> Machine -> Daemon Machine
+updateState newState index m = do
+  t <- liftIO $ Time.getSystemTime
+  let m' = m { machineState = newState
+             , machineLastIndex = index
+             , machineLastUpdated = t
+             }
+  pure m'
+
+-- | Add inputs to a machine and update to a new index. Checks that the new
+-- inputs are valid.
+addInputs :: [Value] -> MachineEntryIndex -> Machine -> Daemon Machine
+addInputs is idx m = do
+  (newState, _) <- runInputs m is
+  updateState newState idx m
 
 -- | Run some IPFS IO related to a specific machine.
 machineIpfs :: MachineId -> IO a -> Daemon a
@@ -389,7 +395,7 @@ refreshAsReader id = modifyMachine id refresh
                   [mid, ("input-index",  show newIdx)]
           pure (m, m)
         else do
-          (m', _) <- addInputs is newIdx m
+          m' <- addInputs is newIdx m
           logDebug
                   "Updated reader"
                   [mid, ("n", show (length is)), ("input-index",  show newIdx)]
@@ -438,9 +444,11 @@ installMachineMessageHandler m handleMessage = do
 writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs id inputs nonce = do
     (rs, idx) <- modifyMachine id $ \machine -> do
+        -- We check that the new inputs are valid before writing them to IPFS.
+        (newState, results) <- runInputs machine inputs
         newIndex <- machineIpfs id $ writeIpfs id inputs
-        (machine', results) <- addInputs inputs newIndex machine
-        machineIpfs id $ publish id (New InputsApplied{results,nonce})
+        machine' <- updateState newState newIndex machine
+        machineIpfs id $ publish id (New InputsApplied{results, nonce})
         pure (machine', (results, machineLastIndex machine'))
     writeMachineConfig
     logDebug "Wrote inputs to IPFS"
