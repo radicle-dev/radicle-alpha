@@ -309,10 +309,11 @@ loadMachine mode id = do
   insertMachine m'
   pure m'
 
--- | Checks that inputs can be applied to a machine. Returns the new state that
--- would result, and the outputs.
-checkInputs :: Machine -> [Value] -> Daemon (Bindings (PrimFns Identity), [Value])
-checkInputs m inputs = do
+-- | Runs some inputs over the state of a cached machine. Returns the new state
+-- that would result, and the outputs. Throws an error if the inputs are
+-- invalid.
+runInputs :: Machine -> [Value] -> Daemon (Bindings (PrimFns Identity), [Value])
+runInputs m inputs = do
   let (result, newState) = runIdentity $ runLang (machineState m) $ traverse eval inputs
   case result of
     Left err      -> throw $ MachineError (machineId m) (InvalidInput err)
@@ -332,7 +333,7 @@ updateState newState index m = do
 -- inputs are valid.
 addInputs :: [Value] -> MachineEntryIndex -> Machine -> Daemon Machine
 addInputs is idx m = do
-  (newState, _) <- checkInputs m is
+  (newState, _) <- runInputs m is
   updateState newState idx m
 
 -- | Run some IPFS IO related to a specific machine.
@@ -444,7 +445,7 @@ writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs id inputs nonce = do
     (rs, idx) <- modifyMachine id $ \machine -> do
         -- We check that the new inputs are valid before writing them to IPFS.
-        (newState, results) <- checkInputs machine inputs
+        (newState, results) <- runInputs machine inputs
         newIndex <- machineIpfs id $ writeIpfs id inputs
         machine' <- updateState newState newIndex machine
         machineIpfs id $ publish id (New InputsApplied{results, nonce})
