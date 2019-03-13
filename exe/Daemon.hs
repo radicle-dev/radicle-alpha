@@ -456,7 +456,7 @@ poll :: Daemon ()
 poll = traverseMachines pollMachine
   where
     pollMachine :: MachineId -> CachedMachine -> Daemon ()
-    pollMachine id = \case
+    pollMachine _ = \case
       Cached m@Machine{ machineMode = Reader, .. } -> do
         delta <- liftIO $ sinceLastUpdate m
         let (shouldPoll, newPoll) =
