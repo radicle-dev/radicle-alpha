@@ -527,6 +527,6 @@ lowFreqPollPeriod :: Milliseconds
 lowFreqPollPeriod = 10 * 1000
 
 -- | The amount of time a reader will wait for a response message from
--- a writer: 8 seconds.
+-- a writer: 12 seconds.
 ackWaitTime :: Milliseconds
-ackWaitTime = 8 * 1000
+ackWaitTime = 12 * 1000
