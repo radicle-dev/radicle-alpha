@@ -17,6 +17,7 @@ import           Network.Wai.Handler.Warp (run)
 import           Options.Applicative
 import           Servant
 import           System.IO (BufferMode(..), hSetBuffering)
+import           UnliftIO.Async (pooledForConcurrentlyN_)
 
 import           Radicle.Daemon.Error
 import qualified Radicle.Daemon.HttpApi as Api
@@ -169,14 +170,19 @@ server env = hoistServer Api.daemonApi nt daemonServer
             _              -> err500
           _ -> err500
 
--- * Init
-
 -- | Initiate machines according to follow file.
 init :: MachinesConfig -> Daemon ()
-init follows = traverse_ initMachine (Map.toList follows)
+init follows = pooledForConcurrentlyN_ 5 (Map.toList follows) initMachine
   where
-    initMachine (id, ConfigReader)     = initReaderNoFail id
-    initMachine (id, ConfigWriter idx) = initAsWriter id idx $> ()
+    initMachine (id, ConfigReader) =
+        catch (initAsReader id $> ()) $ \err -> do
+            let (msg, infos) = displayError err
+            logError' "Could not initiate reader-mode machine on startup" $ ("init-error", msg) : infos
+            insertUninitializedReader id
+    initMachine (id, ConfigWriter idx) = do
+        machineIpfs id $ ipnsPublish id idx
+        m <- loadMachine Writer id
+        actAsWriter m
 
 -- * Endpoints
 
@@ -372,14 +378,6 @@ initAsReader id = do
         bumpPolling id
       _ -> pure ()
 
--- | Try to initiate a reader, but don't fail in case of errors; just log a
--- message.
-initReaderNoFail :: MachineId -> Daemon ()
-initReaderNoFail id = catch (initAsReader id $> ()) $ \err -> do
-  let (msg, infos) = displayError err
-  logError' "Could not initiate reader-mode machine on startup" $ ("init-error", msg) : infos
-  insertUninitializedReader id
-
 -- | Updates a (already initialised) machine in the cache with new inputs pulled
 -- from IPFS.
 refreshAsReader :: MachineId -> Daemon Machine
@@ -403,13 +401,6 @@ refreshAsReader id = modifyMachine id refresh
     mid = ("machine-id", getMachineId id)
 
 -- ** Writer
-
-initAsWriter :: MachineId -> MachineEntryIndex -> Daemon Machine
-initAsWriter id idx = do
-  machineIpfs id $ ipnsPublish id idx
-  m <- loadMachine Writer id
-  actAsWriter m
-  pure m
 
 -- | Subscribes the daemon to the machine's pubsub topic to listen for
 -- input requests.
