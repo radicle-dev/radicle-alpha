@@ -155,15 +155,16 @@ executables:
     source-dirs: exe
     other-modules: []
     dependencies:
-    - radicle
-    - mtl
     - containers
+    - mtl
     - optparse-applicative
+    - radicle
     - safe-exceptions
     - servant-server
     - text
-    - warp
     - time
+    - unliftio
+    - warp
     ghc-options: -main-is Daemon
 
   radicle-doc:
