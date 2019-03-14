@@ -106,8 +106,6 @@
   "Matches a command `cmd` with exactly two arguments."
   (fn [cmd arg-1 arg-2 help]
     ((validation/type :string) cmd)
-    ((validation/type :atom) arg-1)
-    ((validation/type :atom) arg-2)
     (fn [value]
       (match value
         [cmd 'a-1 'a-2] (match-pat [arg-1 arg-2] [a-1 a-2])
@@ -131,7 +129,6 @@
   "Matches a command `cmd` with exactly one arguments."
   (fn [cmd cmd-args-pat help]
     ((validation/type :string) cmd)
-    ((validation/type :atom) cmd-args-pat)
     (fn [value]
       (match value
         [cmd 'cmd-args] (match-pat cmd-args-pat cmd-args)

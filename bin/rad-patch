@@ -316,52 +316,37 @@
 (def show-patch!
   "Shows a single PATCH `n`"
   (fn [machine n]
-    (if (number? n)
-      (if (integral? n)
-        (do
-          (def patch (verify-patch-number n machine))
-          (put-str! (pretty-patch patch)))
-        (cmd-parse-failure (error/whole-item-number :patch)))
-      (cmd-parse-failure (error/missing-item-number :patch "show")))))
+    (def patch (verify-patch-number n machine))
+    (put-str! (pretty-patch patch))))
 
 (def edit-patch-state!
   "Edit the state of a PATCH. If the new state is `:accepted` the PATCH is then
   also merged to master and the changes pushed."
   (fn [machine n new-state]
-    (if (number? n)
-      (if (integral? n)
-        (do
-          (def edit-state-with-feedback!
-            (fn [message]
-              (catch 'daemon-error
-                (simple-edit-patch! machine n {:state new-state})
-                (fn [x]
-                   (put-str!
-                     (error/state-change-failure :patch (pretty-state new-state)))
-                   (exit! 1)))
-              (put-str! message)))
-          (verify-patch-number n machine)
-          (if (eq? new-state :accepted)
-            (match (push-patch! machine n)
-              :ok (edit-state-with-feedback!
-                    (string-append "Patch #" (show n) " has been " (pretty-state new-state) " and merged."))
-              _   (exit! 1))
-            (edit-state-with-feedback!
-              (string-append "Patch #" (show n) " has been " (pretty-state new-state)))))
-        (cmd-parse-failure (error/whole-item-number :patch)))
-    (cmd-parse-failure (error/missing-item-number :patch "change the state of")))))
+    (def edit-state-with-feedback!
+      (fn [message]
+        (catch 'daemon-error
+            (simple-edit-patch! machine n {:state new-state})
+          (fn [x]
+            (put-str!
+             (error/state-change-failure :patch (pretty-state new-state)))
+            (exit! 1)))
+        (put-str! message)))
+    (verify-patch-number n machine)
+    (if (eq? new-state :accepted)
+      (match (push-patch! machine n)
+             :ok (edit-state-with-feedback!
+                  (string-append "Patch #" (show n) " has been " (pretty-state new-state) " and merged."))
+             _   (exit! 1))
+      (edit-state-with-feedback!
+       (string-append "Patch #" (show n) " has been " (pretty-state new-state))))))
 
 (def create-comment!
   "Add a new `comment` to PATCH."
   (fn [machine n comment]
-    (if (number? n)
-      (if (integral? n)
-        (do
-          (verify-patch-number n machine)
-          (simple-add-comment! machine n comment (get-git-username!))
-          (put-str! (string-append "Added comment to patch #" (show n))))
-        (cmd-parse-failure (error/whole-item-number :patch)))
-    (cmd-parse-failure (error/missing-item-number :patch "comment on")))))
+    (verify-patch-number n machine)
+    (simple-add-comment! machine n comment (get-git-username!))
+    (put-str! (string-append "Added comment to patch #" (show n)))))
 
 (def cmd-options
   [
@@ -375,17 +360,25 @@
 
 (def args (get-args!))
 
+(def patch-num-pat (/number-string (/integer 'patch-number)))
+
 (machine/catch-daemon!
  (fn []
    (match args
           (/list-cmd 'options) (list-items (machine-name) options)
           (/cmd-1 "propose" 'commit help) (new-patch! (machine-name) commit)
-          (/cmd-1 "checkout" 'patch-number help) (checkout-patch! (machine-name) (read patch-number))
-          (/cmd-1 "show" 'patch-number help) (show-patch! (machine-name) (read patch-number))
-          (/cmd-1 "retract" 'patch-number help) (edit-patch-state! (machine-name) (read patch-number) :retracted)
-          (/cmd-1 "accept" 'patch-number help) (edit-patch-state! (machine-name) (read patch-number) :accepted)
-          (/cmd-1 "reject" 'patch-number help) (edit-patch-state! (machine-name) (read patch-number) :rejected)
-          (/cmd-2 "comment" 'patch-number 'comment help) (create-comment! (machine-name) (read patch-number) comment)
+          (/cmd-1 "checkout" patch-num-pat help) (checkout-patch! (machine-name) patch-number)
+          (/cmd-1 "checkout" _ help)             (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-1 "show" patch-num-pat help) (show-patch! (machine-name) patch-number)
+          (/cmd-1 "show" _ help)                (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-1 "retract" patch-num-pat help) (edit-patch-state! (machine-name) patch-number :retracted)
+          (/cmd-1 "retract" patch-num-pat help) (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-1 "accept" patch-num-pat help) (edit-patch-state! (machine-name) patch-number :accepted)
+          (/cmd-1 "accept" _ help)                (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-1 "reject" patch-num-pat help) (edit-patch-state! (machine-name) patch-number :rejected)
+          (/cmd-1 "reject" _ help)                (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-2 "comment" patch-num-pat 'comment help) (create-comment! (machine-name) patch-number comment)
+          (/cmd-2 "comment" _ 'comment help) (cmd-parse-failure (error/whole-item-number :patch))
           (/cmd-0 "create-machine" help) (new-patch-machine! (machine-name))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)

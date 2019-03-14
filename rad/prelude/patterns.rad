@@ -1,6 +1,7 @@
 {:module  'prelude/patterns
  :doc     "Pattern matching is first-class in radicle so new patterns can easily be defined. These are the most essential."
- :exports '[match-pat _ /? /as /cons /nil /just /member]}
+ :exports '[match-pat _ /? /as /cons /nil /just /member /number /integer
+            /number-string]}
 
 (import prelude/basic :unqualified)
 
@@ -227,3 +228,29 @@
           [1 (/member [1 3 5])] :no
           [1 (/member [2 4 8])] :yes
           _                     :no) ==> :yes])
+
+(def /number
+  "Matches values which are numbers. Matches are passed to the inner pattern."
+  (fn [pat]
+    (fn [v]
+      (if (number? v)
+        (match-pat pat v)
+        :nothing))))
+
+(def /integer
+  "Matches numbers which are integral. Matches are passed to the inner pattern."
+  (fn [pat]
+    (fn [v]
+      (if (integral? v)
+        (match-pat pat v)
+        :nothing))))
+
+(def /number-string
+  "Matches strings which can be parsed as numbers. The parsed number is passed to
+  the inner pattern."
+  (fn [pat]
+    (fn [s]
+      (def n (read s))
+      (if (number? n)
+        (match-pat pat n)
+        :nothing))))
