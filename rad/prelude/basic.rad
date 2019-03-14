@@ -1,6 +1,6 @@
 {:module  'prelude/basic
  :doc     "Basic function used for checking equality, determining the type of a value, etc."
- :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem? head tail read read-many]}
+ :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem? head tail read read-many <=]}
 
 ;; or
 
@@ -102,3 +102,7 @@
 
 (:test "read-many"
   [ (read-many "([:one] {:two 3}) (four \"five\" 6)") ==> [([:one] {:two 3}) (four "five" 6)]])
+
+(def <=
+  "Test if `x` is less than or equal to `y`."
+  (fn [x y] (or (eq? x y) (< x y))))
