@@ -717,6 +717,24 @@ Pattern which matches ``[:just x]``.
 
 Matches values that are members of a structure.
 
+``(/number pat)``
+~~~~~~~~~~~~~~~~~
+
+Matches values which are numbers. Matches are passed to the inner
+pattern.
+
+``(/integer pat)``
+~~~~~~~~~~~~~~~~~~
+
+Matches numbers which are integral. Matches are passed to the inner
+pattern.
+
+``(/number-string pat)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Matches strings which can be parsed as numbers. The parsed number is
+passed to the inner pattern.
+
 ``prelude/bool``
 ----------------
 
