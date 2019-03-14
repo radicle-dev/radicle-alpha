@@ -53,10 +53,8 @@ jobs:
       - run:
           name: Homebrew Dependencies
           command: |
-            brew install coreutils
+            brew bundle
             echo 'export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"' >> $BASH_ENV
-            brew tap caskroom/cask
-            brew cask install google-cloud-sdk
 
       - save_cache:
           key: homebrew-{{ epoch }}
