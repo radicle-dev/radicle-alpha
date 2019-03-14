@@ -1,7 +1,7 @@
 timeout: 3600s # Cache misses are slow to rebuild
 substitutions:
   # Bump the version if you make changes to `ci/Dockerfile
-  _BUILD_IMAGE: eu.gcr.io/opensourcecoin/radicle-ci:v3
+  _BUILD_IMAGE: eu.gcr.io/opensourcecoin/radicle-ci:v4
 options:
   machineType: N1_HIGHCPU_8
 steps:
