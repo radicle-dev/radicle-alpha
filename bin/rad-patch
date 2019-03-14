@@ -364,21 +364,22 @@
 
 (machine/catch-daemon!
  (fn []
+   (def bad-num (fn [] (cmd-parse-failure (error/whole-item-number :patch))))
    (match args
           (/list-cmd 'options) (list-items (machine-name) options)
           (/cmd-1 "propose" 'commit help) (new-patch! (machine-name) commit)
           (/cmd-1 "checkout" patch-num-pat help) (checkout-patch! (machine-name) patch-number)
-          (/cmd-1 "checkout" _ help)             (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-1 "checkout" _ help)             (bad-num)
           (/cmd-1 "show" patch-num-pat help) (show-patch! (machine-name) patch-number)
-          (/cmd-1 "show" _ help)                (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-1 "show" _ help)                (bad-num)
           (/cmd-1 "retract" patch-num-pat help) (edit-patch-state! (machine-name) patch-number :retracted)
-          (/cmd-1 "retract" patch-num-pat help) (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-1 "retract" _ help) (cmd-parse-failure (error/whole-item-number :patch))
           (/cmd-1 "accept" patch-num-pat help) (edit-patch-state! (machine-name) patch-number :accepted)
-          (/cmd-1 "accept" _ help)                (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-1 "accept" _ help)             (bad-num)
           (/cmd-1 "reject" patch-num-pat help) (edit-patch-state! (machine-name) patch-number :rejected)
-          (/cmd-1 "reject" _ help)                (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-1 "reject" _ help)             (bad-num)
           (/cmd-2 "comment" patch-num-pat 'comment help) (create-comment! (machine-name) patch-number comment)
-          (/cmd-2 "comment" _ 'comment help) (cmd-parse-failure (error/whole-item-number :patch))
+          (/cmd-2 "comment" _ 'comment help)             (bad-num)
           (/cmd-0 "create-machine" help) (new-patch-machine! (machine-name))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)

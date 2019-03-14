@@ -278,15 +278,16 @@
 
 (machine/catch-daemon!
  (fn []
+   (def bad-num (fn [] (cmd-parse-failure (error/whole-item-number :issue))))
    (match args
           (/list-cmd 'options) (list-items (machine-name) options)
           (/cmd-0 "new" help) (new-issue (machine-name))
           (/cmd-1 "close" issue-num-pat help) (close-issue! issue-number (machine-name))
-          (/cmd-1 "close" _ help)             (cmd-parse-failure (error/whole-item-number :issue))
+          (/cmd-1 "close" _ help)             (bad-num)
           (/cmd-1 "show" issue-num-pat help) (show-issue! issue-number (machine-name))
-          (/cmd-1 "show" _ help)             (cmd-parse-failure (error/whole-item-number :issue))
+          (/cmd-1 "show" _ help)             (bad-num)
           (/cmd-2 "comment" issue-num-pat 'comment help) (create-comment! (machine-name) issue-number comment)
-          (/cmd-2 "comment" _ 'comment help)             (cmd-parse-failure (error/whole-item-number :issue))
+          (/cmd-2 "comment" _ 'comment help)             (bad-num)
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
           ["--help"] (put-str! help)
