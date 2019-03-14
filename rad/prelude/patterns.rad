@@ -250,7 +250,9 @@
   the inner pattern."
   (fn [pat]
     (fn [s]
-      (def n (read s))
-      (if (number? n)
-        (match-pat pat n)
-        :nothing))))
+      (catch 'any
+          (do (def n (read s))
+              (if (number? n)
+                (match-pat pat n)
+                :nothing))
+        (fn [_] :nothing)))))
