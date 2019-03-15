@@ -1,6 +1,7 @@
 -- | Functions to talk to the IPFS API
 module Radicle.Ipfs
-    ( IpfsException(..)
+    ( MonadIpfs
+    , IpfsException(..)
     , ipldLink
     , parseIpldLink
     , IpnsId
@@ -54,6 +55,8 @@ import qualified Network.HTTP.Conduit as HTTP
 import qualified Network.Wreq as Wreq
 import           System.Environment (lookupEnv)
 
+class (MonadIO m, MonadCatch m) => MonadIpfs m
+
 data IpfsException
   = IpfsException Text
   | IpfsExceptionErrResp Text
@@ -89,7 +92,7 @@ instance Exception IpfsException where
 -- | Catches 'HttpException's and re-throws them as 'IpfsException's.
 --
 -- @path@ is the IPFS API path that is added to some errors.
-mapHttpException :: Text -> IO a -> IO a
+mapHttpException :: (MonadCatch m) => Text -> m a -> m a
 mapHttpException path io = catch io (throw . mapHttpExceptionData)
   where
     mapHttpExceptionData :: HttpException -> IpfsException
@@ -164,7 +167,7 @@ instance FromJSON VersionResponse where
         v <- o .: "Version"
         pure $ VersionResponse v
 
-version :: IO VersionResponse
+version :: (MonadIpfs m) => m VersionResponse
 version = ipfsHttpGet "version" []
 
 data PubsubMessage = PubsubMessage
@@ -185,8 +188,8 @@ instance FromJSON PubsubMessage where
 -- | Subscribe to a topic and call @messageHandler@ on every message.
 -- The IO action blocks while we are subscribed. To stop subscription
 -- you need to kill the thread the subscription is running in.
-subscribe :: Text -> (PubsubMessage -> IO ()) -> IO ()
-subscribe topic messageHandler = runResourceT $ do
+subscribe :: (MonadIpfs m) => Text -> (PubsubMessage -> IO ()) -> m ()
+subscribe topic messageHandler = liftIO $ runResourceT $ do
     mgr <- liftIO $ HTTP.newManager HTTP.defaultManagerSettings
     url <- liftIO $ ipfsApiUrl "pubsub/sub"
     req <- HTTP.parseRequest (toS url) <&>
@@ -213,13 +216,13 @@ subscribe topic messageHandler = runResourceT $ do
 
 
 -- | Publish a message to a topic.
-publish :: Text -> LByteString -> IO ()
+publish :: (MonadIpfs m) =>  Text -> LByteString -> m ()
 publish topic message =
      void $ ipfsHttpPost' "pubsub/pub" [("arg", topic)] "data" message
 
 newtype KeyGenResponse = KeyGenResponse IpnsId
 
-keyGen :: Text -> IO KeyGenResponse
+keyGen :: (MonadIpfs m) => Text -> m KeyGenResponse
 keyGen name = ipfsHttpGet "key/gen" [("arg", name), ("type", "ed25519")]
 
 instance FromJSON KeyGenResponse where
@@ -231,7 +234,7 @@ newtype DagPutResponse
     = DagPutResponse CID
 
 -- | Put and pin a dag node.
-dagPut :: ToJSON a => a -> IO DagPutResponse
+dagPut :: (MonadIpfs m, ToJSON a) => a -> m DagPutResponse
 dagPut obj = ipfsHttpPost "dag/put" [("pin", "true")] "arg" (Aeson.encode obj)
 
 instance FromJSON DagPutResponse where
@@ -252,18 +255,18 @@ instance FromJSON PinResponse where
       Right cids -> pure $ PinResponse cids
 
 -- | Pin objects to local storage.
-pinAdd :: Address -> IO PinResponse
+pinAdd :: (MonadIpfs m) => Address -> m PinResponse
 pinAdd addr = ipfsHttpGet "pin/add" [("arg", addressToText addr)]
 
 -- | Get a dag node.
-dagGet :: FromJSON a => Address -> IO a
+dagGet :: (MonadIpfs m) => FromJSON a => Address -> m a
 dagGet addr = do
     result <- ipfsHttpGet "dag/get" [("arg", addressToText addr)]
     case Aeson.fromJSON result of
         Aeson.Error err -> throw $ IpfsExceptionIpldParse addr (toS err)
         Aeson.Success a -> pure a
 
-namePublish :: IpnsId -> Address -> IO ()
+namePublish :: (MonadIpfs m) => IpnsId -> Address -> m ()
 namePublish ipnsId addr = do
     _ :: Aeson.Value <- ipfsHttpGet "name/publish" [("arg", addressToText addr), ("key", ipnsId)]
     pure ()
@@ -272,7 +275,7 @@ namePublish ipnsId addr = do
 newtype NameResolveResponse
     = NameResolveResponse CID
 
-nameResolve :: IpnsId -> IO NameResolveResponse
+nameResolve :: (MonadIpfs m) => IpnsId -> m NameResolveResponse
 nameResolve ipnsId = ipfsHttpGet "name/resolve" [("arg", ipnsId), ("recursive", "true")]
 
 instance FromJSON NameResolveResponse where
@@ -289,34 +292,35 @@ instance FromJSON NameResolveResponse where
 --------------------------------------------------------------------------
 
 ipfsHttpGet
-    :: FromJSON a
+    :: (FromJSON a, MonadIpfs m)
     => Text  -- ^ Path of the endpoint under "/api/v0/"
     -> [(Text, Text)] -- ^ URL query parameters
-    -> IO a
-ipfsHttpGet path params = mapHttpException path $ do
+    -> m a
+ipfsHttpGet path params = liftIO $ mapHttpException path $ do
     let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
     res <- Wreq.getWith opts (toS url)
     getJsonResponseBody path res
 
 ipfsHttpPost
-    :: FromJSON a
+    :: (MonadIpfs m, FromJSON a)
     => Text  -- ^ Path of the endpoint under "/api/v0/"
     -> [(Text, Text)] -- ^ URL query parameters
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
-    -> IO a
+    -> m a
 ipfsHttpPost path params payloadArgName payload = mapHttpException path $ do
     res <- ipfsHttpPost' path params payloadArgName payload
-    getJsonResponseBody path res
+    liftIO $ getJsonResponseBody path res
 
 ipfsHttpPost'
-    :: Text  -- ^ Path of the endpoint under "/api/v0/"
+    :: (MonadIpfs m)
+    => Text  -- ^ Path of the endpoint under "/api/v0/"
     -> [(Text, Text)] -- ^ URL query parameters
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
-    -> IO (Wreq.Response LByteString)
-ipfsHttpPost' path params payloadArgName payload = mapHttpException path $ do
+    -> m (Wreq.Response LByteString)
+ipfsHttpPost' path params payloadArgName payload = liftIO $ mapHttpException path $ do
     let opts = Wreq.defaults & Wreq.params .~ params
     url <- ipfsApiUrl path
     Wreq.postWith opts (toS url) (Wreq.partLBS payloadArgName payload)
