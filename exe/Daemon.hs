@@ -230,10 +230,7 @@ send id (Api.SendRequest expressions) = do
     case machineMode of
         Reader -> requestInput machineSubscription
         Writer -> do
-            logInfo "Applying input"
-                [ ("machine-id", getMachineId id)
-                ]
-            results <- writeInputs id expressions Nothing
+            results <- writeInputs "http" id expressions Nothing
             pure Api.SendResponse{..}
   where
     matchMessage nonce = \case
@@ -411,7 +408,7 @@ actAsWriter m = do
   where
     id = machineId m
     onMsg = \case
-      Submit SubmitInputs{..} -> writeInputs id expressions (Just nonce) >> pure ()
+      Submit SubmitInputs{..} -> writeInputs "pubsub" id expressions (Just nonce) >> pure ()
       _ -> pure ()
 
 -- | Installs a handler for messages sent on the machine's IPFS pubsub channel.
@@ -432,8 +429,11 @@ installMachineMessageHandler m handleMessage = do
 --
 -- Sends out a 'InputsApplied' message over pubsub that includes the
 -- outputs and the given nonce.
-writeInputs :: MachineId -> [Value] -> Maybe Text -> Daemon [Value]
-writeInputs id inputs nonce = do
+--
+-- @source@ is the source of the inputs (either HTTP or pubsub) and is
+-- only used for logging.
+writeInputs :: Text -> MachineId -> [Value] -> Maybe Text -> Daemon [Value]
+writeInputs source id inputs nonce = do
     (rs, idx) <- modifyMachine id $ \machine -> do
         -- We check that the new inputs are valid before writing them to IPFS.
         (newState, results) <- runInputs machine inputs
@@ -442,9 +442,10 @@ writeInputs id inputs nonce = do
         machineIpfs id $ publish id (New InputsApplied{results, nonce})
         pure (machine', (results, machineLastIndex machine'))
     writeMachineConfig
-    logDebug "Wrote inputs to IPFS"
+    logInfo "Updated machine"
         [ ("machine-id", getMachineId id)
         , ("new-input-index", show idx)
+        , ("source", source)
         ]
     pure rs
 
