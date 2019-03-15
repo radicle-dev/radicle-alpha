@@ -18,6 +18,7 @@ module Test.E2ESupport
     , TestTree
     , assertEqual
     , assertContains
+    , assertAbsence
     ) where
 
 import           Prelude (String, unwords)
@@ -98,6 +99,14 @@ assertContains str substr =
     if substr `T.isInfixOf` str
     then pure ()
     else assertFailure $ "\"" <> substr <> "\" is not contained in \"" <> str <> "\""
+
+-- | @assertAbsence str substr@ throws as assertion error if @substr@ is
+-- contained in @str@
+assertAbsence :: (HasCallStack, MonadIO m) => Text -> Text -> m ()
+assertAbsence str substr =
+    if substr `T.isInfixOf` str
+    then assertFailure $ "\"" <> substr <> "\" should not be contained in \"" <> str <> "\""
+    else pure ()
 
 -- * Setup
 
