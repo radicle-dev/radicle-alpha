@@ -53,6 +53,7 @@ library:
   - microlens
   - mtl
   - multibase
+  - optparse-applicative
   - pointed
   - prettyprinter
   - prettyprinter-ansi-terminal
@@ -158,7 +159,6 @@ executables:
     dependencies:
     - containers
     - mtl
-    - optparse-applicative
     - radicle
     - safe-exceptions
     - servant-server

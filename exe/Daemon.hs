@@ -23,11 +23,11 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Time.Clock.System as Time
 import           Network.Wai.Handler.Warp (run)
-import           Options.Applicative
 import           Servant
 import           System.IO (BufferMode(..), hSetBuffering)
 import           UnliftIO.Async
 
+import qualified Radicle.Daemon.Cli as Cli
 import           Radicle.Daemon.Error
 import qualified Radicle.Daemon.HttpApi as Api
 import           Radicle.Daemon.Ipfs
@@ -39,53 +39,9 @@ import           Radicle.Daemon.Monad
 import qualified Radicle.Ipfs as Ipfs
 
 import           Radicle hiding (DaemonError, Env)
-import qualified Radicle.Internal.CLI as Local
 import qualified Radicle.Internal.ConcurrentMap as CMap
 import qualified Radicle.Internal.UUID as UUID
 
--- * Main
-
-data Opts = Opts
-  { port              :: Int
-  , machineConfigFile :: FilePath
-  , debug             :: Bool
-  }
-
-cliInfo :: IO (ParserInfo Opts)
-cliInfo = do
-    defaultMachineConfigFile <- Local.getRadicleFile "machines.json"
-    pure $
-        info (opts defaultMachineConfigFile <**> helper)
-            ( fullDesc
-           <> progDesc "Run the radicle daemon"
-           <> header "rad-daemon-radicle"
-            )
-
-opts :: FilePath -> Parser Opts
-opts defaultMachineConfigFile = do
-    port <-
-        option auto
-        ( long "port"
-       <> help "daemon port"
-       <> metavar "PORT"
-       <> showDefault
-       <> value 8909
-        )
-    machineConfigFile <-
-        strOption
-        ( long "machine-config"
-       <> help "Where to store configuration for known machines"
-       <> metavar "FILE"
-       <> showDefault
-       <> value defaultMachineConfigFile
-        )
-    debug <-
-        switch
-        ( long "debug"
-       <> help "enable debug logging"
-       <> showDefault
-        )
-    pure $ Opts{..}
 
 -- | Repeatedly tries to connect to the Radicle IPFS daemon API until
 -- succesfull. Times out after five seconds and throws 'IpfsDaemonNotReachable'.
@@ -123,7 +79,7 @@ waitForIpfsDaemon = do
 main :: IO Void
 main = do
     hSetBuffering stdout LineBuffering
-    Opts{..} <- execParser =<< cliInfo
+    Cli.Opts{..} <- Cli.parse
     machineConfigFileLock <- newMVar ()
     machines <- CachedMachines <$> CMap.empty
     let env = Env{ logLevel = if debug then LogDebug else LogInfo, ..}
