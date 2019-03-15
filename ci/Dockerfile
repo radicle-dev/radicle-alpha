@@ -20,7 +20,7 @@ RUN \
     > /etc/apt/sources.list.d/google-cloud-sdk.list && \
   apt-key add google-apt-key.gpg && \
   apt-get update -yqq && \
-  apt-get -yq install \
+  apt-get -yq --no-install-recommends install \
     build-essential \
     ruby \
     ruby-dev \
