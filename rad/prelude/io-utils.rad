@@ -2,6 +2,7 @@
  :doc "IO-related utilities"
  :exports '[fzf-select! edit-in-editor! get-git-config! set-git-config!
             get-git-commit-data! get-git-username! process-git-with-exit!
+            base-path!
             ]}
 
 (import prelude/io '[shell-with-stdout! write-file! process-with-stdout!] :unqualified)
@@ -82,3 +83,16 @@
       _   (do
             (put-str! msg)
             (exit! 1)))))
+
+(def base-path!
+  "Returns the base path for storage of radicle related config files. By default
+  this is `$HOME/.config/radicle`. This can be adjusted by setting
+  `$XDG_CONFIG_HOME`."
+  (fn []
+    (def xgd-config-home (unlines (shell-with-stdout! "echo $XDG_CONFIG_HOME" "")))
+    (def home (unlines (shell-with-stdout! "echo $HOME" "")))
+    (def config-path
+      (if (eq? xgd-config-home "")
+        (string-append home "/.config")
+        xgd-config-home))
+    (string-append config-path "/radicle")))

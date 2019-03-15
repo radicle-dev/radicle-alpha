@@ -43,6 +43,7 @@
                     <state2> ...'.
                     If the option '--fancy' is appended, the list is opened via
                     fzf (note that fzf has to be installed).
+                    Unread patches are marked with a * before the timestamp.
      propose      - Create a new patch from a single commit
      show         - Show a patch
      comment      - Add a comment to a patch
@@ -172,8 +173,9 @@
                :author-email  author-email
                :patch         patch})
     (match (simple-create-patch! machine patch)
-           ['n] (put-str! (string-append "Proposing patch #" (show n)
-                                         " to " machine))
+           ['n] (do (put-str! (string-append "Proposing patch #" (show n)
+                                             " to " machine))
+                    (newness/mark-read! machine n))
            _    (put-str! (error/no-number-returned :patch)))))
 
 ;; showing patches
@@ -187,7 +189,7 @@
    :number      10
    :title       50
    :author      20
-   :modified-at 20})
+   :modified-at 22})
 
 (def wrap-cell
   (fn [phrase cell-key]
@@ -203,20 +205,24 @@
       (wrap-cell "author" :author)
       (wrap-cell "updated" :modified-at))))
 
+(def pretty-modified-at
+  (fn [i]
+    (string-append (lookup :modified-at i)
+                   (if (lookup :read? i) "  " " *"))))
+
 (def pretty-headline
   (fn [i]
     (match i
       '{:number n
         :title tit
         :state s
-        :author-name an
-        :modified-at m-a}
+        :author-name an}
       (string/unwords
         [(pretty-state s)
          (show n)
          tit
          an
-         m-a]))))
+         (pretty-modified-at i)]))))
 
 (def pretty-row
   (fn [i]
@@ -224,14 +230,13 @@
       '{:number n
         :title tit
         :state s
-        :author-name an
-        :modified-at m-a}
+        :author-name an}
       (string-append
         (wrap-cell (pretty-state s) :state)
         (wrap-cell (show n) :number)
         (wrap-cell tit :title)
         (wrap-cell an :author)
-        (wrap-cell m-a :modified-at)))))
+        (wrap-cell (pretty-modified-at i) :modified-at)))))
 
 (def pretty-comment
  (fn [c]
@@ -263,6 +268,10 @@
      "---Add comment above the line.\n\n"
      x)))
 
+(def add-read-status!
+  (fn [machine i]
+    (insert :read? (newness/read-since-modified!? machine i) i)))
+
 (def list-items
   "Lists all patches and filters them by `options`. If `--new` is passed as an
   option only recent items are shown. If `--fancy is passed, the list is opened
@@ -282,8 +291,9 @@
 
   (def items
     (map mk-key
-      (filter filt
-        (reverse (values (list-patches machine))))))
+         (map (fn [i] (add-read-status! machine i))
+              (filter filt
+                      (reverse (values (list-patches machine)))))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -320,7 +330,8 @@
       (if (integral? n)
         (do
           (def patch (verify-patch-number n machine))
-          (put-str! (pretty-patch patch)))
+          (put-str! (pretty-patch (add-read-status! machine patch)))
+          (newness/mark-read! machine n))
         (cmd-parse-failure (error/whole-item-number :patch)))
       (cmd-parse-failure (error/missing-item-number :patch "show")))))
 
@@ -334,7 +345,8 @@
           (def edit-state-with-feedback!
             (fn [message]
               (catch 'daemon-error
-                (simple-edit-patch! machine n {:state new-state})
+                (do (simple-edit-patch! machine n {:state new-state})
+                    (newness/mark-read! machine n))
                 (fn [x]
                    (put-str!
                      (error/state-change-failure :patch (pretty-state new-state)))
@@ -359,7 +371,8 @@
         (do
           (verify-patch-number n machine)
           (simple-add-comment! machine n comment (get-git-username!))
-          (put-str! (string-append "Added comment to patch #" (show n))))
+          (put-str! (string-append "Added comment to patch #" (show n)))
+          (newness/mark-read! machine n))
         (cmd-parse-failure (error/whole-item-number :patch)))
     (cmd-parse-failure (error/missing-item-number :patch "comment on")))))
 

@@ -145,6 +145,7 @@ modules:
 - prelude/set
 - prelude/ref
 - prelude/lens
+- prelude/io-utils
 - prelude/key-management
 - prelude/machine
 - prelude/state-machine
