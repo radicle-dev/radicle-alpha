@@ -97,18 +97,19 @@
           { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values ["acc" "prop"] :default []}
           { :key :fancy :type :flag :options ["--fancy"] :default #f }
          ])
-      (def cmd-opts2
+      (def cmd-opts-2
         [
           { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values ["acc" "prop"] :default ["acc"]}
           { :key :fancy :type :flag :options ["--fancy"] :default #f }
         ])
-      (def /cmd (/cmd-opts "list" 'opts cmd-opts help)))]
+      (def /cmd (/cmd-opts "list" 'opts cmd-opts help))
+      (def /cmd-2 (/cmd-opts "list" 'opts cmd-opts-2 help)))]
   [(/cmd ["list"] ) ==> [:just {opts {:state [] :fancy #f}}]]
-  [(/cmd ["list"] ) ==> [:just {opts {:state ["acc"] :fance #f}}]]
+  [(/cmd-2 ["list"] ) ==> [:just {opts {:state ["acc"] :fancy #f}}]]
   [(/cmd ["list" "--fancy"] ) ==> [:just {opts {:state [] :fancy #t}}]]
   [(/cmd ["list" "--state" "acc"] ) ==> [:just {opts {:state ["acc"] :fancy #f}}]]
   [(/cmd ["list" "--fancy" "-s" "acc"] ) ==> [:just {opts {:state ["acc"] :fancy #t}}]]
-  [(/cmd ["list" "--fancy" "-s" "prop"]) ==> [:just {opts {:state ["prop"] :fancy #t}}]]
+  [(/cmd-2 ["list" "--fancy" "-s" "prop"]) ==> [:just {opts {:state ["prop"] :fancy #t}}]]
   [(/cmd ["list" "--state" "prop" "-s" "acc"] ) ==> [:just {opts {:state ["prop" "acc"] :fancy #f}}]]
   [(catch-for-testing /cmd ["list" "--invalid" "prop"] ) ==> "Invalid option \"--invalid\" for command list. help"]
   [(catch-for-testing /cmd ["list" "prop"] ) ==> "Invalid option \"prop\" for command list. help"]

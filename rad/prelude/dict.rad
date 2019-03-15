@@ -78,6 +78,8 @@
   [ (lookup-default :two 2 {:one 1}) ==> 2 ])
 
 (def group-by
+  "Partitions the values in a sequence `xs`. The partitions are returns in a dict
+  keyed by the return value of `f`."
   (fn [f xs]
     (foldr (fn [x acc]
              (def k (f x))
@@ -86,3 +88,9 @@
                     :nothing    (insert k [x] acc)))
            {}
            xs)))
+
+(:test "group-by"
+       [ (group-by length []) ==> {} ]
+       [ (group-by length ["foo" "foofoo" "bar" "foobar" "bar" "barbar"]) ==> {3 ["foo" "bar" "bar"]
+                                                                               6 ["foofoo" "foobar" "barbar"]} ]
+       )

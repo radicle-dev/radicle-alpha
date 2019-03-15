@@ -1067,6 +1067,12 @@ Like ``lookup`` but returns ``default`` if the key is not in the map.
 Like ``lookup`` but returns ``[:just x]`` if the key is not in the map
 and ``:nothing`` otherwise.
 
+``(group-by f xs)``
+~~~~~~~~~~~~~~~~~~~
+
+Partitions the values in a sequence ``xs``. The partitions are returns
+in a dict keyed by the return value of ``f``.
+
 ``prelude/io``
 --------------
 
