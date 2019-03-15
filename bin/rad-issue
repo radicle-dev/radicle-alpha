@@ -236,44 +236,29 @@
 (def show-issue!
   "Shows a single ISSUE `n`"
   (fn [n machine]
-    (if (number? n)
-      (if (integral? n)
-        (do
-          (def issue (verify-issue-number n machine))
-          (put-str! (pretty-issue (enrich-issue machine issue)))
-          (newness/mark-read! machine n))
-        (cmd-parse-failure (error/whole-item-number :issue)))
-      (cmd-parse-failure (error/missing-item-number :issue "show")))))
+    (def issue (verify-issue-number n machine))
+    (put-str! (pretty-issue (enrich-issue machine issue)))
+    (newness/mark-read! machine n)))
 
 (def close-issue
-  (fn [issue-number machine]
-    (def n (read issue-number))
-    (if (number? n)
-      (if (integral? n)
-        (catch 'daemon-error
-               (do
-                 (verify-issue-number n machine)
-                 (simple-edit-issue! machine n {:state :closed})
-                 (put-str! (string-append "Issue #" (show n) " has been closed."))
-                 (newness/mark-read! machine n))
-               (fn [_]
-                 (put-str! (error/state-change-failure :issue "closed"))
-                 (exit! 1)))
-        (cmd-parse-failure (error/whole-item-number :issue)))
-      (cmd-parse-failure (error/missing-item-number :issue "close")))))
+  (fn [n machine]
+    (catch 'daemon-error
+      (do
+        (verify-issue-number n machine)
+        (simple-edit-issue! machine n {:state :closed})
+        (put-str! (string-append "Issue #" (show n) " has been closed."))
+        (newness/mark-read! machine n))
+      (fn [_]
+        (put-str! (error/state-change-failure :issue "closed"))
+        (exit! 1)))))
 
 (def create-comment!
   "Add a new `comment` to ISSUE."
   (fn [machine n comment]
-    (if (number? n)
-      (if (integral? n)
-        (do
-          (verify-issue-number n machine)
-          (simple-add-comment! machine n comment (get-git-username!))
-          (put-str! (string-append "Added comment to issue #" (show n)))
-          (newness/mark-read! machine n))
-        (cmd-parse-failure (error/whole-item-number :issue)))
-    (cmd-parse-failure (error/missing-item-number :issue "comment on")))))
+    (verify-issue-number n machine)
+    (simple-add-comment! machine n comment (get-git-username!))
+    (put-str! (string-append "Added comment to issue #" (show n)))
+    (newness/mark-read! machine n)))
 
 (def new-issue
   (fn [machine]
@@ -303,14 +288,19 @@
 
 (def args (get-args!))
 
+(def whole-issue-num
+  (fn [action num-str f]
+    (whole-num help :issue action num-str f)))
+
 (machine/catch-daemon!
  (fn []
    (match args
           (/list-cmd 'options) (list-items (machine-name) options)
           (/cmd-0 "new" help) (new-issue (machine-name))
-          (/cmd-1 "close" 'issue-number help) (close-issue issue-number (machine-name))
-          (/cmd-1 "show" 'issue-number help) (show-issue! (read issue-number) (machine-name))
-          (/cmd-2 "comment" 'issue-number 'comment help) (create-comment! (machine-name) (read issue-number) comment)
+          (/cmd-1 "close" 'n help)            (whole-issue-num "close" n (fn [n] (close-issue n (machine-name))))
+          (/cmd-1 "show" 'n help)             (whole-issue-num "show" n (fn [n] (show-issue! n (machine-name))))
+          (/cmd-2 "comment" 'n 'comment help) (whole-issue-num "comment on" n (fn [n] (create-comment! (machine-name) n comment)))
+          (/cmd-1 "mark-read" 'n help)        (whole-issue-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
           ["--help"] (put-str! help)
