@@ -373,7 +373,7 @@
 
 (def whole-patch-num
   (fn [action num-str f]
-    (whole-num :patch action num-str f)))
+    (whole-num help :patch action num-str f)))
 
 (def args (get-args!))
 
@@ -388,7 +388,7 @@
           (/cmd-1 "retract" 'n help)   (whole-patch-num "retract" n (fn [n] (edit-patch-state! (machine-name) n :retracted)))
           (/cmd-1 "accept" 'n help)    (whole-patch-num "accept" n (fn [n] (edit-patch-state! (machine-name) n :accepted)))
           (/cmd-1 "reject" 'n help)    (whole-patch-num "reject" n (fn [n] (edit-patch-state! (machine-name) n :rejected)))
-          (/cmd-2 "comment" 'n 'comment help) (whole-patch-num "comment on" (fn [n] (create-comment! (machine-name) n comment)))
+          (/cmd-2 "comment" 'n 'comment help) (whole-patch-num "comment on" n (fn [n] (create-comment! (machine-name) n comment)))
           (/cmd-0 "create-machine" help) (new-patch-machine! (machine-name))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)

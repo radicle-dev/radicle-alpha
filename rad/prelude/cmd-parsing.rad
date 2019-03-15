@@ -172,11 +172,24 @@
   "Try to parse an argument which should be a whole-number. If parsed succesfully
   the integer is passed to handler function. If not, an error is show to the
   user."
-  (fn [item action num-str f]
-    (def bad (fn [] (cmd-parse-failure (error/missing-item-number item action))))
+  (fn [help item action num-str f]
+    (def bad (fn [] (parse-failure (error/missing-item-number item action) help)))
     (def n (catch 'any (read num-str) (fn [_] (bad))))
     (if (number? n)
       (if (integral? n)
         (f n)
-        (not-whole))
-      (cmd-parse-failure (error/missing-item-number item action)))))
+        (parse-failure (error/whole-item-number :issue) help))
+      (parse-failure (error/missing-item-number item action) help))))
+
+(:test "whole-num"
+  [:setup
+   (do
+     (set-ref parse-failure-mode (@ :stub) #t)
+     (def inc (fn [n] (+ 1 n)))) ]
+  [ (whole-num "help" :issue "show" "0" inc) ==> 1 ]
+  [ (catch 'invalid-input
+      (whole-num "help" :issue "show" "1/2" inc)
+      (fn [x] x)) ==> "Issue numbers must be whole numbers! help" ==> ]
+  [ (catch 'invalid-input
+      (whole-num "help" :issue "show" "0.1" inc)
+      (fn [x] x)) ==> "To show an issue, please provide the issue number. help" ==> ])

@@ -241,13 +241,13 @@
     (newness/mark-read! machine n)))
 
 (def close-issue
-  (fn [issue-number machine]
+  (fn [n machine]
     (catch 'daemon-error
-        (do
-          (verify-issue-number n machine)
-          (simple-edit-issue! machine n {:state :closed})
-          (put-str! (string-append "Issue #" (show n) " has been closed."))
-          (newness/mark-read! machine n))
+      (do
+        (verify-issue-number n machine)
+        (simple-edit-issue! machine n {:state :closed})
+        (put-str! (string-append "Issue #" (show n) " has been closed."))
+        (newness/mark-read! machine n))
       (fn [_]
         (put-str! (error/state-change-failure :issue "closed"))
         (exit! 1)))))
@@ -290,7 +290,7 @@
 
 (def whole-issue-num
   (fn [action num-str f]
-    (whole-num :issue action num-str f)))
+    (whole-num help :issue action num-str f)))
 
 (machine/catch-daemon!
  (fn []
