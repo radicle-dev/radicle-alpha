@@ -104,7 +104,7 @@
 (def /prefix
   "Matches sequences that start with `prefix` and bind the rest of that
   sequence to `rest-pat`. Also works for strings."
-  (fn [prefix rest-pat]
+  (fn [prefix-pat rest-pat]
     (fn [value]
       (if (or (string? value) (seq? value))
         (if (starts-with? value prefix)

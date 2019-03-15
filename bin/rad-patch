@@ -362,6 +362,10 @@
 
 (def patch-num-pat (/number-string (/integer 'patch-number)))
 
+(def patch-commands (/member ["checkout" "show" "retract" "accept" "reject" "comment"]))
+
+(/cmd "checkout" args)
+
 (machine/catch-daemon!
  (fn []
    (def bad-num (fn [] (cmd-parse-failure (error/whole-item-number :patch))))

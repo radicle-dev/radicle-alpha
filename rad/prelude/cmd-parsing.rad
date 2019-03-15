@@ -127,13 +127,17 @@
 
 (def /cmd-1
   "Matches a command `cmd` with exactly one arguments."
-  (fn [cmd cmd-args-pat help]
-    ((validation/type :string) cmd)
+  (fn [cmd-pat cmd-args-pat help]
     (fn [value]
       (match value
-        [cmd 'cmd-args] (match-pat cmd-args-pat cmd-args)
-        [cmd] (parse-failure (error/missing-arg (show cmd-args-pat) cmd) help)
-        (/cons cmd _) (parse-failure (error/too-many-args cmd) help)
+             ['cmd 'cmd-args] (maybe->>=
+           (match-pat x-pat (first v))
+           (fn [b1]
+             (maybe->>=
+              (match-pat xs-pat (rest v))
+              (fn [b2] (non-linear-merge b1 b2)))))
+        [cmd-pat] (parse-failure (error/missing-arg (show cmd-args-pat) cmd) help)
+        (/cons cmd-pat _) (parse-failure (error/too-many-args cmd) help)
         _ :nothing))))
 
 (:test "/cmd-1"
