@@ -278,7 +278,7 @@
 
 (def cmd-options
   [
-    { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values valid-states :default []}
+    { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values valid-states :default ["open"]}
     { :key :fancy :type :flag :options ["--fancy"] :default #f }
   ])
 
