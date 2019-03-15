@@ -241,7 +241,7 @@
         (do
           (def issue (verify-issue-number n machine))
           (put-str! (pretty-issue (enrich-issue machine issue)))
-          (newness/mark-read! machine machine))
+          (newness/mark-read! machine n))
         (cmd-parse-failure (error/whole-item-number :issue)))
       (cmd-parse-failure (error/missing-item-number :issue "show")))))
 
