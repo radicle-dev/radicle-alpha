@@ -6,7 +6,10 @@
 (load! (find-module-file! "prelude/io-utils.rad"))
 
 (file-module! "prelude/error-messages.rad")
+(file-module! "monadic/items.rad")
+
 (import prelude/error-messages :as 'error)
+(import monadic/items :as 'items)
 
 (import prelude/validation :as 'validation)
 (import prelude/machine :as 'machine)
@@ -193,6 +196,8 @@
           [(pretty-headline i) i]
           [(pretty-row i) i])))
 
+    (def issues (values (list-issues machine)))
+
     (def filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
         []      (fn [x] #t)
@@ -202,7 +207,7 @@
       (map mk-key
           (map (fn [i] (enrich-issue machine i))
                (filter filt
-                       (reverse (values (list-issues machine)))))))
+                       (reverse issues)))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -231,7 +236,8 @@
                _ (put-str! "No selection made."))
         (do
           (put-str! (pretty-table-header))
-          (map (fn [d] (put-str! (first d))) items))))))
+          (map (fn [d] (put-str! (first d))) items)
+          (put-str! (items/summary "issues" issues)))))))
 
 (def show-issue!
   "Shows a single ISSUE `n`"

@@ -1,6 +1,6 @@
 {:module  'prelude/dict
  :doc     "Functions for manipualting dicts."
- :exports '[dict-from-seq keys values rekey modify-map delete-many lookup-default lookup-maybe]}
+ :exports '[dict-from-seq keys values rekey modify-map delete-many lookup-default lookup-maybe group-by]}
 
 (import prelude/patterns :unqualified)
 
@@ -76,3 +76,13 @@
 (:test "lookup-default"
   [ (lookup-default :one 2 {:one 1}) ==> 1 ]
   [ (lookup-default :two 2 {:one 1}) ==> 2 ])
+
+(def group-by
+  (fn [f xs]
+    (foldr (fn [x acc]
+             (def k (f x))
+             (match (lookup-maybe k acc)
+                    [:just 'ys] (insert k (cons x ys) acc)
+                    :nothing    (insert k [x] acc)))
+           {}
+           xs)))

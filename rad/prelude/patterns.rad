@@ -54,27 +54,31 @@
     (def /vec
       (fn [pats]
         (fn [v]
-          (if (eq? (length v) (length pat))
-            (maybe-foldlM
-             (fn [acc pair]
-               (maybe->>= (match-pat (nth 0 pair) (nth 1 pair))
-                          (fn [bs] (non-linear-merge acc bs))))
-             {}
-             (zip pats v))
+          (if (or (vector? v) (list? v))
+            (if (eq? (length v) (length pat))
+              (maybe-foldlM
+               (fn [acc pair]
+                 (maybe->>= (match-pat (nth 0 pair) (nth 1 pair))
+                            (fn [bs] (non-linear-merge acc bs))))
+               {}
+               (zip pats v))
+              :nothing)
             :nothing))))
     (def /dict
       (fn [keys-pat]
         (fn [d]
-          (maybe-foldlM
-           (fn [acc kv]
-             (def k (nth 0 kv))
-             (def pat (nth 1 kv))
-             (if (member? k d)
-               (maybe->>= (match-pat pat (lookup k d))
-                          (fn [bs] (non-linear-merge acc bs)))
-               :nothing))
-           {}
-           (seq keys-pat)))))
+          (if (dict? d)
+            (maybe-foldlM
+             (fn [acc kv]
+               (def k (nth 0 kv))
+               (def pat (nth 1 kv))
+               (if (member? k d)
+                 (maybe->>= (match-pat pat (lookup k d))
+                            (fn [bs] (non-linear-merge acc bs)))
+                 :nothing))
+             {}
+             (seq keys-pat))
+            :nothing))))
     (cond
       (atom? pat)
       [:just {pat v}]

@@ -6,7 +6,10 @@
 (load! (find-module-file! "monadic/project.rad"))
 
 (file-module! "prelude/error-messages.rad")
+(file-module! "monadic/items.rad")
+
 (import prelude/error-messages :as 'error)
+(import monadic/items :as 'items)
 
 (import prelude/validation :as 'validation)
 
@@ -289,11 +292,13 @@
         []      (fn [x] #t)
         'args   (fn [x] (elem? (lookup :state x) args))))
 
+    (def patches (values (list-patches machine)))
+
   (def items
     (map mk-key
          (map (fn [i] (add-read-status! machine i))
               (filter filt
-                      (reverse (values (list-patches machine)))))))
+                      (reverse patches)))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -321,7 +326,8 @@
                _ (put-str! "No selection made."))
          (do
            (put-str! (pretty-table-header))
-           (map (fn [d] (put-str! (first d))) items))))))
+           (map (fn [d] (put-str! (first d))) items)
+           (put-str! (items/summary "patches" patches)))))))
 
 (def show-patch!
   "Shows a single PATCH `n`"
