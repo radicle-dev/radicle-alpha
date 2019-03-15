@@ -177,9 +177,11 @@
     (add-username
      (insert :comments (map add-username (lookup :comments i)) i))))
 
-(def enrich
+(def enrich-issue
+  "Adds if the issue has been read by the user since it was last modified, and
+  adds a author username."
   (fn [machine i]
-    (insert :read? (newness/read-since-modified!? machine i) (add-username i))))
+    (insert :read? (newness/read-since-modified!? machine i) (add-username-issue i))))
 
 (def list-items
   "Lists the recent items and uses an editor to add a relevant comment."
@@ -198,7 +200,7 @@
 
     (def items
       (map mk-key
-          (map (fn [i] (enrich machine i))
+          (map (fn [i] (enrich-issue machine i))
                (filter filt
                        (reverse (values (list-issues machine)))))))
 
@@ -238,7 +240,7 @@
       (if (integral? n)
         (do
           (def issue (verify-issue-number n machine))
-          (put-str! (pretty-issue (enrich machine issue)))
+          (put-str! (pretty-issue (enrich-issue machine issue)))
           (newness/mark-read! machine machine))
         (cmd-parse-failure (error/whole-item-number :issue)))
       (cmd-parse-failure (error/missing-item-number :issue "show")))))
