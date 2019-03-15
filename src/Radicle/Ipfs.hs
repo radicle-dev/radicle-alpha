@@ -1,6 +1,9 @@
 -- | Functions to talk to the IPFS API
 module Radicle.Ipfs
-    ( MonadIpfs
+    ( MonadIpfs(..)
+    , Client
+    , newClient
+
     , IpfsException(..)
     , ipldLink
     , parseIpldLink
@@ -46,16 +49,28 @@ import qualified Data.HashMap.Strict as HashMap
 import           Data.IPLD.CID
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import           Lens.Micro ((.~), (^.))
 import           Network.HTTP.Client
                  (HttpException(..), HttpExceptionContent(..))
-import qualified Network.HTTP.Client as HTTP
-import qualified Network.HTTP.Client as Http
-import qualified Network.HTTP.Conduit as HTTP
-import qualified Network.Wreq as Wreq
+import qualified Network.HTTP.Client as HttpClient
+import qualified Network.HTTP.Client.MultipartFormData as HttpClient
+import qualified Network.HTTP.Conduit as HttpConduit
+import qualified Network.HTTP.Types.Method as Http
 import           System.Environment (lookupEnv)
 
-class (MonadIO m, MonadCatch m) => MonadIpfs m
+class (MonadIO m, MonadCatch m) => MonadIpfs m where
+    askClient :: m Client
+
+data Client = Client
+    { clientBaseRequest :: HttpClient.Request
+    , clientHttpManager :: HttpClient.Manager
+    }
+
+newClient :: MonadIO m => m Client
+newClient = liftIO $ do
+    baseUrl <- fromMaybe "http://localhost:9301" <$> lookupEnv "RAD_IPFS_API_URL"
+    clientBaseRequest <- HttpClient.parseUrlThrow baseUrl
+    clientHttpManager <- HttpClient.newManager HttpClient.defaultManagerSettings
+    pure Client{clientBaseRequest, clientHttpManager}
 
 data IpfsException
   = IpfsException Text
@@ -97,16 +112,16 @@ mapHttpException path io = catch io (throw . mapHttpExceptionData)
   where
     mapHttpExceptionData :: HttpException -> IpfsException
     mapHttpExceptionData = \case
-        Http.HttpExceptionRequest _ content -> mapHttpExceptionContent content
+        HttpClient.HttpExceptionRequest _ content -> mapHttpExceptionContent content
         _ -> IpfsExceptionErrRespNoMsg
 
     mapHttpExceptionContent :: HttpExceptionContent -> IpfsException
     mapHttpExceptionContent = \case
-        (Http.StatusCodeException _
+        (HttpClient.StatusCodeException _
           (Aeson.decodeStrict ->
              Just (Aeson.Object (HashMap.lookup "Message" ->
                      Just (Aeson.String msg))))) -> (IpfsExceptionErrResp msg)
-        Http.ResponseTimeout -> IpfsExceptionTimeout path
+        HttpClient.ResponseTimeout -> IpfsExceptionTimeout path
         ConnectionFailure _ -> IpfsExceptionNoDaemon
         _ -> IpfsExceptionErrRespNoMsg
 
@@ -189,18 +204,18 @@ instance FromJSON PubsubMessage where
 -- The IO action blocks while we are subscribed. To stop subscription
 -- you need to kill the thread the subscription is running in.
 subscribe :: (MonadIpfs m) => Text -> (PubsubMessage -> IO ()) -> m ()
-subscribe topic messageHandler = liftIO $ runResourceT $ do
-    mgr <- liftIO $ HTTP.newManager HTTP.defaultManagerSettings
-    url <- liftIO $ ipfsApiUrl "pubsub/sub"
-    req <- HTTP.parseRequest (toS url) <&>
-        HTTP.setQueryString
-        [ ("arg", Just $ T.encodeUtf8 topic)
-        , ("encoding", Just "json")
-        , ("stream-channels", Just "true")
-        ]
-    body <- HTTP.responseBody <$> HTTP.http req mgr
-    C.runConduit $ body .| fromJSONC .| C.mapM_ (liftIO . messageHandler) .| C.sinkNull
-    pure ()
+subscribe topic messageHandler = do
+    Client{clientHttpManager, clientBaseRequest} <- askClient
+    liftIO $ runResourceT $ do
+        let req = clientBaseRequest
+                & HttpClient.setQueryString
+                    [ ("arg", Just $ T.encodeUtf8 topic)
+                    , ("encoding", Just "json")
+                    , ("stream-channels", Just "true")
+                    ]
+        body <- HttpConduit.responseBody <$> HttpConduit.http req clientHttpManager
+        C.runConduit $ body .| fromJSONC .| C.mapM_ (liftIO . messageHandler) .| C.sinkNull
+        pure ()
   where
     fromJSONC :: (MonadThrow m, Aeson.FromJSON a) => C.ConduitT ByteString a m ()
     fromJSONC = jsonC .| C.mapM parseThrow
@@ -296,11 +311,12 @@ ipfsHttpGet
     => Text  -- ^ Path of the endpoint under "/api/v0/"
     -> [(Text, Text)] -- ^ URL query parameters
     -> m a
-ipfsHttpGet path params = liftIO $ mapHttpException path $ do
-    let opts = Wreq.defaults & Wreq.params .~ params
-    url <- ipfsApiUrl path
-    res <- Wreq.getWith opts (toS url)
-    getJsonResponseBody path res
+ipfsHttpGet path params = do
+    Client{clientHttpManager, clientBaseRequest} <- askClient
+    liftIO $ mapHttpException path $ do
+        let request = makeIpfsRequest clientBaseRequest Http.methodGet path params
+        response <- HttpClient.httpLbs request clientHttpManager
+        parseJsonResponse path $ HttpClient.responseBody response
 
 ipfsHttpPost
     :: (MonadIpfs m, FromJSON a)
@@ -309,9 +325,9 @@ ipfsHttpPost
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
     -> m a
-ipfsHttpPost path params payloadArgName payload = mapHttpException path $ do
+ipfsHttpPost path params payloadArgName payload = do
     res <- ipfsHttpPost' path params payloadArgName payload
-    liftIO $ getJsonResponseBody path res
+    parseJsonResponse path res
 
 ipfsHttpPost'
     :: (MonadIpfs m)
@@ -319,22 +335,38 @@ ipfsHttpPost'
     -> [(Text, Text)] -- ^ URL query parameters
     -> Text  -- ^ Name of the argument for payload
     -> LByteString -- ^ Payload argument
-    -> m (Wreq.Response LByteString)
-ipfsHttpPost' path params payloadArgName payload = liftIO $ mapHttpException path $ do
-    let opts = Wreq.defaults & Wreq.params .~ params
-    url <- ipfsApiUrl path
-    Wreq.postWith opts (toS url) (Wreq.partLBS payloadArgName payload)
+    -> m LByteString
+ipfsHttpPost' path params payloadArgName payload = do
+    Client{clientHttpManager, clientBaseRequest} <- askClient
+    liftIO $ mapHttpException path $ do
+        let request = makeIpfsRequest clientBaseRequest Http.methodPost path params
+        let part = HttpClient.partLBS payloadArgName payload
+        requestWithPayload <- HttpClient.formDataBody [part] request
+        response <- HttpClient.httpLbs requestWithPayload clientHttpManager
+        pure $ HttpClient.responseBody response
 
-ipfsApiUrl :: Text -> IO Text
-ipfsApiUrl path = do
-    baseUrl <- fromMaybe "http://localhost:9301" <$> lookupEnv "RAD_IPFS_API_URL"
-    pure $ toS baseUrl <> "/api/v0/" <> path
+
+makeIpfsRequest
+    :: HttpClient.Request -- ^ Base request that contains the base URL
+    -> Http.Method
+    -> Text  -- ^ Path of the endpoint under "/api/v0/"
+    -> [(Text, Text)] -- ^ URL query parameters
+    -> HttpClient.Request
+makeIpfsRequest baseRequest method path params =
+    HttpClient.setQueryString params'
+        baseRequest
+            { HttpClient.path = toS $ "/api/v0/" <> path
+            , HttpClient.method = method
+            }
+  where
+    params' = [ (encodeUtf8 key, Just (encodeUtf8 value)) | (key, value) <- params]
+
 
 -- | Parses response body as JSON and returns the parsed value. @path@
 -- is the IPFS API the response was obtained from. Throws
 -- 'IpfsExceptionInvalidResponse' if parsing fails.
-getJsonResponseBody :: FromJSON a => Text -> Wreq.Response LByteString -> IO a
-getJsonResponseBody path res = do
-    jsonRes <- Wreq.asJSON res `catch`
-        \(Wreq.JSONError msg) -> throw $ IpfsExceptionInvalidResponse path (toS msg)
-    pure $ jsonRes ^. Wreq.responseBody
+parseJsonResponse :: (MonadThrow m, FromJSON a) => Text -> LByteString -> m a
+parseJsonResponse path body = do
+    case Aeson.eitherDecode' body of
+        Left err -> throw $ IpfsExceptionInvalidResponse path (toS err)
+        Right a  -> pure a

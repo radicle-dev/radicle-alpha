@@ -42,7 +42,8 @@ instance MonadLog Daemon where
 instance MonadMachineStore Daemon where
     askMachines = asks machines
 
-instance Ipfs.MonadIpfs Daemon
+instance Ipfs.MonadIpfs Daemon where
+    askClient = asks envIpfsClient
 
 instance MonadMachineIpfs Daemon
 
@@ -55,4 +56,5 @@ data Env = Env
   , machineConfigFile     :: FilePath
   , machines              :: CachedMachines
   , logLevel              :: LogLevel
+  , envIpfsClient         :: Ipfs.Client
   }
