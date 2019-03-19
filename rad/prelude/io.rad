@@ -4,7 +4,7 @@
             shell-with-stdout! shell-no-stdin! write-file!
             process-with-stdout! process-with-stdout-stderr-exitcode!
             process-with-stdout-strict!
-            init-file-dict! read-file-key! write-file-key! ls! modify-file!
+            init-file-dict! read-file-key! write-file-key! delete-file-key! ls! modify-file!
             install-fake-filesystem! prompt!
            ]}
 
@@ -241,6 +241,12 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
   (fn [file k v]
     (modify-file! file
                   (fn [s] (insert k v s)))))
+
+(def delete-file-key!
+  "Delete a key from a file. Assumes that the file contents is a serialised dict."
+  (fn [file k]
+    (modify-file! file
+                  (fn [s] (delete k s)))))
 
 (def read-file-key!
   "Read a file key. Assumes that the file contents is a serialised dict."

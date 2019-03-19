@@ -33,7 +33,7 @@
    Usage:
         rad patch list " list-opts-help "
         rad patch propose <commit>
-        rad patch [show | retract | accept | reject | checkout | mark-read] <patch-number>
+        rad patch [show | retract | accept | reject | checkout | mark-read | mark-unread] <patch-number>
         rad patch comment <patch-number> <comment>
         rad patch all-read
         rad patch help
@@ -63,6 +63,7 @@
      reject       - Reject a patch
                     This command is restricted to the maintainer of the project.
      mark-read    - Mark patch as read
+     mark-unread  - Mark patch as unread
      all-read     - Mark all patches as read
      help         - Print this help and exit
   "))
@@ -399,6 +400,7 @@
           (/cmd-1 "checkout" 'n help)  (whole-patch-num "checkout" n (fn [n] (checkout-patch! (machine-name) n)))
           (/cmd-1 "show" 'n help)      (whole-patch-num "show" n (fn [n] (show-patch! (machine-name) n)))
           (/cmd-1 "mark-read" 'n help) (whole-patch-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
+          (/cmd-1 "mark-unread" 'n help) (whole-patch-num "mark as unread" n (fn [n] (newness/mark-unread! (machine-name) n)))
           (/cmd-1 "retract" 'n help)   (whole-patch-num "retract" n (fn [n] (edit-patch-state! (machine-name) n :retracted)))
           (/cmd-1 "accept" 'n help)    (whole-patch-num "accept" n (fn [n] (edit-patch-state! (machine-name) n :accepted)))
           (/cmd-1 "reject" 'n help)    (whole-patch-num "reject" n (fn [n] (edit-patch-state! (machine-name) n :rejected)))

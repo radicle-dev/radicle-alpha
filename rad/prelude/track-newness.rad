@@ -2,7 +2,7 @@
  :doc "Provides functions for marking items as `seen` or `read`. Per default,
  this is stored in a file in `$HOME/.config/radicle/item-newness.rad` this can
  be adjusted by setting `$XDG_CONFIG_HOME`."
- :exports '[init-newness-file! mark-read! get-item-newness! read-since-modified!? mark-all-read!]}
+ :exports '[init-newness-file! mark-read! mark-unread! get-item-newness! read-since-modified!? mark-all-read!]}
 
 (import prelude/basic :unqualified)
 (import prelude/io :as 'io)
@@ -22,6 +22,11 @@
   (fn [machine-id item-id]
     (init-newness-file! machine-id)
     (io/write-file-key! (path! machine-id) item-id (now!))))
+
+(def mark-unread!
+  (fn [machine-id item-id]
+    (init-newness-file! machine-id)
+    (io/delete-file-key! (path! machine-id) item-id)))
 
 (def get-item-newness!
   (fn [machine-id item-id]
