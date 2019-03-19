@@ -33,7 +33,7 @@
    Usage:
         rad patch list " list-opts-help "
         rad patch propose <commit>
-        rad patch [show | retract | accept | reject | checkout] <patch-number>
+        rad patch [show | retract | accept | reject | checkout | mark-read] <patch-number>
         rad patch comment <patch-number> <comment>
         rad patch help
 
@@ -61,6 +61,7 @@
                     patch to it.
      reject       - Reject a patch
                     This command is restricted to the maintainer of the project.
+     mark-read    - Mark patch as read
      help         - Print this help and exit
   "))
 

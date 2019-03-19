@@ -33,7 +33,7 @@
    Usage:
         rad issue list " list-opts-help "
         rad issue new
-        rad issue [show | close] <issue-number>
+        rad issue [show | close | mark-read] <issue-number>
         rad issue comment <issue-number> <comment>
         rad issue help
 
@@ -52,6 +52,7 @@
      comment      - Add a comment to an issue
      close        - Close an issue
                     This command is restricted to the maintainer of the project.
+     mark-read    - Mark issue as read
      help         - Print this help and exit
        "))
 
