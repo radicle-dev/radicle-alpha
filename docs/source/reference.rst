@@ -742,6 +742,11 @@ Returns ``y`` if ``x`` is not ``#f``, otherwise returns ``x``
 
 Checks that all the items of a list are truthy.
 
+``(and-predicate f g)``
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Pointwise conjunction of predicates.
+
 ``prelude/seq``
 ---------------
 
@@ -1067,6 +1072,14 @@ Like ``lookup`` but returns ``default`` if the key is not in the map.
 Like ``lookup`` but returns ``[:just x]`` if the key is not in the map
 and ``:nothing`` otherwise.
 
+``(safe-modify-map k f d)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Modifies the association of a value to a key ``k`` in a dict ``d``. The
+function ``f`` will receive ``[:just v]`` if ``(eq? (lookup k d) v)``,
+otherwise it will receive ``:nothing``. It should return
+``[:just new-v]`` to change the value, and ``:nothing`` to remove it.
+
 ``(group-by f xs)``
 ~~~~~~~~~~~~~~~~~~~
 
@@ -1164,6 +1177,12 @@ Read a file key. Assumes that the file contents is a serialised dict.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Write a key to a file. Assumes that the file contents is a serialised
+dict.
+
+``(delete-file-key! file k)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Delete a key from a file. Assumes that the file contents is a serialised
 dict.
 
 ``(ls!)``
