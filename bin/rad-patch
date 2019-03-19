@@ -47,6 +47,8 @@
                     <state2> ...'.
                     If the option '--fancy' is appended, the list is opened via
                     fzf (note that fzf has to be installed).
+                    If the option '--unread' is appended, only unread patches
+                    are listed.
                     Unread patches are marked with a * before the timestamp.
      propose      - Create a new patch from a single commit
      show         - Show a patch
@@ -291,17 +293,22 @@
           [(pretty-headline patch) patch]
           [(pretty-row patch) patch])))
 
-    (def filt
+    (def state-filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
         []      (fn [x] #t)
         'args   (fn [x] (elem? (lookup :state x) args))))
 
     (def patches (values (list-patches machine)))
 
+    (def newness-filt
+      (if (lookup :unread options)
+        (fn [x] (not (lookup :read? x)))
+        (fn [x] #t)))
+
   (def items
     (map mk-key
-         (map (fn [i] (add-read-status! machine i))
-              (filter filt
+         (filter (and-predicate state-filt newness-filt)
+                 (map (fn [i] (add-read-status! machine i))
                       (reverse patches)))))
 
     (def items-dict (dict-from-seq items))
@@ -380,6 +387,7 @@
   [
     { :key :state :type :multi-opt :options status-opts :possible-values valid-states :default ["pending"]}
     { :key :fancy :type :flag :options ["--fancy"] :default #f }
+    { :key :unread :type :flag :options ["--unread"] :default #f }
   ])
 
 (def /list-cmd

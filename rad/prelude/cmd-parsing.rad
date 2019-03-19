@@ -38,16 +38,15 @@
   once in a command, a list of valid options is passed with `:possible-values`).
   If `opt` is empty, the default for each `cmd-opts` is returned. "
   (fn [cmd opts cmd-opts help]
-    (def empty-opts
-      (dict-from-seq
-       (map (fn [opt]
-              (match opt
-                     {:key 'k :type :multi-opt} [k []]
-                     {:key 'k :default 'd}      [k d]))
-            cmd-opts)))
-    (def default
-      (dict-from-seq
-        (map (fn [opt] (list (lookup :key opt) (lookup :default opt))) cmd-opts)))
+    (def add-defaults
+      (fn [givens]
+        (dict-from-seq
+         (map (fn [opt]
+                (def k (lookup :key opt))
+                [k (match (lookup-maybe k givens)
+                          :nothing       (lookup :default opt)
+                          [:just 'given] given)])
+              cmd-opts))))
     (def-rec parse-cli
       (fn [args]
         (def parse-arg
@@ -58,7 +57,12 @@
             (match args
               (/cons 'val 'rest)
                   (if (elem? val valid-args)
-                    (modify-map opt-key (fn [x] (cons val x)) (parse-cli rest))
+                    (safe-modify-map opt-key
+                                     (fn [maybe-xs]
+                                       (match maybe-xs
+                                              :nothing    [:just [val]]
+                                              [:just 'xs] [:just (cons val xs)]))
+                                     (parse-cli rest))
                     (do
                       (if (starts-with? val "-")
                         (parse-failure
@@ -79,12 +83,11 @@
               (insert (lookup :key option) #t (parse-cli rest))
               (parse-arg option rest))))
         (match args
-          /nil               empty-opts
+          /nil               {}
           (/cons 'opt 'rest) (parse-opt opt rest))))
     (fn [v]
       (match v
-        [cmd]           [:just {opts default}]
-        (/cons cmd 'os) [:just {opts (parse-cli os)}]
+        (/cons cmd 'os) [:just {opts (add-defaults (parse-cli os))}]
         _               :nothing))))
 
 (:test "/cmd-opts"

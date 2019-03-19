@@ -1,6 +1,6 @@
 {:module 'prelude/bool
  :doc "Functions for dealing with truthiness and #f."
- :exports '[not and all]}
+ :exports '[not and all and-predicate]}
 
 ;; boolean functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -37,3 +37,7 @@
   [ (all '(#t #t #t #t)) ==> #t ]
   [ (all '(#t #t #f #t)) ==> #f ]
 )
+
+(def and-predicate
+  "Pointwise conjunction of predicates."
+  (fn [f g] (fn [x] (and (f x) (g x)))))

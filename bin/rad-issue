@@ -47,6 +47,8 @@
                     <state2> ...'.
                     If the option '--fancy' is appended, the list is opened via
                     fzf (note that fzf has to be installed).
+                    If the option '--unread' is appended, only unread issues
+                    are listed.
                     Unread issues are marked with a * before the timestamp.
      new          - Create a new issue in $EDITOR
      show         - Show an issue
@@ -202,16 +204,21 @@
 
     (def issues (values (list-issues machine)))
 
-    (def filt
+    (def state-filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
         []      (fn [x] #t)
         'args   (fn [x] (elem? (lookup :state x) args))))
 
+    (def newness-filt
+      (if (lookup :unread options)
+        (fn [x] (not (lookup :read? x)))
+        (fn [x] #t)))
+
     (def items
       (map mk-key
-          (map (fn [i] (enrich-issue machine i))
-               (filter filt
-                       (reverse issues)))))
+           (filter (and-predicate state-filt newness-filt)
+                   (map (fn [i] (enrich-issue machine i))
+                        (reverse issues)))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -290,6 +297,7 @@
   [
     { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values valid-states :default ["open"]}
     { :key :fancy :type :flag :options ["--fancy"] :default #f }
+    { :key :unread :type :flag :options ["--unread"] :default #f }
   ])
 
 (def /list-cmd

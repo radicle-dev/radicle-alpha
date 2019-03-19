@@ -1,6 +1,6 @@
 {:module  'prelude/dict
  :doc     "Functions for manipualting dicts."
- :exports '[dict-from-seq keys values rekey modify-map delete-many lookup-default lookup-maybe group-by]}
+ :exports '[dict-from-seq keys values rekey modify-map delete-many lookup-default lookup-maybe safe-modify-map group-by]}
 
 (import prelude/patterns :unqualified)
 
@@ -76,6 +76,20 @@
 (:test "lookup-default"
   [ (lookup-default :one 2 {:one 1}) ==> 1 ]
   [ (lookup-default :two 2 {:one 1}) ==> 2 ])
+
+(def safe-modify-map
+  "Modifies the association of a value to a key `k` in a dict `d`. The function
+  `f` will receive `[:just v]` if `(eq? (lookup k d) v)`, otherwise it will
+  receive `:nothing`. It should return `[:just new-v]` to change the value, and
+  `:nothing` to remove it."
+  (fn [k f d]
+    (match (f (lookup-maybe k d))
+           :nothing   (delete k d)
+           [:just 'v] (insert k v d))))
+
+(:test "safe-modify-map"
+  [ (safe-modify-map :foo (fn [x] (match x :nothing 0 [:just 'y] (+ 1 y)) {})) ==> {:foo 0}]
+  [ (safe-modify-map :foo (fn [x] (match x :nothing 0 [:just 'y] (+ 1 y)) {:foo 42})) ==> {:foo 43}])
 
 (def group-by
   "Partitions the values of a sequence `xs` according to the images under `f`. The
