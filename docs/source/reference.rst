@@ -1070,8 +1070,9 @@ and ``:nothing`` otherwise.
 ``(group-by f xs)``
 ~~~~~~~~~~~~~~~~~~~
 
-Partitions the values in a sequence ``xs``. The partitions are returns
-in a dict keyed by the return value of ``f``.
+Partitions the values of a sequence ``xs`` according to the images under
+``f``. The partitions are returned in a dict keyed by the return value
+of ``f``.
 
 ``prelude/io``
 --------------
