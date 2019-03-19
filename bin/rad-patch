@@ -35,6 +35,7 @@
         rad patch propose <commit>
         rad patch [show | retract | accept | reject | checkout | mark-read] <patch-number>
         rad patch comment <patch-number> <comment>
+        rad patch all-read
         rad patch help
 
      list         - Lists all patches
@@ -62,6 +63,7 @@
      reject       - Reject a patch
                     This command is restricted to the maintainer of the project.
      mark-read    - Mark patch as read
+     all-read     - Mark all patches as read
      help         - Print this help and exit
   "))
 
@@ -368,6 +370,11 @@
     (put-str! (string-append "Added comment to patch #" (show n)))
     (newness/mark-read! machine n)))
 
+(def mark-all-read!
+  (fn [machine]
+    (map (fn [i] (newness/mark-read! machine (lookup :number i)))
+         (values (list-patches machine)))))
+
 (def cmd-options
   [
     { :key :state :type :multi-opt :options status-opts :possible-values valid-states :default ["pending"]}
@@ -397,6 +404,7 @@
           (/cmd-1 "reject" 'n help)    (whole-patch-num "reject" n (fn [n] (edit-patch-state! (machine-name) n :rejected)))
           (/cmd-2 "comment" 'n 'comment help) (whole-patch-num "comment on" n (fn [n] (create-comment! (machine-name) n comment)))
           (/cmd-0 "create-machine" help) (new-patch-machine! (machine-name))
+          (/cmd-0 "all-read" help) (mark-all-read! (machine-name))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
           ["--help"] (put-str! help)
