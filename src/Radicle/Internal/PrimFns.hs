@@ -565,7 +565,12 @@ purePrimFns = fromList $ allDocs $
             v -> throwErrorHere $ TypeError "seq" 0 TStructure v
       )
     , ( "to-json"
-      , "Returns a JSON formatted string representing the input value."
+      , "Returns a JSON formatted string representing the input value. Numbers are only\
+        \ converted if they have a finite decimal expansion. Strings and booleans are\
+        \ converted to their JSON counterparts. Keywords are converted to JSON strings\
+        \ (dropping the initial ':'). Lists and vectors are converted to JSON arrays.\
+        \ Dicts are converted to JSON objects as long as all the keys are either\
+        \ strings of keywords."
       , oneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
           maybeJson v ?? toLangError (OtherError "Could not serialise value to JSON")
       )
