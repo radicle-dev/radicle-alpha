@@ -33,8 +33,9 @@
    Usage:
         rad issue list " list-opts-help "
         rad issue new
-        rad issue [show | close] <issue-number>
+        rad issue [show | close | mark-read | mark-unread] <issue-number>
         rad issue comment <issue-number> <comment>
+        rad all-read
         rad issue help
 
      list         - Lists all issues
@@ -46,12 +47,17 @@
                     <state2> ...'.
                     If the option '--fancy' is appended, the list is opened via
                     fzf (note that fzf has to be installed).
+                    If the option '--unread' is appended, only unread issues
+                    are listed.
                     Unread issues are marked with a * before the timestamp.
      new          - Create a new issue in $EDITOR
      show         - Show an issue
      comment      - Add a comment to an issue
      close        - Close an issue
                     This command is restricted to the maintainer of the project.
+     mark-read    - Mark issue as read
+     mark-unread  - Mark issue as unread
+     all-read     - Mark all issues as read
      help         - Print this help and exit
        "))
 
@@ -198,16 +204,21 @@
 
     (def issues (values (list-issues machine)))
 
-    (def filt
+    (def state-filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
         []      (fn [x] #t)
         'args   (fn [x] (elem? (lookup :state x) args))))
 
+    (def newness-filt
+      (if (lookup :unread options)
+        (fn [x] (not (lookup :read? x)))
+        (fn [x] #t)))
+
     (def items
       (map mk-key
-          (map (fn [i] (enrich-issue machine i))
-               (filter filt
-                       (reverse issues)))))
+           (filter (and-predicate state-filt newness-filt)
+                   (map (fn [i] (enrich-issue machine i))
+                        (reverse issues)))))
 
     (def items-dict (dict-from-seq items))
     (if (empty-seq? items)
@@ -286,6 +297,7 @@
   [
     { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values valid-states :default ["open"]}
     { :key :fancy :type :flag :options ["--fancy"] :default #f }
+    { :key :unread :type :flag :options ["--unread"] :default #f }
   ])
 
 (def /list-cmd
@@ -298,6 +310,11 @@
   (fn [action num-str f]
     (whole-num help :issue action num-str f)))
 
+(def mark-all-read!
+  (fn [machine]
+    (map (fn [i] (newness/mark-read! machine (lookup :number i)))
+         (values (list-issues machine)))))
+
 (machine/catch-daemon!
  (fn []
    (match args
@@ -307,6 +324,8 @@
           (/cmd-1 "show" 'n help)             (whole-issue-num "show" n (fn [n] (show-issue! n (machine-name))))
           (/cmd-2 "comment" 'n 'comment help) (whole-issue-num "comment on" n (fn [n] (create-comment! (machine-name) n comment)))
           (/cmd-1 "mark-read" 'n help)        (whole-issue-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
+          (/cmd-1 "mark-unread" 'n help) (whole-issue-num "mark as unread" n (fn [n] (newness/mark-unread! (machine-name) n)))
+          (/cmd-0 "all-read" help) (mark-all-read! (machine-name))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
           ["--help"] (put-str! help)

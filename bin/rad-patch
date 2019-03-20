@@ -33,8 +33,9 @@
    Usage:
         rad patch list " list-opts-help "
         rad patch propose <commit>
-        rad patch [show | retract | accept | reject | checkout] <patch-number>
+        rad patch [show | retract | accept | reject | checkout | mark-read | mark-unread] <patch-number>
         rad patch comment <patch-number> <comment>
+        rad patch all-read
         rad patch help
 
      list         - Lists all patches
@@ -46,6 +47,8 @@
                     <state2> ...'.
                     If the option '--fancy' is appended, the list is opened via
                     fzf (note that fzf has to be installed).
+                    If the option '--unread' is appended, only unread patches
+                    are listed.
                     Unread patches are marked with a * before the timestamp.
      propose      - Create a new patch from a single commit
      show         - Show a patch
@@ -61,6 +64,9 @@
                     patch to it.
      reject       - Reject a patch
                     This command is restricted to the maintainer of the project.
+     mark-read    - Mark patch as read
+     mark-unread  - Mark patch as unread
+     all-read     - Mark all patches as read
      help         - Print this help and exit
   "))
 
@@ -287,17 +293,22 @@
           [(pretty-headline patch) patch]
           [(pretty-row patch) patch])))
 
-    (def filt
+    (def state-filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
         []      (fn [x] #t)
         'args   (fn [x] (elem? (lookup :state x) args))))
 
     (def patches (values (list-patches machine)))
 
+    (def newness-filt
+      (if (lookup :unread options)
+        (fn [x] (not (lookup :read? x)))
+        (fn [x] #t)))
+
   (def items
     (map mk-key
-         (map (fn [i] (add-read-status! machine i))
-              (filter filt
+         (filter (and-predicate state-filt newness-filt)
+                 (map (fn [i] (add-read-status! machine i))
                       (reverse patches)))))
 
     (def items-dict (dict-from-seq items))
@@ -367,10 +378,16 @@
     (put-str! (string-append "Added comment to patch #" (show n)))
     (newness/mark-read! machine n)))
 
+(def mark-all-read!
+  (fn [machine]
+    (map (fn [i] (newness/mark-read! machine (lookup :number i)))
+         (values (list-patches machine)))))
+
 (def cmd-options
   [
     { :key :state :type :multi-opt :options status-opts :possible-values valid-states :default ["pending"]}
     { :key :fancy :type :flag :options ["--fancy"] :default #f }
+    { :key :unread :type :flag :options ["--unread"] :default #f }
   ])
 
 (def /list-cmd
@@ -391,11 +408,13 @@
           (/cmd-1 "checkout" 'n help)  (whole-patch-num "checkout" n (fn [n] (checkout-patch! (machine-name) n)))
           (/cmd-1 "show" 'n help)      (whole-patch-num "show" n (fn [n] (show-patch! (machine-name) n)))
           (/cmd-1 "mark-read" 'n help) (whole-patch-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
+          (/cmd-1 "mark-unread" 'n help) (whole-patch-num "mark as unread" n (fn [n] (newness/mark-unread! (machine-name) n)))
           (/cmd-1 "retract" 'n help)   (whole-patch-num "retract" n (fn [n] (edit-patch-state! (machine-name) n :retracted)))
           (/cmd-1 "accept" 'n help)    (whole-patch-num "accept" n (fn [n] (edit-patch-state! (machine-name) n :accepted)))
           (/cmd-1 "reject" 'n help)    (whole-patch-num "reject" n (fn [n] (edit-patch-state! (machine-name) n :rejected)))
           (/cmd-2 "comment" 'n 'comment help) (whole-patch-num "comment on" n (fn [n] (create-comment! (machine-name) n comment)))
           (/cmd-0 "create-machine" help) (new-patch-machine! (machine-name))
+          (/cmd-0 "all-read" help) (mark-all-read! (machine-name))
           ["help"] (put-str! help)
           ["-h"] (put-str! help)
           ["--help"] (put-str! help)
