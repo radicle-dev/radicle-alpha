@@ -49,7 +49,7 @@
                     fzf (note that fzf has to be installed).
                     If the option '--unread' is appended, only unread patches
                     are listed.
-                    Unread patches are marked with a * before the timestamp.
+                    Unread patches are marked with a * after the timestamp.
      propose      - Create a new patch from a single commit
      show         - Show a patch
      comment      - Add a comment to a patch
