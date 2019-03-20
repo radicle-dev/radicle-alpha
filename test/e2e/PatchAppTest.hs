@@ -5,6 +5,7 @@ module PatchAppTest
     , test_patch_comment
     , test_patch_retract
     , test_patch_accept
+    , test_patch_unauthorized
     ) where
 
 import           Protolude
@@ -92,3 +93,21 @@ test_patch_accept = testCaseSteps "patch accept" $ \step -> do
 
     logOutput <- runTestCommand "git" ["log", "master"]
     assertContains logOutput "first commit"
+
+test_patch_unauthorized :: TestTree
+test_patch_unauthorized = testCaseSteps "patch unauthorized actions" $ \step -> do
+    step "init project with patch (maintainer)"
+    initProjectWithPatch
+    _ <- runTestCommand "git" ["checkout", "master"]
+
+    step "rad patch reject fails (contributer)"
+    _ <- runTestCommand "rad-key" ["create", "--force"]
+    rejectOutput <- runTestCommandForError "rad-patch" ["reject", "0"]
+    assertContains rejectOutput "Are you authorized to do so?"
+
+    step "rad patch accept fails (contributer)"
+    acceptOutput <- runTestCommandForError "rad-patch" ["accept", "0"]
+    assertContains acceptOutput "Are you authorized to do so?"
+
+    showOutput <- runTestCommand "rad-patch" ["show", "0"]
+    assertContains showOutput "pending 0"

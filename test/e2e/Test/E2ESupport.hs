@@ -14,6 +14,7 @@ module Test.E2ESupport
 
     , runTestCommand
     , runTestCommand'
+    , runTestCommandForError
 
     , TestTree
     , assertEqual
@@ -134,14 +135,8 @@ runTestCommand bin args = runTestCommand' bin args []
 -- thrown.
 runTestCommand' :: (HasCallStack) => FilePath -> [Text] -> [Text] -> TestM Text
 runTestCommand' bin args inputLines = do
-    TestEnv {..} <- ask
-    searchPath <- liftIO $ getEnv "PATH"
-    radIpfsApiUrl <- liftIO $ getEnv "RAD_IPFS_API_URL"
-    let env = [("PATH", searchPath), ("HOME", homeDir), ("RADPATH", projectDir </> "rad"), ("RAD_IPFS_API_URL", radIpfsApiUrl)]
     let argsString = map toS args
-    let procSpec = (proc bin argsString) { env = Just env }
-    let input = T.unpack $ T.intercalate "\n" inputLines
-    (exitCode, out, err) <- liftIO $ readCreateProcessWithExitCode procSpec input
+    (exitCode, out, err) <- executeCommand bin argsString inputLines
     case exitCode of
         ExitSuccess -> pure $ toS $ trimNewline out
         ExitFailure _ ->
@@ -153,6 +148,36 @@ runTestCommand' bin args inputLines = do
                 <> "-- stderr ---------\n"
                 <> err
                 <> "-------------------\n"
+
+-- | Like 'runTestCommandForError'' but does not provide input to stdin.
+runTestCommandForError :: (HasCallStack) => FilePath -> [Text] -> TestM Text
+runTestCommandForError bin args = runTestCommandForError' bin args []
+
+-- | Like 'runTestCommand'' but expects the command to return an error.
+--
+-- If the command exits with a non-zero exit code, an exception is thrown.
+-- Otherwise stdout of the error is returned.
+runTestCommandForError' :: (HasCallStack) => FilePath -> [Text] -> [Text] -> TestM Text
+runTestCommandForError' bin args inputLines = do
+    let argsString = map toS args
+    (exitCode, out, _) <- executeCommand bin argsString inputLines
+    case exitCode of
+        ExitFailure _ -> pure $ toS $ trimNewline out
+        ExitSuccess ->
+            let commandLine = bin <> " " <> unwords argsString
+            in liftIO $ HUnit.assertFailure $
+                "Command " <> commandLine <> " succeeded,\n"
+                <> "but was expected to fail."
+
+executeCommand :: FilePath -> [String] -> [Text] -> TestM (ExitCode, String, String)
+executeCommand bin argsString inputLines = do
+    TestEnv {..} <- ask
+    searchPath <- liftIO $ getEnv "PATH"
+    radIpfsApiUrl <- liftIO $ getEnv "RAD_IPFS_API_URL"
+    let env = [("PATH", searchPath), ("HOME", homeDir), ("RADPATH", projectDir </> "rad"), ("RAD_IPFS_API_URL", radIpfsApiUrl)]
+    let procSpec = (proc bin argsString) { env = Just env }
+    let input = T.unpack $ T.intercalate "\n" inputLines
+    liftIO $ readCreateProcessWithExitCode procSpec input
 
 trimNewline :: String -> String
 trimNewline = reverse . dropWhile (=='\n') . reverse
