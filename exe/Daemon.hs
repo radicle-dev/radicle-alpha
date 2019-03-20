@@ -140,15 +140,21 @@ server env = hoistServer Api.daemonApi nt daemonServer
 init :: MachinesConfig -> Daemon ()
 init follows = pooledForConcurrentlyN_ 5 (Map.toList follows) initMachine
   where
-    initMachine (id, ConfigReader) =
-        catch (initAsReader id $> ()) $ \err -> do
-            let (msg, infos) = displayError err
-            logError' "Could not initiate reader-mode machine on startup" $ ("init-error", msg) : infos
-            insertUninitializedReader id
+    initMachine (id, ConfigReader) = do
+        result <- tryError $ initAsReader id
+        case result of
+            Right m -> insertMachine m
+            Left err  -> do
+                let (msg, infos) = displayError err
+                logError' "Could not initiate reader-mode machine on startup" $ ("init-error", msg) : infos
+                insertUninitializedReader id
     initMachine (id, ConfigWriter idx) = do
         machineIpfs id $ ipnsPublish id idx
         m <- loadMachine Writer id
+        insertMachine m
         actAsWriter m
+
+    tryError f = (Right <$> f) `catch` (pure . Left)
 
 -- * Endpoints
 
@@ -232,31 +238,18 @@ send id (Api.SendRequest expressions) = do
 -- If the machine is not yet loaded into memory we fetch its inputs, load it
 -- into memory and start following its changes.
 ensureMachineLoaded :: MachineId -> Daemon Machine
-ensureMachineLoaded id = do
-  m_ <- lookupMachine id
-  case m_ of
-    Nothing -> do
-      -- In this case we have not seen the machine before so we act as
-      -- a reader.
-      m <- initAsReader id
-      writeMachineConfig
-      pure m
-    Just (UninitialisedReader _) ->
-      -- We try to initialise the reader again.
-      initAsReader id
-    Just (Cached m) -> case machineMode m of
-      Writer -> pure m
-      Reader -> refreshAsReader id
-        -- TODO(james): For the moment we will just force a
-        -- refresh. Later consider brining back the check to see if
-        -- the machine was very recently updated.
-
-        -- do
-        -- delta <- liftIO $ sinceLastUpdate m
-        -- -- If machine is half a second fresh, then return it.
-        -- if delta < 500
-        --   then pure m
-        --   else refreshAsReader id
+ensureMachineLoaded id =
+    modifyMachine' id $ \case
+        Nothing -> do
+            m <- initAsReader id
+            writeMachineConfig
+            pure (Just (Cached m), m)
+        Just (UninitialisedReader _) -> do
+            m <- initAsReader id
+            pure (Just (Cached m), m)
+        Just (Cached m) -> do
+            m' <- pullInputs m
+            pure (Just (Cached m'), m')
 
 -- | Creates a IPFS pusbsub subscription for the given machine. This
 -- wraps 'initSubscription' and logs all message parsing errors.
@@ -268,15 +261,13 @@ initDaemonSubscription id =
         logError' "Non-decodable message on machine's pubsub topic"
             [("machine-id", getMachineId id), ("message", bad)]
 
--- | Loads a machine fresh from IPFS.
+-- | Load a machine by pulling all data from IPFS
 loadMachine :: ReaderOrWriter -> MachineId -> Daemon Machine
 loadMachine mode id = do
   (idx, is) <- machineIpfs id $ machineInputsFrom id Nothing
   sub <- initDaemonSubscription id
   m <- emptyMachine id mode sub
-  m' <- addInputs is idx m
-  insertMachine m'
-  pure m'
+  addInputs is idx m
 
 -- | Runs some inputs over the state of a cached machine. Returns the new state
 -- that would result, and the outputs. Throws an error if the inputs are
@@ -320,8 +311,6 @@ bumpPolling id = do
 --
 -- Loads the machines input log from IPFS and listens for machine
 -- updates on pubsub.
---
--- The machine is added to the deamons machine cache.
 initAsReader :: MachineId -> Daemon Machine
 initAsReader id = do
     m <- loadMachine Reader id
@@ -333,34 +322,41 @@ initAsReader id = do
     onMsg :: Message -> Daemon ()
     onMsg = \case
       New InputsApplied{..} -> do
-        _ <- refreshAsReader id
+        pullStoreInputs id
         -- TODO(james): decide if this should bump polling. If this is
         -- a very active chain this will mean the polling is always
         -- high-frequency.
         bumpPolling id
       _ -> pure ()
 
--- | Updates a (already initialised) machine in the cache with new inputs pulled
--- from IPFS.
-refreshAsReader :: MachineId -> Daemon Machine
-refreshAsReader id = modifyMachine id refresh
+-- | Updates the machine in the store by calling 'pullInputs'.
+pullStoreInputs :: MachineId -> Daemon ()
+pullStoreInputs id = modifyMachine id $ \m -> do
+    m' <- pullInputs m
+    pure (m', ())
+
+-- | Fetch latest inputs from the network and apply them. Returns the
+-- updated machine.
+--
+-- This is a no-op for machines we own.
+pullInputs :: Machine -> Daemon Machine
+pullInputs m =
+    case machineMode m of
+        Writer -> pure m
+        Reader -> do
+            let currentIdx = machineLastIndex m
+            (newIdx, is) <- machineIpfs (machineId m) $ machineInputsFrom (machineId m) (Just currentIdx)
+            if currentIdx == newIdx
+            then do
+                logDebug "Reader is already up to date" [mid, ("input-index",  show newIdx)]
+                pure m
+            else do
+                m' <- addInputs is newIdx m
+                logDebug "Updated reader" [mid, ("n", show (length is)), ("input-index", show newIdx)]
+                pure m'
+
   where
-    refresh m = do
-      let currentIdx = machineLastIndex m
-      (newIdx, is) <- machineIpfs id $ machineInputsFrom (machineId m) (Just currentIdx)
-      if currentIdx == newIdx
-        then do
-          logDebug
-                  "Reader is already up to date"
-                  [mid, ("input-index",  show newIdx)]
-          pure (m, m)
-        else do
-          m' <- addInputs is newIdx m
-          logDebug
-                  "Updated reader"
-                  [mid, ("n", show (length is)), ("input-index",  show newIdx)]
-          pure (m', m')
-    mid = ("machine-id", getMachineId id)
+    mid = ("machine-id", getMachineId (machineId m))
 
 -- ** Writer
 
@@ -435,7 +431,7 @@ pollMachines = traverseMachines pollMachine
                 LowFreq -> (delta > lowFreqPollPeriod, LowFreq)
         when shouldPoll $ do
           logDebug "Polling.." [("machine-id", getMachineId machineId)]
-          refreshAsReader machineId >> pure ()
+          pullStoreInputs machineId
         modifyMachine machineId $ \m' -> pure (m' { machinePolling = newPoll }, ())
       -- Don't update owned and unavailable machines.
       _ -> pure ()
