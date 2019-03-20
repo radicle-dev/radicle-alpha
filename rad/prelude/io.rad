@@ -65,6 +65,7 @@ Example: `(shell! \"ls -Glah\" \"\")`. "
        :stderr :nothing
        :proc   'ph
       } (do (write-handle! stdin to-write)
+            (close-handle! stdin)
             (wait-for-process! ph))
       _ (throw 'io-error "expected only stdin to be open"))))
 
@@ -109,6 +110,7 @@ Example: `(shell-no-stdin! \"ls -Glah\")`. "
       } (do (write-handle! stdin to-write)
             (close-handle! stdin)
             (def out (read-contents-handle! stdout))
+            (close-handle! stdout)
             out)
       _ (throw 'io-error "expected only stdin and stdout to be open"))))
 
@@ -136,6 +138,7 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
        :stderr :nothing
        :proc   'ph
       } (do (write-handle! stdin to-write)
+            (close-handle! stdin)
             (wait-for-process! ph))
       _ (throw 'io-error "expected only stdin to be open"))))
 
@@ -160,7 +163,9 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
        :proc   'ph
       } (do (write-handle! stdin to-write)
             (close-handle! stdin)
-            (read-contents-handle! stdout))
+            (def out (read-contents-handle! stdout))
+            (close-handle! stdout)
+            out)
       _ (throw 'io-error "expected only stdin and stdout to be open"))))
 
 (:test "process-with-stdout!"
@@ -185,7 +190,10 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
        :proc   'ph
       } (do (write-handle! stdin to-write)
             (close-handle! stdin)
-            [(read-contents-handle! stdout) (read-contents-handle! stderr) (wait-for-process! ph)])
+            (def out [(read-contents-handle! stdout) (read-contents-handle! stderr) (wait-for-process! ph)])
+            (close-handle! stdout)
+            (close-handle! stderr)
+            out)
       _ (throw 'io-error "expected only stdin, stdout and stderr to be open"))))
 
 (:test "process-with-stdout-stderr-exitcode!"
