@@ -38,6 +38,13 @@
   once in a command, a list of valid options is passed with `:possible-values`).
   If `opt` is empty, the default for each `cmd-opts` is returned. "
   (fn [cmd opts cmd-opts help]
+    (def empty-opts
+      (dict-from-seq
+       (map (fn [opt]
+              (match opt
+                     {:key 'k :type :multi-opt} [k []]
+                     {:key 'k :default 'd}      [k d]))
+            cmd-opts)))
     (def default
       (dict-from-seq
         (map (fn [opt] (list (lookup :key opt) (lookup :default opt))) cmd-opts)))
@@ -72,8 +79,8 @@
               (insert (lookup :key option) #t (parse-cli rest))
               (parse-arg option rest))))
         (match args
-          /nil                default
-          (/cons 'opt 'rest)  (parse-opt opt rest))))
+          /nil               empty-opts
+          (/cons 'opt 'rest) (parse-opt opt rest))))
     (fn [v]
       (match v
         [cmd]           [:just {opts default}]
@@ -89,12 +96,20 @@
         [
           { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values ["acc" "prop"] :default []}
           { :key :fancy :type :flag :options ["--fancy"] :default #f }
+         ])
+      (def cmd-opts-2
+        [
+          { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values ["acc" "prop"] :default ["acc"]}
+          { :key :fancy :type :flag :options ["--fancy"] :default #f }
         ])
-      (def /cmd (/cmd-opts "list" 'opts cmd-opts help)))]
+      (def /cmd (/cmd-opts "list" 'opts cmd-opts help))
+      (def /cmd-2 (/cmd-opts "list" 'opts cmd-opts-2 help)))]
   [(/cmd ["list"] ) ==> [:just {opts {:state [] :fancy #f}}]]
+  [(/cmd-2 ["list"] ) ==> [:just {opts {:state ["acc"] :fancy #f}}]]
   [(/cmd ["list" "--fancy"] ) ==> [:just {opts {:state [] :fancy #t}}]]
   [(/cmd ["list" "--state" "acc"] ) ==> [:just {opts {:state ["acc"] :fancy #f}}]]
   [(/cmd ["list" "--fancy" "-s" "acc"] ) ==> [:just {opts {:state ["acc"] :fancy #t}}]]
+  [(/cmd-2 ["list" "--fancy" "-s" "prop"]) ==> [:just {opts {:state ["prop"] :fancy #t}}]]
   [(/cmd ["list" "--state" "prop" "-s" "acc"] ) ==> [:just {opts {:state ["prop" "acc"] :fancy #f}}]]
   [(catch-for-testing /cmd ["list" "--invalid" "prop"] ) ==> "Invalid option \"--invalid\" for command list. help"]
   [(catch-for-testing /cmd ["list" "prop"] ) ==> "Invalid option \"prop\" for command list. help"]
