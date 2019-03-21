@@ -788,12 +788,16 @@ evenArgs name = \case
 -- * Generic encoding/decoding of Radicle values.
 
 toRadG :: forall a t. (HasEot a, ToRadG t (Eot a)) => a -> Annotated t ValueF
-toRadG x = toRadConss (case conss of {[_] -> True; _ -> False}) conss (toEot x)
+toRadG x = toRadConss (case conss of {[_] -> SingleCons; _ -> NonSingleCons})
+                      conss
+                      (toEot x)
   where
     conss = constructors (datatype (Proxy :: Proxy a))
 
+data ConstructorMultiplicity = SingleCons | NonSingleCons
+
 class ToRadG t a where
-  toRadConss :: Bool -> [Constructor] -> a -> Annotated t ValueF
+  toRadConss :: ConstructorMultiplicity -> [Constructor] -> a -> Annotated t ValueF
 
 consArgs :: (CPA t , ToRadFields t a) => Fields -> a -> [Annotated t ValueF]
 consArgs fieldMeta fields =
@@ -804,11 +808,11 @@ consArgs fieldMeta fields =
     NoFields -> []
 
 instance (CPA t, ToRadFields t a, ToRadG t b) => ToRadG t (Either a b) where
-  toRadConss True [Constructor name fieldMeta] (Left fields) = case consArgs fieldMeta fields of
+  toRadConss SingleCons [Constructor name fieldMeta] (Left fields) = case consArgs fieldMeta fields of
     [a] -> a
     as  -> radCons (toS name) as
-  toRadConss False (Constructor name fieldMeta : _) (Left fields) = radCons (toS name) $ consArgs fieldMeta fields
-  toRadConss False (_ : r) (Right next) = toRadConss False r next
+  toRadConss NonSingleCons (Constructor name fieldMeta : _) (Left fields) = radCons (toS name) $ consArgs fieldMeta fields
+  toRadConss NonSingleCons (_ : r) (Right next) = toRadConss NonSingleCons r next
   toRadConss _ _ _ = panic "impossible"
 
 radCons :: CPA t => Prelude.String -> [Annotated t ValueF] -> Annotated t ValueF
