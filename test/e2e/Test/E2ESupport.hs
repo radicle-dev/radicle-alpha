@@ -153,18 +153,23 @@ runTestCommandForError bin args = runTestCommandForError' bin args []
 
 -- | Like 'runTestCommand'' but expects the command to return an error.
 --
--- If the command exits with a non-zero exit code, an exception is thrown.
--- Otherwise stdout of the error is returned.
+-- If the command exits with a non-zero exit code (as expected), stdout
+-- of the command is returned. Otherwise, an exception is thrown.
 runTestCommandForError' :: (HasCallStack) => FilePath -> [Text] -> [Text] -> TestM Text
 runTestCommandForError' bin args inputLines = do
-    (exitCode, out, _) <- executeCommand bin args inputLines
+    (exitCode, out, err) <- executeCommand bin args inputLines
     case exitCode of
         ExitFailure _ -> pure $ trimNewline out
         ExitSuccess ->
             let commandLine = toS bin <> " " <> T.unwords args
             in assertFailure $
                 "Command " <> commandLine <> " succeeded,\n"
-                <> "but was expected to fail."
+                <> "but was expected to fail." <> "\n"
+                <> "-- stdout ---------\n"
+                <> out
+                <> "-- stderr ---------\n"
+                <> err
+                <> "-------------------\n"
 
 executeCommand :: FilePath -> [Text] -> [Text] -> TestM (ExitCode, Text, Text)
 executeCommand bin args inputLines = do
