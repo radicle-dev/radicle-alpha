@@ -2,7 +2,7 @@
 
 -- | The purpose of the 'Foo' datatype is to check the instances of
 -- 'FromRad' and 'ToRad' derived via generics.
-module Radicle.Internal.Foo (Foo) where
+module Radicle.Internal.Foo (Foo, Bar(..), Baz(..)) where
 
 import           Protolude
 
@@ -28,3 +28,21 @@ instance Arbitrary Foo where
     , FooC <$> arbitrary <*> arbitrary
     , pure FooD
     ]
+
+data Bar =
+  Bar { bar1 :: Text
+      , bar2 :: Scientific
+      } deriving (Eq, Show, Generic)
+
+instance FromRad t Bar
+instance ToRad t Bar
+instance Arbitrary Bar where
+  arbitrary = Bar <$> arbitrary <*> arbitrary
+
+newtype Baz = Baz Text
+  deriving (Eq, Show, Generic)
+
+instance FromRad t Baz
+instance ToRad t Baz
+instance Arbitrary Baz where
+  arbitrary = Baz <$> arbitrary

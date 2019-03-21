@@ -788,21 +788,28 @@ evenArgs name = \case
 -- * Generic encoding/decoding of Radicle values.
 
 toRadG :: forall a t. (HasEot a, ToRadG t (Eot a)) => a -> Annotated t ValueF
-toRadG x = toRadConss (constructors (datatype (Proxy :: Proxy a))) (toEot x)
+toRadG x = toRadConss (case conss of {[_] -> True; _ -> False}) conss (toEot x)
+  where
+    conss = constructors (datatype (Proxy :: Proxy a))
 
 class ToRadG t a where
-  toRadConss :: [Constructor] -> a -> Annotated t ValueF
+  toRadConss :: Bool -> [Constructor] -> a -> Annotated t ValueF
+
+consArgs :: (CPA t , ToRadFields t a) => Fields -> a -> [Annotated t ValueF]
+consArgs fieldMeta fields =
+  case fieldMeta of
+    Selectors names ->
+      [Dict . Map.fromList $ zip (Keyword . Ident . toS <$> names) (toRadFields fields)]
+    NoSelectors _ -> toRadFields fields
+    NoFields -> []
 
 instance (CPA t, ToRadFields t a, ToRadG t b) => ToRadG t (Either a b) where
-  toRadConss (Constructor name fieldMeta : _) (Left fields) =
-    case fieldMeta of
-      Selectors names ->
-        radCons (toS name) . pure . Dict . Map.fromList $
-          zip (Keyword . Ident . toS <$> names) (toRadFields fields)
-      NoSelectors _ -> radCons (toS name) (toRadFields fields)
-      NoFields -> radCons (toS name) []
-  toRadConss (_ : r) (Right next) = toRadConss r next
-  toRadConss [] _ = panic "impossible"
+  toRadConss True [Constructor name fieldMeta] (Left fields) = case consArgs fieldMeta fields of
+    [a] -> a
+    as  -> radCons (toS name) as
+  toRadConss False (Constructor name fieldMeta : _) (Left fields) = radCons (toS name) $ consArgs fieldMeta fields
+  toRadConss False (_ : r) (Right next) = toRadConss False r next
+  toRadConss _ _ _ = panic "impossible"
 
 radCons :: CPA t => Prelude.String -> [Annotated t ValueF] -> Annotated t ValueF
 radCons name args = case args of
@@ -812,7 +819,7 @@ radCons name args = case args of
     consKw = Keyword . Ident . Identifier.kebabCons $ name
 
 instance ToRadG t Void where
-  toRadConss _ = absurd
+  toRadConss _ _ = absurd
 
 class ToRadFields t a where
   toRadFields :: CPA t => a -> [Annotated t ValueF]
@@ -824,10 +831,13 @@ instance ToRadFields t () where
   toRadFields () = []
 
 fromRadG :: forall a t. (CPA t, HasEot a, FromRadG t (Eot a)) => Annotated t ValueF -> Either Text a
-fromRadG v = do
-  (name, args) <- isRadCons v ?? gDecodeErr "expecting constructor"
-  fromEot <$> fromRadConss (constructors (datatype (Proxy :: Proxy a))) name args
-
+fromRadG v = case isRadCons v of
+    Nothing -> case conss of
+      [Constructor name _] -> fromEot <$> fromRadConss conss (Identifier.kebabCons (toS name)) [v]
+      _ -> Left $ gDecodeErr "expecting constructor: Haskell type is not single-constructor"
+    Just (name, args) -> fromEot <$> fromRadConss conss name args
+  where
+    conss = constructors (datatype (Proxy :: Proxy a))
 class FromRadG t a where
   fromRadConss :: [Constructor] -> Text -> [Annotated t ValueF] -> Either Text a
 
