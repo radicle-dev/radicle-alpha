@@ -25,12 +25,27 @@ import           Data.Aeson ((.:), (.=))
 import qualified Data.Aeson as A
 import           Data.Swagger
 import           Data.Version (showVersion)
+import qualified Network.HTTP.Media as HttpMedia
 import           Radicle.Daemon.Ipfs
 import           Servant.API
 import           Servant.Swagger
 
 import qualified Paths_radicle as Radicle
+import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
+import           Radicle.Internal.Parse
+import           Radicle.Internal.Pretty
+
+data RadicleData
+
+instance Accept RadicleData where
+  contentType _ = "application" HttpMedia.// "radicle"
+
+instance ToRad Ann.WithPos a => MimeRender RadicleData a where
+  mimeRender _ = toS . renderCompactPretty . (toRad :: a -> Value)
+
+instance FromRad Ann.WithPos a => MimeUnrender RadicleData a where
+  mimeUnrender _ = first toS . (fromRad <=< parse "[daemon]") . toS
 
 instance FromHttpApiData MachineId where
     parseUrlPiece = Right . MachineId . toS
@@ -41,6 +56,9 @@ instance ToHttpApiData MachineId where
 
 newtype QueryRequest = QueryRequest { expression :: Value }
   deriving (Generic)
+
+instance FromRad Ann.WithPos QueryRequest
+instance ToRad Ann.WithPos QueryRequest
 
 instance A.ToJSON QueryRequest where
     toJSON QueryRequest{..} = A.object
@@ -54,6 +72,9 @@ instance A.FromJSON QueryRequest where
 newtype QueryResponse = QueryResponse { result :: Value }
   deriving (Generic)
 
+instance FromRad Ann.WithPos QueryResponse
+instance ToRad Ann.WithPos QueryResponse
+
 instance A.ToJSON QueryResponse where
     toJSON QueryResponse{..} = A.object
         [ "result" .= valueToJson result
@@ -65,6 +86,9 @@ instance A.FromJSON QueryResponse where
 
 newtype SendRequest = SendRequest { expressions :: [Value] }
   deriving (Generic)
+
+instance FromRad Ann.WithPos SendRequest
+instance ToRad Ann.WithPos SendRequest
 
 instance A.FromJSON SendRequest where
     parseJSON = A.withObject "SendRequest" $ \o -> do
@@ -79,6 +103,9 @@ newtype SendResponse = SendResponse
   { results :: [Value]
   } deriving (Generic)
 
+instance FromRad Ann.WithPos SendResponse
+instance ToRad Ann.WithPos SendResponse
+
 instance A.FromJSON SendResponse where
     parseJSON = A.withObject "SendResponse" $ \o -> do
         results <- o .: "results" >>= traverse jsonToValue
@@ -92,23 +119,31 @@ newtype NewResponse = NewResponse
   { machineId :: MachineId
   } deriving (Generic)
 
+instance ToRad Ann.WithPos MachineId
+instance FromRad Ann.WithPos MachineId
+
+instance ToRad Ann.WithPos NewResponse
+instance FromRad Ann.WithPos NewResponse
+
 instance A.ToJSON NewResponse
 instance A.FromJSON NewResponse
 
 -- * APIs
 
+type Formats = '[JSON, RadicleData]
+
 type MachinesEndpoint t = "v0" :> "machines" :> t
 type MachineEndpoint t = MachinesEndpoint (Capture "machineId" MachineId :> t)
 
-type MachineQueryEndpoint = MachineEndpoint ("query" :> ReqBody '[JSON] QueryRequest :> Post '[JSON] QueryResponse)
+type MachineQueryEndpoint = MachineEndpoint ("query" :> ReqBody Formats QueryRequest :> Post Formats QueryResponse)
 machineQueryEndpoint :: Proxy MachineQueryEndpoint
 machineQueryEndpoint = Proxy
 
-type MachineSendEndpoint = MachineEndpoint ("send" :> ReqBody '[JSON] SendRequest :> Post '[JSON] SendResponse)
+type MachineSendEndpoint = MachineEndpoint ("send" :> ReqBody Formats SendRequest :> Post Formats SendResponse)
 machineSendEndpoint :: Proxy MachineSendEndpoint
 machineSendEndpoint = Proxy
 
-type NewMachineEndpoint = MachinesEndpoint ("new" :> Post '[JSON] NewResponse)
+type NewMachineEndpoint = MachinesEndpoint ("new" :> Post Formats NewResponse)
 newMachineEndpoint :: Proxy NewMachineEndpoint
 newMachineEndpoint = Proxy
 
