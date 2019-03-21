@@ -22,7 +22,6 @@ module Test.E2ESupport
     , assertAbsence
     ) where
 
-import           Prelude (String, unwords)
 import           Protolude hiding (bracket)
 
 import           Control.Exception.Safe
@@ -135,13 +134,12 @@ runTestCommand bin args = runTestCommand' bin args []
 -- thrown.
 runTestCommand' :: (HasCallStack) => FilePath -> [Text] -> [Text] -> TestM Text
 runTestCommand' bin args inputLines = do
-    let argsString = map toS args
-    (exitCode, out, err) <- executeCommand bin argsString inputLines
+    (exitCode, out, err) <- executeCommand bin args inputLines
     case exitCode of
-        ExitSuccess -> pure $ toS $ trimNewline out
+        ExitSuccess -> pure $ trimNewline out
         ExitFailure _ ->
-            let commandLine = bin <> " " <> unwords argsString
-            in liftIO $ HUnit.assertFailure $
+            let commandLine = toS bin <> " " <> T.unwords args
+            in assertFailure $
                 "Command failed: " <> commandLine <> "\n"
                 <> "-- stdout ---------\n"
                 <> out
@@ -159,25 +157,26 @@ runTestCommandForError bin args = runTestCommandForError' bin args []
 -- Otherwise stdout of the error is returned.
 runTestCommandForError' :: (HasCallStack) => FilePath -> [Text] -> [Text] -> TestM Text
 runTestCommandForError' bin args inputLines = do
-    let argsString = map toS args
-    (exitCode, out, _) <- executeCommand bin argsString inputLines
+    (exitCode, out, _) <- executeCommand bin args inputLines
     case exitCode of
-        ExitFailure _ -> pure $ toS $ trimNewline out
+        ExitFailure _ -> pure $ trimNewline out
         ExitSuccess ->
-            let commandLine = bin <> " " <> unwords argsString
-            in liftIO $ HUnit.assertFailure $
+            let commandLine = toS bin <> " " <> T.unwords args
+            in assertFailure $
                 "Command " <> commandLine <> " succeeded,\n"
                 <> "but was expected to fail."
 
-executeCommand :: FilePath -> [String] -> [Text] -> TestM (ExitCode, String, String)
-executeCommand bin argsString inputLines = do
+executeCommand :: FilePath -> [Text] -> [Text] -> TestM (ExitCode, Text, Text)
+executeCommand bin args inputLines = do
+    let argsString = map toS args
     TestEnv {..} <- ask
     searchPath <- liftIO $ getEnv "PATH"
     radIpfsApiUrl <- liftIO $ getEnv "RAD_IPFS_API_URL"
     let env = [("PATH", searchPath), ("HOME", homeDir), ("RADPATH", projectDir </> "rad"), ("RAD_IPFS_API_URL", radIpfsApiUrl)]
     let procSpec = (proc bin argsString) { env = Just env }
     let input = T.unpack $ T.intercalate "\n" inputLines
-    liftIO $ readCreateProcessWithExitCode procSpec input
+    (code, stout, sterr) <- liftIO $ readCreateProcessWithExitCode procSpec input
+    pure (code, toS stout, toS sterr)
 
-trimNewline :: String -> String
-trimNewline = reverse . dropWhile (=='\n') . reverse
+trimNewline :: Text -> Text
+trimNewline = T.dropWhileEnd (== '\n')
