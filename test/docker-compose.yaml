@@ -3,7 +3,7 @@ version: '3'
 
 services:
   ipfs-test-network:
-    image: gcr.io/opensourcecoin/ipfs-test-network@sha256:2f6738237b3859593b2c83084a79bd642b5e61662a28dc34a2c92f687c53a4d1
+    image: gcr.io/opensourcecoin/ipfs-test-network:010c506
     ports:
     - "19301:5001"
     command:

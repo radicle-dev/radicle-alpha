@@ -170,29 +170,9 @@ steps:
 
       RADPATH="$(pwd)/rad" stack exec radicle-doc docs/source/guide/Basics.lrad
 
-  - id: "Start IPFS daemon"
-    name: $_BUILD_IMAGE
-    entrypoint: bash
-    args:
-    - "-c"
-    - |
-      set -euxo pipefail
-
-      export COMPOSE_FILE=test/docker-compose.yaml
-      docker-compose up -d
-      sleep 3 # Wait for service to be booted
-
-      # Connect services to 'cloudbuild' network so they can be
-      # accessed by other steps
-      docker network connect cloudbuild test_ipfs-test-network_1 --alias ipfs-test-network
-
-      # Add the empty entry to the IPFS test network. Radicle requires it
-      echo '{"radicle": true}' | docker exec -i test_ipfs-test-network_1 ipfs dag put --pin
-
-
   - id: "Integration tests"
     waitFor:
-    - "Start IPFS daemon"
+    - "Build"
     name: $_BUILD_IMAGE
     env: ['STACK_ROOT=/workspace/.stack']
     entrypoint: 'bash'
@@ -201,17 +181,24 @@ steps:
     - |
       set -euxo pipefail
 
+      export COMPOSE_FILE=test/docker-compose.yaml
+      docker-compose up -d
+      sleep 1 # Wait for containers to be started
+
+      # Connect services to 'cloudbuild' network so they can be
+      # accessed by other steps
+      docker network connect cloudbuild test_ipfs-test-network_1 --alias ipfs-test-network
+      docker exec test_ipfs-test-network_1 /app/wait-until-ready
+
+      # Add the empty entry to the IPFS test network. Radicle requires it
+      echo '{"radicle": true}' | docker exec -i test_ipfs-test-network_1 ipfs dag put --pin
+
       export RAD_IPFS_API_URL=http://ipfs-test-network:5001
       export RADPATH="$(pwd)/rad"
 
       stack exec -- rad-daemon-radicle &
 
-      stack test :e2e || {
-        # Get some debugging information from the IPFS container
-        docker exec test_ipfs-test-network_1 ipfs swarm peers
-        docker logs test_ipfs-test-network_1
-        false
-      }
+      stack test :e2e
 
   - id: "Package"
     waitFor:
