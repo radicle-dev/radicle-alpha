@@ -211,19 +211,9 @@ steps:
     - |
       set -euxo pipefail
 
-      date=$(date +%Y.%m.%d)
-      version="$date-$SHORT_SHA"
-      VERSION=$version TARGET=debian ./packaging/build-package.sh
-
-      if [ "$BRANCH_NAME" == "master" ]; then
-        # Upload package aliases for easier distribution
-        cp  \
-          "packaging/out/radicle_${version}_amd64.deb" \
-          "packaging/out/radicle_${date}_amd64.deb"
-
-        cp  \
-          "packaging/out/radicle_${version}_amd64.deb" \
-          "packaging/out/radicle_latest_amd64.deb"
+      if [[ "$BRANCH_NAME" == "master" && "$TAG_NAME" == v* ]]; then
+        version="$TAG_NAME"
+        VERSION=$version TARGET=debian ./packaging/build-package.sh
       fi
 
       ./packaging/upload.sh
