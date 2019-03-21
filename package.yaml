@@ -49,6 +49,7 @@ library:
   - http-client
   - http-conduit
   - http-types
+  - http-media
   - ipld-cid
   - megaparsec
   - mtl
