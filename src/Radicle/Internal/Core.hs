@@ -422,9 +422,9 @@ isAtom _        = Nothing
 -- >>> encode $ maybeJson $ Dict $ Map.fromList [(String "foo", String "bar")]
 -- "{\"foo\":\"bar\"}"
 --
--- This fails for lambdas, since lambdas capture an entire environment
--- (possibly recursively). It also fails for dictionaries with non-string key
--- non-string keys.
+-- This fails for lambdas, since lambdas capture an entire environment (possibly
+-- recursively). It also fails for dictionaries with non-stringy (string or
+-- keyword) keys.
 --
 -- >>> import Data.Aeson (encode)
 -- >>> encode $ maybeJson $ Dict $ Map.fromList [(Number 3, String "bar")]
@@ -433,17 +433,20 @@ maybeJson :: Value -> Maybe A.Value
 maybeJson = \case
     Number n -> A.Number <$> hush (Num.isSci n)
     String s -> pure $ A.String s
+    Keyword (Ident i) -> pure $ A.String i
     Boolean b -> pure $ A.Bool b
     List ls -> toJSON <$> traverse maybeJson ls
+    Vec xs -> toJSON <$> traverse maybeJson (toList xs)
     Dict m -> do
       let kvs = Map.toList m
-      ks <- traverse isStr (fst <$> kvs)
+      ks <- traverse isStringy (fst <$> kvs)
       vs <- traverse maybeJson (snd <$> kvs)
       pure $ A.Object (HashMap.fromList (zip ks vs))
     _ -> Nothing
   where
-    isStr (String s) = pure s
-    isStr _          = Nothing
+    isStringy (String s)          = pure s
+    isStringy (Keyword (Ident i)) = pure i
+    isStringy _                   = Nothing
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }

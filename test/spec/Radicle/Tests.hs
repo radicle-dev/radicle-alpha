@@ -476,7 +476,9 @@ test_eval =
 
     , testCase "'to-json' works" $ do
         runPureCode "(to-json (dict \"foo\" #t))" @?= Right (String "{\"foo\":true}")
+        runPureCode "(to-json {:foo #t \"bar\" #f})" @?= Right (String "{\"foo\":true,\"bar\":false}")
         runPureCode "(to-json (dict \"key\" (list 1 \"value\")))" @?= Right (String "{\"key\":[1,\"value\"]}")
+        runPureCode "(to-json [3/2 #f])" @?= Right (String "[1.5,false]")
         noStack (runPureCode "(to-json (dict 1 2))") @?= Left (OtherError "Could not serialise value to JSON")
 
     , testCase "def-rec can define recursive functions" $ do
