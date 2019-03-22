@@ -11,17 +11,13 @@ import           Codec.Serialise (Serialise)
 import           Control.Monad.Except
                  (ExceptT(..), MonadError, runExceptT, throwError)
 import           Control.Monad.State hiding (State)
-import           Data.Aeson (ToJSON(..))
-import qualified Data.Aeson as A
 import           Data.Copointed (Copointed(..))
-import qualified Data.HashMap.Strict as HashMap
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
-import qualified Data.Vector as JsonVector
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
@@ -412,56 +408,6 @@ asValue x = x
 isAtom :: Value -> Maybe Ident
 isAtom (Atom i) = pure i
 isAtom _        = Nothing
-
--- | Convert a radicle `Value` into an 'aeson' value, if possible.
---
--- >>> import Data.Aeson (encode)
--- >>> encode $ maybeJson $ List [Number 3, String "hi"]
--- "[3,\"hi\"]"
---
--- >>> import Data.Aeson (encode)
--- >>> encode $ maybeJson $ Dict $ Map.fromList [(String "foo", String "bar")]
--- "{\"foo\":\"bar\"}"
---
--- This fails for lambdas, since lambdas capture an entire environment (possibly
--- recursively). It also fails for dictionaries with non-stringy (string or
--- keyword) keys.
---
--- >>> import Data.Aeson (encode)
--- >>> encode $ maybeJson $ Dict $ Map.fromList [(Number 3, String "bar")]
--- "null"
-maybeJson :: Value -> Maybe A.Value
-maybeJson = \case
-    Number n -> A.Number <$> hush (Num.isSci n)
-    String s -> pure $ A.String s
-    Keyword (Ident i) -> pure $ A.String i
-    Boolean b -> pure $ A.Bool b
-    List ls -> toJSON <$> traverse maybeJson ls
-    Vec xs -> toJSON <$> traverse maybeJson (toList xs)
-    Dict m -> do
-      let kvs = Map.toList m
-      ks <- traverse isStringy (fst <$> kvs)
-      vs <- traverse maybeJson (snd <$> kvs)
-      pure $ A.Object (HashMap.fromList (zip ks vs))
-    _ -> Nothing
-  where
-    isStringy (String s)          = pure s
-    isStringy (Keyword (Ident i)) = pure i
-    isStringy _                   = Nothing
-
-maybeFromJson :: A.Value -> Maybe Value
-maybeFromJson = \case
-  A.Number n -> pure $ Number (toRational n) -- TODO(james): think about untrusted sources.
-  A.String s -> pure $ String s
-  A.Bool b -> pure $ Boolean b
-  A.Array xs -> do
-    ys <- traverse maybeFromJson xs
-    pure $ Vec $ Seq.fromList (JsonVector.toList ys)
-  A.Object a -> do
-    let kvs = HashMap.toList a
-    kvs' <- traverse (\(k,v) -> (String k,) <$> maybeFromJson v) kvs
-    pure $ Dict $ Map.fromList kvs'
-  A.Null -> Nothing
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }

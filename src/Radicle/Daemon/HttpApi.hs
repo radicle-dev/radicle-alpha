@@ -28,8 +28,6 @@ module Radicle.Daemon.HttpApi
 
 import           Protolude
 
-import           Prelude (String)
-
 import           Data.Aeson ((.:), (.=))
 import qualified Data.Aeson as A
 import           Data.Swagger
@@ -42,6 +40,7 @@ import           Servant.Swagger
 import qualified Paths_radicle as Radicle
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
+import           Radicle.Internal.Json
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 
@@ -64,24 +63,12 @@ instance Accept RadicleJSON where
   contentType _ = "application" HttpMedia.// "radicle-json"
 
 instance (Traversable t, A.ToJSON (t A.Value)) => MimeRender RadicleJSON (t Value) where
-  mimeRender _ x =
-    let y_ = traverse maybeJson x
-    in case y_ of
-         Just y -> A.encode y
-         Nothing -> "{\"error\": \"Radicle value did not have a JSON representation.\"}"
+  mimeRender _ x = case traverse maybeJson x of
+    Just y -> A.encode y
+    Nothing -> "{\"error\": \"Radicle value did not have a JSON representation.\"}"
 
--- instance (A.ToJSON a) => MimeRender RadicleJSON a where
---   mimeRender _ = A.encode
-
-instance (Traversable t, A.FromJSON (t A.Value)) => MimeUnrender RadicleJSON (t Value) where
-  mimeUnrender _ s = do
-      x :: t A.Value <- A.eitherDecode (toS s)
-      traverse loose x
-    where
-      loose :: A.Value -> Either String Value
-      loose js = case maybeFromJson js of
-        Just v  -> pure v
-        Nothing -> Left "Could not decode Radicle expression from JSON."
+instance (Functor t, A.FromJSON (t A.Value)) => MimeUnrender RadicleJSON (t Value) where
+  mimeUnrender _ = fmap (fmap fromJson) . A.eitherDecode . toS
 
 instance FromHttpApiData MachineId where
     parseUrlPiece = Right . MachineId . toS
