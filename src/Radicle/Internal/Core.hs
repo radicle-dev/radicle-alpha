@@ -21,6 +21,7 @@ import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
+import qualified Data.Vector as JsonVector
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
@@ -447,6 +448,20 @@ maybeJson = \case
     isStringy (String s)          = pure s
     isStringy (Keyword (Ident i)) = pure i
     isStringy _                   = Nothing
+
+maybeFromJson :: A.Value -> Maybe Value
+maybeFromJson = \case
+  A.Number n -> pure $ Number (toRational n) -- TODO(james): think about untrusted sources.
+  A.String s -> pure $ String s
+  A.Bool b -> pure $ Boolean b
+  A.Array xs -> do
+    ys <- traverse maybeFromJson xs
+    pure $ Vec $ Seq.fromList (JsonVector.toList ys)
+  A.Object a -> do
+    let kvs = HashMap.toList a
+    kvs' <- traverse (\(k,v) -> (String k,) <$> maybeFromJson v) kvs
+    pure $ Dict $ Map.fromList kvs'
+  A.Null -> Nothing
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }
