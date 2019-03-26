@@ -64,8 +64,8 @@ instance Accept RadicleJSON where
 
 instance (Traversable t, A.ToJSON (t A.Value)) => MimeRender RadicleJSON (t Value) where
   mimeRender _ x = case traverse maybeJson x of
-    Just y -> A.encode y
-    Nothing -> "{\"error\": \"Radicle value did not have a JSON representation.\"}"
+    Right y -> A.encode y
+    Left e -> "{\"error\": \"Radicle value did not have a JSON representation: " <> toS e <> "\"}"
 
 instance (Functor t, A.FromJSON (t A.Value)) => MimeUnrender RadicleJSON (t Value) where
   mimeUnrender _ = fmap (fmap fromJson) . A.eitherDecode . toS

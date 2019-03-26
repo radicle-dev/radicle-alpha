@@ -95,7 +95,7 @@ noStack (Left (LangError _ err)) = Left err
 noStack (Right v)                = Right v
 
 typeToValue :: Type.Type -> Value
-typeToValue = Keyword . Ident . Identifier.kebabCons . drop 1 . show
+typeToValue = Keyword . Ident . Identifier.kebabCons . Type.typeString
 
 -- | Convert an error to a radicle value, and the label for it. Used for
 -- catching exceptions.

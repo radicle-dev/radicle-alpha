@@ -573,7 +573,9 @@ purePrimFns = fromList $ allDocs $
         \ Dicts are converted to JSON objects as long as all the keys are either\
         \ strings or keywords."
       , oneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
-          Json.maybeJson v ?? toLangError (OtherError "Could not serialise value to JSON")
+          case Json.maybeJson v of
+            Left e -> throwErrorHere $ OtherError $ "Could not convert to JSON: " <> e
+            Right js -> pure js
       )
     , ( "default-ecc-curve"
       , "Returns the default elliptic-curve used for generating cryptographic keys."

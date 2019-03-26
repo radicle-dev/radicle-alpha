@@ -15,6 +15,7 @@ import           Radicle.Internal.Identifier
 import           Radicle.Internal.Number
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
+import qualified Radicle.Internal.Type as Type
 
 -- | Parses JSON into a Value. It expects the value to be encoded as a radicle
 -- expression in a JSON string. Corresponds to the encoding given by
@@ -47,9 +48,9 @@ valueToJson = A.String . renderCompactPretty
 -- >>> import Data.Aeson (encode)
 -- >>> encode $ maybeJson $ Dict $ Map.fromList [(Number 3, String "bar")]
 -- "null"
-maybeJson :: Value -> Maybe A.Value
+maybeJson :: Value -> Either Text A.Value
 maybeJson = \case
-    Number n -> A.Number <$> hush (isSci n)
+    Number n -> A.Number <$> isSci n
     String s -> pure $ A.String s
     Keyword (Ident i) -> pure $ A.String i
     Boolean b -> pure $ A.Bool b
@@ -57,14 +58,21 @@ maybeJson = \case
     Vec xs -> A.toJSON <$> traverse maybeJson (toList xs)
     Dict m -> do
       let kvs = Map.toList m
-      ks <- traverse isStringy (fst <$> kvs)
+      ks <- traverse jsonKey (fst <$> kvs)
       vs <- traverse maybeJson (snd <$> kvs)
       pure $ A.Object (HashMap.fromList (zip ks vs))
-    _ -> Nothing
+    v -> Left $ cantConvertType v "JSON"
   where
-    isStringy (String s)          = pure s
-    isStringy (Keyword (Ident i)) = pure i
-    isStringy _                   = Nothing
+    jsonKey :: Value -> Either Text Text
+    jsonKey (String s)          = pure s
+    jsonKey (Keyword (Ident i)) = pure i
+    jsonKey n@(Number _)        = pure (renderCompactPretty n)
+    jsonKey (Boolean b)         = pure $ if b then "true" else "false"
+    jsonKey v                   = Left $ cantConvertType v "a JSON key"
+
+    cantConvertType :: Value -> Text -> Text
+    cantConvertType v toThis = "Can not convert values of type " <> toS (Type.typeString (valType v)) <> " to " <> toThis
+
 
 -- | Converts an `aeson` value to a radicle one.
 fromJson :: A.Value -> Value
