@@ -3,6 +3,7 @@ module Radicle.Internal.Json where
 import           Protolude
 
 import           Control.Monad.Fail
+import qualified Data.Scientific as Sci
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
 import qualified Data.HashMap.Strict as HashMap
@@ -20,14 +21,22 @@ import qualified Radicle.Internal.Type as Type
 -- | Parses JSON into a Value. It expects the value to be encoded as a radicle
 -- expression in a JSON string. Corresponds to the encoding given by
 -- 'valueToJson'.
+--
+-- >>> import qualified Data.Vector as Vector
+-- >>> renderCompactPretty <$> A.parseMaybe jsonToValue (A.String "{:foo 42}")
+-- Just "{:foo 42}"
 jsonToValue :: A.Value -> A.Parser Value
 jsonToValue = A.withText "Value" $ \t -> do
     case parse "[daemon]" t of
       Left err -> fail $ "failed to parse Radicle expression: " <> show err
       Right v  -> pure v
 
--- | Encodes a radicle value as JSON. The value is encoded a radicle expression
--- formatted JSON string.
+-- | Pretty-prints a Radicle value, and wraps it in a JSON string.
+--
+-- >>> import Data.Aeson (encode)
+-- >>> import Data.Sequence (fromList)
+-- >>> encode $ valueToJson (Vec (fromList [Number 1, String "foo"]))
+-- "\"[1\\n\\\"foo\\\"]\""
 valueToJson :: Value -> A.Value
 valueToJson = A.String . renderCompactPretty
 
@@ -51,7 +60,7 @@ valueToJson = A.String . renderCompactPretty
 --
 -- >>> import Data.Aeson (encode)
 -- >>> encode $ maybeJson $ Dict $ Map.fromList [(List [Number 3], String "bar")]
--- "{\"Left\":\"Can not convert values of type List to a JSON key\"}"
+-- "{\"Left\":\"Cannot convert values of type List to a JSON key\"}"
 maybeJson :: Value -> Either Text A.Value
 maybeJson = \case
     Number n -> A.Number <$> isSci n
@@ -68,7 +77,6 @@ maybeJson = \case
       pure $ A.Object (HashMap.fromList (zip ks vs))
     v -> Left $ cantConvertType v "JSON"
   where
-    jsonKey :: Value -> Either Text Text
     jsonKey (String s)          = pure s
     jsonKey (Keyword (Ident i)) = pure i
     jsonKey (Atom (Ident i))    = pure i
@@ -76,14 +84,15 @@ maybeJson = \case
     jsonKey (Boolean b)         = pure $ if b then "true" else "false"
     jsonKey v                   = Left $ cantConvertType v "a JSON key"
 
-    cantConvertType :: Value -> Text -> Text
-    cantConvertType v toThis = "Can not convert values of type " <> toS (Type.typeString (valType v)) <> " to " <> toThis
+    cantConvertType v toThis = "Cannot convert values of type " <> toS (Type.typeString (valType v)) <> " to " <> toThis
 
 
 -- | Converts an `aeson` value to a radicle one.
 fromJson :: A.Value -> Value
 fromJson = \case
-  A.Number n -> Number (toRational n) -- TODO(james): think about untrusted sources.
+  -- Note that using `toRational` would make this function unsafe when reading
+  -- user input.
+  A.Number n -> Number (toRational (Sci.toRealFloat n :: Double))
   A.String s -> String s
   A.Bool b -> Boolean b
   A.Array xs -> Vec $ Seq.fromList (JsonVector.toList (fromJson <$> xs))

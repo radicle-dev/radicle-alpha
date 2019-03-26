@@ -56,16 +56,24 @@ instance ToRad Ann.WithPos a => MimeRender RadicleData a where
 instance FromRad Ann.WithPos a => MimeUnrender RadicleData a where
   mimeUnrender _ = first toS . (fromRad <=< parse "[daemon]") . toS
 
--- | Content type for values encoded *loosely* as JSON.
+-- | Content type for values encoded *loosely* as JSON. This encoding is meant
+-- to be convenient (for consuming in the browser) but lossy (since JSON has
+-- less value types and JSON objects can only have strings as keys). In
+-- particular, when dict keys are keywords, booleans or numbers, they are
+-- converted to strings.
 data RadicleJSON
 
 instance Accept RadicleJSON where
   contentType _ = "application" HttpMedia.// "radicle-json"
 
+newtype NoRadicleJson = NoRadicleJson
+  { error :: Text
+  } deriving (Generic, A.ToJSON)
+
 instance (Traversable t, A.ToJSON (t A.Value)) => MimeRender RadicleJSON (t Value) where
   mimeRender _ x = case traverse maybeJson x of
     Right y -> A.encode y
-    Left e -> "{\"error\": \"Radicle value did not have a JSON representation: " <> toS e <> "\"}"
+    Left e -> A.encode (NoRadicleJson ("Radicle value did not have a JSON representation: " <> e))
 
 instance (Functor t, A.FromJSON (t A.Value)) => MimeUnrender RadicleJSON (t Value) where
   mimeUnrender _ = fmap (fmap fromJson) . A.eitherDecode . toS

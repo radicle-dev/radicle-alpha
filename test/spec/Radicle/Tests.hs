@@ -481,7 +481,7 @@ test_eval =
         runPureCode "(to-json [3/2 #f])" @?= Right (String "[1.5,false]")
         runPureCode "(to-json {1 2})" @?= Right (String "{\"1\":2}")
         runPureCode "(to-json {#t #f})" @?= Right (String "{\"true\":false}")
-        noStack (runPureCode "(to-json {[1] 2})") @?= Left (OtherError "Could not convert to JSON: Can not convert values of type Vec to a JSON key")
+        noStack (runPureCode "(to-json {[1] 2})") @?= Left (OtherError "Could not convert to JSON: Cannot convert values of type Vec to a JSON key")
 
     , testCase "def-rec can define recursive functions" $ do
         let prog = [s|
