@@ -214,6 +214,6 @@ steps:
       if [[ "$BRANCH_NAME" == "master" && "$TAG_NAME" == v* ]]; then
         version="$TAG_NAME"
         VERSION=$version TARGET=debian ./packaging/build-package.sh
+        ./packaging/upload.sh
       fi
 
-      ./packaging/upload.sh
