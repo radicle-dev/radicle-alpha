@@ -27,4 +27,4 @@ toBoundedInteger r =
 isSci :: Rational -> Either Text Scientific.Scientific
 isSci r = case Scientific.fromRationalRepetendUnlimited r of
   (s, Nothing) -> pure s
-  _            -> Left "Does not have a non-repeating decimal expansion"
+  _            -> Left $ "The rational number " <> show r <> " does not have a non-repeating decimal expansion"

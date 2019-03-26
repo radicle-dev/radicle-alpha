@@ -12,6 +12,7 @@ import           Radicle.Internal.Effects as X
 import           Radicle.Internal.Eval as X
 import           Radicle.Internal.Identifier as X
 import           Radicle.Internal.Interpret as X
+import           Radicle.Internal.Json as X
 import           Radicle.Internal.Parse as X
 import           Radicle.Internal.Pretty as X
 import           Radicle.Internal.PrimFns as X

@@ -20,6 +20,7 @@ import           Radicle.Internal.Crypto
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Eval
 import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
+import qualified Radicle.Internal.Json as Json
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
@@ -567,12 +568,14 @@ purePrimFns = fromList $ allDocs $
     , ( "to-json"
       , "Returns a JSON formatted string representing the input value. Numbers are only\
         \ converted if they have a finite decimal expansion. Strings and booleans are\
-        \ converted to their JSON counterparts. Keywords are converted to JSON strings\
-        \ (dropping the initial ':'). Lists and vectors are converted to JSON arrays.\
-        \ Dicts are converted to JSON objects as long as all the keys are either\
-        \ strings or keywords."
+        \ converted to their JSON counterparts. Atoms and keywords are converted to JSON strings\
+        \ (dropping the initial ':' for keywords). Lists and vectors are converted to JSON arrays.\
+        \ Dicts are converted to JSON objects as long as all the keys are strings, atoms,\
+        \ keywords, booleans or numbers."
       , oneArg "to-json" $ \v -> String . toS . Aeson.encode <$>
-          maybeJson v ?? toLangError (OtherError "Could not serialise value to JSON")
+          case Json.maybeJson v of
+            Left e -> throwErrorHere $ OtherError $ "Could not convert to JSON: " <> e
+            Right js -> pure js
       )
     , ( "default-ecc-curve"
       , "Returns the default elliptic-curve used for generating cryptographic keys."

@@ -74,6 +74,7 @@ library:
   - unliftio
   - unordered-containers
   - uuid
+  - vector
 
 tests:
   spec:

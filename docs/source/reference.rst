@@ -447,10 +447,11 @@ right now, formatted according to ISO 8601.
 
 Returns a JSON formatted string representing the input value. Numbers
 are only converted if they have a finite decimal expansion. Strings and
-booleans are converted to their JSON counterparts. Keywords are
-converted to JSON strings (dropping the initial ':'). Lists and vectors
-are converted to JSON arrays. Dicts are converted to JSON objects as
-long as all the keys are either strings or keywords.
+booleans are converted to their JSON counterparts. Atoms and keywords
+are converted to JSON strings (dropping the initial ':' for keywords).
+Lists and vectors are converted to JSON arrays. Dicts are converted to
+JSON objects as long as all the keys are strings, atoms, keywords,
+booleans or numbers.
 
 ``uuid!``
 ~~~~~~~~~

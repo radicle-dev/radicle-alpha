@@ -34,19 +34,11 @@ import           System.Timeout
 import           UnliftIO.Async
 
 import           Radicle.Internal.Core
+import           Radicle.Internal.Json
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import qualified Radicle.Internal.UUID as UUID
 import qualified Radicle.Ipfs as Ipfs
-
-jsonToValue :: Aeson.Value -> Aeson.Parser Value
-jsonToValue = Aeson.withText "Value" $ \t -> do
-    case parse "[daemon]" t of
-      Left err -> fail $ "failed to parse Radicle expression: " <> show err
-      Right v  -> pure v
-
-valueToJson :: Value -> Aeson.Value
-valueToJson = Aeson.String . renderCompactPretty
 
 -- * Types
 

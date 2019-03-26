@@ -1,11 +1,18 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
+{-# LANGUAGE QuantifiedConstraints #-}
+
 module Radicle.Daemon.HttpApi
-    ( QueryRequest(..)
-    , QueryResponse(..)
+    ( QueryRequestF(..)
+    , QueryRequest
+    , QueryResponseF(..)
+    , QueryResponse
     , machineQueryEndpoint
 
-    , SendRequest(..)
-    , SendResponse(..)
+    , SendRequestF(..)
+    , SendRequest
+    , SendResponseF(..)
+    , SendResponse
     , machineSendEndpoint
 
     , NewResponse(..)
@@ -21,8 +28,8 @@ module Radicle.Daemon.HttpApi
 
 import           Protolude
 
-import           Data.Aeson ((.:), (.=))
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Types as A
 import           Data.Swagger
 import           Data.Version (showVersion)
 import qualified Network.HTTP.Media as HttpMedia
@@ -33,9 +40,11 @@ import           Servant.Swagger
 import qualified Paths_radicle as Radicle
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
+import           Radicle.Internal.Json
 import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 
+-- | Content type for values encoded as Radicle expression.
 data RadicleData
 
 instance Accept RadicleData where
@@ -47,6 +56,30 @@ instance ToRad Ann.WithPos a => MimeRender RadicleData a where
 instance FromRad Ann.WithPos a => MimeUnrender RadicleData a where
   mimeUnrender _ = first toS . (fromRad <=< parse "[daemon]") . toS
 
+-- | Content type for values encoded *loosely* as JSON. This encoding is meant
+-- to be convenient (for consuming in the browser) but lossy (since JSON has
+-- less value types and JSON objects can only have strings as keys). In
+-- particular, when dict keys are keywords, booleans or numbers, they are
+-- converted to strings.
+data RadicleJSON
+
+instance Accept RadicleJSON where
+  contentType _ = "application" HttpMedia.// "radicle-json"
+
+instance (Traversable t, A.ToJSON (t A.Value)) => MimeRender RadicleJSON (t Value) where
+  mimeRender _ x = case traverse maybeJson x of
+    Right y -> A.encode y
+    Left e -> A.encode $ A.object [("error", A.String ("Radicle value did not have a JSON representation: " <> e))]
+
+instance (Functor t, A.FromJSON (t A.Value)) => MimeUnrender RadicleJSON (t Value) where
+  mimeUnrender _ = fmap (fmap fromJson) . A.eitherDecode . toS
+
+instance (Traversable t, A.ToJSON (t A.Value)) => MimeRender JSON (t Value) where
+  mimeRender _ = A.encode . fmap valueToJson
+
+instance {-# OVERLAPPING #-} (Traversable t, A.FromJSON (t A.Value)) => MimeUnrender JSON (t Value) where
+  mimeUnrender _ = A.parseEither (traverse jsonToValue) <=< A.eitherDecode . toS
+
 instance FromHttpApiData MachineId where
     parseUrlPiece = Right . MachineId . toS
     parseQueryParam = parseUrlPiece
@@ -54,66 +87,38 @@ instance FromHttpApiData MachineId where
 instance ToHttpApiData MachineId where
     toUrlPiece (MachineId id) = id
 
-newtype QueryRequest = QueryRequest { expression :: Value }
-  deriving (Generic)
+newtype QueryRequestF a = QueryRequest { expression :: a }
+  deriving (Functor, Foldable, Traversable, Generic, A.ToJSON, A.FromJSON)
+
+type QueryRequest = QueryRequestF Value
 
 instance FromRad Ann.WithPos QueryRequest
 instance ToRad Ann.WithPos QueryRequest
 
-instance A.ToJSON QueryRequest where
-    toJSON QueryRequest{..} = A.object
-        [ "expression" .= valueToJson expression
-        ]
-instance A.FromJSON QueryRequest where
-    parseJSON = A.withObject "QueryRequest" $ \o -> do
-        expression <- o .: "expression" >>= jsonToValue
-        pure $ QueryRequest {..}
+newtype QueryResponseF v = QueryResponse { result :: v }
+  deriving (Functor, Foldable, Traversable, Generic, A.ToJSON, A.FromJSON)
 
-newtype QueryResponse = QueryResponse { result :: Value }
-  deriving (Generic)
+type QueryResponse = QueryResponseF Value
 
 instance FromRad Ann.WithPos QueryResponse
 instance ToRad Ann.WithPos QueryResponse
 
-instance A.ToJSON QueryResponse where
-    toJSON QueryResponse{..} = A.object
-        [ "result" .= valueToJson result
-        ]
-instance A.FromJSON QueryResponse where
-    parseJSON = A.withObject "QueryResponse" $ \o -> do
-        result <- o .: "result" >>= jsonToValue
-        pure $ QueryResponse {..}
+newtype SendRequestF v = SendRequest { expressions :: [v] }
+  deriving (Functor, Foldable, Traversable, Generic, A.ToJSON, A.FromJSON)
 
-newtype SendRequest = SendRequest { expressions :: [Value] }
-  deriving (Generic)
+type SendRequest = SendRequestF Value
 
 instance FromRad Ann.WithPos SendRequest
 instance ToRad Ann.WithPos SendRequest
 
-instance A.FromJSON SendRequest where
-    parseJSON = A.withObject "SendRequest" $ \o -> do
-        expressions <- o .: "expressions" >>= traverse jsonToValue
-        pure $ SendRequest {..}
-instance A.ToJSON SendRequest where
-    toJSON SendRequest{..} = A.object
-        [ "expressions" .= map valueToJson expressions
-        ]
+newtype SendResponseF v = SendResponse
+  { results :: [v]
+  } deriving (Functor, Foldable, Traversable, Generic, A.ToJSON, A.FromJSON)
 
-newtype SendResponse = SendResponse
-  { results :: [Value]
-  } deriving (Generic)
+type SendResponse = SendResponseF Value
 
 instance FromRad Ann.WithPos SendResponse
 instance ToRad Ann.WithPos SendResponse
-
-instance A.FromJSON SendResponse where
-    parseJSON = A.withObject "SendResponse" $ \o -> do
-        results <- o .: "results" >>= traverse jsonToValue
-        pure $ SendResponse {..}
-instance A.ToJSON SendResponse where
-    toJSON SendResponse{..} = A.object
-        [ "results" .= map valueToJson results
-        ]
 
 newtype NewResponse = NewResponse
   { machineId :: MachineId
@@ -130,7 +135,7 @@ instance A.FromJSON NewResponse
 
 -- * APIs
 
-type Formats = '[JSON, RadicleData]
+type Formats = '[RadicleData, JSON, RadicleJSON]
 
 type MachinesEndpoint t = "v0" :> "machines" :> t
 type MachineEndpoint t = MachinesEndpoint (Capture "machineId" MachineId :> t)
@@ -143,7 +148,7 @@ type MachineSendEndpoint = MachineEndpoint ("send" :> ReqBody Formats SendReques
 machineSendEndpoint :: Proxy MachineSendEndpoint
 machineSendEndpoint = Proxy
 
-type NewMachineEndpoint = MachinesEndpoint ("new" :> Post Formats NewResponse)
+type NewMachineEndpoint = MachinesEndpoint ("new" :> Post '[JSON, RadicleData] NewResponse)
 newMachineEndpoint :: Proxy NewMachineEndpoint
 newMachineEndpoint = Proxy
 
