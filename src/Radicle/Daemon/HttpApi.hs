@@ -66,14 +66,10 @@ data RadicleJSON
 instance Accept RadicleJSON where
   contentType _ = "application" HttpMedia.// "radicle-json"
 
-newtype NoRadicleJson = NoRadicleJson
-  { error :: Text
-  } deriving (Generic, A.ToJSON)
-
 instance (Traversable t, A.ToJSON (t A.Value)) => MimeRender RadicleJSON (t Value) where
   mimeRender _ x = case traverse maybeJson x of
     Right y -> A.encode y
-    Left e -> A.encode (NoRadicleJson ("Radicle value did not have a JSON representation: " <> e))
+    Left e -> A.encode $ A.object [("error", A.String ("Radicle value did not have a JSON representation: " <> e))]
 
 instance (Functor t, A.FromJSON (t A.Value)) => MimeUnrender RadicleJSON (t Value) where
   mimeUnrender _ = fmap (fmap fromJson) . A.eitherDecode . toS
