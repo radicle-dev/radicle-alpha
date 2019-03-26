@@ -35,19 +35,23 @@ valueToJson = A.String . renderCompactPretty
 --
 -- >>> import Data.Aeson (encode)
 -- >>> encode $ maybeJson $ List [Number 3, String "hi"]
--- "[3,\"hi\"]"
+-- "{\"Right\":[3,\"hi\"]}"
 --
 -- >>> import Data.Aeson (encode)
 -- >>> encode $ maybeJson $ Dict $ Map.fromList [(String "foo", String "bar")]
--- "{\"foo\":\"bar\"}"
+-- "{\"Right\":{\"foo\":\"bar\"}}"
 --
 -- This fails for lambdas, since lambdas capture an entire environment (possibly
--- recursively). It also fails for dictionaries with non-stringy (string or
--- keyword) keys.
+-- recursively). It will convert dicts as long as it can stringify all the keys,
+-- that is, if they are strings, keywords, atoms, numbers of booleans.
 --
 -- >>> import Data.Aeson (encode)
 -- >>> encode $ maybeJson $ Dict $ Map.fromList [(Number 3, String "bar")]
--- "null"
+-- "{\"Right\":{\"3\":\"bar\"}}"
+--
+-- >>> import Data.Aeson (encode)
+-- >>> encode $ maybeJson $ Dict $ Map.fromList [(List [Number 3], String "bar")]
+-- "{\"Left\":\"Can not convert values of type List to a JSON key\"}"
 maybeJson :: Value -> Either Text A.Value
 maybeJson = \case
     Number n -> A.Number <$> isSci n
@@ -66,6 +70,7 @@ maybeJson = \case
     jsonKey :: Value -> Either Text Text
     jsonKey (String s)          = pure s
     jsonKey (Keyword (Ident i)) = pure i
+    jsonKey (Atom (Ident i))    = pure i
     jsonKey n@(Number _)        = pure (renderCompactPretty n)
     jsonKey (Boolean b)         = pure $ if b then "true" else "false"
     jsonKey v                   = Left $ cantConvertType v "a JSON key"
