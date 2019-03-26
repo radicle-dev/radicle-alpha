@@ -57,6 +57,7 @@ maybeJson = \case
     Number n -> A.Number <$> isSci n
     String s -> pure $ A.String s
     Keyword (Ident i) -> pure $ A.String i
+    Atom (Ident i) -> pure $ A.String i
     Boolean b -> pure $ A.Bool b
     List ls -> A.toJSON <$> traverse maybeJson ls
     Vec xs -> A.toJSON <$> traverse maybeJson (toList xs)
