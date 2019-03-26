@@ -94,28 +94,22 @@ jobs:
       - run:
           name: Package
           command: |
-            version="$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
-            VERSION=$version TARGET=darwin ./packaging/build-package.sh
+            set -euxo pipefail
 
-            # This is only set when building forked PRs
-            if [ -n "$CIRCLE_PR_REPONAME" ]; then
-              echo "Skipping uploads for forks"
-              exit 0
+            if [ "$CIRCLE_BRANCH" == "master" && "$CIRCLE_TAG" == v*]; then
+              version="$TAG_NAME"
+              VERSION=$version TARGET=darwin ./packaging/build-package.sh
+
+              # This is only set when building forked PRs
+              if [ -n "$CIRCLE_PR_REPONAME" ]; then
+                echo "Skipping uploads for forks"
+                exit 0
+              fi
+
+              echo "$GCLOUD_SERVICE_KEY" | \
+                gcloud auth activate-service-account \
+                  circleci-image-uploader@opensourcecoin.iam.gserviceaccount.com \
+                  --key-file=-
+
+              ./packaging/upload.sh
             fi
-
-            echo "$GCLOUD_SERVICE_KEY" | \
-              gcloud auth activate-service-account \
-                circleci-image-uploader@opensourcecoin.iam.gserviceaccount.com \
-                --key-file=-
-            if [ "$CIRCLE_BRANCH" == "master" ]; then
-              # Upload package aliases for easier distribution
-              cp  \
-                "packaging/out/radicle_${version}_x86_64-darwin.tar.gz" \
-                "packaging/out/radicle_${date}_x86_64-darwin.tar.gz"
-
-              cp  \
-                "packaging/out/radicle_${version}_x86_64-darwin.tar.gz" \
-                "packaging/out/radicle_latest_x86_64-darwin.tar.gz"
-            fi
-
-            ./packaging/upload.sh
