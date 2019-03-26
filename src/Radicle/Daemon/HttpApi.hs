@@ -28,8 +28,8 @@ module Radicle.Daemon.HttpApi
 
 import           Protolude
 
-import           Data.Aeson ((.:), (.=))
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Types as A
 import           Data.Swagger
 import           Data.Version (showVersion)
 import qualified Network.HTTP.Media as HttpMedia
@@ -78,6 +78,12 @@ instance (Traversable t, A.ToJSON (t A.Value)) => MimeRender RadicleJSON (t Valu
 instance (Functor t, A.FromJSON (t A.Value)) => MimeUnrender RadicleJSON (t Value) where
   mimeUnrender _ = fmap (fmap fromJson) . A.eitherDecode . toS
 
+instance (Traversable t, A.ToJSON (t A.Value)) => MimeRender JSON (t Value) where
+  mimeRender _ = A.encode . fmap valueToJson
+
+instance {-# OVERLAPPING #-} (Traversable t, A.FromJSON (t A.Value)) => MimeUnrender JSON (t Value) where
+  mimeUnrender _ = A.parseEither (traverse jsonToValue) <=< A.eitherDecode . toS
+
 instance FromHttpApiData MachineId where
     parseUrlPiece = Right . MachineId . toS
     parseQueryParam = parseUrlPiece
@@ -90,15 +96,6 @@ newtype QueryRequestF a = QueryRequest { expression :: a }
 
 type QueryRequest = QueryRequestF Value
 
-instance {-# OVERLAPPING #-} A.ToJSON QueryRequest where
-    toJSON QueryRequest{..} = A.object
-        [ "expression" .= valueToJson expression
-        ]
-instance {-# OVERLAPPING #-} A.FromJSON QueryRequest where
-    parseJSON = A.withObject "QueryRequest" $ \o -> do
-        expression <- o .: "expression" >>= jsonToValue
-        pure $ QueryRequest {..}
-
 instance FromRad Ann.WithPos QueryRequest
 instance ToRad Ann.WithPos QueryRequest
 
@@ -110,15 +107,6 @@ type QueryResponse = QueryResponseF Value
 instance FromRad Ann.WithPos QueryResponse
 instance ToRad Ann.WithPos QueryResponse
 
-instance {-# OVERLAPPING #-} A.ToJSON QueryResponse where
-    toJSON QueryResponse{..} = A.object
-        [ "result" .= valueToJson result
-        ]
-instance {-# OVERLAPPING #-} A.FromJSON QueryResponse where
-    parseJSON = A.withObject "QueryResponse" $ \o -> do
-        result <- o .: "result" >>= jsonToValue
-        pure $ QueryResponse {..}
-
 newtype SendRequestF v = SendRequest { expressions :: [v] }
   deriving (Functor, Foldable, Traversable, Generic, A.ToJSON, A.FromJSON)
 
@@ -126,15 +114,6 @@ type SendRequest = SendRequestF Value
 
 instance FromRad Ann.WithPos SendRequest
 instance ToRad Ann.WithPos SendRequest
-
-instance {-# OVERLAPPING #-} A.FromJSON SendRequest where
-    parseJSON = A.withObject "SendRequest" $ \o -> do
-        expressions <- o .: "expressions" >>= traverse jsonToValue
-        pure $ SendRequest {..}
-instance {-# OVERLAPPING #-} A.ToJSON SendRequest where
-    toJSON SendRequest{..} = A.object
-        [ "expressions" .= map valueToJson expressions
-        ]
 
 newtype SendResponseF v = SendResponse
   { results :: [v]
@@ -144,15 +123,6 @@ type SendResponse = SendResponseF Value
 
 instance FromRad Ann.WithPos SendResponse
 instance ToRad Ann.WithPos SendResponse
-
-instance {-# OVERLAPPING #-} A.FromJSON SendResponse where
-    parseJSON = A.withObject "SendResponse" $ \o -> do
-        results <- o .: "results" >>= traverse jsonToValue
-        pure $ SendResponse {..}
-instance {-# OVERLAPPING #-} A.ToJSON SendResponse where
-    toJSON SendResponse{..} = A.object
-        [ "results" .= map valueToJson results
-        ]
 
 newtype NewResponse = NewResponse
   { machineId :: MachineId
@@ -169,7 +139,7 @@ instance A.FromJSON NewResponse
 
 -- * APIs
 
-type Formats = '[JSON, RadicleData, RadicleJSON]
+type Formats = '[RadicleData, JSON, RadicleJSON]
 
 type MachinesEndpoint t = "v0" :> "machines" :> t
 type MachineEndpoint t = MachinesEndpoint (Capture "machineId" MachineId :> t)

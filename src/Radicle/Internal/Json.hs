@@ -3,11 +3,11 @@ module Radicle.Internal.Json where
 import           Protolude
 
 import           Control.Monad.Fail
-import qualified Data.Scientific as Sci
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map.Strict as Map
+import qualified Data.Scientific as Sci
 import qualified Data.Sequence as Seq
 import qualified Data.Vector as JsonVector
 
