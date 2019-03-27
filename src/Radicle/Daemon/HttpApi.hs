@@ -88,7 +88,10 @@ instance ToHttpApiData MachineId where
     toUrlPiece (MachineId id) = id
 
 newtype QueryRequestF a = QueryRequest { expression :: a }
-  deriving (Functor, Foldable, Traversable, Generic, A.ToJSON, A.FromJSON)
+  deriving (Functor, Foldable, Traversable, Generic)
+
+instance A.ToJSON a => A.ToJSON (QueryRequestF a)
+instance A.FromJSON a => A.FromJSON (QueryRequestF a)
 
 type QueryRequest = QueryRequestF Value
 
@@ -96,7 +99,10 @@ instance FromRad Ann.WithPos QueryRequest
 instance ToRad Ann.WithPos QueryRequest
 
 newtype QueryResponseF v = QueryResponse { result :: v }
-  deriving (Functor, Foldable, Traversable, Generic, A.ToJSON, A.FromJSON)
+  deriving (Functor, Foldable, Traversable, Generic)
+
+instance A.ToJSON a => A.ToJSON (QueryResponseF a)
+instance A.FromJSON a => A.FromJSON (QueryResponseF a)
 
 type QueryResponse = QueryResponseF Value
 
@@ -104,7 +110,10 @@ instance FromRad Ann.WithPos QueryResponse
 instance ToRad Ann.WithPos QueryResponse
 
 newtype SendRequestF v = SendRequest { expressions :: [v] }
-  deriving (Functor, Foldable, Traversable, Generic, A.ToJSON, A.FromJSON)
+  deriving (Functor, Foldable, Traversable, Generic)
+
+instance A.ToJSON a => A.ToJSON (SendRequestF a)
+instance A.FromJSON a => A.FromJSON (SendRequestF a)
 
 type SendRequest = SendRequestF Value
 
@@ -113,7 +122,10 @@ instance ToRad Ann.WithPos SendRequest
 
 newtype SendResponseF v = SendResponse
   { results :: [v]
-  } deriving (Functor, Foldable, Traversable, Generic, A.ToJSON, A.FromJSON)
+  } deriving (Functor, Foldable, Traversable, Generic)
+
+instance A.ToJSON a => A.ToJSON (SendResponseF a)
+instance A.FromJSON a => A.FromJSON (SendResponseF a)
 
 type SendResponse = SendResponseF Value
 
