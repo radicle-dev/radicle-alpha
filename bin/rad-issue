@@ -65,8 +65,6 @@
   (fn [error]
     (parse-failure error help)))
 
-(def comment-divider "---")
-
 (def verify-issue-number
   (fn [issue-no machine]
     (match (lookup-default issue-no #f (list-issues machine))
@@ -74,107 +72,6 @@
                     (put-str! (error/item-not-found :issue (show issue-no)))
                     (exit! 1))
       'the-issue  the-issue)))
-
-
-(def add-comment-md
-  (fn [x]
-    (string-append
-     "\n" comment-divider "\n"
-     "---Add comment above the line.\n\n"
-     x)))
-
-(def pretty-state
-  (fn [state]
-    (drop 1 (show state))))
-
-(def cells
-  {:state       10
-   :number      10
-   :title       50
-   :author      20
-   :modified-at 22})
-
-(def wrap-cell
-  (fn [phrase cell-key]
-    (def c-length (lookup cell-key cells))
-    (string-append (take c-length (string/pad-right-to c-length phrase)) " ")))
-
-(def pretty-table-header
-  (fn []
-    (string-append
-      (wrap-cell "state" :state)
-      (wrap-cell "#" :number)
-      (wrap-cell "title" :title)
-      (wrap-cell "author" :author)
-      (wrap-cell "updated" :modified-at))))
-
-(def pretty-modified-at
-  (fn [i]
-    (string-append (lookup :modified-at i)
-                   (if (lookup :read? i) "  " " *"))))
-
-(def pretty-headline
-  (fn [i]
-    (match i
-      '{:number n
-        :title tit
-        :state s
-        :username un}
-      (string/unwords
-        [(pretty-state s)
-         (show n)
-         tit
-         un
-         (pretty-modified-at i)]))))
-
-(def pretty-row
-  (fn [i]
-    (match i
-       '{:number n
-        :title tit
-        :state s
-        :username un}
-      (string-append
-        (wrap-cell (pretty-state s) :state)
-        (wrap-cell (show n) :number)
-        (wrap-cell tit :title)
-        (wrap-cell un :author)
-        (wrap-cell (pretty-modified-at i) :modified-at)))))
-
-(def pretty-comment
-  "Markdown view of a comment. Assumes that the comment has been annotated with a
-  username."
-  (fn [c]
-    (match c
-      '{:username u-n
-        :created-at c-a
-        :body b}
-      (string-append "### " u-n " [" c-a "]\n\n" b "\n"))))
-
-(def pretty-issue
-  "Markdown view of an issue. Assumes the issue and comments have been annotated
-  with usernames."
-  (fn [i]
-    (match i
-      '{:number n
-        :title tit
-        :body b
-        :state state
-        :labels ls
-        :comments cs
-        :username un
-        :created-at c-a}
-      (string-replace
-       "\r"
-       ""
-       (string-append
-        (pretty-headline i) "\n\n"
-        "**State:** " (pretty-state state) "\n"
-        "**Labels:** " (show ls) "\n\n"
-        b "\n\n"
-        "Comments\n"
-        "--------\n\n"
-        (string/unlines (map pretty-comment cs)))))))
 
 (def add-username
   (fn [d]
@@ -192,69 +89,11 @@
   (fn [machine i]
     (insert :read? (newness/read-since-modified!? machine i) (add-username-issue i))))
 
-(def list-items
-  "Lists the recent items and uses an editor to add a relevant comment."
-  (fn [machine options]
-
-    (def mk-key
-      (fn [i]
-        (if (lookup :fancy options)
-          [(pretty-headline i) i]
-          [(pretty-row i) i])))
-
-    (def issues (values (list-issues machine)))
-
-    (def state-filt
-      (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
-        []      (fn [x] #t)
-        'args   (fn [x] (elem? (lookup :state x) args))))
-
-    (def newness-filt
-      (if (lookup :unread options)
-        (fn [x] (not (lookup :read? x)))
-        (fn [x] #t)))
-
-    (def items
-      (map mk-key
-           (filter (and-predicate state-filt newness-filt)
-                   (map (fn [i] (enrich-issue machine i))
-                        (reverse issues)))))
-
-    (def items-dict (dict-from-seq items))
-    (if (empty-seq? items)
-      (put-str! "No issues!")
-      (if (lookup :fancy options)
-        (match (fzf-select-with-preview!
-                 (map first items)
-                 (fn [s] (pretty-issue (lookup s items-dict))))
-               (/just 's)
-               (do (def selected (lookup s items-dict))
-                   (def issue-number (match selected {:number 'n} n))
-                   (def pretty-item
-                     (add-comment-md
-                      (pretty-issue
-                       (add-username-issue selected))))
-                   (def edited-item (edit-in-editor! pretty-item))
-                   (def added-comment
-                     (string/unlines
-                      (take-while (fn [x] (not (eq? x comment-divider)))
-                                  (string/lines edited-item))))
-                   (put-str!
-                    (if (eq? added-comment "")
-                      "Item was not updated."
-                      (do (simple-add-comment! machine issue-number added-comment (get-git-username!))
-                          (string-append "Sent comment: " added-comment)))))
-               _ (put-str! "No selection made."))
-        (do
-          (put-str! (pretty-table-header))
-          (map (fn [d] (put-str! (first d))) items)
-          (put-str! (items/summary "issues" issues)))))))
-
 (def show-issue!
   "Shows a single ISSUE `n`"
   (fn [n machine]
     (def issue (verify-issue-number n machine))
-    (put-str! (pretty-issue (enrich-issue machine issue)))
+    (put-str! (items/pretty-item-view (enrich-issue machine issue)))
     (newness/mark-read! machine n)))
 
 (def close-issue
@@ -276,6 +115,17 @@
     (simple-add-comment! machine n comment (get-git-username!))
     (put-str! (string-append "Added comment to issue #" (show n)))
     (newness/mark-read! machine n)))
+
+(def add-comment-from-editor!
+  "Add a new `comment` to ISSUE opened via the list command with option `--fancy`."
+  (fn [machine n added-comment]
+    (simple-add-comment! machine n added-comment (get-git-username!))
+    (string-append "Sent comment: " added-comment)))
+
+(def list
+  (fn [machine options]
+    (def issues (values (list-issues machine)))
+    (items/list-items machine options issues :issue enrich-issue add-comment-from-editor!)))
 
 (def new-issue
   (fn [machine]
@@ -318,7 +168,7 @@
 (machine/catch-daemon!
  (fn []
    (match args
-          (/list-cmd 'options) (list-items (machine-name) options)
+          (/list-cmd 'options) (list (machine-name) options)
           (/cmd-0 "new" help) (new-issue (machine-name))
           (/cmd-1 "close" 'n help)            (whole-issue-num "close" n (fn [n] (close-issue n (machine-name))))
           (/cmd-1 "show" 'n help)             (whole-issue-num "show" n (fn [n] (show-issue! n (machine-name))))
