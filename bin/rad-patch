@@ -171,7 +171,6 @@
     (verify-patch commit)
     (def patch (get-patch! commit))
     (def author-name (get-author-name! commit))
-    (def author-email (get-author-name! commit))
     (def short-hash (get-short-hash! commit))
     (def title (get-title! commit))
     (def description (get-description! commit))
@@ -179,7 +178,6 @@
                :title         title
                :description   description
                :author-name   author-name
-               :author-email  author-email
                :patch         patch})
     (match (simple-create-patch! machine patch)
            ['n] (do (put-str! (string-append "Proposing patch #" (show n)
