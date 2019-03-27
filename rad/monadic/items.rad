@@ -1,6 +1,11 @@
 {:module  'monadic/items
  :doc     "Functions for interacting with dicts of items in machines"
- :exports '[summary pretty-item-view list-items pretty-state enrich-item]}
+ :exports
+ '[summary pretty-item-view list-items pretty-state enrich-item
+   verify-item-number]}
+
+(file-module! "prelude/error-messages.rad")
+(import prelude/error-messages :as 'error)
 
 (def summary
   "Given a list of `items`, each a dict with a `:state` key, displays a summary of
@@ -218,3 +223,13 @@
           (put-str! (pretty-table-header))
           (map (fn [d] (put-str! (first d))) filtered-items)
           (put-str! (summary (items-name item-flag) items)))))))
+
+(def verify-item-number
+  "Verifies that the item corresponding to `item-number` is part of the given
+  list of `items`. Returns an error and exits if the item is not found."
+  (fn [item-number items item-flag]
+    (match (lookup-default item-number #f items)
+      #f          (do
+                    (put-str! (error/item-not-found item-flag (show item-number)))
+                    (exit! 1))
+      'the-issue  the-issue)))

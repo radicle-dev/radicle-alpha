@@ -74,14 +74,6 @@
   (fn [error]
     (parse-failure error help)))
 
-(def verify-patch-number
-  (fn [patch-no machine]
-    (match (lookup-default patch-no #f (list-patches machine))
-      #f         (do
-                   (put-str! (error/item-not-found :patch (show patch-no)))
-                   (exit! 1))
-      'the-patch  the-patch)))
-
 ;; git interactions
 
 (def verify-commit
@@ -131,7 +123,7 @@
 (def checkout-patch!
   "Creates a new branch patch/<PATCH-ID> based on the PATCH, and switches to it."
   (fn [machine patch-no]
-    (def patch (verify-patch-number patch-no machine))
+    (def patch (items/verify-item-number patch-no (list-patches machine) :patch))
     (def patch-branch (string-append "patch/" (show patch-no)))
     (process-git-with-exit!
       ["checkout" "-b" patch-branch]
@@ -143,7 +135,7 @@
 (def push-patch!
   "Merges the PATCH to master, and pushes the changes."
   (fn [machine patch-no]
-    (def patch (verify-patch-number patch-no machine))
+    (def patch (items/verify-item-number patch-no (list-patches machine) :patch))
     (process-git-with-exit!
       ["checkout" "master"]
       (error/checkout-master-failure))
@@ -192,7 +184,7 @@
 (def show-patch!
   "Shows a single PATCH `n`"
   (fn [machine n]
-    (def patch (verify-patch-number n machine))
+    (def patch (items/verify-item-number n (list-patches machine) :patch))
     (put-str! (items/pretty-item-view (items/enrich-item machine patch)))
     (newness/mark-read! machine n)))
 
@@ -210,7 +202,7 @@
              (error/state-change-failure :patch (items/pretty-state new-state)))
             (exit! 1)))
         (put-str! message)))
-    (verify-patch-number n machine)
+    (items/verify-item-number n (list-patches machine) :patch)
     (if (eq? new-state :accepted)
       (match (push-patch! machine n)
              :ok (edit-state-with-feedback!
@@ -222,7 +214,7 @@
 (def create-comment!
   "Add a new `comment` to PATCH."
   (fn [machine n comment]
-    (verify-patch-number n machine)
+    (items/verify-item-number n (list-patches machine) :patch)
     (simple-add-comment! machine n comment (get-git-username!))
     (put-str! (string-append "Added comment to patch #" (show n)))
     (newness/mark-read! machine n)))
