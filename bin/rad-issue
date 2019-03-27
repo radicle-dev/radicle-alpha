@@ -73,27 +73,11 @@
                     (exit! 1))
       'the-issue  the-issue)))
 
-(def add-username
-  (fn [d]
-    (def n (lookup-default :github-username (lookup-default :git-username "???" d) d))
-    (insert :username n d)))
-
-(def add-username-issue
-  (fn [i]
-    (add-username
-     (insert :comments (map add-username (lookup :comments i)) i))))
-
-(def enrich-issue
-  "Adds if the issue has been read by the user since it was last modified, and
-  adds a author username."
-  (fn [machine i]
-    (insert :read? (newness/read-since-modified!? machine i) (add-username-issue i))))
-
 (def show-issue!
   "Shows a single ISSUE `n`"
   (fn [n machine]
     (def issue (verify-issue-number n machine))
-    (put-str! (items/pretty-item-view (enrich-issue machine issue)))
+    (put-str! (items/pretty-item-view (items/enrich-item machine issue)))
     (newness/mark-read! machine n)))
 
 (def close-issue
@@ -125,7 +109,7 @@
 (def list
   (fn [machine options]
     (def issues (values (list-issues machine)))
-    (items/list-items machine options issues :issue enrich-issue add-comment-from-editor!)))
+    (items/list-items machine options issues :issue add-comment-from-editor!)))
 
 (def new-issue
   (fn [machine]

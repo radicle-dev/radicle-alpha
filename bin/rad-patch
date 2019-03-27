@@ -189,31 +189,11 @@
 
 ;; showing patches
 
-(def add-read-status!
-  (fn [machine i]
-    (insert :read? (newness/read-since-modified!? machine i) i)))
-
-(def add-username
-  (fn [d]
-    (def n (lookup-default :author-name "???" d))
-    (insert :username n d)))
-
-(def add-username-patch
-  (fn [i]
-    (add-username
-     (insert :comments (map add-username (lookup :comments i)) i))))
-
-(def enrich-patch
-  "Adds if the patch has been read by the user since it was last modified, and
-  adds a author username."
-  (fn [machine i]
-    (insert :read? (newness/read-since-modified!? machine i) (add-username-patch i))))
-
 (def show-patch!
   "Shows a single PATCH `n`"
   (fn [machine n]
     (def patch (verify-patch-number n machine))
-    (put-str! (items/pretty-item-view (enrich-patch machine patch)))
+    (put-str! (items/pretty-item-view (items/enrich-item machine patch)))
     (newness/mark-read! machine n)))
 
 (def edit-patch-state!
@@ -256,7 +236,7 @@
 (def list
   (fn [machine options]
     (def patches (values (list-patches machine)))
-    (items/list-items machine options patches :patch enrich-patch add-comment-from-editor!)))
+    (items/list-items machine options patches :patch add-comment-from-editor!)))
 
 (def mark-all-read!
   (fn [machine]

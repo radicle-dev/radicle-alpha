@@ -1,6 +1,6 @@
 {:module  'monadic/items
  :doc     "Functions for interacting with dicts of items in machines"
- :exports '[summary pretty-item-view list-items pretty-state]}
+ :exports '[summary pretty-item-view list-items pretty-state enrich-item]}
 
 (def summary
   "Given a list of `items`, each a dict with a `:state` key, displays a summary of
@@ -129,9 +129,26 @@
       :issue  "issues"
       :patch  "patches")))
 
+(def add-username
+  (fn [d]
+    (def a-n (lookup-default :author-name "???" d))
+    (def n (lookup-default :github-username (lookup-default :git-username a-n d) d))
+    (insert :username n d)))
+
+(def add-username-item
+  (fn [i]
+    (add-username
+     (insert :comments (map add-username (lookup :comments i)) i))))
+
+(def enrich-item
+  "Adds if the item has been read by the user since it was last modified, and
+  adds a author username."
+  (fn [machine i]
+    (insert :read? (newness/read-since-modified!? machine i) (add-username-item i))))
+
 (def list-items
   "Lists the recent items and uses an editor to add a relevant comment."
-  (fn [machine options items item-flag enrich-item add-comment!]
+  (fn [machine options items item-flag add-comment!]
 
     (def mk-key
       (fn [i]
@@ -164,13 +181,19 @@
                    (map (fn [i] (enrich-item machine i))
                         (reverse items)))))
 
+    (def no-filtered-items
+      (fn []
+        (if (empty-seq? items)
+          (put-str! (string-append "No " (items-name item-flag) "!"))
+          (do
+            (if (lookup :unread options)
+              (put-str! (string-append "No unread " (items-name item-flag) "!"))
+              (put-str! (string-append "No items of state " (string/intercalate ", " (lookup :state options))  "!")))
+            (put-str! (summary (items-name item-flag) items))))))
+
     (def items-dict (dict-from-seq filtered-items))
     (if (empty-seq? filtered-items)
-      (if (empty-seq? items)
-        (put-str! (string-append "No " (items-name item-flag) "!"))
-        (do
-          (put-str! (string-append "No items of state " (string/intercalate ", " (lookup :state options))  "!"))
-          (put-str! (summary (items-name item-flag) items))))
+      (no-filtered-items)
       (if (lookup :fancy options)
         (match (fzf-select-with-preview!
                  (map first filtered-items)
