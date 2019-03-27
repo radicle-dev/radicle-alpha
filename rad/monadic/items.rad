@@ -1,6 +1,6 @@
 {:module  'monadic/items
  :doc     "Functions for interacting with dicts of items in machines"
- :exports '[summary pretty-item-view list-items]}
+ :exports '[summary pretty-item-view list-items pretty-state]}
 
 (def summary
   "Given a list of `items`, each a dict with a `:state` key, displays a summary of

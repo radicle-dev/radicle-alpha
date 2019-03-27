@@ -227,17 +227,17 @@
                 (newness/mark-read! machine n))
           (fn [x]
             (put-str!
-             (error/state-change-failure :patch (pretty-state new-state)))
+             (error/state-change-failure :patch (items/pretty-state new-state)))
             (exit! 1)))
         (put-str! message)))
     (verify-patch-number n machine)
     (if (eq? new-state :accepted)
       (match (push-patch! machine n)
              :ok (edit-state-with-feedback!
-                  (string-append "Patch #" (show n) " has been " (pretty-state new-state) " and merged."))
+                  (string-append "Patch #" (show n) " has been " (items/pretty-state new-state) " and merged."))
              _   (exit! 1))
       (edit-state-with-feedback!
-       (string-append "Patch #" (show n) " has been " (pretty-state new-state))))))
+       (string-append "Patch #" (show n) " has been " (items/pretty-state new-state))))))
 
 (def create-comment!
   "Add a new `comment` to PATCH."
