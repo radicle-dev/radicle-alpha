@@ -35,7 +35,7 @@
         rad issue new
         rad issue [show | close | mark-read | mark-unread] <issue-number>
         rad issue comment <issue-number> <comment>
-        rad all-read
+        rad issue all-read
         rad issue help
 
      list         - Lists all issues
