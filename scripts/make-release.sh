@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 VERSION=$1
 
@@ -6,17 +6,6 @@ if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
     echo "Bad version: $VERSION"
     echo "Should have format 'x.y.z', where x, y and z are numbers"
 fi
-
-if [ "$(git rev-parse --abbrev-ref HEAD)" != "master" ]; then
-    echo "Not on branch 'master'. Aborting."
-    exit 1
-fi
-
-if [ "$(git rev-parse master)" != "$(git rev-parse origin/master)" ]; then
-    echo "master and origin/master differ. Aborting"
-    exit 1
-fi
-
 
 if [ "$(git status --untracked-files=no --porcelain)" != " M ChangeLog.md" ]; then
     echo "No changes to ChangeLog.md, or other changes found in working directory."
