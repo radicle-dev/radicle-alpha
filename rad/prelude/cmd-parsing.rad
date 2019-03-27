@@ -191,16 +191,16 @@
   (fn []
     (fn [value]
       (def help-cmds ["help" "-h" "--help"])
-      (if (elem? (first value) help-cmds)
-        [:just {}]
-        :nothing))))
+      (match value
+        (/cons 'cmd _) (if (elem? cmd help-cmds) [:just {}] :nothing)
+        []            :nothing))))
 
 (:test "/cmd-help"
   [ ((/cmd-help) ["help"]) ==> [:just {}]]
   [ ((/cmd-help) ["-h"]) ==> [:just {}]]
   [ ((/cmd-help) ["--help"]) ==> [:just {}]]
   [ ((/cmd-help) ["--help" "foo"]) ==> [:just {}]]
-  [ ((/cmd-help) ["foo"]) ==> :nothing])
+  [ ((/cmd-help) []) ==> :nothing])
 
 (def whole-num
   "Try to parse an argument which should be a whole-number. If parsed succesfully
