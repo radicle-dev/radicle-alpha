@@ -23,6 +23,8 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Time.Clock.System as Time
 import           Network.Wai.Handler.Warp (run)
+import           Network.Wai.Middleware.Cors (CorsResourcePolicy(..))
+import qualified Network.Wai.Middleware.Cors as Cors
 import           Servant
 import           System.IO (BufferMode(..), hSetBuffering)
 import           UnliftIO.Async
@@ -94,7 +96,7 @@ main = do
         exitFailure
       Right _ -> do
         polling <- async $ initPolling env
-        let app = serve Api.daemonApi (server env)
+        let app = corsWithContentType $ serve Api.daemonApi (server env)
         runDaemon env $ logInfo "Start listening" [("port", show port)]
         serv <- async $ run port app
         exc <- waitEitherCatchCancel polling serv
@@ -109,6 +111,12 @@ main = do
           Right (Right ()) -> do
             logError' "Server stopped (this should not happen)" []
             exitFailure
+  where
+    -- | Allow Content-Type header with values other then allowed by simpleCors.
+    corsWithContentType = Cors.cors (const $ Just policy)
+      where
+        policy = Cors.simpleCorsResourcePolicy
+                   { corsRequestHeaders = ["Content-Type"] }
 
 server :: Env -> Server Api.DaemonApi
 server env = hoistServer Api.daemonApi nt daemonServer

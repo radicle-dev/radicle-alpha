@@ -166,6 +166,7 @@ executables:
     - text
     - time
     - unliftio
+    - wai-cors
     - warp
     ghc-options: -main-is Daemon
 
