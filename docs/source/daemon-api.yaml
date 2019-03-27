@@ -1,0 +1,134 @@
+swagger: '2.0'
+info:
+  version: 0.0.0
+  title: Radicle daemon
+  description: The radicle-daemon; a long-running background process which materialises
+    the state of remote IPFS machines on the users PC, and writes to those IPFS machines
+    the user is an owner of.
+definitions:
+  QueryResponseF:
+    required:
+    - result
+    type: object
+    properties:
+      result:
+        $ref: '#/definitions/RadicleValue'
+  Swagger:
+    type: object
+    description: This swagger spec.
+  SendResponseF:
+    required:
+    - results
+    type: object
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/RadicleValue'
+        type: array
+  RadicleValue:
+    type: string
+    description: A radicle value formatted according to radicle's S-expression syntax.
+  NewResponse:
+    required:
+    - machineId
+    type: object
+    properties:
+      machineId:
+        $ref: '#/definitions/MachineId'
+  QueryRequestF:
+    required:
+    - expression
+    type: object
+    properties:
+      expression:
+        $ref: '#/definitions/RadicleValue'
+  MachineId:
+    type: string
+    description: The ID (i.e. IPNS name) of an IPFS machine.
+  SendRequestF:
+    required:
+    - expressions
+    type: object
+    properties:
+      expressions:
+        items:
+          $ref: '#/definitions/RadicleValue'
+        type: array
+paths:
+  /v0/docs:
+    get:
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/Swagger'
+          description: ''
+      produces:
+      - application/json;charset=utf-8
+  /v0/machines/new:
+    post:
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/NewResponse'
+          description: ''
+      produces:
+      - application/json;charset=utf-8
+      - application/radicle
+  /v0/machines/{machineId}/query:
+    post:
+      consumes:
+      - application/radicle
+      - application/json;charset=utf-8
+      - application/radicle-json
+      responses:
+        '404':
+          description: '`machineId` not found'
+        '400':
+          description: Invalid `body`
+        '200':
+          schema:
+            $ref: '#/definitions/QueryResponseF'
+          description: ''
+      produces:
+      - application/radicle
+      - application/json;charset=utf-8
+      - application/radicle-json
+      parameters:
+      - required: true
+        in: path
+        name: machineId
+        type: string
+      - required: true
+        schema:
+          $ref: '#/definitions/QueryRequestF'
+        in: body
+        name: body
+  /v0/machines/{machineId}/send:
+    post:
+      consumes:
+      - application/radicle
+      - application/json;charset=utf-8
+      - application/radicle-json
+      responses:
+        '404':
+          description: '`machineId` not found'
+        '400':
+          description: Invalid `body`
+        '200':
+          schema:
+            $ref: '#/definitions/SendResponseF'
+          description: ''
+      produces:
+      - application/radicle
+      - application/json;charset=utf-8
+      - application/radicle-json
+      parameters:
+      - required: true
+        in: path
+        name: machineId
+        type: string
+      - required: true
+        schema:
+          $ref: '#/definitions/SendRequestF'
+        in: body
+        name: body

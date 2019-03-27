@@ -139,7 +139,7 @@ steps:
         docker push "$image_name:$tag"
       fi
 
-  - id: "Build reference document"
+  - id: "Build reference document and swagger spec"
     waitFor:
     - "Build"
     name: $_BUILD_IMAGE
@@ -151,9 +151,14 @@ steps:
       set -euxo pipefail
 
       mv docs/source/reference.rst oldref
+      mv docs/source/daemon-api.yaml oldswagger
       RADPATH="$(pwd)/rad" stack exec radicle-ref-doc
       if ! (diff oldref docs/source/reference.rst); then
         echo "Reference docs are not checked in"
+        exit 1
+      fi
+      if ! (diff oldswagger docs/source/daemon-api.yaml); then
+        echo "Daemon swagger spec is not checked in"
         exit 1
       fi
 
