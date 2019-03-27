@@ -1,7 +1,7 @@
 {:module 'prelude/cmd-parsing
  :doc "Functions for parsing commands."
  :exports
- '[parse-failure /cmd-0 /cmd-1 /cmd-2 /cmd-opts whole-num]}
+ '[parse-failure /cmd-0 /cmd-1 /cmd-2 /cmd-opts /cmd-help whole-num]}
 
 (import prelude/basic :unqualified)
 (import prelude/dict :unqualified)
@@ -185,6 +185,22 @@
   [ (/cmd ["cmd-0"]) ==> [:just {}]]
   [ (/cmd ["cmd-1"]) ==> :nothing]
   [ (catch-for-testing /cmd ["cmd-0" 1]) ==> "Too many arguments for command \"cmd-0\" help"])
+
+(def /cmd-help
+  "Matches a help command. Additional arguments are ignored."
+  (fn []
+    (fn [value]
+      (def help-cmds ["help" "-h" "--help"])
+      (if (elem? (first value) help-cmds)
+        [:just {}]
+        :nothing))))
+
+(:test "/cmd-help"
+  [ ((/cmd-help) ["help"]) ==> [:just {}]]
+  [ ((/cmd-help) ["-h"]) ==> [:just {}]]
+  [ ((/cmd-help) ["--help"]) ==> [:just {}]]
+  [ ((/cmd-help) ["--help" "foo"]) ==> [:just {}]]
+  [ ((/cmd-help) ["foo"]) ==> :nothing])
 
 (def whole-num
   "Try to parse an argument which should be a whole-number. If parsed succesfully

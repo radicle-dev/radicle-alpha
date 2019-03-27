@@ -65,9 +65,7 @@
 (machine/catch-daemon!
  (fn []
    (match args
-          ["help"] (put-str! help)
-          ["-h"] (put-str! help)
-          ["--help"] (put-str! help)
+          (/cmd-help) (put-str! help)
           ['url] (replicate-all [:just url])
           [] (replicate-all :nothing)
           )))

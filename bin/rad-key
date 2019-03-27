@@ -41,8 +41,6 @@ If you are sure that you want to replace your key pair, run `rad key create --fo
 (match args
   ["create" "--force"]    (make-keys)
   (/cmd-0 "create" help)  (safe-make-keys)
-  ["help"]                (put-str! help)
-  ["-h"]                  (put-str! help)
-  ["--help"]              (put-str! help)
+  (/cmd-help)             (put-str! help)
   (/cons 'cmd _)          (cmd-parse-failure (string-append "Unknown command: " cmd))
   _                       (put-str! help))
