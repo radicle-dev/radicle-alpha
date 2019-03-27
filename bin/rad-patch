@@ -189,162 +189,11 @@
 
 ;; showing patches
 
-(def pretty-state
-  (fn [state]
-    (drop 1 (show state))))
-
-(def cells
-  {:state       10
-   :number      10
-   :title       50
-   :author      20
-   :modified-at 22})
-
-(def wrap-cell
-  (fn [phrase cell-key]
-    (def c-length (lookup cell-key cells))
-    (string-append (take c-length (string/pad-right-to c-length phrase)) " ")))
-
-(def pretty-table-header
-  (fn []
-    (string-append
-      (wrap-cell "state" :state)
-      (wrap-cell "#" :number)
-      (wrap-cell "commit" :title)
-      (wrap-cell "author" :author)
-      (wrap-cell "updated" :modified-at))))
-
-(def pretty-modified-at
-  (fn [i]
-    (string-append (lookup :modified-at i)
-                   (if (lookup :read? i) "  " " *"))))
-
-(def pretty-headline
-  (fn [i]
-    (match i
-      '{:number n
-        :title tit
-        :state s
-        :author-name an}
-      (string/unwords
-        [(pretty-state s)
-         (show n)
-         tit
-         an
-         (pretty-modified-at i)]))))
-
-(def pretty-row
-  (fn [i]
-    (match i
-      '{:number n
-        :title tit
-        :state s
-        :author-name an}
-      (string-append
-        (wrap-cell (pretty-state s) :state)
-        (wrap-cell (show n) :number)
-        (wrap-cell tit :title)
-        (wrap-cell an :author)
-        (wrap-cell (pretty-modified-at i) :modified-at)))))
-
-(def pretty-comment
- (fn [c]
-   (match c
-     '{:created-at c-a
-       :body b
-       :author-name a-n}
-     (string-append "### " a-n " [" c-a "]\n\n" b "\n"))))
-
-(def pretty-patch
-  (fn [i]
-    (match i
-      '{:patch p
-        :created-at c-a
-        :comments cs}
-      (string-append
-        (pretty-headline i) "\n\n"
-        p "\n\n"
-        "Comments\n"
-        "--------\n\n"
-        (string/unlines (map pretty-comment cs))))))
-
-(def comment-divider "----------------------------------------")
-
-(def add-comment-md
-  (fn [x]
-    (string-append
-     "\n" comment-divider "\n"
-     "---Add comment above the line.\n\n"
-     x)))
-
-(def add-read-status!
-  (fn [machine i]
-    (insert :read? (newness/read-since-modified!? machine i) i)))
-
-(def list-items
-  "Lists all patches and filters them by `options`. If `--new` is passed as an
-  option only recent items are shown. If `--fancy is passed, the list is opened
-  via fzf."
-  (fn [machine options]
-
-    (def mk-key
-      (fn [patch]
-        (if (lookup :fancy options)
-          [(pretty-headline patch) patch]
-          [(pretty-row patch) patch])))
-
-    (def state-filt
-      (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
-        []      (fn [x] #t)
-        'args   (fn [x] (elem? (lookup :state x) args))))
-
-    (def patches (values (list-patches machine)))
-
-    (def newness-filt
-      (if (lookup :unread options)
-        (fn [x] (not (lookup :read? x)))
-        (fn [x] #t)))
-
-  (def items
-    (map mk-key
-         (filter (and-predicate state-filt newness-filt)
-                 (map (fn [i] (add-read-status! machine i))
-                      (reverse patches)))))
-
-    (def items-dict (dict-from-seq items))
-    (if (empty-seq? items)
-      (put-str! "No patches!")
-      (if (lookup :fancy options)
-        (match (fzf-select-with-preview!
-                 (map first items)
-                 (fn [s] (pretty-patch (lookup s items-dict))))
-               (/just 's)
-               (do (def selected (lookup s items-dict))
-                   (def patch-number (match selected {:number 'n} n))
-                   (def pretty-item
-                     (add-comment-md
-                       (pretty-patch selected)))
-                   (def edited-item (edit-in-editor! pretty-item))
-                   (def added-comment
-                     (string/unlines
-                      (take-while (fn [x] (not (eq? x comment-divider)))
-                                  (string/lines edited-item))))
-                   (put-str!
-                    (if (eq? added-comment "")
-                      "Item was not updated."
-                      (do (simple-add-comment! machine patch-number added-comment (get-git-username!))
-                          (string-append "Sent comment: " added-comment)))))
-               _ (put-str! "No selection made."))
-         (do
-           (put-str! (pretty-table-header))
-           (map (fn [d] (put-str! (first d))) items)
-           (put-str! (items/summary "patches" patches)))))))
-
 (def show-patch!
   "Shows a single PATCH `n`"
   (fn [machine n]
     (def patch (verify-patch-number n machine))
-    (put-str! (pretty-patch (add-read-status! machine patch)))
+    (put-str! (items/pretty-item-view (items/enrich-item machine patch)))
     (newness/mark-read! machine n)))
 
 (def edit-patch-state!
@@ -358,17 +207,17 @@
                 (newness/mark-read! machine n))
           (fn [x]
             (put-str!
-             (error/state-change-failure :patch (pretty-state new-state)))
+             (error/state-change-failure :patch (items/pretty-state new-state)))
             (exit! 1)))
         (put-str! message)))
     (verify-patch-number n machine)
     (if (eq? new-state :accepted)
       (match (push-patch! machine n)
              :ok (edit-state-with-feedback!
-                  (string-append "Patch #" (show n) " has been " (pretty-state new-state) " and merged."))
+                  (string-append "Patch #" (show n) " has been " (items/pretty-state new-state) " and merged."))
              _   (exit! 1))
       (edit-state-with-feedback!
-       (string-append "Patch #" (show n) " has been " (pretty-state new-state))))))
+       (string-append "Patch #" (show n) " has been " (items/pretty-state new-state))))))
 
 (def create-comment!
   "Add a new `comment` to PATCH."
@@ -377,6 +226,17 @@
     (simple-add-comment! machine n comment (get-git-username!))
     (put-str! (string-append "Added comment to patch #" (show n)))
     (newness/mark-read! machine n)))
+
+(def add-comment-from-editor!
+  "Add a new `comment` to PATCH opened via the list command with option `--fancy`."
+  (fn [machine n added-comment]
+    (simple-add-comment! machine n added-comment (get-git-username!))
+    (string-append "Sent comment: " added-comment)))
+
+(def list
+  (fn [machine options]
+    (def patches (values (list-patches machine)))
+    (items/list-items machine options patches :patch add-comment-from-editor!)))
 
 (def mark-all-read!
   (fn [machine]
@@ -403,7 +263,7 @@
 (machine/catch-daemon!
  (fn []
    (match args
-          (/list-cmd 'options) (list-items (machine-name) options)
+          (/list-cmd 'options) (list (machine-name) options)
           (/cmd-1 "propose" 'commit help) (new-patch! (machine-name) commit)
           (/cmd-1 "checkout" 'n help)  (whole-patch-num "checkout" n (fn [n] (checkout-patch! (machine-name) n)))
           (/cmd-1 "show" 'n help)      (whole-patch-num "show" n (fn [n] (show-patch! (machine-name) n)))
