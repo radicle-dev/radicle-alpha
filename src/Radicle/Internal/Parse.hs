@@ -2,8 +2,12 @@ module Radicle.Internal.Parse where
 
 import           Protolude hiding (SrcLoc, try)
 
+import           Control.Monad.Fail
+import qualified Data.Char as Char
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Set as Set
+import qualified Data.Text as T
 import           GHC.Exts (IsString(..))
 import           Text.Megaparsec
                  ( ParsecT
@@ -27,6 +31,8 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Identifier
 
 -- * The parser
+
+data ShortLambdaError = ShortLambdaError
 
 type Parser a = ParsecT Void Text Identity a
 type VParser = Parser Value
@@ -123,6 +129,45 @@ quoteP = do
     q <- tag $ AtomF (unsafeToIdent "quote")
     pure $ List [q, val]
 
+shortLam :: VParser
+shortLam = do
+    expr <- char '\\' >> valueP
+    let qMarks = freeQMarks expr
+    case validQMarks qMarks of
+      Just args -> tag . ListF $ [Atom (Ident "fn"), Vec (Seq.fromList args), expr]
+      Nothing -> fail "Invalid ?-arguments in short-lambda: if ? is used then you cannot use any numbered ?-arguments."
+  where
+    -- | A short-lambda should either use @?@ alone, or only numbered ?-args.
+    validQMarks :: Set Int -> Maybe [Value]
+    validQMarks qs = if Set.member 0 qs
+      then if Set.size qs == 1 then Just [Atom (Ident "?")] else Nothing
+      else Just (Atom . Ident . ("?"<>) . show <$> [1..(maximum qs)])
+
+    -- | Get the free ?-variables in an expression.
+    freeQMarks :: Value -> Set Int
+    freeQMarks = \case
+      Atom i -> case isQMark i of
+        Just n  -> Set.singleton n
+        Nothing -> Set.empty
+      List xs -> coll xs
+      Vec xs -> coll xs
+      Dict m -> Set.union (coll (Map.keys m)) (coll (Map.elems m))
+      Lambda args body _ -> Set.difference (coll body) (Set.fromList (mapMaybe isQMark args))
+      LambdaRec i args body _ -> Set.difference (coll body) (Set.fromList (mapMaybe isQMark (i:args)))
+      _ -> Set.empty
+
+    coll xs = Set.unions (freeQMarks <$> xs)
+
+    -- | ?-variables are either an @?@, or @?i@ where @i@ in @{1, ..., 9}@.
+    isQMark :: Ident -> Maybe Int
+    isQMark (Ident t) = case T.uncons t of
+      Just ('?', rest) -> case T.unpack rest of
+        []                   -> Just 0
+        ['0']                -> Nothing
+        [c] | Char.isDigit c -> Just (Char.digitToInt c)
+        _                    -> Nothing
+      _ -> Nothing
+
 valueP :: VParser
 valueP = do
   v <- choice
@@ -135,6 +180,7 @@ valueP = do
       , listP <?> "list"
       , vecP <?> "vector"
       , dictP <?> "dict"
+      , shortLam <?> "short-lambda"
       ]
   spaceConsumer
   pure v
