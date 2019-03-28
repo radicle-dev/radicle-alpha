@@ -122,7 +122,7 @@
                'url ["3. Remote origin of existing current git repository:"
                      (string-append "   " url)])
          ])))
-    (match (prompt! question)
+    (match (prompt! (string-append question "\n"))
            "1" (init-git-ipfs-repo cid-of-empty-repo)
            "2" (do
                  (def remote-url (prompt! "Please input the remote git repo URL: "))
