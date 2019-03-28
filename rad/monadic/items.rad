@@ -228,8 +228,8 @@
   "Verifies that the item corresponding to `item-number` is part of the given
   list of `items`. Returns an error and exits if the item is not found."
   (fn [item-number items item-flag]
-    (match (lookup-default item-number #f items)
-      #f          (do
-                    (put-str! (error/item-not-found item-flag (show item-number)))
-                    (exit! 1))
-      'the-issue  the-issue)))
+    (match (lookup-maybe item-number items)
+      [:just 'issue]   issue
+      :nothing         (do
+                         (put-str! (error/item-not-found item-flag (show item-number)))
+                         (exit! 1)))))
