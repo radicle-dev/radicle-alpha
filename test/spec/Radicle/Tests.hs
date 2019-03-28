@@ -44,11 +44,11 @@ test_eval =
 
     , testCase "vector syntax creates vectors" $ do
         "[]" `succeedsWith` Vec Empty
-        "[1 2]" `succeedsWith` Vec (fromList [int 1, int 2])
-        "[1 :a [:b 2]]" `succeedsWith` Vec (fromList [int 1, kw "a", Vec (fromList [kw "b", int 2])])
+        "[1 2]" `succeedsWith` vec [int 1, int 2]
+        "[1 :a [:b 2]]" `succeedsWith` vec [int 1, kw "a", vec [kw "b", int 2]]
 
     , testCase "vectors evaluate their elements" $
-        "[(+ 1 2) (* 3 4)]" `succeedsWith` Vec (fromList [int 3, int 12])
+        "[(+ 1 2) (* 3 4)]" `succeedsWith` vec [int 3, int 12]
 
     , testCase "'dict' creates a Dict with given key/vals" $ do
         let prog1 = [s|(dict 'why "not")|]
@@ -83,13 +83,13 @@ test_eval =
         "(nth 1 '(0 1 2))" `succeedsWith` int 1
 
     , testCase "'take n' takes n elements of a sequence" $ do
-        "(take 0 [0 1 2])" `succeedsWith` Vec (fromList [])
-        "(take 2 [0 1 2])" `succeedsWith` Vec (fromList [Number 0, Number 1])
+        "(take 0 [0 1 2])" `succeedsWith` vec []
+        "(take 2 [0 1 2])" `succeedsWith` vec [Number 0, Number 1]
         "(take 2 (list 0 1 2))" `succeedsWith` List [Number 0, Number 1]
 
     , testCase "'drop n' drops n elements of a sequence" $ do
-        "(drop 0 [0 1 2])" `succeedsWith` Vec (fromList [Number 0, Number 1, Number 2])
-        "(drop 2 [0 1 2])" `succeedsWith` Vec (fromList [Number 2])
+        "(drop 0 [0 1 2])" `succeedsWith` vec [Number 0, Number 1, Number 2]
+        "(drop 2 [0 1 2])" `succeedsWith` vec  [Number 2]
         "(drop 2 (list 0 1 2))" `succeedsWith` List [Number 2]
 
     , testProperty "'eq?' considers equal values equal" $ \(val :: Value) -> do
@@ -605,6 +605,31 @@ test_parser =
     , testCase "parses dicts" $ do
         "{:foo 3}" ~~> Dict (Map.singleton (Keyword [ident|foo|]) (int 3))
 
+    , testCase "parses short-lambdas" $ do
+        "\\0" ~~> lam [] [int 0]
+        "\\3/2" ~~> lam [] [Number (3 % 2)]
+        "\\:foo" ~~> lam [] [kw "foo"]
+        "\\\"foo\"" ~~> lam [] [String "foo"]
+        "\\x" ~~> lam [] [atom "x"]
+        "\\#t" ~~> lam [] [Boolean True]
+        "\\?" ~~> lam ["?"] [atom "?"]
+        "\\[]" ~~> lam [] [vec []]
+        "\\[? 1]" ~~> lam ["?"] [vec [atom "?", int 1]]
+        "\\[?1 ?2]" ~~> lam ["?1", "?2"] [vec [atom "?1", atom "?2"]]
+        "\\{}" ~~> lam [] [Dict Map.empty]
+        "\\{:a ?}" ~~> lam ["?"] [Dict (fromList [(kw "a", atom "?")])]
+        "\\()" ~~> lam [] [List []]
+        "\\(foo ? 42)" ~~> lam ["?"] [List [atom "foo", atom "?", int 42]]
+        "\\(foo ?1 42 ?2)" ~~> lam ["?1", "?2"] [List [atom "foo", atom "?1", int 42, atom "?2"]]
+        "\\(foo ?2 42 ?1)" ~~> lam ["?1", "?2"] [List [atom "foo", atom "?2", int 42, atom "?1"]]
+        "\\(fn [x y] (foo x ? y))" ~~> lam ["?"] [lam ["x", "y"] [List [atom "foo", atom "x", atom "?", atom "y"]]]
+
+    , testCase "short-lambdas only accepts ? or a mix of ?i where i in {1,...,9}" $ do
+        assertBool "? and ?1" (isLeft $ parseTest "\\[? ?1]")
+        assertBool "? and ?2" (isLeft $ parseTest "\\[? ?2]")
+        assertBool "?0" (isLeft $ parseTest "\\(foo ?0)")
+        assertBool "?42" (isLeft $ parseTest "\\[?42]")
+
     , testCase "a dict litteral with an odd number of forms is a syntax error" $
         assertBool "succesfully parsed a dict with 3 forms" (isLeft $ parseTest "{:foo 3 4}")
 
@@ -616,7 +641,9 @@ test_parser =
         assertBool "not for -93G" (isNothing (mkIdent "a b"))
     ]
   where
-    x ~~> y = parseTest x @?= Right y
+    (~~>) :: Text -> Value -> Assertion
+    x ~~> y = (untag <$> parseTest x) @?= Right (untag y)
+    lam args body = List $ [atom "fn", vec (atom <$> args)] ++ body
 
 test_binding :: [TestTree]
 test_binding =
@@ -797,8 +824,8 @@ test_from_to_radicle =
         ]
 
     , testGroup "CmdSpec"
-        [ Vec (fromList [kw "shell", String "blah blah"]) ~~ ShellCommand "blah blah"
-        , Vec (fromList [kw "raw", String "blah", Vec $ fromList [String "blah", String "blah"]])
+        [ vec [kw "shell", String "blah blah"] ~~ ShellCommand "blah blah"
+        , vec  [kw "raw", String "blah", vec [String "blah", String "blah"]]
               ~~ RawCommand "blah" ["blah", "blah"]
         ]
     ]
@@ -850,6 +877,9 @@ atom = Atom . unsafeToIdent
 
 int :: Integer -> Value
 int = Number . fromIntegral
+
+vec :: [Value] -> Value
+vec = Vec . fromList
 
 -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- primops.

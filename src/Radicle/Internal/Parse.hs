@@ -32,8 +32,6 @@ import           Radicle.Internal.Identifier
 
 -- * The parser
 
-data ShortLambdaError = ShortLambdaError
-
 type Parser a = ParsecT Void Text Identity a
 type VParser = Parser Value
 
@@ -139,24 +137,31 @@ shortLam = do
   where
     -- | A short-lambda should either use @?@ alone, or only numbered ?-args.
     validQMarks :: Set Int -> Maybe [Value]
-    validQMarks qs = if Set.member 0 qs
-      then if Set.size qs == 1 then Just [Atom (Ident "?")] else Nothing
-      else Just (Atom . Ident . ("?"<>) . show <$> [1..(maximum qs)])
+    validQMarks qs
+      | Set.null qs = Just []
+      | Set.member 0 qs = if Set.size qs == 1 then Just [Atom (Ident "?")] else Nothing    
+      | otherwise = Just (Atom . Ident . ("?"<>) . show <$> [1..(maximum qs)])
 
-    -- | Get the free ?-variables in an expression.
-    freeQMarks :: Value -> Set Int
+    -- | Get the free ?-variables in an expression. If there are any free
+    -- variables which start with a @?@ but are not ?-variables, then returns
+    -- Nothing.
+    freeQMarks :: Value -> Set Text
     freeQMarks = \case
-      Atom i -> case isQMark i of
-        Just n  -> Set.singleton n
-        Nothing -> Set.empty
+      Atom (Ident t) -> if startsWithQMark t
+        then Set.singleton t
+        else Set.empty
       List xs -> coll xs
       Vec xs -> coll xs
-      Dict m -> Set.union (coll (Map.keys m)) (coll (Map.elems m))
-      Lambda args body _ -> Set.difference (coll body) (Set.fromList (mapMaybe isQMark args))
+      Dict m -> Set.union <$> coll (Map.keys m) <*> coll (Map.elems m)
+      Lambda args body _ -> Set.difference <$> coll body <*> (pure ())
       LambdaRec i args body _ -> Set.difference (coll body) (Set.fromList (mapMaybe isQMark (i:args)))
-      _ -> Set.empty
+      _ -> pure Set.empty
+      where
+        startsWithQMark t = case T.uncons t of
+          Just ('?', _) -> True
+          _ -> False
 
-    coll xs = Set.unions (freeQMarks <$> xs)
+    coll xs = Set.unions <$> (traverse freeQMarks xs)
 
     -- | ?-variables are either an @?@, or @?i@ where @i@ in @{1, ..., 9}@.
     isQMark :: Ident -> Maybe Int
