@@ -65,18 +65,10 @@
   (fn [error]
     (parse-failure error help)))
 
-(def verify-issue-number
-  (fn [issue-no machine]
-    (match (lookup-default issue-no #f (list-issues machine))
-      #f          (do
-                    (put-str! (error/item-not-found :issue (show issue-no)))
-                    (exit! 1))
-      'the-issue  the-issue)))
-
 (def show-issue!
   "Shows a single ISSUE `n`"
   (fn [n machine]
-    (def issue (verify-issue-number n machine))
+    (def issue (items/verify-item-number n (list-issues machine) :issue))
     (put-str! (items/pretty-item-view (items/enrich-item machine issue)))
     (newness/mark-read! machine n)))
 
@@ -84,7 +76,7 @@
   (fn [n machine]
     (catch 'daemon-error
       (do
-        (verify-issue-number n machine)
+        (items/verify-item-number n (list-issues machine) :issue)
         (simple-edit-issue! machine n {:state :closed})
         (put-str! (string-append "Issue #" (show n) " has been closed."))
         (newness/mark-read! machine n))
@@ -95,7 +87,7 @@
 (def create-comment!
   "Add a new `comment` to ISSUE."
   (fn [machine n comment]
-    (verify-issue-number n machine)
+    (items/verify-item-number n (list-issues machine) :issue)
     (simple-add-comment! machine n comment (get-git-username!))
     (put-str! (string-append "Added comment to issue #" (show n)))
     (newness/mark-read! machine n)))
