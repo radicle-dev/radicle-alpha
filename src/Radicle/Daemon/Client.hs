@@ -24,7 +24,7 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Identifier
 import qualified Radicle.Internal.PrimFns as PrimFns
 import           Radicle.Internal.Type
-
+import qualified Radicle.Ipfs as Ipfs
 
 -- | Constraints for all client functions
 type ClientM m = (MonadIO m, MonadError Servant.ServantError m)
@@ -41,7 +41,7 @@ newClient :: IO Client
 newClient = do
     baseUrlString <- fromMaybe "http://localhost:8909" <$> lookupEnv "RAD_DAEMON_API_URL"
     clientBaseUrl <- Servant.parseBaseUrl baseUrlString
-    clientHttpManager <- HttpClient.newManager HttpClient.defaultManagerSettings
+    clientHttpManager <- Ipfs.newIpfsHttpClientManager
     pure Client {..}
 
 -- | Send an input to a machine to be evaluated and applied. Returns the results
