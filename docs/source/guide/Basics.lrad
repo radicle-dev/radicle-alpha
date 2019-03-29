@@ -240,5 +240,43 @@ function, use the `def-rec` form:
 
 Note that `def-rec` may only be used to define functions.
 
+For creating one-off anonymous functions quickly, there is a short-form. This is
+formed by a `\` character (meant to look like the main stroke of a λ) and then a
+valid radicle expression, which will be the return value of the function. To
+make a single parameter function use `?` for the argument. To make a
+multi-parameter function, use `?1`, `?2`, etc. Here are some examples of
+short-form lambdas and the long-form equivalent:
+
+```radicle
+;; The identity function.
+\?
+(fn [x] x)
+
+;; Partial application:
+\(foo 0 ?)
+(fn [x] (foo 0 x))
+
+;; A function to make singleton vectors:
+\[?]
+(fn [x] [x])
+
+;; Multiple arguments:
+\(string-append ?1 " is the parent of " ?2)
+(fn [x y] (string-append x " is the parent of " y))
+
+;; Thunks:
+\(put-str! "hello there!")
+(fn [] (put-str! "hello there"))
+```
+
+Note that:
+- Only `?1`, `?2`, ..., `?9` are allowed for positional arguments. If you want
+  more that 9 parameters please seek professional help.
+- Short-form lambdas cannot be nested.
+- You cannot use a mixture of `?` and `?1`, `?2`, etc. inside a short-form
+  lambda.
+- To avoid hard to detect bugs, atoms starting with a `?` followed by a sequence
+  of digits that isn't on of the allowed positional atoms will cause an error.
+
 ## Quote and eval
 
