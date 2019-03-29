@@ -220,24 +220,22 @@ send id (Api.SendRequest expressions) = do
       nonce <- liftIO $ UUID.uuid
       asyncMsg <- liftIO $ async $ subscribeOne sub ackWaitTime (matchMessage nonce)
       machineIpfs id $ publish id (Submit SubmitInputs{..})
-      logInfo
-              "Sent input request to writer"
+      logInfo "Sent input request to writer"
               [ ("machine-id", getMachineId id)
-              , ("expressions", prValues expressions) ]
+              , ("expressions", valuesForLog expressions)
+              , ("nonce", nonce)
+              ]
       msg_ <- machineIpfs id $ wait asyncMsg
       case msg_ of
         Just results -> do
-          logInfo
-                 "Writer accepted input request"
-                 [ ("machine-id", getMachineId id)
-                 , ("results", prValues results)
-                 ]
+          logInfo "Writer accepted input request"
+                  [ ("machine-id", getMachineId id)
+                  , ("results", valuesForLog results)
+                  , ("nonce", nonce)
+                  ]
           bumpPolling id
           pure Api.SendResponse{..}
         Nothing -> throw $ MachineError id AckTimeout
-
-
-    prValues = T.intercalate "," . (renderCompactPretty <$>)
 
 
 -- | Given an 'MachineId', makes sure the machine is loaded and
@@ -355,9 +353,7 @@ pullInputs m =
             let currentIdx = machineLastIndex m
             (newIdx, is) <- machineIpfs (machineId m) $ machineInputsFrom (machineId m) (Just currentIdx)
             if currentIdx == newIdx
-            then do
-                logDebug "Reader is already up to date" [mid, ("input-index",  show newIdx)]
-                pure m
+            then pure m
             else do
                 m' <- addInputs is newIdx m
                 logDebug "Updated reader" [mid, ("n", show (length is)), ("input-index", show newIdx)]
@@ -377,7 +373,13 @@ actAsWriter m = do
   where
     id = machineId m
     onMsg = \case
-      Submit SubmitInputs{..} -> writeInputs "pubsub" id expressions (Just nonce) >> pure ()
+      Submit SubmitInputs{..} -> do
+        logDebug "Writer received write-request"
+                 [ ("machine-id", getMachineId id)
+                 , ("nonce", nonce)
+                 , ("expressions", valuesForLog expressions)
+                 ]
+        writeInputs "pubsub" id expressions (Just nonce) >> pure ()
       _ -> pure ()
 
 -- | Installs a handler for messages sent on the machine's IPFS pubsub channel.
@@ -418,6 +420,9 @@ writeInputs source id inputs nonce = do
         ]
     pure rs
 
+valuesForLog :: [Value] -> Text
+valuesForLog = T.intercalate "," . (renderCompactPretty <$>)
+
 -- * Polling
 
 -- | Fetch and apply new inputs for all machines in reader mode.
@@ -437,9 +442,7 @@ pollMachines = traverseMachines pollMachine
                      else (False, LowFreq)
                 -- Low frequency polling is every 10 seconds.
                 LowFreq -> (delta > lowFreqPollPeriod, LowFreq)
-        when shouldPoll $ do
-          logDebug "Polling.." [("machine-id", getMachineId machineId)]
-          pullStoreInputs machineId
+        when shouldPoll $ pullStoreInputs machineId
         modifyMachine machineId $ \m' -> pure (m' { machinePolling = newPoll }, ())
       -- Don't update owned and unavailable machines.
       _ -> pure ()
