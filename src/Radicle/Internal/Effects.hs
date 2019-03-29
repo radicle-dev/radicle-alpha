@@ -100,6 +100,8 @@ replPrimFns sysArgs = fromList $ allDocs $
             pure nil
         v -> throwErrorHere $ TypeError "put-str!" 0 TString v
       )
+    -- Note to self: 'doc!' has to remain a primfn. Defining it as a lambda in
+    -- radicle itself is futile but you are welcome to try.
     , ( "doc!"
       , "Prints the documentation attached to a value and returns `()`. To retrieve\
         \ the docstring as a value use `doc` instead."
