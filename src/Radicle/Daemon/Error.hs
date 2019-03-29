@@ -39,7 +39,7 @@ displayError = \case
     case e of
       InvalidInput err -> ("Invalid radicle input", [mid, ("radicle-error", renderCompactPretty err)])
       IpfsError (ipfsErr -> (msg, infos)) -> (msg, mid : infos)
-      AckTimeout -> ("The machine owner appears to be offline", [mid])
+      AckTimeout -> ("No response received from the machine owner. This could be because they are offline, or that waiting for the response timed out", [mid])
       MachineNotCached -> ("Machine was not found in cache", [mid])
       DaemonError err -> ("Internal error", [mid, ("error", err)])
   where
