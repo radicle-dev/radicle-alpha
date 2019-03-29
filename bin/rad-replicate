@@ -11,13 +11,13 @@
 
 (def help
   (string-append
-    "rad-replicate - Replicate radicle projects.
+    "rad replicate - Replicate radicle projects.
 
     This can be used to make your machines more available (e.g., readable when
     you are offline, or writable and readable if you are behind a firewall).
 
      Usage:
-          rad-replicate [URL]
+          rad replicate [URL]
 
     If not provided, the URL defaults to " default-url))
 

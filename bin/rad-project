@@ -22,12 +22,12 @@
   :unqualified)
 
 (def help
-  "rad-project - Radicle project CLI
+  "rad project - Radicle project CLI
 
    Usage:
-        rad-project init
-        rad-project show-id
-        rad-project checkout <PROJECT-ID>
+        rad project init
+        rad project show-id
+        rad project checkout <PROJECT-ID>
 
      init         - Initialize a new project
      show-id      - Show the project id
@@ -131,7 +131,7 @@
                  remote-url)
            "3" (if (eq? current-remote "")
                  (do (put-str! "No current remote origin set; please select 1 or 2.")
-                     (exit! !))
+                     (exit! 1))
                  current-remote)
            _   (do (put-str! "You must select either 1 or 2.")
                    (exit! 1)))))
