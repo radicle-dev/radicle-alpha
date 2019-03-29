@@ -12,6 +12,7 @@
           - atom
           - int
           - kw
+          - vec
           - parseTest
           - prettyEither
           - stackTraceLines

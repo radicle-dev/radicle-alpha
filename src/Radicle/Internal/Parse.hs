@@ -32,7 +32,12 @@ import           Radicle.Internal.Identifier
 
 -- * The parser
 
-type Parser a = ParsecT Void Text (Reader Bool) a
+data InShortLambda = NotInShortLambda | InShortLambda
+  deriving Eq
+
+-- | A parser. In order to detect nested short-lambdas, the parser keeps track
+-- of if it has entered a short-lambda.
+type Parser a = ParsecT Void Text (Reader InShortLambda) a
 type VParser = Parser Value
 
 spaceConsumer :: Parser ()
@@ -134,10 +139,10 @@ shortLam :: VParser
 shortLam = do
     _ <- char '\\'
     inShortAlready <- ask
-    if inShortAlready
+    if inShortAlready == InShortLambda
       then fail "Short-lambdas cannot be nested."
       else do
-        expr <- local (const True) valueP
+        expr <- local (const InShortLambda) valueP
         case qMarks expr of
           Nothing -> fail "Invalid ?-atoms in short-lambda: a '?' may only be followed by a single non-zero digit."
           Just qs -> case validQMarks (Set.toList qs) of
@@ -200,7 +205,7 @@ valueP = do
 
 -- | Parses a top-level expression (i.e. assumes not inside a short-lambda).
 parseTop :: Parser a -> Text -> Text -> Either (Par.ParseErrorBundle Text Void) a
-parseTop p src code = runIdentity $ runReaderT (M.runParserT p (toS src) code) False
+parseTop p src code = runIdentity $ runReaderT (M.runParserT p (toS src) code) NotInShortLambda
 
 parseValue :: Text -> Text -> Either (Par.ParseErrorBundle Text Void) Value
 parseValue = parseTop (spaceConsumer *> valueP <* eof)
