@@ -108,7 +108,7 @@ replPrimFns sysArgs = fromList $ allDocs $
       , oneArg "doc!" $ \case
           Atom i -> do
             d <- lookupAtomDoc i
-            putStrS $ fromMaybe "No docs." d
+            putStrS $ fromMaybe (missingDocMsg i) d
             pure nil
           v -> throwErrorHere $ TypeError "doc!" 0 TAtom v
       )
