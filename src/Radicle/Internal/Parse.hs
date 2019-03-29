@@ -32,7 +32,7 @@ import           Radicle.Internal.Identifier
 
 -- * The parser
 
-type Parser a = ParsecT Void Text Identity a
+type Parser a = ParsecT Void Text (Reader Bool) a
 type VParser = Parser Value
 
 spaceConsumer :: Parser ()
@@ -127,51 +127,57 @@ quoteP = do
     q <- tag $ AtomF (unsafeToIdent "quote")
     pure $ List [q, val]
 
+data QMark = QMPlain | QMDigit Int
+  deriving (Eq, Ord)
+
 shortLam :: VParser
 shortLam = do
-    expr <- char '\\' >> valueP
-    let qMarks = freeQMarks expr
-    case validQMarks qMarks of
-      Just args -> tag . ListF $ [Atom (Ident "fn"), Vec (Seq.fromList args), expr]
-      Nothing -> fail "Invalid ?-arguments in short-lambda: if ? is used then you cannot use any numbered ?-arguments."
+    _ <- char '\\'
+    inShortAlready <- ask
+    if inShortAlready
+      then fail "Short-lambdas cannot be nested."
+      else do
+        expr <- local (const True) valueP
+        case qMarks expr of
+          Nothing -> fail "Invalid ?-atoms in short-lambda: a '?' may only be followed by a single non-zero digit."
+          Just qs -> case validQMarks (Set.toList qs) of
+            Just args -> tag . ListF $ [Atom (Ident "fn"), Vec (Seq.fromList args), expr]
+            Nothing -> fail "Invalid ?-atoms in short-lambda: plain `?` and numbered `?` cannot be used at the same time."
   where
-    -- | A short-lambda should either use @?@ alone, or only numbered ?-args.
-    validQMarks :: Set Int -> Maybe [Value]
-    validQMarks qs
-      | Set.null qs = Just []
-      | Set.member 0 qs = if Set.size qs == 1 then Just [Atom (Ident "?")] else Nothing    
-      | otherwise = Just (Atom . Ident . ("?"<>) . show <$> [1..(maximum qs)])
+    -- | A short-lambda should either use no ?-atoms at all, only plain ?-atoms,
+    -- or only numbered ?-atoms.
+    validQMarks :: [QMark] -> Maybe [Value]
+    validQMarks qs = case (qs, traverse numbered qs) of
+      ([], _)        -> Just []
+      (_, Just ds)   -> Just $ qMarkAtom . QMDigit <$> [1..maximum ds]
+      ([QMPlain], _)-> Just [qMarkAtom QMPlain]
+      _              -> Nothing
 
-    -- | Get the free ?-variables in an expression. If there are any free
-    -- variables which start with a @?@ but are not ?-variables, then returns
-    -- Nothing.
-    freeQMarks :: Value -> Set Text
-    freeQMarks = \case
-      Atom (Ident t) -> if startsWithQMark t
-        then Set.singleton t
-        else Set.empty
+    -- | Get the ?-atoms in an expression (?-atoms are either an @?@, or @?i@
+    -- where @i@ in @{1, ..., 9}@.). If there are any atoms which start with a
+    -- @?@ followed by digits that are /not/ ?-atoms, then returns Nothing.
+    qMarks :: Value -> Maybe (Set QMark)
+    qMarks = \case
+      Atom (Ident t) -> case T.uncons t of
+        Just ('?', rest) | T.all Char.isDigit rest ->
+          case T.uncons rest of
+            Just (d, rest') | d /= '0' && T.null rest' -> Just (Set.singleton (QMDigit (Char.digitToInt d)))
+            Just _ -> Nothing
+            Nothing -> Just (Set.singleton QMPlain)
+        _ -> Just Set.empty
       List xs -> coll xs
       Vec xs -> coll xs
       Dict m -> Set.union <$> coll (Map.keys m) <*> coll (Map.elems m)
-      Lambda args body _ -> Set.difference <$> coll body <*> (pure ())
-      LambdaRec i args body _ -> Set.difference (coll body) (Set.fromList (mapMaybe isQMark (i:args)))
       _ -> pure Set.empty
-      where
-        startsWithQMark t = case T.uncons t of
-          Just ('?', _) -> True
-          _ -> False
 
-    coll xs = Set.unions <$> (traverse freeQMarks xs)
+    coll xs = Set.unions <$> traverse qMarks xs
 
-    -- | ?-variables are either an @?@, or @?i@ where @i@ in @{1, ..., 9}@.
-    isQMark :: Ident -> Maybe Int
-    isQMark (Ident t) = case T.uncons t of
-      Just ('?', rest) -> case T.unpack rest of
-        []                   -> Just 0
-        ['0']                -> Nothing
-        [c] | Char.isDigit c -> Just (Char.digitToInt c)
-        _                    -> Nothing
-      _ -> Nothing
+    qMarkAtom QMPlain     = Atom (Ident "?")
+    qMarkAtom (QMDigit i) = Atom (Ident ("?" <> show i))
+
+    numbered = \case
+      QMPlain -> Nothing
+      QMDigit d -> Just d
 
 valueP :: VParser
 valueP = do
@@ -192,6 +198,13 @@ valueP = do
 
 -- * Utilities
 
+-- | Parses a top-level expression (i.e. assumes not inside a short-lambda).
+parseTop :: Parser a -> Text -> Text -> Either (Par.ParseErrorBundle Text Void) a
+parseTop p src code = runIdentity $ runReaderT (M.runParserT p (toS src) code) False
+
+parseValue :: Text -> Text -> Either (Par.ParseErrorBundle Text Void) Value
+parseValue = parseTop (spaceConsumer *> valueP <* eof)
+
 -- | Parse a Text as a series of values.
 --
 -- Note that parsing continues even if one value fails to parse.
@@ -200,7 +213,7 @@ parseValues
     -> Text    -- ^ Source code to be parsed
     -> Either (Par.ParseErrorBundle Text Void) [Value]
 parseValues sourceName srcCode
-    = M.parse (spaceConsumer *> many valueP <* eof) (toS sourceName) srcCode
+    = parseTop (spaceConsumer *> many valueP <* eof) sourceName srcCode
 
 -- | Parse a single value.
 --
@@ -216,14 +229,14 @@ parse :: MonadError Text m
     -> Text    -- ^ Source code to be parsed
     -> m Value
 parse file src = do
-  let res = runIdentity (M.runParserT (spaceConsumer *> valueP <* eof) (toS file) src)
+  let res = parseValue file src
   case res of
     Left err -> throwError . toS $ M.errorBundlePretty err
     Right v  -> pure v
 
 -- | Smart constructor for Ident.
 mkIdent :: Text -> Maybe Ident
-mkIdent t = case runIdentity (M.runParserT (valueP <* M.eof) "" t) of
+mkIdent t = case parseTop (valueP <* M.eof) "" t of
     -- We use the 'valueP' parser instead of 'identP' so that we don’t
     -- negative numbers  like @-4@.
     Right (Atom i) -> pure i

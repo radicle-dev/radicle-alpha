@@ -630,6 +630,13 @@ test_parser =
         assertBool "?0" (isLeft $ parseTest "\\(foo ?0)")
         assertBool "?42" (isLeft $ parseTest "\\[?42]")
 
+    , testCase "short-lambdas cannot be nested" $ do
+        assertBool "directly" (isLeft $ parseTest "\\\\?")
+        assertBool "directly" (isLeft $ parseTest "\\\\(foo ?)")
+        assertBool "directly" (isLeft $ parseTest "\\\\(foo ?1 ?2)")
+        assertBool "indirectly" (isLeft $ parseTest "\\(foo \\(bar ?))")
+        assertBool "indirectly" (isLeft $ parseTest "\\(foo \\(bar ?1 ?2))")
+
     , testCase "a dict litteral with an odd number of forms is a syntax error" $
         assertBool "succesfully parsed a dict with 3 forms" (isLeft $ parseTest "{:foo 3 4}")
 
