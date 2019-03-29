@@ -113,7 +113,7 @@ wrapServantError action = do
     case result of
         Left (Servant.FailureResponse response) -> throwErrorHere $ DaemonError $ toS $ Servant.responseBody response
         Left e -> case e of
-          Servant.ConnectionError _ -> throwErrorHere $ DaemonError startDaemonHint
+          Servant.ConnectionError ce -> throwErrorHere $ DaemonError $ startDaemonHint <> "\n\n" <> ce
           _ -> throwErrorHere $ DaemonError $ toS $ displayException e
         Right value -> pure value
   where
