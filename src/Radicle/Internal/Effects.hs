@@ -372,5 +372,5 @@ replPrimFns sysArgs = fromList $ allDocs $
 -- lines.
 ignoreShebang :: Text -> Text
 ignoreShebang src = case T.lines src of
-    f:rest -> T.unlines $ if "#!" `T.isPrefixOf` f then rest else f:rest
+    f:rest -> T.unlines $ if "#!" `T.isPrefixOf` f then mempty:rest else f:rest
     _      -> src
