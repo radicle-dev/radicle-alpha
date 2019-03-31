@@ -32,7 +32,7 @@ instance Arbitrary Value where
                 , (3, Number <$> arbitrary)
                 , (1, List <$> sizedList)
                 , (6, PrimFn <$> elements (Map.keys $ getPrimFns prims))
-                , (1, Lambda <$> sizedList
+                , (1, Lambda <$> PosArgs <$> sizedList
                              <*> scale (`div` 3) arbitrary
                              <*> scale (`div` 3) arbitrary)
                 ]
