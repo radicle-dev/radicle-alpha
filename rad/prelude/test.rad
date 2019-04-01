@@ -63,14 +63,16 @@
   ))
 
 (def extract-setup
-  "Extracts the a setup step from the test steps. Returns a `[setup steps]` tuple."
+  "Extracts the setup step from the test steps. Returns a `[setup steps]` tuple."
   (fn [steps]
-    (match steps
-      (/cons [:setup 'setup] 'steps)
-        [setup steps]
-      'steps
-        [:nothing steps])
-  ))
+    (def first-step (first steps))
+    (def first-lhs (first first-step))
+    (match first-lhs
+      :setup
+        [(rest first-step) (rest steps)]
+      'otherwise
+        [:nothing steps]
+  )))
 
 (def parse-doc-test
   "Parse a doc test definition `test-def` and return a simple test. A
