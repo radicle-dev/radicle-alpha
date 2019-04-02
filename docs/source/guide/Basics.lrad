@@ -43,6 +43,30 @@ Strings are enclosed in double quotes:
 "this is a string"
 ```
 
+### Keywords
+
+Keywords are identifiers that evaluate to themselves. To create a keyword you
+prefix `:` onto an identifier, for example `:foo` is a keyword. Keywords are
+often used as keys in maps which act like records in other languages. The colon
+at the front is a prefix form of the colon that follows the name of a field in
+other languages. For example, `{name: "foo", age: 22}` in JavaScript becomes
+`{:name "foo" :age 22}` in Radicle.
+
+```radicle
+:foo ;; ==> :foo
+```
+
+## Atoms
+
+Atoms are identifiers which, when evaluated, lookup the value bound to that
+identifier in the current environment:
+
+```radicle
+(def foo 42)
+
+foo ;; ==> 42
+```
+
 ### Vectors
 
 `radicle`'s *vectors* are an array-like container for values. Literal notation
