@@ -10,7 +10,6 @@ radicle
    :maxdepth: 3
 
    guide/index.rst
-   guide/GettingStarted.rst
    guide/Basics.lrad
    guide/DataValidation.rst
    guide/Testing.rst
