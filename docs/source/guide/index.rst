@@ -11,51 +11,6 @@ Please see the [installation
 instructions](http://radicle.xyz/docs/index.html#installation-setup) to get
 started.
 
-An example
-------------
-
-As a running example, we'll create a chain for managing the issues of a
-repository. We'll see how to define the format of issues that can be created;
-how to define rights and permissions for certain types of interaction; and
-how to allow for future changes to the chain.
-
-.. code-block:: radicle
-
-     (load! (find-module-file! "prelude.rad"))
-     (def issues (ref { :open nil :closed nil }))
-     (def system (ref {}))
-
-     (def new-feature-request
-       (fn [author description test-case]
-         ...))
-
-     (def new-bug-report
-       (fn [author description test-case]
-         ...))
-
-     (def new-question
-       (fn [author description]
-         ...))
-
-     (def close-issue ...)
-
-     (def can-modify ...)
-
-     (def modify-system ..)
-
-     (write-ref system
-       { :feature-handler new-feature-request
-         :bug-handler new-bug-report
-         :question-handler new-question
-         :can-modify can-modify
-       })
-
-
-     (def handle-input
-       (fn [expr]
-         ...))
-
-
 .. toctree::
   :maxdepth: 2
 
