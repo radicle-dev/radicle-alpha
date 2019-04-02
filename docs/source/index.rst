@@ -3,15 +3,13 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-radicle
+Radicle
 ===================================
 
 .. toctree::
    :maxdepth: 3
 
    guide/index.rst
-   guide/Basics.lrad
-   guide/DataValidation.rst
    guide/Testing.rst
    guide/Issues.lrad
    reference.rst
