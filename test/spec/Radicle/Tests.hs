@@ -219,8 +219,12 @@ test_eval =
                 <> "\nGot:\n" <> prettyEither res1
         counterexample (toS info) $ res1 == res2
 
-    , testCase "lambdas work" $ do
+    , testCase "lambdas with explicit arguments work" $ do
         let prog = [s|((fn [x] x) #t)|]
+        prog `succeedsWith` Boolean True
+
+    , testCase "lambdas with a vector of arguments work" $ do
+        let prog = [s|((fn x (first x)) #t)|]
         prog `succeedsWith` Boolean True
 
     , testCase "lambda does not have access to future definitions (hyper static)" $ do
