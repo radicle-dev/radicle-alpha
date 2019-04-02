@@ -17,10 +17,11 @@ The character `;` starts a comment. This comments all the text until the next
 line-break. In this guide we will often add a comment as follows:
 
 ```radicle
-foo ;; ==> bar
+(+ 1 1) ;; ==> 2
 ```
 
-to indicate that `bar` is the value that results from evaluating `foo`.
+to indicate that an expression (in this case `(+ 1 1)`) evaluates to a specific
+value (in this case `2`).
 
 ## Built-in datatypes
 
