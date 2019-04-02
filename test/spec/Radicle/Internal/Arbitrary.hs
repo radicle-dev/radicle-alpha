@@ -32,7 +32,7 @@ instance Arbitrary Value where
                 , (3, Number <$> arbitrary)
                 , (1, List <$> sizedList)
                 , (6, PrimFn <$> elements (Map.keys $ getPrimFns prims))
-                , (1, Lambda <$> PosArgs <$> sizedList
+                , (1, Lambda <$> lambdaArgs
                              <*> scale (`div` 3) arbitrary
                              <*> scale (`div` 3) arbitrary)
                 ]
@@ -46,6 +46,7 @@ instance Arbitrary Value where
         prims = purePrimFns
         isPrimop x = x `elem` Map.keys (getPrimFns prims)
         isNum x = isJust (readMaybe (toS $ fromIdent x) :: Maybe Scientific)
+        lambdaArgs = oneof [ PosArgs <$> sizedList, VarArgs <$> arbitrary ]
 
 instance Arbitrary UntaggedValue where
     arbitrary = untag <$> (arbitrary :: Gen Value)
