@@ -16,7 +16,7 @@ packages:
 - sandi-0.4.3@sha256:2ada9c759424f243095ab28b55687cdec4e9d16bac3589f9d200280207c50216
 - serialise-0.2.1.0
 - git: https://github.com/oscoin/ipfs.git
-  commit: 421c5fc975b8ef030ba5e631af424be6c7fdd2bb
+  commit: 057ba4a4bf9bb846a08b1208b0ed45af33a38082
   subdirs:
   - ipfs-api
   - ipld-cid
