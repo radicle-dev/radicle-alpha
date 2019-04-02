@@ -1,15 +1,26 @@
 # Basics
 
 Though `radicle` is designed with a particular use-case in mind--namely,
-defining and interacting with the Open Source Network chains--it is ultimately a
+defining and interacting with decentralised state machines--it is ultimately a
 general purpose language, quite similar to
 [Scheme](en.wikipedia.org/wiki/Scheme_%28programming_language%29) or
-[Clojure](clojure.org/). To effectively use it, it is helpful to learn the basics
-of it independent of its application.
+[Clojure](clojure.org/). To effectively use it, it is helpful to learn the
+basics of it independent of its application.
 
 This chapter introduces `radicle` as a language. In each section we present
 a core datatype of the language, and show some basic operations that can be
 performed on them.
+
+## Comments
+
+The character `;` starts a comment. This comments all the text until the next
+line-break. In this guide we will often add a comment as follows:
+
+```radicle
+foo ;; ==> bar
+```
+
+to indicate that `bar` is the value that results from evaluating `foo`.
 
 ## Built-in datatypes
 
