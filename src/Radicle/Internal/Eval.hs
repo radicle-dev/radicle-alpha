@@ -57,17 +57,17 @@ specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)
 specialForms = Map.fromList $ first Ident <$>
   [ ( "fn"
     , \case
-          args : b : bs ->
+          args : b : bs -> do
+            e <- gets bindingsEnv
+            let toLambda argNames = pure (Lambda argNames (b :| bs) e)
             case args of
               Vec atoms_ -> do
                 atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn" "One of the arguments was not an atom")
-                e <- gets bindingsEnv
-                pure (Lambda (PosArgs atoms) (b :| bs) e)
+                toLambda (PosArgs atoms)
               Atom name -> do
-                e <- gets bindingsEnv
-                pure (Lambda (VarArgs name) (b :| bs) e)
-              _ -> throwErrorHere $ SpecialForm "fn" "First argument must be a vector of argument atoms"
-          _ -> throwErrorHere $ SpecialForm "fn" "Need an argument vector and a body"
+                toLambda (VarArgs name)
+              _ -> throwErrorHere $ SpecialForm "fn" "Function parameters must be one atom or a vector of atoms"
+          _ -> throwErrorHere $ SpecialForm "fn" "Function needs parameters (one atom or a vector of atoms) and a body"
       )
   , ( "module", createModule )
   , ("quote", \case
@@ -210,18 +210,11 @@ createModule = \case
 -- @argumenst@ are not evaluated.
 callFn :: forall m. Monad m => Value -> [Value] -> Lang m Value
 callFn f arguments = case f of
-    Lambda (PosArgs argNames) body closure -> do
-        args <- posArgBindings argNames
+    Lambda argNames body closure -> do
+        args <- argumentBindings argNames
         evalManyWithEnv (args <> closure) body
-    Lambda (VarArgs argName) body closure -> do
-        args <- varArgBinding argName
-        evalManyWithEnv (args <> closure) body
-    LambdaRec self (PosArgs argNames) body closure -> do
-        args <- posArgBindings argNames
-        let selfBinding = GhcExts.fromList (Doc.noDocs [(self, f)])
-        evalManyWithEnv (args <> selfBinding <> closure) body
-    LambdaRec self (VarArgs argName) body closure -> do
-        args <- varArgBinding argName
+    LambdaRec self argNames body closure -> do
+        args <- argumentBindings argNames
         let selfBinding = GhcExts.fromList (Doc.noDocs [(self, f)])
         evalManyWithEnv (args <> selfBinding <> closure) body
     PrimFn i -> do
@@ -232,14 +225,15 @@ callFn f arguments = case f of
     evalManyWithEnv :: Env Value -> NonEmpty Value -> Lang m Value
     evalManyWithEnv env exprs =
         NonEmpty.last <$> withEnv (const env) (traverse baseEval exprs)
-    posArgBindings :: [Ident] -> Lang m (Env Value)
-    posArgBindings names =
+    argumentBindings :: LambdaArgs -> Lang m (Env Value)
+    argumentBindings argNames = case argNames of
+      PosArgs names ->
         if length names /= length arguments
         then throwErrorHere $ WrongNumberOfArgs "lambda" (length names) (length arguments)
-        else pure $ GhcExts.fromList (Doc.noDocs $ zip names arguments)
-    varArgBinding :: Ident -> Lang m (Env Value)
-    varArgBinding name =
-        pure $ GhcExts.fromList $ Doc.noDocs [(name, Vec $ Seq.fromList arguments)]
+        else toArgs $ zip names arguments
+      VarArgs name ->
+        toArgs [(name, Vec $ Seq.fromList arguments)]
+      where toArgs = pure . GhcExts.fromList . Doc.noDocs
 
 -- | Process special forms or call function. If @f@ is an atom that
 -- indicates a special form that special form is processed. Otherwise
