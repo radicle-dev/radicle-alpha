@@ -216,7 +216,7 @@ steps:
     - |
       set -euxo pipefail
 
-      if [[ "$BRANCH_NAME" == "master" && "$TAG_NAME" == v* ]]; then
+      if [[ "$TAG_NAME" == v* ]]; then
         version="$TAG_NAME"
         VERSION=$version TARGET=debian ./packaging/build-package.sh
         ./packaging/upload.sh
