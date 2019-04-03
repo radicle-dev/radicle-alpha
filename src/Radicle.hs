@@ -23,6 +23,7 @@ module Radicle
     --
     -- *** Value
     , ValueF(..)
+    , LambdaArgs(..)
     , type Value
     , Type(..)
     , pattern Atom

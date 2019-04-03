@@ -74,8 +74,12 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
       where
         -- We print string literals escaped just like Haskell does.
         escapeStr = T.init . T.tail . show
-        prettyLambda ids vals =
-          let args :: Ann.Annotated t ValueF = Vec $ Seq.fromList (Atom <$> ids)
+        prettyLambda lArgs vals =
+          let args :: Ann.Annotated t ValueF = case lArgs of
+                PosArgs ids ->
+                  Vec $ Seq.fromList (Atom <$> ids)
+                VarArgs id ->
+                  Atom id
           in parens $
                annotate TAtom "fn" <+>
                align (sep [ prettyV args

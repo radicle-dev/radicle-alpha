@@ -110,9 +110,15 @@ valueDoc name docString value = case value of
         <> parseMarkdownBlocks docString
   where
     lambdaDoc args =
-        let callExample = "(" <> T.intercalate " " (name : map fromIdent args) <> ")"
-        in [ Header 3 nullAttr [Code nullAttr (toS callExample) ] ]
-           <> parseMarkdownBlocks docString
+      let callExample = "(" <> T.intercalate " " (name : lambdaArgsDoc args) <> ")"
+      in [ Header 3 nullAttr [Code nullAttr (toS callExample) ] ]
+        <> parseMarkdownBlocks docString
+    lambdaArgsDoc args =
+      case args of
+        PosArgs argNames ->
+          map fromIdent argNames
+        VarArgs _ ->
+          pure "arg1 ..."
 
 -- | Generate documentation for primitive functions defined by 'replBindings'
 docForPrimFns :: Content -> [Block]

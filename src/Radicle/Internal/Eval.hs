@@ -57,14 +57,17 @@ specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)
 specialForms = Map.fromList $ first Ident <$>
   [ ( "fn"
     , \case
-          args : b : bs ->
+          args : b : bs -> do
+            e <- gets bindingsEnv
+            let toLambda argNames = pure (Lambda argNames (b :| bs) e)
             case args of
               Vec atoms_ -> do
                 atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn" "One of the arguments was not an atom")
-                e <- gets bindingsEnv
-                pure (Lambda atoms (b :| bs) e)
-              _ -> throwErrorHere $ SpecialForm "fn" "First argument must be a vector of argument atoms"
-          _ -> throwErrorHere $ SpecialForm "fn" "Need an argument vector and a body"
+                toLambda (PosArgs atoms)
+              Atom name -> do
+                toLambda (VarArgs name)
+              _ -> throwErrorHere $ SpecialForm "fn" "Function parameters must be one atom or a vector of atoms"
+          _ -> throwErrorHere $ SpecialForm "fn" "Function needs parameters (one atom or a vector of atoms) and a body"
       )
   , ( "module", createModule )
   , ("quote", \case
@@ -222,11 +225,15 @@ callFn f arguments = case f of
     evalManyWithEnv :: Env Value -> NonEmpty Value -> Lang m Value
     evalManyWithEnv env exprs =
         NonEmpty.last <$> withEnv (const env) (traverse baseEval exprs)
-    argumentBindings :: [Ident] -> Lang m (Env Value)
-    argumentBindings names =
+    argumentBindings :: LambdaArgs -> Lang m (Env Value)
+    argumentBindings argNames = case argNames of
+      PosArgs names ->
         if length names /= length arguments
         then throwErrorHere $ WrongNumberOfArgs "lambda" (length names) (length arguments)
-        else pure $ GhcExts.fromList (Doc.noDocs $ zip names arguments)
+        else toArgs $ zip names arguments
+      VarArgs name ->
+        toArgs [(name, Vec $ Seq.fromList arguments)]
+      where toArgs = pure . GhcExts.fromList . Doc.noDocs
 
 -- | Process special forms or call function. If @f@ is an atom that
 -- indicates a special form that special form is processed. Otherwise

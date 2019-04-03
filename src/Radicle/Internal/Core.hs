@@ -255,18 +255,25 @@ data ValueF r =
     --
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
-    | LambdaF [Ident] (NonEmpty r) (Env r)
+    | LambdaF LambdaArgs (NonEmpty r) (Env r)
     -- | Like 'LambdaF' but indicates a function that can call itself
     -- recursively.
     --
     -- The first argument is the name for recursive calls to the
     -- function in the body.
-    | LambdaRecF Ident [Ident] (NonEmpty r) (Env r)
+    | LambdaRecF Ident LambdaArgs (NonEmpty r) (Env r)
     | VEnvF (Env r)
     | VStateF State
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
+
+data LambdaArgs =
+      PosArgs [Ident]
+    | VarArgs Ident
+    deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise LambdaArgs
 
 valType :: (CPA t) => Annotated t ValueF -> Type.Type
 valType = \case
@@ -377,12 +384,12 @@ pattern ProcHandle i <- (Ann.match -> ProcHandleF i)
     where
     ProcHandle = Ann.annotate . ProcHandleF
 
-pattern Lambda :: ValueConC t => [Ident] -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
+pattern Lambda :: ValueConC t => LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
     where
     Lambda vs exps env = Ann.annotate $ LambdaF vs exps env
 
-pattern LambdaRec :: ValueConC t => Ident -> [Ident] -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
+pattern LambdaRec :: ValueConC t => Ident -> LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
 pattern LambdaRec self vs exps env <- (Ann.match -> LambdaRecF self vs exps env)
     where
     LambdaRec self vs exps env = Ann.annotate $ LambdaRecF self vs exps env
