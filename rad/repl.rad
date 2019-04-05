@@ -4,17 +4,19 @@
 
 (def help
   "Default help text."
+  "Radicle REPL
+
+Type (apropos!) for a list of functions in scope.
+Type (doc! '<name>) for further documentation of <name>.")
+
+(def read-line-or-exit!
   (fn []
-    "radicle is a LISP-like language intended for programming chains, and interacting with those chains.
+      (def line (get-line!))
+      (if (eq? line nil)
+        (exit! 0)
+        (read-many-annotated "[read-line-or-exit!]" line))))
 
-    Type (doc '<name>) for further documentation of <name>."))
-
-(def read-line-or-exit! (fn []
-  (def line (get-line!))
-  (if (eq? line nil)
-    (exit! 0)
-    (read-many-annotated "[read-line-or-exit!]" line))))
-
+(put-str! help)
 (def repl
   {:name "repl"
    ;; Parse errors are thrown here
