@@ -276,7 +276,7 @@ removeHandler ts u =
 
 -- | Block while waiting for a matching message.
 -- If no matching message arrives within the given timeout (in
--- milliseconds) then @Nothing@ is retuend.
+-- milliseconds) then @Nothing@ is returned.
 subscribeOne :: TopicSubscription -> Int64 -> (Message -> Maybe a) -> IO (Maybe a)
 subscribeOne subscription t matchMessage = do
     timeout (fromIntegral t * 1000) $ do

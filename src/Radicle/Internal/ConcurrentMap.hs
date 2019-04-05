@@ -31,7 +31,7 @@ lookup k (CMap m_) = withMVar m_ $ \m -> do
      Nothing -> pure Nothing
      Just v_ -> readMVar v_
 
--- | Non-atmoically read the contents of a 'CMap'. Provides a
+-- | Non-atomically read the contents of a 'CMap'. Provides a
 -- consistent shapshot of which keys were present at some
 -- time. However, the values might be snapshotted at different times.
 nonAtomicRead :: CMap k v -> IO (Map k v)
