@@ -95,13 +95,12 @@ jobs:
           name: Package
           command: |
             set -euxo pipefail
-
-            if [ "$CIRCLE_BRANCH" == "master" && "$CIRCLE_TAG" == v*]; then
-              version="$TAG_NAME"
-              VERSION=$version TARGET=darwin ./packaging/build-package.sh
+            TAG="$(git tag -l --points-at HEAD)"
+            if [[ "$TAG" == v* ]]; then
+              VERSION="$TAG" TARGET=darwin ./packaging/build-package.sh
 
               # This is only set when building forked PRs
-              if [ -n "$CIRCLE_PR_REPONAME" ]; then
+              if [ -n "${CIRCLE_PR_REPONAME-}" ]; then
                 echo "Skipping uploads for forks"
                 exit 0
               fi
