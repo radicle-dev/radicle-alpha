@@ -244,11 +244,10 @@ send id (Api.SendRequest expressions) = do
 -- If the machine is not yet loaded into memory we fetch its inputs, load it
 -- into memory and start following its changes.
 ensureMachineLoaded :: MachineId -> Daemon Machine
-ensureMachineLoaded id =
-    modifyMachine' id $ \case
+ensureMachineLoaded id = do
+    m <- modifyMachine' id $ \case
         Nothing -> do
             m <- initAsReader id
-            writeMachineConfig
             pure (Just (Cached m), m)
         Just (UninitialisedReader _) -> do
             m <- initAsReader id
@@ -256,6 +255,8 @@ ensureMachineLoaded id =
         Just (Cached m) -> do
             m' <- pullInputs m
             pure (Just (Cached m'), m')
+    writeMachineConfig
+    pure m
 
 -- | Creates a IPFS pusbsub subscription for the given machine. This
 -- wraps 'initSubscription' and logs all message parsing errors.
