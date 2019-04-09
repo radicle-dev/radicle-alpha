@@ -1,6 +1,6 @@
 swagger: '2.0'
 info:
-  version: 0.0.0
+  version: 0.0.2
   title: Radicle daemon
   description: The radicle-daemon; a long-running background process which materialises
     the state of remote IPFS machines on the users PC, and writes to those IPFS machines
