@@ -18,6 +18,7 @@ import           Data.Scientific (Scientific)
 import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
+import qualified Data.Text as T
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
@@ -542,10 +543,26 @@ addBinding :: Ident -> Maybe Text -> Value -> Bindings m -> Bindings m
 addBinding i d v b = b
     { bindingsEnv = Env . Map.insert i (Doc.Docd d v) . fromEnv $ bindingsEnv b }
 
+callExample :: Text -> Value -> Maybe Text
+callExample name value = case value of
+    Lambda args _ _      -> Just $ lambdaDoc args
+    LambdaRec _ args _ _ -> Just $ lambdaDoc args
+    _                    -> Nothing
+  where
+    lambdaDoc args = "(" <> T.intercalate " " (name : lambdaArgsDoc args) <> ")"
+    lambdaArgsDoc args =
+      case args of
+        PosArgs argNames ->
+          map fromIdent argNames
+        VarArgs _ ->
+          pure "arg1 ..."
+
 lookupAtomWithDoc :: Monad m => Ident -> Lang m (Doc.Docd Value)
-lookupAtomWithDoc i = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
-    Nothing -> throwErrorHere $ UnknownIdentifier i
-    Just x  -> pure x
+lookupAtomWithDoc i@(Ident name) = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
+    Nothing                -> throwErrorHere $ UnknownIdentifier i
+    Just x@(Doc.Docd d_ v) -> pure (maybe x (doc d_ v) $ callExample name v)
+  where
+    doc d_ v t = Doc.Docd (Just (t <> maybe "" ("\n\n" <>) d_)) v
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
@@ -553,6 +570,9 @@ lookupAtom = fmap copoint . lookupAtomWithDoc
 
 lookupAtomDoc :: Monad m => Ident -> Lang m (Maybe Text)
 lookupAtomDoc = fmap Doc.doc . lookupAtomWithDoc
+
+missingDocMsg :: Ident -> Text
+missingDocMsg i = "No documentation found for " <> fromIdent i <> "."
 
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)

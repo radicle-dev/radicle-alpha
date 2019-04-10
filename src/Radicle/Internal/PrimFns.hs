@@ -613,7 +613,7 @@ purePrimFns = fromList $ allDocs $
       , oneArg "doc" $ \case
           Atom i -> do d <- lookupAtomDoc i
                        pure . String $
-                         fromMaybe ("No documentation found for " <> fromIdent i <> ".") d
+                         fromMaybe (missingDocMsg i) d
           _ -> throwErrorHere $ OtherError "doc: expects an atom"
       )
     , ( "match-pat"
