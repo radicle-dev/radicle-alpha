@@ -47,7 +47,7 @@ Strings are enclosed in double quotes:
 ### Keywords
 
 Keywords are identifiers that evaluate to themselves. To create a keyword you
-prefix `:` onto an identifier, for example `:foo` is a keyword. Keywords are
+prefix `:` onto an identifier (`:foo` is a keyword, for example). Keywords are
 often used as keys in maps which act like records in other languages. The colon
 at the front is a prefix form of the colon that follows the name of a field in
 other languages. For example, `{name: "foo", age: 22}` in JavaScript becomes
