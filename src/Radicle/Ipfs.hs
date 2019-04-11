@@ -214,11 +214,13 @@ subscribe :: (MonadIpfs m) => Text -> (PubsubMessage -> IO ()) -> m ()
 subscribe topic messageHandler = do
     Client{clientHttpManager, clientBaseRequest} <- askClient
     liftIO $ runResourceT $ do
-        let req = clientBaseRequest
-                & HttpClient.setQueryString
-                    [ ("arg", Just $ T.encodeUtf8 topic)
-                    , ("encoding", Just "json")
-                    , ("stream-channels", Just "true")
+        let req = makeIpfsRequest
+                    clientBaseRequest
+                    Http.methodGet
+                    "pubsub/sub"
+                    [ ("arg", topic)
+                    , ("encoding", "json")
+                    , ("stream-channels", "true")
                     ]
         body <- HttpConduit.responseBody <$> HttpConduit.http req clientHttpManager
         C.runConduit $ body .| fromJSONC .| C.mapM_ (liftIO . messageHandler) .| C.sinkNull
