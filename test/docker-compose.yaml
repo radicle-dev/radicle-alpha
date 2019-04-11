@@ -15,9 +15,8 @@ services:
    volumes:
    - ${RAD_BIN}:/usr/local/bin/
    environment:
-       RAD_IPFS_API_URL: http://ipfs-test-network:5001
+     RAD_IPFS_API_URL: http://ipfs-test-network:5001
    command:
-       # - rad-daemon-radicle
    - bash
    - -c
    - 'sleep 10 && rad-daemon-radicle'
@@ -30,9 +29,8 @@ services:
    volumes:
    - ${RAD_BIN}:/usr/local/bin/
    environment:
-       RAD_IPFS_API_URL: http://ipfs-test-network:5001
+     RAD_IPFS_API_URL: http://ipfs-test-network:5002
    command:
-       # - sh 'sleep 5 && rad-daemon-radicle'
    - bash
    - -c
    - 'sleep 10 && rad-daemon-radicle'
