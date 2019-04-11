@@ -8,3 +8,19 @@ services:
     - "19301:5001"
     command:
     - --enable-pubsub-experiment
+  radicle-daemon1:
+   image: alpine:3.9
+   ports:
+   - "19302:8909"
+   volumes:
+   - ../${STACK_BIN_PATH}:/usr/local/stack-bin/
+   command:
+   - /usr/local/stack-bin/build/rad-daemon-radicle/rad-daemon-radicle
+  radicle-daemon2:
+   image: alpine:3.9
+   ports:
+   - "19303:8909"
+   volumes:
+   - ../${STACK_BIN_PATH}:/stack-bin/:ro
+   command:
+   - rad-daemon-radicle
