@@ -26,7 +26,11 @@ empty = CMap <$> newMVar Map.empty
 
 -- | Atomically lookup a value.
 lookup :: Ord k => k -> CMap k v -> IO (Maybe v)
-lookup k m = modifyValue k m (\x -> pure (x,x))
+lookup k (CMap m_) = do
+  m <- readMVar m_
+  case Map.lookup k m of
+    Nothing -> pure Nothing
+    Just v_ -> readMVar v_
 
 -- | Non-atomically read the contents of a 'CMap'. Note that this does not
 -- provide a consistent snapshot of either the set of keys, or the values
