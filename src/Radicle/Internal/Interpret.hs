@@ -2,8 +2,6 @@ module Radicle.Internal.Interpret where
 
 import           Protolude
 
-import           Text.Megaparsec (eof, runParserT)
-
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Eval
@@ -38,7 +36,7 @@ interpretWithState
     -> Bindings (PrimFns m) -- ^ Bindings to be used
     -> m (Either (LangError Value) Value, Bindings (PrimFns m))
 interpretWithState sourceName expr bnds = do
-    let parsed = runIdentity (runParserT (spaceConsumer *> valueP <* eof) (toS sourceName) expr)
+    let parsed = parseValue (toS sourceName) expr
     case parsed of
         Left e  -> pure (Left (LangError [Ann.thisPos] (ParseError e)), bnds)
         Right v -> runLang bnds (eval v)
