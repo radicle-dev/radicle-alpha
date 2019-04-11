@@ -4,8 +4,6 @@ version: '3'
 services:
   ipfs-test-network:
     image: gcr.io/opensourcecoin/ipfs-test-network:010c506
-    ports:
-    - "19301:5001"
     command:
     - --enable-pubsub-experiment
   radicle-daemon1:
