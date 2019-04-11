@@ -1,4 +1,8 @@
-{ pkgs ? import <nixpkgs> {}
+{ pkgs ? import (fetchGit {
+    url = https://github.com/nixos/nixpkgs.git;
+    ref = "release-18.09";
+    rev = "34a637ca9235f44fc377a881c1e48e1e6bcf84f7";
+  }) {}
 , compiler ? "ghc863"
 , doc ? true
 , extras ? true
