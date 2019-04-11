@@ -26,14 +26,11 @@ empty = CMap <$> newMVar Map.empty
 
 -- | Atomically lookup a value.
 lookup :: Ord k => k -> CMap k v -> IO (Maybe v)
-lookup k (CMap m_) = withMVar m_ $ \m -> do
-   case Map.lookup k m of
-     Nothing -> pure Nothing
-     Just v_ -> readMVar v_
+lookup k m = modifyValue k m (\x -> pure (x,x))
 
--- | Non-atomically read the contents of a 'CMap'. Provides a
--- consistent shapshot of which keys were present at some
--- time. However, the values might be snapshotted at different times.
+-- | Non-atomically read the contents of a 'CMap'. Note that this does not
+-- provide a consistent snapshot of either the set of keys, or the values
+-- associated to those keys.
 nonAtomicRead :: CMap k v -> IO (Map k v)
 nonAtomicRead (CMap m_) = do
   m <- readMVar m_
@@ -41,13 +38,14 @@ nonAtomicRead (CMap m_) = do
 
 -- | Atomically insert a key-value pair into a 'CMap'.
 insert :: Ord k => k -> v -> CMap k v -> IO ()
-insert k v (CMap m_) = modifyMVar m_ $ \m -> do
-  v_ <- newMVar (Just v)
-  let m' = Map.insert k v_ m
-  pure (m', ())
+insert k v m = modifyValue k m (const (pure (Just v, ())))
 
 -- | Atomically modifies a value associated to a key but only if it
 -- exists. Blocks all operations on @k@ while @f@ is running.
+--
+-- WARNING: The action @f@ must not use any of the functions in this module
+-- which need access to @k@, that is, @modifyValue k@, @modifyExistingValue k@,
+-- @insert k@, @lookup k@ or @nonAtomicRead@.
 modifyExistingValue :: (MonadUnliftIO m, Ord k) => k -> CMap k v -> (v -> m (v, a)) -> m (Maybe a)
 modifyExistingValue k c f =
     modifyValue k c $ \case
@@ -56,8 +54,12 @@ modifyExistingValue k c f =
             (v', a) <- f v
             pure (Just v', Just a)
 
--- | Atomically modifies a value associated to a key. Blocks all
--- operations on @k@ while @f@ is running.
+-- | Atomically modifies a value associated to a key. Blocks all operations on
+-- @k@ while @f@ is running.
+--
+-- WARNING: The action @f@ must not use any of the functions in this module
+-- which need access to @k@, that is, @modifyValue k@, @modifyExistingValue k@,
+-- @insert k@, @lookup k@ or @nonAtomicRead@.
 modifyValue :: forall k v a m. (MonadUnliftIO m, Ord k) => k -> CMap k v -> (Maybe v -> m (Maybe v, a)) -> m a
 modifyValue k (CMap m_) f = withRunInIO $ \runInIO -> do
     valueVar <- modifyMVar m_ $ \m ->
