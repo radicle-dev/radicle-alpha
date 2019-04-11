@@ -276,7 +276,7 @@ Note that:
 - You cannot use a mixture of `?` and `?1`, `?2`, etc. inside a short-form
   lambda.
 - To avoid hard to detect bugs, atoms starting with a `?` followed by a sequence
-  of digits that isn't on of the allowed positional atoms will cause an error.
+  of digits that isn't one of the allowed positional atoms will cause an error.
 
 ## Quote and eval
 
