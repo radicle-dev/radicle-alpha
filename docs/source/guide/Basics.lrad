@@ -13,7 +13,7 @@ performed on them.
 
 ## Comments
 
-The character `;` starts a comment. This comments all the text until the next
+The string `;;` starts a comment. This comments all the text until the next
 line-break. In this guide we will often add a comment as follows:
 
 ```radicle
