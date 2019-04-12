@@ -1,5 +1,11 @@
 # Revision history for radicle
 
+## 0.0.3  -- 2019-04-12
+
+### Fixed
+
+* Pubsub (and therefore writing by non-owner) was broken. Now it's fixed ([PR](https://github.com/radicle-dev/radicle/pull/620)).
+
 ## 0.0.2  -- 2019-04-10
 
 ### Added
