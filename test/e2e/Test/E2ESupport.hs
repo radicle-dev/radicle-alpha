@@ -6,6 +6,8 @@
 module Test.E2ESupport
     ( TestM
     , projectDir
+    , using
+    , RadDaemon(..)
 
     , testCaseSteps
     , testCase
@@ -24,7 +26,8 @@ module Test.E2ESupport
 
 import           Protolude hiding (bracket)
 
-import           Control.Exception.Safe
+import           Control.Exception.Safe ()
+import           Control.Monad.Catch (bracket)
 import qualified Data.Text as T
 import           System.Directory
 import           System.Environment
@@ -41,6 +44,9 @@ data TestEnv = TestEnv
     , projectDir :: FilePath
     }
 
+data RadDaemon = RadDaemon1 | RadDaemon2
+    deriving (Eq, Show, Read)
+
 -- | Prepares 'TestEnv' by creating a temporary directory that serves as the
 -- home directory, then runs 'TestM' with the environment.
 --
@@ -49,7 +55,8 @@ data TestEnv = TestEnv
 runTestM :: TestM a -> IO a
 runTestM testM = do
     projectDir <- getCurrentDirectory
-    withSystemTempDirectory "radicle-test" $ \dir ->
+    setRadPath (projectDir </> "rad")
+    withSystemTempDirectory "radicle-test1" $ \dir ->
         let env = TestEnv
                 { homeDir = dir
                 , projectDir = projectDir
@@ -72,6 +79,22 @@ runTestM testM = do
     setSearchPath :: [FilePath] -> IO ()
     setSearchPath paths = setEnv "PATH" $ intercalate [searchPathSeparator] paths
 
+    setRadPath :: FilePath -> IO ()
+    setRadPath path = setEnv "RADPATH" path
+
+-- | Run a command against a particular radicle daemon.
+--
+-- Example:
+-- > using RadDaemon1 $ runTestCommand ...
+using :: RadDaemon -> TestM a -> TestM a
+using rd act
+    = bracket (liftIO $ setEnv apiPath (envFor rd))
+              (\_ -> liftIO $ unsetEnv apiPath)
+              (\_ -> act)
+  where
+    apiPath = "RAD_DAEMON_API_URL"
+    envFor RadDaemon1 = "http://localhost:19302"
+    envFor RadDaemon2 = "http://localhost:19303"
 
 -- * Lift test definitions and assertions to 'TestM'
 
@@ -176,8 +199,12 @@ executeCommand bin args inputLines = do
     let argsString = map toS args
     TestEnv {..} <- ask
     searchPath <- liftIO $ getEnv "PATH"
-    radIpfsApiUrl <- liftIO $ getEnv "RAD_IPFS_API_URL"
-    let env = [("PATH", searchPath), ("HOME", homeDir), ("RADPATH", projectDir </> "rad"), ("RAD_IPFS_API_URL", radIpfsApiUrl)]
+    radDaemon <- liftIO $ fromMaybe "" <$> lookupEnv "RAD_DAEMON_API_URL"
+    let env = [ ("PATH", searchPath)
+              , ("HOME", homeDir)
+              , ("RAD_DAEMON_API_URL", radDaemon)
+              , ("RADPATH", projectDir </> "rad")
+              ]
     let procSpec = (proc bin argsString) { env = Just env }
     let input = T.unpack $ T.intercalate "\n" inputLines
     (code, stout, sterr) <- liftIO $ readCreateProcessWithExitCode procSpec input

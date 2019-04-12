@@ -15,12 +15,12 @@ import           Test.E2ESupport
 initProjectWithPatch :: TestM Text
 initProjectWithPatch = do
     prepareRadicle
-    _ <- runTestCommand' "rad-project" ["init"] ["project-name", "project desc", "1"]
+    _ <- using RadDaemon1 $ runTestCommand' "rad-project" ["init"] ["project-name", "project desc", "1"]
     _ <- runTestCommand "git" ["checkout", "-b", "f/test"]
     _ <- runTestCommand "touch" ["test"]
     _ <- runTestCommand "git" ["add", "test"]
     _ <- runTestCommand "git" ["commit", "--message", "first commit"]
-    runTestCommand "rad-patch" ["propose", "HEAD"]
+    using RadDaemon2 $ runTestCommand "rad-patch" ["propose", "HEAD"]
 
 test_patch_propose :: TestTree
 test_patch_propose = testCaseSteps "patch propose" $ \step -> do
@@ -29,11 +29,11 @@ test_patch_propose = testCaseSteps "patch propose" $ \step -> do
 
     commitSha <- runTestCommand "git" ["rev-parse", "--short", "HEAD"]
 
-    listOutput <- runTestCommand "rad-patch" ["list"]
+    listOutput <- using RadDaemon1 $ runTestCommand "rad-patch" ["list"]
     assertContains listOutput "state      #"
     assertContains listOutput "pending    0"
 
-    showOutput <- runTestCommand "rad-patch" ["show", "0"]
+    showOutput <- using RadDaemon1 $ runTestCommand "rad-patch" ["show", "0"]
     assertContains showOutput "pending 0"
     assertContains showOutput $ "From " <> commitSha
     assertContains showOutput "Comments\n---"
