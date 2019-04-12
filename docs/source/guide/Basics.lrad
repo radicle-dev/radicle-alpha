@@ -1,15 +1,27 @@
 # Basics
 
 Though `radicle` is designed with a particular use-case in mind--namely,
-defining and interacting with the Open Source Network chains--it is ultimately a
+defining and interacting with decentralised state machines--it is ultimately a
 general purpose language, quite similar to
 [Scheme](en.wikipedia.org/wiki/Scheme_%28programming_language%29) or
-[Clojure](clojure.org/). To effectively use it, it is helpful to learn the basics
-of it independent of its application.
+[Clojure](clojure.org/). To effectively use it, it is helpful to learn the
+basics of it independent of its application.
 
 This chapter introduces `radicle` as a language. In each section we present
 a core datatype of the language, and show some basic operations that can be
 performed on them.
+
+## Comments
+
+The string `;;` starts a comment. This comments all the text until the next
+line-break. In this guide we will often add a comment as follows:
+
+```radicle
+(+ 1 1) ;; ==> 2
+```
+
+to indicate that an expression (in this case `(+ 1 1)`) evaluates to a specific
+value (in this case `2`).
 
 ## Built-in datatypes
 
@@ -30,6 +42,30 @@ Strings are enclosed in double quotes:
 
 ```radicle
 "this is a string"
+```
+
+### Keywords
+
+Keywords are identifiers that evaluate to themselves. To create a keyword you
+prefix `:` onto an identifier (`:foo` is a keyword, for example). Keywords are
+often used as keys in maps which act like records in other languages. The colon
+at the front is a prefix form of the colon that follows the name of a field in
+other languages. For example, `{name: "foo", age: 22}` in JavaScript becomes
+`{:name "foo" :age 22}` in Radicle.
+
+```radicle
+:foo ;; ==> :foo
+```
+
+## Atoms
+
+Atoms are identifiers which, when evaluated, lookup the value bound to that
+identifier in the current environment:
+
+```radicle
+(def foo 42)
+
+foo ;; ==> 42
 ```
 
 ### Vectors
