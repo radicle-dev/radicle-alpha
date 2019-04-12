@@ -220,7 +220,7 @@ steps:
       if [[ "$TAG_NAME" == v* ]]; then
         VERSION="$TAG_NAME" TARGET=debian ./packaging/build-package.sh
         cp  \
-          "packaging/out/radicle_${version}_amd64.deb" \
+          "packaging/out/radicle_${TAG_NAME}_amd64.deb" \
           "packaging/out/radicle_latest_amd64.deb"
         ./packaging/upload.sh
       fi
