@@ -204,6 +204,7 @@ steps:
 
       export RAD_IPFS_API_URL=http://ipfs-test-network:5001
       export RADPATH="$(pwd)/rad"
+      export IS_CI_NET="yes"
       stack test :e2e
 
   - id: "Package"

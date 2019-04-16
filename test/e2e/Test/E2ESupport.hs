@@ -88,16 +88,19 @@ runTestM testM = do
 -- Example:
 -- > using RadDaemon1 $ runTestCommand ...
 using :: RadDaemon -> TestM a -> TestM a
-using rd act
-    = bracket (liftIO $ lookupEnv apiPath >>= \old -> setEnv apiPath (envFor rd) >> pure old)
-              (\old -> liftIO $ case old of
-                  Nothing -> unsetEnv apiPath
-                  Just o' -> setEnv apiPath o')
-              (const act)
+using rd act = do
+    isCINet <- liftIO (lookupEnv "IS_CI_NET") >>= \x -> pure $ case x of
+        Nothing -> False
+        Just _  -> True
+    bracket (liftIO $ lookupEnv apiPath >>= \old -> setEnv apiPath (envFor isCINet rd) >> pure old)
+            (\old -> liftIO $ case old of
+                Nothing -> unsetEnv apiPath
+                Just o' -> setEnv apiPath o')
+            (const act)
   where
     apiPath = "RAD_DAEMON_API_URL"
-    envFor RadDaemon1 = "http://radicle-daemon1:8909"
-    envFor RadDaemon2 = "http://radicle-daemon2:8909"
+    envFor isCI RadDaemon1 = if isCI then "http://radicle-daemon1:8909" else "http://localhost:19302"
+    envFor isCI RadDaemon2 = if isCI then "http://radicle-daemon2:8909" else "http://localhost:19303"
 
 -- * Lift test definitions and assertions to 'TestM'
 
