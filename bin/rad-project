@@ -70,7 +70,7 @@
 (def ipfs-api-url
   "IPFS API url to use."
   (match (shell-with-stdout! "echo $RAD_IPFS_API_URL" "")
-         [""] "http://localhost:9301"
+         [""] "http://ipfs-test-network:5001"
          ['url] url))
 
 (def config-ipfs-api-url!
