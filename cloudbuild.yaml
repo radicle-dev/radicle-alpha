@@ -194,6 +194,8 @@ steps:
       # Connect services to 'cloudbuild' network so they can be
       # accessed by other steps
       docker network connect cloudbuild test_ipfs-test-network_1 --alias ipfs-test-network
+      docker network connect cloudbuild test_radicle-daemon1_1 --alias radicle-daemon1
+      docker network connect cloudbuild test_radicle-daemon2_1 --alias radicle-daemon2
       docker exec test_ipfs-test-network_1 /app/wait-until-ready
 
       # Add the empty entry to the IPFS test network. Radicle requires it
