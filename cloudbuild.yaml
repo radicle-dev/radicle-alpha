@@ -188,6 +188,7 @@ steps:
 
       export COMPOSE_FILE=test/docker-compose.yaml
       export RAD_BIN="$(stack path --local-install-root)/bin"
+      export RAD_IPFS_API_URL=http://ipfs-test-network:5001
       ls "$(stack path --local-install-root)/bin"
       docker-compose up -d
       sleep 1 # Wait for containers to be started
