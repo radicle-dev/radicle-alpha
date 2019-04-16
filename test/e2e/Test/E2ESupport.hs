@@ -93,7 +93,7 @@ using rd act
               (\old -> liftIO $ case old of
                   Nothing -> unsetEnv apiPath
                   Just o' -> setEnv apiPath o')
-              (\_ -> act)
+              (const act)
   where
     apiPath = "RAD_DAEMON_API_URL"
     envFor RadDaemon1 = "http://localhost:19302"

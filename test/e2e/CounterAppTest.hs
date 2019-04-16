@@ -12,15 +12,11 @@ import           Test.E2ESupport
 
 test_counter_app :: TestTree
 test_counter_app = testCaseSteps "counter app" $ \step -> using RadDaemon1 $ do
-    print "here"
-    step "Create machine"
     machineId <- runTestCommand "rad-machines" ["create"]
 
     step "Initialize machine"
-    print "there"
     void $ runCounter [machineId, "init"]
 
-    print "tthere"
     initialValue <- runCounter [machineId, "get-value"]
     assertEqual "(get-value) on counter chain" "0" initialValue
 
