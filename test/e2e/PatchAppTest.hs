@@ -27,12 +27,14 @@ test_patch_propose = testCaseSteps "patch propose" $ \step -> do
     step "init project with patch"
     initProjectWithPatch
 
+    step "verify patch list"
     commitSha <- runTestCommand "git" ["rev-parse", "--short", "HEAD"]
 
     listOutput <- using RadDaemon1 $ runTestCommand "rad-patch" ["list"]
     assertContains listOutput "state      #"
     assertContains listOutput "pending    0"
 
+    step "verify patch show"
     showOutput <- using RadDaemon1 $ runTestCommand "rad-patch" ["show", "0"]
     assertContains showOutput "pending 0"
     assertContains showOutput $ "From " <> commitSha

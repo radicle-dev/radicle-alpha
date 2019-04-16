@@ -136,7 +136,7 @@ assertAbsence str substr =
 -- | Runs @rad key create@ and sets the Git user name and email.
 prepareRadicle :: TestM Text
 prepareRadicle = do
-    _ <- runTestCommand "rad-key" ["create"]
+    _ <- using RadDaemon1 $ runTestCommand "rad-key" ["create"]
     _ <- runTestCommand "git" ["config", "--global", "user.name", "Alice"]
     runTestCommand "git" ["config", "--global", "user.email", "alice@example.com"]
 
