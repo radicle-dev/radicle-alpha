@@ -82,14 +82,17 @@ runTestM testM = do
     setRadPath :: FilePath -> IO ()
     setRadPath path = setEnv "RADPATH" path
 
--- | Run a command against a particular radicle daemon.
+-- | Run a command against a particular radicle daemon. Behaves like `local`,
+-- so nesting a `using` will override for the computation.
 --
 -- Example:
 -- > using RadDaemon1 $ runTestCommand ...
 using :: RadDaemon -> TestM a -> TestM a
 using rd act
-    = bracket (liftIO $ setEnv apiPath (envFor rd))
-              (\_ -> liftIO $ unsetEnv apiPath)
+    = bracket (liftIO $ lookupEnv apiPath >>= \old -> setEnv apiPath (envFor rd) >> pure old)
+              (\old -> liftIO $ case old of
+                  Nothing -> unsetEnv apiPath
+                  Just o' -> setEnv apiPath o')
               (\_ -> act)
   where
     apiPath = "RAD_DAEMON_API_URL"

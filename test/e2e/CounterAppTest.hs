@@ -11,20 +11,23 @@ import           System.FilePath
 import           Test.E2ESupport
 
 test_counter_app :: TestTree
-test_counter_app = testCaseSteps "counter app" $ \step -> do
+test_counter_app = testCaseSteps "counter app" $ \step -> using RadDaemon1 $ do
+    print "here"
     step "Create machine"
     machineId <- runTestCommand "rad-machines" ["create"]
 
     step "Initialize machine"
+    print "there"
     void $ runCounter [machineId, "init"]
 
+    print "tthere"
     initialValue <- runCounter [machineId, "get-value"]
     assertEqual "(get-value) on counter chain" "0" initialValue
 
     forM_ [(1::Int)..3] $ \i -> do
         step $ "Increment to " <> show i
 
-        valueInc <- runCounter [machineId, "increment"]
+        valueInc <- using RadDaemon2 $ runCounter [machineId, "increment"]
         assertEqual "(increment) on counter chain" (show i) valueInc
 
         valueGet <- runCounter [machineId, "get-value"]
