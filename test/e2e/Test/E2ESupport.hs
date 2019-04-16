@@ -203,9 +203,11 @@ executeCommand bin args inputLines = do
     TestEnv {..} <- ask
     searchPath <- liftIO $ getEnv "PATH"
     radDaemon <- liftIO $ fromMaybe "" <$> lookupEnv "RAD_DAEMON_API_URL"
+    apiDaemon <- liftIO $ fromMaybe "" <$> lookupEnv "RAD_IPFS_API_URL"
     let env = [ ("PATH", searchPath)
               , ("HOME", homeDir)
               , ("RAD_DAEMON_API_URL", radDaemon)
+              , ("RAD_IPFS_API_URL", apiDaemon)
               , ("RADPATH", projectDir </> "rad")
               ]
     let procSpec = (proc bin argsString) { env = Just env }
