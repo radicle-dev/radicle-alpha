@@ -47,7 +47,7 @@ test_patch_checkout = testCaseSteps "patch checkout" $ \step -> do
 
     step "rad patch checkout"
     _ <- runTestCommand "git" ["checkout", "master"]
-    _ <- runTestCommand "rad-patch" ["checkout", "0"]
+    _ <- using RadDaemon1 $ runTestCommand "rad-patch" ["checkout", "0"]
 
     branchOutput <- runTestCommand "git" ["branch"]
     assertContains branchOutput "* patch/0"
@@ -65,9 +65,9 @@ test_patch_comment = testCaseSteps "patch comment" $ \step -> do
     initProjectWithPatch
 
     step "rad patch comment"
-    _ <- runTestCommand "rad-patch" ["comment", "0", "Test commenting"]
+    _ <- using RadDaemon1 $ runTestCommand "rad-patch" ["comment", "0", "Test commenting"]
 
-    showOutput <- runTestCommand "rad-patch" ["show", "0"]
+    showOutput <- using RadDaemon1 $ runTestCommand "rad-patch" ["show", "0"]
     assertContains showOutput "Test commenting"
 
 test_patch_retract :: TestTree
@@ -76,9 +76,9 @@ test_patch_retract = testCaseSteps "patch retract" $ \step -> do
     initProjectWithPatch
 
     step "rad patch retract"
-    _ <- runTestCommand "rad-patch" ["retract", "0"]
+    _ <- using RadDaemon1 $ runTestCommand "rad-patch" ["retract", "0"]
 
-    showAcceptedOutput <- runTestCommand "rad-patch" ["show", "0"]
+    showAcceptedOutput <- using RadDaemon1 $ runTestCommand "rad-patch" ["show", "0"]
     assertContains showAcceptedOutput "retracted 0"
 
 test_patch_accept :: TestTree
@@ -87,14 +87,15 @@ test_patch_accept = testCaseSteps "patch accept" $ \step -> do
     initProjectWithPatch
 
     step "rad patch accept"
-    _ <- runTestCommand "git" ["checkout", "master"]
-    _ <- runTestCommand "rad-patch" ["accept", "0"]
+    using RadDaemon1 $ do
+        _ <- runTestCommand "git" ["checkout", "master"]
+        _ <- runTestCommand "rad-patch" ["accept", "0"]
 
-    showAcceptedOutput <- runTestCommand "rad-patch" ["show", "0"]
-    assertContains showAcceptedOutput "accepted 0"
+        showAcceptedOutput <- runTestCommand "rad-patch" ["show", "0"]
+        assertContains showAcceptedOutput "accepted 0"
 
-    logOutput <- runTestCommand "git" ["log", "master"]
-    assertContains logOutput "first commit"
+        logOutput <- runTestCommand "git" ["log", "master"]
+        assertContains logOutput "first commit"
 
 test_patch_unauthorized :: TestTree
 test_patch_unauthorized = testCaseSteps "patch unauthorized actions" $ \step -> do
@@ -103,13 +104,14 @@ test_patch_unauthorized = testCaseSteps "patch unauthorized actions" $ \step -> 
     _ <- runTestCommand "git" ["checkout", "master"]
 
     step "rad patch reject fails (contributer)"
-    _ <- runTestCommand "rad-key" ["create", "--force"]
-    rejectOutput <- runTestCommandForError "rad-patch" ["reject", "0"]
-    assertContains rejectOutput "Are you authorized to do so?"
+    using RadDaemon1 $ do
+        _ <- runTestCommand "rad-key" ["create", "--force"]
+        rejectOutput <- runTestCommandForError "rad-patch" ["reject", "0"]
+        assertContains rejectOutput "Are you authorized to do so?"
 
-    step "rad patch accept fails (contributer)"
-    acceptOutput <- runTestCommandForError "rad-patch" ["accept", "0"]
-    assertContains acceptOutput "Are you authorized to do so?"
+        step "rad patch accept fails (contributer)"
+        acceptOutput <- runTestCommandForError "rad-patch" ["accept", "0"]
+        assertContains acceptOutput "Are you authorized to do so?"
 
-    showOutput <- runTestCommand "rad-patch" ["show", "0"]
-    assertContains showOutput "pending 0"
+        showOutput <- runTestCommand "rad-patch" ["show", "0"]
+        assertContains showOutput "pending 0"
