@@ -188,7 +188,6 @@ steps:
 
       export COMPOSE_FILE=test/docker-compose.yaml
       export RAD_BIN="$(stack path --local-install-root)/bin"
-      export RAD_IPFS_API_URL=http://ipfs-test-network:5001
       ls "$(stack path --local-install-root)/bin"
       docker-compose up -d
       sleep 1 # Wait for containers to be started
@@ -203,6 +202,7 @@ steps:
       # Add the empty entry to the IPFS test network. Radicle requires it
       echo '{"radicle": true}' | docker exec -i test_ipfs-test-network_1 ipfs dag put --pin
 
+      export RAD_IPFS_API_URL=http://ipfs-test-network:5001
       export RADPATH="$(pwd)/rad"
       stack test :e2e
 
