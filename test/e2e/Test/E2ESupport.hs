@@ -96,8 +96,8 @@ using rd act
               (const act)
   where
     apiPath = "RAD_DAEMON_API_URL"
-    envFor RadDaemon1 = "http://localhost:19302"
-    envFor RadDaemon2 = "http://localhost:19303"
+    envFor RadDaemon1 = "http://radicle-daemon1:8909"
+    envFor RadDaemon2 = "http://radicle-daemon2:8909"
 
 -- * Lift test definitions and assertions to 'TestM'
 
