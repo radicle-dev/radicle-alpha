@@ -189,7 +189,7 @@ steps:
       export COMPOSE_FILE=test/docker-compose.yaml
       export RAD_BIN="$(stack path --local-install-root)/bin"
       ls "$(stack path --local-install-root)/bin"
-      docker-compose up -d
+      docker-compose up # -d
       sleep 1 # Wait for containers to be started
 
       # Connect services to 'cloudbuild' network so they can be
