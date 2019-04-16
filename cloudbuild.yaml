@@ -199,7 +199,6 @@ steps:
       # Add the empty entry to the IPFS test network. Radicle requires it
       echo '{"radicle": true}' | docker exec -i test_ipfs-test-network_1 ipfs dag put --pin
 
-      export RAD_IPFS_API_URL=http://ipfs-test-network:5001
       export RADPATH="$(pwd)/rad"
 
       stack exec -- rad-daemon-radicle &
