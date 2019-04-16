@@ -187,6 +187,7 @@ steps:
       set -euxo pipefail
 
       export COMPOSE_FILE=test/docker-compose.yaml
+      export RAD_BIN="$(stack path --docker --local-install-root)/bin"
       docker-compose up -d
       sleep 1 # Wait for containers to be started
 
