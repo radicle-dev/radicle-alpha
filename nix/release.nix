@@ -26,5 +26,4 @@ let
   };
   pkgs = import <nixpkgs> { inherit config; };
 
-in
-  pkgs.haskellPackages.radicle
+in pkgs.haskellPackages.radicle
