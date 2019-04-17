@@ -6,6 +6,8 @@
 module Test.E2ESupport
     ( TestM
     , projectDir
+    , using
+    , RadDaemon(..)
 
     , testCaseSteps
     , testCase
@@ -24,7 +26,8 @@ module Test.E2ESupport
 
 import           Protolude hiding (bracket)
 
-import           Control.Exception.Safe
+import           Control.Exception.Safe ()
+import           Control.Monad.Catch (bracket)
 import qualified Data.Text as T
 import           System.Directory
 import           System.Environment
@@ -41,6 +44,9 @@ data TestEnv = TestEnv
     , projectDir :: FilePath
     }
 
+data RadDaemon = RadDaemon1 | RadDaemon2
+    deriving (Eq, Show, Read)
+
 -- | Prepares 'TestEnv' by creating a temporary directory that serves as the
 -- home directory, then runs 'TestM' with the environment.
 --
@@ -49,7 +55,8 @@ data TestEnv = TestEnv
 runTestM :: TestM a -> IO a
 runTestM testM = do
     projectDir <- getCurrentDirectory
-    withSystemTempDirectory "radicle-test" $ \dir ->
+    setRadPath (projectDir </> "rad")
+    withSystemTempDirectory "radicle-test1" $ \dir ->
         let env = TestEnv
                 { homeDir = dir
                 , projectDir = projectDir
@@ -72,6 +79,28 @@ runTestM testM = do
     setSearchPath :: [FilePath] -> IO ()
     setSearchPath paths = setEnv "PATH" $ intercalate [searchPathSeparator] paths
 
+    setRadPath :: FilePath -> IO ()
+    setRadPath path = setEnv "RADPATH" path
+
+-- | Run a command against a particular radicle daemon. Behaves like `local`,
+-- so nesting a `using` will override for the computation.
+--
+-- Example:
+-- > using RadDaemon1 $ runTestCommand ...
+using :: RadDaemon -> TestM a -> TestM a
+using rd act = do
+    isCINet <- liftIO (lookupEnv "IS_CI_NET") >>= \x -> pure $ case x of
+        Nothing -> False
+        Just _  -> True
+    bracket (liftIO $ lookupEnv apiPath >>= \old -> setEnv apiPath (envFor isCINet rd) >> pure old)
+            (\old -> liftIO $ case old of
+                Nothing -> unsetEnv apiPath
+                Just o' -> setEnv apiPath o')
+            (const act)
+  where
+    apiPath = "RAD_DAEMON_API_URL"
+    envFor isCI RadDaemon1 = if isCI then "http://radicle-daemon1:8909" else "http://localhost:19302"
+    envFor isCI RadDaemon2 = if isCI then "http://radicle-daemon2:8909" else "http://localhost:19303"
 
 -- * Lift test definitions and assertions to 'TestM'
 
@@ -113,7 +142,7 @@ assertAbsence str substr =
 -- | Runs @rad key create@ and sets the Git user name and email.
 prepareRadicle :: TestM Text
 prepareRadicle = do
-    _ <- runTestCommand "rad-key" ["create"]
+    _ <- using RadDaemon1 $ runTestCommand "rad-key" ["create"]
     _ <- runTestCommand "git" ["config", "--global", "user.name", "Alice"]
     runTestCommand "git" ["config", "--global", "user.email", "alice@example.com"]
 
@@ -176,8 +205,14 @@ executeCommand bin args inputLines = do
     let argsString = map toS args
     TestEnv {..} <- ask
     searchPath <- liftIO $ getEnv "PATH"
-    radIpfsApiUrl <- liftIO $ getEnv "RAD_IPFS_API_URL"
-    let env = [("PATH", searchPath), ("HOME", homeDir), ("RADPATH", projectDir </> "rad"), ("RAD_IPFS_API_URL", radIpfsApiUrl)]
+    radDaemon <- liftIO $ fromMaybe "" <$> lookupEnv "RAD_DAEMON_API_URL"
+    apiDaemon <- liftIO $ fromMaybe "" <$> lookupEnv "RAD_IPFS_API_URL"
+    let env = [ ("PATH", searchPath)
+              , ("HOME", homeDir)
+              , ("RAD_DAEMON_API_URL", radDaemon)
+              , ("RAD_IPFS_API_URL", apiDaemon)
+              , ("RADPATH", projectDir </> "rad")
+              ]
     let procSpec = (proc bin argsString) { env = Just env }
     let input = T.unpack $ T.intercalate "\n" inputLines
     (code, stout, sterr) <- liftIO $ readCreateProcessWithExitCode procSpec input

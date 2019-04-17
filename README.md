@@ -82,13 +82,18 @@ into version control.
 
 The end-to-end test suite is run with
 
-    RAD_IPFS_API_URL=http://localhost:19301 stack test :e2e
+    RAD_IPFS_API_URL=http://localhost:19301 \
+      RAD_BIN="$(stack path --docker --local-install-root)/bin" stack test :e2e
 
-It requires you to start up an IPFS test network and the Radicle daemon.
+It requires you to first start up an IPFS test network and the Radicle daemon.
 
     docker-compose -f test/docker-compose.yaml up -d ipfs-test-network
     RAD_IPFS_API_URL=http://localhost:19301 stack exec -- \
       rad-daemon-radicle --machine-config /tmp/radicle-machines.json
+
+And to build the project with stack's docker support:
+
+    stack build --docker
 
 If you use `docker-compose up` for the first time you will also need to
 initialize the IPFS test network with

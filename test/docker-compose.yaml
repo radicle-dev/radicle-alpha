@@ -4,7 +4,35 @@ version: '3'
 services:
   ipfs-test-network:
     image: gcr.io/opensourcecoin/ipfs-test-network:010c506
-    ports:
-    - "19301:5001"
     command:
     - --enable-pubsub-experiment
+    ports:
+    - "19301:5001"
+  radicle-daemon1:
+   image: haskell:8.6.3
+   ports:
+   - "19302:8909"
+   volumes:
+   - ${RAD_BIN}:/usr/local/bin/
+   environment:
+     RAD_IPFS_API_URL: http://ipfs-test-network:5001
+   command:
+   - bash
+   - -c
+   - 'sleep 10 && rad-daemon-radicle --debug'
+   depends_on:
+   - ipfs-test-network
+  radicle-daemon2:
+   image: haskell:8.6.3
+   ports:
+   - "19303:8909"
+   volumes:
+   - ${RAD_BIN}:/usr/local/bin/
+   environment:
+     RAD_IPFS_API_URL: http://ipfs-test-network:5002
+   command:
+   - bash
+   - -c
+   - 'sleep 10 && rad-daemon-radicle --debug'
+   depends_on:
+   - ipfs-test-network

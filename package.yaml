@@ -119,6 +119,7 @@ tests:
     dependencies:
     - process
     - directory
+    - exceptions
     - filepath
     # Requires the 'git-remote-ipfs' executable
     - git-remote-ipfs
