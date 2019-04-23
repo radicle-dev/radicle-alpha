@@ -245,17 +245,19 @@ send id (Api.SendRequest expressions) = do
 -- into memory and start following its changes.
 ensureMachineLoaded :: MachineId -> Daemon Machine
 ensureMachineLoaded id = do
-    m <- modifyMachine' id $ \case
+    (m, shouldWriteConfig) <- modifyMachine' id $ \case
         Nothing -> do
             m <- initAsReader id
-            pure (Just (Cached m), m)
+            pure (Just (Cached m), (m, True))
         Just (UninitialisedReader _) -> do
             m <- initAsReader id
-            pure (Just (Cached m), m)
+            pure (Just (Cached m), (m, False))
         Just (Cached m) -> do
             m' <- pullInputs m
-            pure (Just (Cached m'), m')
-    writeMachineConfig
+            pure (Just (Cached m'), (m', False))
+    -- Note: writing of the config-file should not happen in the above
+    -- 'modifyMachine'' transaction.
+    when shouldWriteConfig writeMachineConfig
     pure m
 
 -- | Creates a IPFS pusbsub subscription for the given machine. This
