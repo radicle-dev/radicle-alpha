@@ -13,7 +13,7 @@ machineHtml = "<html><body><p>hi</p></body></html>"
 code :: Text
 code =
     "(import prelude/machine '[send-code!] :unqualified)\
-    \(def id (new-machine!)\
+    \(def id (new-machine!))\
     \(send-code! id (def html (fn [] \"" <> machineHtml <> "\")))\
     \(print! id)"
 
