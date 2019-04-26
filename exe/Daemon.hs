@@ -122,7 +122,7 @@ server :: Env -> Server Api.DaemonApi
 server env = hoistServer Api.daemonApi nt daemonServer
   where
     daemonServer :: ServerT Api.DaemonApi Daemon
-    daemonServer = newMachine :<|> query :<|> send :<|> pure Api.swagger
+    daemonServer = newMachine :<|> query :<|> send :<|> frontend :<|> pure Api.swagger
 
     nt :: Daemon a -> Handler a
     nt d = do
@@ -237,6 +237,18 @@ send id (Api.SendRequest expressions) = do
           pure Api.SendResponse{..}
         Nothing -> throw $ MachineError id AckTimeout
 
+
+-- | Give the HTML specified by a machine (via defining `(get-html)`).
+frontend :: MachineId -> Daemon Api.HtmlText
+frontend id = do
+  m <- ensureMachineLoaded id
+  bumpPolling id
+  case runIdentity $ interpret "[frontend]" "(get-html)" (machineState m) of
+    Left err -> throw $ MachineError id (InvalidInput err)
+    Right (String v) -> do
+      logInfo "Handled frontend request" [("machine-id", getMachineId id)]
+      pure $ Api.HtmlText v
+    Right _ -> throw $ MachineError id (DaemonError "get-html returned non-string")
 
 -- | Given an 'MachineId', makes sure the machine is loaded and
 -- fetch the latest inputs.

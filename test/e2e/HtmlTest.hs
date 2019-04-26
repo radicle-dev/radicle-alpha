@@ -1,0 +1,29 @@
+-- | Test that the Daemon properly serves HTML defined in the machine.
+module HtmlTest (test_html) where
+
+import           Protolude
+
+import           Radicle.Daemon.Client
+import           Radicle.Daemon.HttpApi (HtmlText(..))
+import           Test.E2ESupport
+
+machineHtml :: Text
+machineHtml = "<html><body><p>hi</p></body></html>"
+
+code :: Text
+code =
+    "(import prelude/machine '[send-code!] :unqualified)\
+    \(def id (new-machine!)\
+    \(send-code! id (def html (fn [] \"" <> machineHtml <> "\")))\
+    \(print! id)"
+
+initializeMachine :: TestM Text
+initializeMachine = using RadDaemon1 $ runTestCommand' "rad-repl" [] [code]
+
+test_html :: TestTree
+test_html = testCaseSteps "machine html" $ \step -> do
+    step "initialize"
+    machine <- initializeMachine
+    cli <- liftIO newClient
+    t <- liftIO . runExceptT $ getMachineHtml cli (MachineId machine)
+    assertEqual "Machine servers right html" t (Right $ HtmlText machineHtml)

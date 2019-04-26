@@ -117,6 +117,7 @@ tests:
     source-dirs:
     - test/e2e
     dependencies:
+    - radicle
     - process
     - directory
     - exceptions
