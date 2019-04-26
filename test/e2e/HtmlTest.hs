@@ -12,10 +12,10 @@ machineHtml = "<html><body><p>hi</p></body></html>"
 
 code :: Text
 code =
-    "(import prelude/machine '[send-code!] :unqualified)\
-    \(def id (new-machine!))\
-    \(send-code! id (def html (fn [] \"" <> machineHtml <> "\")))\
-    \(print! id)"
+    "(import prelude/machine '[send! new-machine!] :unqualified)" <>
+    "(def id (new-machine!))" <>
+    "(send! id (def get-html '(fn [] \"" <> machineHtml <> "\")))" <>
+    "(print! id)"
 
 initializeMachine :: TestM Text
 initializeMachine = using RadDaemon1 $ runTestCommand' "rad-repl" [] [code]
