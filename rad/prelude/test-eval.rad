@@ -13,14 +13,14 @@
 ;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
 (def tx
   "Transaction function that adds :test macro to register tests."
-  (fn [expr]
+  (fn [expr state]
     (if (list? expr)
       (if (eq? (first expr) :test)
-        :no-tests
-        ;; (do (def next-tests {:doc-test (drop 2 expr) :name (nth 1 expr)})
-        ;;     (write-ref tests (add-right next-tests (read-ref tests))))
-        (tx expr))
-      (tx expr))))
+        (do (def next-tests {:doc-test (drop 2 expr) :name (nth 1 expr) :env state})
+            (write-ref tests (add-right next-tests (read-ref tests)))
+            :test-added)
+        (tx expr state))
+      (tx expr state))))
 
 (:test "'test' works (including :setup)"
        [:setup
@@ -34,12 +34,12 @@
        )
 
 (:test "'test' handles exceptions properly"
-    [:setup
-      (do
-        (def x (catch 'any (throw 'blah) (fn [x] #t)))
-        (def y (catch 'any (throw 'blah) (fn [x] #f)))
-      )
-    ]
-    [x ==> #t]
-    [y ==> #f]
-)
+       [:setup
+        (do
+          (def x (catch 'any (throw 'blah) (fn [x] #t)))
+          (def y (catch 'any (throw 'blah) (fn [x] #f)))
+          )
+        ]
+       [x ==> #t]
+       [y ==> #f]
+       )

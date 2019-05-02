@@ -74,12 +74,12 @@ runCodeWithFiles files code =
 -- | Run radicle code in a pure environment.
 runPureCode :: Text -> Either (LangError Value) Value
 runPureCode code =
-    let prog = transactMany "[test]" code
+    let prog = interpretMany "[test]" code
     in evalState (fst <$> runLang pureEnv prog) defaultWorldState
 
 runCodeWithWorld :: WorldState -> Text -> IO (Either (LangError Value) Value, [Text])
 runCodeWithWorld ws code = do
-    let prog = transactMany "[test]" code
+    let prog = interpretMany "[test]" code
     bindings <- createImpureBindings []
     (result, ws') <- runStateT (fst <$> runLang bindings prog) ws
     pure $ (result, worldStateStdout ws')
