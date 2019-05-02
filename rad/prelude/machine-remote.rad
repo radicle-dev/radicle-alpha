@@ -42,29 +42,29 @@
           (eval-fn-app state process-command expr (fn [x] x)))
         validator)))
 
-(:test "make-updatable-eval"
-  [:setup
-    (do
-      (def counter (ref 0))
-      (def commands
-        {'inc (fn [] (modify-ref counter (fn [x] (+ x 1))))
-         'get (fn [] (read-ref counter))})
-      (def ev
-        (make-updatable-eval
-          commands
-          (fn [x] (if (eq? (lookup :pwd x) "secret")
-                      :ok
-                      (throw 'validation-failure "nope")))))
-      (def res (ev '(inc) (get-current-state)))
-      (def st (nth 1 res))
-    )
-  ]
-  [ (nth 0 (ev '(get) st)) ==> 1 ]
-  [ (catch 'validation-failure
-           (ev '(update {:pwd "blah" :eval eval}) st)
-           (fn [_] :ok)) ==> :ok ]
-  [ (catch 'validation-failure
-           (do (ev '(update {:pwd "secret" :eval eval}) st)
-               :ok)
-           (fn [_] :not-ok)) ==> :ok ]
-)
+;; (:test "make-updatable-eval"
+;;   [:setup
+;;     (do
+;;       (def counter (ref 0))
+;;       (def commands
+;;         {'inc (fn [] (modify-ref counter (fn [x] (+ x 1))))
+;;          'get (fn [] (read-ref counter))})
+;;       (def ev
+;;         (make-updatable-eval
+;;           commands
+;;           (fn [x] (if (eq? (lookup :pwd x) "secret")
+;;                       :ok
+;;                       (throw 'validation-failure "nope")))))
+;;       (def res (ev '(inc) (get-current-state)))
+;;       (def st (nth 1 res))
+;;     )
+;;   ]
+;;   [ (nth 0 (ev '(get) st)) ==> 1 ]
+;;   [ (catch 'validation-failure
+;;            (ev '(update {:pwd "blah" :eval eval}) st)
+;;            (fn [_] :ok)) ==> :ok ]
+;;   [ (catch 'validation-failure
+;;            (do (ev '(update {:pwd "secret" :eval eval}) st)
+;;                :ok)
+;;            (fn [_] :not-ok)) ==> :ok ]
+;; )
