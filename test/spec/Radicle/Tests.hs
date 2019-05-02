@@ -155,7 +155,7 @@ test_eval =
         f "(insert (ref 0) 1 {})"
         f "{(ref 0) 1}"
         "(lookup :k {'(fn [x] y) 1 :k :v})" `succeedsWith` Keyword [ident|v|]
-        f "(tx {'(fn [y] y) :a-fun} (get-current-state))"
+        --f "(tx {'(fn [y] y) :a-fun} (get-current-state))"
         f "(dict (ref 0) 1)"
 
     , testProperty "'string-append' concatenates string" $ \ss -> do
@@ -674,7 +674,7 @@ test_binding =
         [s|(((fn [x] (fn [x] x)) "inner") "outer")|] ~~> String "outer"
     ]
   where
-    x ~~> y = runIdentity (interpret transact "test" x pureEnv) @?= Right y
+    x ~~> y = runIdentity (interpret "test" x pureEnv) @?= Right y
 
 test_pretty :: [TestTree]
 test_pretty =
@@ -790,14 +790,14 @@ test_repl =
                      ]
         assertReplInteraction input output
 
-    , testCase "handles 'eval' redefinition" $ do
-        let input = [ "(def eval (fn [expr env] (list #t env)))"
-                    , "#f"
-                    ]
-            output = [ "()"
-                     , "#t"
-                     ]
-        assertReplInteraction input output
+    -- , testCase "handles 'eval' redefinition" $ do
+    --     let input = [ "(def eval (fn [expr env] (list #t env)))"
+    --                 , "#f"
+    --                 ]
+    --         output = [ "()"
+    --                  , "#t"
+    --                  ]
+    --     assertReplInteraction input output
 
     , testCase "(def eval base-eval) doesn't change things" $ do
         let input = [ "(def eval base-eval)"

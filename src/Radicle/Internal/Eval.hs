@@ -39,14 +39,15 @@ baseEval val = logValPos val $ case val of
 
 -- |
 -- A transaction happens as follows:
---   - First @tx@ is resovled, this is expected to be invocable.
---   - It is invoked on the input expression.
---   - The result of this is evaluated normally.
+-- - First @tx@ is resovled, this is expected to be invocable.
+-- - It is invoked on the input expression.
+-- - The result of this is evaluated normally.
 transact :: Monad m => Value -> Lang m Value
 transact expr = do
     tx <- lookupAtom (Ident "tx")
+    st <- gets bindingsToRadicle
     logValPos tx $ do
-        expr' <- callFn tx [expr]
+        expr' <- callFn tx [expr, st]
         baseEval expr'
 
 specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)

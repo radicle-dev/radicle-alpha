@@ -36,7 +36,7 @@ pureEnv =
     e = fromList . allDocs $
           [ ( "tx"
             , "The evaluation function used to evaluate inputs. Intially\
-                \this is set to `identity`, the identity function."
+                \this is set to `identity`."
             , PrimFn $ unsafeToIdent "identity"
             )
           ]
@@ -65,8 +65,10 @@ addPrimFn name doc run (PrimFns primFns) = PrimFns primFns'
 purePrimFns :: forall m. (Monad m) => PrimFns m
 purePrimFns = fromList $ allDocs $
     [ ( "identity"
-      , "Returns the single input unchanged."
-      , oneArg "identity" pure
+      , "Returns the first argument unchanged."
+      , \case
+          [] -> throwErrorHere $ WrongNumberOfArgs "identity" 1 0
+          x:_ -> pure x
       )
     , ( "base-eval"
       , "The default evaluation function. Expects an expression and a radicle\
