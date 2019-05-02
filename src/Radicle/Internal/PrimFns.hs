@@ -34,10 +34,10 @@ pureEnv =
     addPrimFns purePrimFns $ Bindings e mempty mempty 0 mempty 0 mempty 0
   where
     e = fromList . allDocs $
-          [ ( "eval"
+          [ ( "tx"
             , "The evaluation function used to evaluate inputs. Intially\
-                \this is set to `base-eval`."
-            , PrimFn $ unsafeToIdent "base-eval"
+                \this is set to `identity`, the identity function."
+            , PrimFn $ unsafeToIdent "identity"
             )
           ]
 
@@ -64,7 +64,11 @@ addPrimFn name doc run (PrimFns primFns) = PrimFns primFns'
 -- | The universal primops. These are available in chain evaluation.
 purePrimFns :: forall m. (Monad m) => PrimFns m
 purePrimFns = fromList $ allDocs $
-    [ ( "base-eval"
+    [ ( "identity"
+      , "Returns the single input unchanged."
+      , oneArg "identity" pure
+      )
+    , ( "base-eval"
       , "The default evaluation function. Expects an expression and a radicle\
         \ state. Return a list of length 2 consisting of the result of the\
         \ evaluation and the new state."
