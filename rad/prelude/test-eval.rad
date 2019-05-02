@@ -1,9 +1,9 @@
 {:module 'prelude/test-eval
  :doc
-   "Provides eval that adds a `:test` macro. If an the eval encounters an
+ "Provides eval that adds a `:test` macro. If an the eval encounters an
    expression of the form `(:test \"desc\" tests...)` we add it to the vector
    stored in the `tests` ref. The tests are then run by `rad/prelude/test.rad`."
- :exports '[eval tests]}
+ :exports '[tx tests]}
 
 (def tests
   "Reference that collects tests defined with the `:test` macro. This
@@ -11,34 +11,27 @@
   (ref []))
 
 ;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
-(def eval
-  "Evaluation function that adds :test macro to register tests."
-  (fn [expr state]
+(def tx
+  "Transaction function that adds :test macro to register tests."
+  (fn [expr]
     (if (list? expr)
-        (if (eq? (first expr) :test)
-            (do
-                (def env (state->env state))
-                (def test-def {:doc-test (drop 2 expr) :name (nth 1 expr) :env state})
-                (def next-tests test-def)
-                (def env_ (set-binding 'next-tests__ next-tests env))
-                (def state (set-env env_ state))
-                (eval '(do
-                  (write-ref tests (add-right next-tests__ (read-ref tests)))
-                  :nil
-                ) state))
-            (eval expr state))
-        (eval expr state))))
+      (if (eq? (first expr) :test)
+        :no-tests
+        ;; (do (def next-tests {:doc-test (drop 2 expr) :name (nth 1 expr)})
+        ;;     (write-ref tests (add-right next-tests (read-ref tests))))
+        (tx expr))
+      (tx expr))))
 
 (:test "'test' works (including :setup)"
-    [:setup
-       (do
+       [:setup
+        (do
           (def x 3)
           (def y (ref 0))
           (write-ref y 1))
-    ]
-    [(+ 3 2) ==> 5]
-    [x       ==> 3]
-)
+        ]
+       [(+ 3 2) ==> 5]
+       [x       ==> 3]
+       )
 
 (:test "'test' handles exceptions properly"
     [:setup

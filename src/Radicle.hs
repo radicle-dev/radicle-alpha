@@ -18,7 +18,7 @@ module Radicle
       interpret
     , interpretWithState
     , interpretMany
-    , eval
+    , transact
     -- ** Datatypes
     --
     -- *** Value

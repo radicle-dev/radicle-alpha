@@ -155,7 +155,7 @@ test_eval =
         f "(insert (ref 0) 1 {})"
         f "{(ref 0) 1}"
         "(lookup :k {'(fn [x] y) 1 :k :v})" `succeedsWith` Keyword [ident|v|]
-        f "(eval {'(fn [y] y) :a-fun} (get-current-state))"
+        f "(tx {'(fn [y] y) :a-fun} (get-current-state))"
         f "(dict (ref 0) 1)"
 
     , testProperty "'string-append' concatenates string" $ \ss -> do
@@ -199,25 +199,25 @@ test_eval =
                    |]
         prog `succeedsWith` List [List [int 1, int 1]]
 
-    , testCase "'eval' evaluates the list" $ do
-        let prog = [s|(first (eval (quote #t) (get-current-state)))|]
-        prog `succeedsWith` Boolean True
+    -- , testCase "'eval' evaluates the list" $ do
+    --     let prog = [s|(first (eval (quote #t) (get-current-state)))|]
+    --     prog `succeedsWith` Boolean True
 
-    , testCase "'eval' only evaluates the first quote" $ do
-        let prog1 = [s|(first (eval (quote (quote (+ 3 2))) (get-current-state)))|]
-            prog2 = [s|(quote (+ 3 2))|]
-            res1 = runPureCode prog1
-            res2 = runPureCode prog2
-        res1 @?= res2
+    -- , testCase "'eval' only evaluates the first quote" $ do
+    --     let prog1 = [s|(first (eval (quote (quote (+ 3 2))) (get-current-state)))|]
+    --         prog2 = [s|(quote (+ 3 2))|]
+    --         res1 = runPureCode prog1
+    --         res2 = runPureCode prog2
+    --     res1 @?= res2
 
-    , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
-        let prog1 = [i| (first (eval (fn [] #{renderPrettyDef _v}) (get-current-state))) |]
-            prog2 = [i| (fn [] #{renderPrettyDef _v}) |]
-            res1 = runPureCode $ toS prog1
-            res2 = runPureCode $ toS prog2
-            info = "Expected:\n" <> prettyEither res2
-                <> "\nGot:\n" <> prettyEither res1
-        counterexample (toS info) $ res1 == res2
+    -- , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
+    --     let prog1 = [i| (first (eval (fn [] #{renderPrettyDef _v}) (get-current-state))) |]
+    --         prog2 = [i| (fn [] #{renderPrettyDef _v}) |]
+    --         res1 = runPureCode $ toS prog1
+    --         res2 = runPureCode $ toS prog2
+    --         info = "Expected:\n" <> prettyEither res2
+    --             <> "\nGot:\n" <> prettyEither res1
+    --     counterexample (toS info) $ res1 == res2
 
     , testCase "lambdas with explicit arguments work" $ do
         let prog = [s|((fn [x] x) #t)|]
@@ -386,12 +386,12 @@ test_eval =
             |]
         prog `succeedsWith` Boolean True
 
-    , testCase "evaluation can be redefined" $ do
-        let prog = [s|
-            (def eval (fn [expr env] (list #f env)))
-            #t
-            |]
-        prog `succeedsWith` Boolean False
+    -- , testCase "evaluation can be redefined" $ do
+    --     let prog = [s|
+    --         (def eval (fn [expr env] (list #f env)))
+    --         #t
+    --         |]
+    --     prog `succeedsWith` Boolean False
 
     , testCase "redefining eval keeps access to future definitions" $ do
         let prog = [s|
@@ -471,7 +471,7 @@ test_eval =
         runPureCode "(show #f)" @?= Right (String "#f")
         runPureCode "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1 \"foo\" (b (quote x) 2 \"bar\"))")
         runPureCode "(show [1 :a])" @?= Right (String "[1 :a]")
-        runPureCode "eval" @?= Right (PrimFn [ident|base-eval|])
+        runPureCode "tx" @?= Right (PrimFn [ident|identity|])
         runPureCode "(show (dict 'a 1))" @?= Right (String "{a 1}")
         runPureCode "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
@@ -674,7 +674,7 @@ test_binding =
         [s|(((fn [x] (fn [x] x)) "inner") "outer")|] ~~> String "outer"
     ]
   where
-    x ~~> y = runIdentity (interpret "test" x pureEnv) @?= Right y
+    x ~~> y = runIdentity (interpret transact "test" x pureEnv) @?= Right y
 
 test_pretty :: [TestTree]
 test_pretty =
