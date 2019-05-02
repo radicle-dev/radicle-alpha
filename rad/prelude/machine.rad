@@ -1,6 +1,6 @@
 {:module 'prelude/machine
  :doc "Functions for simulating remote machines."
- :exports '[eval updatable-eval eval-fn-app send-prelude! new-machine!
+ :exports '[updatable-eval eval-fn-app send-prelude! new-machine!
             send-code! send! query! install-remote-machine-fake send-signed-command!
             catch-daemon!]}
 
