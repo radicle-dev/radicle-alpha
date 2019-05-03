@@ -12,6 +12,7 @@ module Radicle.Ipfs
     , Address(..)
     , addressToText
     , addressFromText
+    , cidFromText
 
     , VersionResponse(..)
     , version

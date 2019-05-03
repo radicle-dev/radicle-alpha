@@ -42,6 +42,7 @@ import qualified Radicle.Ipfs as Ipfs
 
 import           Radicle hiding (DaemonError, Env)
 import qualified Radicle.Internal.ConcurrentMap as CMap
+import           Radicle.Internal.Core (toLangError)
 import qualified Radicle.Internal.UUID as UUID
 
 
@@ -244,11 +245,14 @@ frontend id = do
   m <- ensureMachineLoaded id
   bumpPolling id
   case runIdentity $ interpret "[frontend]" "(get-html)" (machineState m) of
-    Left err -> throw $ MachineError id (InvalidInput err)
-    Right (String v) -> do
-      logInfo "Handled frontend request" [("machine-id", getMachineId id)]
-      pure $ Api.HtmlText v
-    Right _ -> throw $ MachineError id (DaemonError "get-html returned non-string")
+      Left err -> throw $ MachineError id (InvalidInput err)
+      Right (String v) -> do
+          logInfo "Handled frontend request" [("machine-id", getMachineId id)]
+          case Ipfs.cidFromText v of
+              Left _ -> throw $ MachineError id
+                  (InvalidInput $ toLangError $ OtherError "get-html returned invalid CID")
+              Right v' -> Api.HtmlText <$> Ipfs.dagGet (Ipfs.AddressIpfs v')
+      Right _ -> throw $ MachineError id (DaemonError "get-html returned non-string")
 
 -- | Given an 'MachineId', makes sure the machine is loaded and
 -- fetch the latest inputs.
