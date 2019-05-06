@@ -29,6 +29,7 @@ stdenv.mkDerivation {
       export IS_NIX_SHELL="true"
       export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
       export RAD_BIN="$(stack path --docker --local-install-root)/bin"
+      export COMPOSE_FILE=test/docker-compose.yaml
       eval $(grep export ${ghc}/bin/ghc)
       alias check="pushd $PWD && ./scripts/check-fmt.sh && hlint . && popd"
       alias mkdocs="pushd $PWD/docs && make html && popd"

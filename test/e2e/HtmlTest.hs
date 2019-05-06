@@ -25,5 +25,5 @@ test_html = testCaseSteps "machine html" $ \step -> do
     step "initialize"
     machine <- initializeMachine
     cli <- liftIO newClient
-    t <- liftIO . runExceptT $ getMachineHtml cli (MachineId machine)
+    t <- liftIO . runExceptT $ getMachineIndex cli (MachineId machine)
     assertEqual "Machine servers right html" t (Right $ HtmlText machineHtml)

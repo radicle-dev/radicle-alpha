@@ -42,6 +42,8 @@ definitions:
     properties:
       expression:
         $ref: '#/definitions/RadicleValue'
+  HtmlText:
+    type: string
   MachineId:
     type: string
     description: The ID (i.e. IPNS name) of an IPFS machine.
@@ -74,6 +76,26 @@ paths:
       produces:
       - application/json;charset=utf-8
       - application/radicle
+  /v0/machines/{machineId}/frontend/{path}:
+    get:
+      responses:
+        '404':
+          description: '`machineId` or `path` not found'
+        '200':
+          schema:
+            $ref: '#/definitions/HtmlText'
+          description: ''
+      produces:
+      - text/html;charset=utf-8
+      parameters:
+      - required: true
+        in: path
+        name: machineId
+        type: string
+      - required: true
+        in: path
+        name: path
+        type: string
   /v0/machines/{machineId}/query:
     post:
       consumes:
