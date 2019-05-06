@@ -242,17 +242,20 @@ send id (Api.SendRequest expressions) = do
 -- | Give the HTML specified by a machine (via defining `(get-html)`).
 frontend :: MachineId -> Daemon Api.HtmlText
 frontend id = do
-  m <- ensureMachineLoaded id
-  bumpPolling id
-  case runIdentity $ interpret "[frontend]" "(get-html)" (machineState m) of
-      Left err -> throw $ MachineError id (InvalidInput err)
-      Right (String v) -> do
-          logInfo "Handled frontend request" [("machine-id", getMachineId id)]
-          case Ipfs.cidFromText v of
-              Left _ -> throw $ MachineError id
-                  (InvalidInput $ toLangError $ OtherError "get-html returned invalid CID")
-              Right v' -> Api.HtmlText <$> Ipfs.dagGet (Ipfs.AddressIpfs v')
-      Right _ -> throw $ MachineError id (DaemonError "get-html returned non-string")
+    m <- ensureMachineLoaded id
+    bumpPolling id
+    case runIdentity $ interpret "[frontend]" "(get-html)" (machineState m) of
+        Left err -> throw $ MachineError id (InvalidInput err)
+        Right (String v) -> do
+            logInfo "Handled frontend request" [("machine-id", getMachineId id)]
+            case Ipfs.cidFromText v of
+                Left _ -> throw $ MachineError id
+                    (InvalidInput $ toLangError $ OtherError "get-html returned invalid CID")
+                Right v' -> do
+                    logInfo "Query HTML" [("CID", show v'), ("machine-id", getMachineId id)]
+                    val <- Ipfs.ipfsHttpGet' "cat" [("arg", show v' <> "/index.html")]
+                    pure $ Api.HtmlText $ toS val
+        Right _ -> throw $ MachineError id (DaemonError "get-html returned non-string")
 
 -- | Given an 'MachineId', makes sure the machine is loaded and
 -- fetch the latest inputs.

@@ -32,6 +32,11 @@ module Radicle.Ipfs
     , PubsubMessage(..)
     , publish
     , subscribe
+
+    , ipfsHttpGet
+    , ipfsHttpGet'
+    , ipfsHttpPost
+    , ipfsHttpPost'
     ) where
 
 import           Protolude hiding (TypeError, catch, catches, try)
@@ -322,11 +327,19 @@ ipfsHttpGet
     -> [(Text, Text)] -- ^ URL query parameters
     -> m a
 ipfsHttpGet path params = do
+    res <- ipfsHttpGet' path params
+    parseJsonResponse path res
+
+ipfsHttpGet'
+    :: (MonadIpfs m)
+    => Text  -- ^ Path of the endpoint under "/api/v0/"
+    -> [(Text, Text)] -- ^ URL query parameters
+    -> m LByteString
+ipfsHttpGet' path params = do
     Client{clientHttpManager, clientBaseRequest} <- askClient
     liftIO $ mapHttpException path $ do
         let request = makeIpfsRequest clientBaseRequest Http.methodGet path params
-        response <- HttpClient.httpLbs request clientHttpManager
-        parseJsonResponse path $ HttpClient.responseBody response
+        HttpClient.responseBody <$> HttpClient.httpLbs request clientHttpManager
 
 ipfsHttpPost
     :: (MonadIpfs m, FromJSON a)
