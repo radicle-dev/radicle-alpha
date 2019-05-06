@@ -8,7 +8,6 @@ module Radicle.Daemon.Client
     , newMachine
     , query
     , send
-    , getMachineHtml
     , MachineId(..)
     ) where
 
@@ -64,10 +63,6 @@ newMachine :: (ClientM m) => Client -> m MachineId
 newMachine client = do
     NewResponse {..} <- runClient client $ Servant.client newMachineEndpoint
     pure machineId
-
--- | Get the HTML for a machine.
-getMachineHtml :: (ClientM m) => Client -> MachineId -> m HtmlText
-getMachineHtml client mid = runClient client $ Servant.client frontendEndpoint mid
 
 -- | Primitive function defitions for @daemon/send!@, @daemon/query!@, and
 -- @daemon/new-machine!@.

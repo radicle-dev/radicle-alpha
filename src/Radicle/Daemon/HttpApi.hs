@@ -189,7 +189,7 @@ type NewMachineEndpoint = MachinesEndpoint ("new" :> Post '[JSON, RadicleData] N
 newMachineEndpoint :: Proxy NewMachineEndpoint
 newMachineEndpoint = Proxy
 
-type FrontendEndpoint = MachineEndpoint (Get '[HTML] HtmlText)
+type FrontendEndpoint = MachineEndpoint ("frontend" :> CaptureAll "path" Text :> Get '[HTML] HtmlText)
 frontendEndpoint :: Proxy FrontendEndpoint
 frontendEndpoint = Proxy
 

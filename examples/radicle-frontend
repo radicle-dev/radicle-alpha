@@ -8,7 +8,7 @@
    Usually it is best to keep this in a separate file."
   '(def get-html
      (fn []
-       "QmXUNjjdCevz8FXYArNAZ9CsTEA6o3yMQrLzr53akXMQfv")) )
+       "QmbqHAXGyMcQg5krxHpwZLRob9cYArc12U1MfSb6ufwBfY")) )
 
 (def create-machine
   (fn []
@@ -19,4 +19,5 @@
 (put-str!
   (string-append
     "Created machine. Visit it at: http://localhost:8909/v0/machines/"
-    (create-machine)))
+    (create-machine)
+    "/frontend/index.html"))

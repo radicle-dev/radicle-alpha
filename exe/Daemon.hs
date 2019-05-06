@@ -240,8 +240,8 @@ send id (Api.SendRequest expressions) = do
 
 
 -- | Give the HTML specified by a machine (via defining `(get-html)`).
-frontend :: MachineId -> Daemon Api.HtmlText
-frontend id = do
+frontend :: MachineId -> [Text] -> Daemon Api.HtmlText
+frontend id path = do
     m <- ensureMachineLoaded id
     bumpPolling id
     case runIdentity $ interpret "[frontend]" "(get-html)" (machineState m) of
@@ -252,8 +252,12 @@ frontend id = do
                 Left _ -> throw $ MachineError id
                     (InvalidInput $ toLangError $ OtherError "get-html returned invalid CID")
                 Right v' -> do
-                    logInfo "Query HTML" [("CID", show v'), ("machine-id", getMachineId id)]
-                    val <- Ipfs.ipfsHttpGet' "cat" [("arg", show v' <> "/index.html")]
+                    let ipfsPath = show v' <> "/" <> T.intercalate "/" path
+                    logInfo "Query HTML" [ ("CID", show v')
+                                         , ("machine-id", getMachineId id)
+                                         , ("ipfs-path", ipfsPath)
+                                         ]
+                    val <- Ipfs.ipfsHttpGet' "cat" [("arg", ipfsPath)]
                     pure $ Api.HtmlText $ toS val
         Right _ -> throw $ MachineError id (DaemonError "get-html returned non-string")
 
