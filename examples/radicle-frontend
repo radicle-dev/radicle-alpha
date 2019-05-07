@@ -4,11 +4,16 @@
 (import prelude/machine '[send! new-machine!] :unqualified)
 
 (def machine-code
-  "The code that will live in the remote machine.
-   Usually it is best to keep this in a separate file."
+  "The code that will live in the remote machine.  Usually it is best to keep
+  this in a separate file.
+
+  The CID is that of the ./frontend directory, which contains a simple
+  index.html page.
+  "
   '(def get-html
      (fn []
-       "QmbqHAXGyMcQg5krxHpwZLRob9cYArc12U1MfSb6ufwBfY")) )
+       "QmNYGU5355YzzaB4AMUFHDjLKx3L3Yr47TufpM4vbphWHH")) )
+
 
 (def create-machine
   (fn []
