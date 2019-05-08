@@ -497,3 +497,6 @@ lowFreqPollPeriod = 10 * 1000
 -- a writer: 20 seconds.
 ackWaitTime :: Milliseconds
 ackWaitTime = 20 * 1000
+
+logDaemonError :: MonadIO m => Error -> m ()
+logDaemonError (displayError -> (m, xs)) = logError' m xs

@@ -60,6 +60,7 @@ library:
   - prettyprinter-ansi-terminal
   - process
   - resourcet
+  - retry
   - safe-exceptions
   - scientific
   - serialise
@@ -246,6 +247,7 @@ default-extensions:
 - MultiParamTypeClasses
 - MultiWayIf
 - NamedFieldPuns
+- NumericUnderscores
 - NoImplicitPrelude
 - OverloadedStrings
 - RankNTypes

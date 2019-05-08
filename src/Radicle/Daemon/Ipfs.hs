@@ -33,6 +33,7 @@ import qualified Data.Unique as Unique
 import           System.Timeout
 import           UnliftIO.Async
 
+import           Radicle.Daemon.Logging (MonadLog)
 import           Radicle.Internal.Core
 import           Radicle.Internal.Json
 import           Radicle.Internal.Parse
@@ -43,7 +44,7 @@ import qualified Radicle.Ipfs as Ipfs
 -- * Types
 
 
-class (MonadIO m, MonadThrow m, MonadUnliftIO m, Ipfs.MonadIpfs m) => MonadMachineIpfs m
+class (MonadIO m, MonadThrow m, MonadUnliftIO m, MonadLog m, MonadMask m, Ipfs.MonadIpfs m) => MonadMachineIpfs m
 
 newtype MachineId = MachineId { getMachineId :: Text }
     deriving (Show, Eq, Ord, Generic)

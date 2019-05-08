@@ -38,6 +38,15 @@ import           Protolude hiding (TypeError, catch, catches, try)
 import           Control.Exception.Safe
 import           Control.Monad.Fail
 import           Control.Monad.Trans.Resource
+import           Control.Retry
+                 ( RetryPolicyM
+                 , capDelay
+                 , fullJitterBackoff
+                 , logRetries
+                 , recovering
+                 , rsIterNumber
+                 , skipAsyncExceptions
+                 )
 import           Data.Aeson (FromJSON, ToJSON, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
@@ -57,6 +66,8 @@ import qualified Network.HTTP.Client.MultipartFormData as HttpClient
 import qualified Network.HTTP.Conduit as HttpConduit
 import qualified Network.HTTP.Types.Method as Http
 import           System.Environment (lookupEnv)
+
+import           Radicle.Daemon.Logging
 
 class (MonadIO m, MonadCatch m) => MonadIpfs m where
     askClient :: m Client
@@ -210,10 +221,14 @@ instance FromJSON PubsubMessage where
 -- | Subscribe to a topic and call @messageHandler@ on every message.
 -- The IO action blocks while we are subscribed. To stop subscription
 -- you need to kill the thread the subscription is running in.
-subscribe :: (MonadIpfs m) => Text -> (PubsubMessage -> IO ()) -> m ()
+subscribe
+    :: (MonadIpfs m, MonadMask m, MonadLog m)
+    => Text
+    -> (PubsubMessage -> IO ())
+    -> m ()
 subscribe topic messageHandler = do
     Client{clientHttpManager, clientBaseRequest} <- askClient
-    liftIO $ runResourceT $ do
+    withBackoff . liftIO $  runResourceT $ do
         let req = makeIpfsRequest
                     clientBaseRequest
                     Http.methodGet
@@ -226,6 +241,23 @@ subscribe topic messageHandler = do
         C.runConduit $ body .| fromJSONC .| C.mapM_ (liftIO . messageHandler) .| C.sinkNull
         pure ()
   where
+    withBackoff :: (MonadLog m, MonadMask m) => m a -> m a
+    withBackoff action
+        = recovering
+            policy
+            (skipAsyncExceptions ++ [h]) -- `h` should be *after* skipAsync!
+            (const action)
+      where
+        h = logRetries (\(_ :: SomeException) -> pure True)
+                       (\_ exc rs ->
+                           let err = [ ("exception", show exc)
+                                     , ("retries attempted", show (rsIterNumber rs))
+                                     ]
+                           in logError "subscribe failed " err)
+
+    policy :: (MonadIO m) => RetryPolicyM m
+    policy = capDelay (1 * minutes) $ fullJitterBackoff (seconds `div` 10)
+
     fromJSONC :: (MonadThrow m, Aeson.FromJSON a) => C.ConduitT ByteString a m ()
     fromJSONC = jsonC .| C.mapM parseThrow
 
@@ -237,6 +269,9 @@ subscribe topic messageHandler = do
         case Aeson.fromJSON value of
             Aeson.Error err -> throwString err
             Aeson.Success a -> pure a
+
+    minutes = 60 * seconds
+    seconds = 1_000_000
 
 
 -- | Publish a message to a topic.
