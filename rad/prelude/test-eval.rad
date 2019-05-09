@@ -15,10 +15,12 @@
   "Transaction function that adds :test macro to register tests."
   (fn [expr state]
     (if (list? expr)
-      (if (eq? (first expr) :test)
-        (do (def next-tests {:doc-test (drop 2 expr) :name (nth 1 expr) :env state})
-            (write-ref tests (add-right next-tests (read-ref tests)))
-            :test-added)
+      (if (> (length expr) 0)
+        (if (eq? (first expr) :test)
+          (do (def next-tests {:doc-test (drop 2 expr) :name (nth 1 expr) :env state})
+              (write-ref tests (add-right next-tests (read-ref tests)))
+              :test-added)
+          (tx expr state))
         (tx expr state))
       (tx expr state))))
 

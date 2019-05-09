@@ -251,5 +251,9 @@
    'list-issues  list-issues
    'add-admin    (add-admin auth)})
 
-
-(def eval (make-updatable-eval commands (auth [:allowed :admin])))
+(def tx
+  (fn [expr _]
+    (def command (first expr))
+    (def args    (rest expr))
+    (def do-this (lookup command commands))
+    (apply do-this args)))
