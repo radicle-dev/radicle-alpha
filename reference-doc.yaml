@@ -15,7 +15,6 @@ preludeModulesDoc: >-
 
 primFns:
 # Basics
-- identity
 - "*"
 - "+"
 - "-"
@@ -31,6 +30,7 @@ primFns:
 - read-many-annotated
 # Eval
 - base-eval
+- initial-tx
 # Refs
 - ref
 - read-ref
