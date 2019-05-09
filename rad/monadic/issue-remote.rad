@@ -251,6 +251,7 @@
    'list-issues  list-issues
    'add-admin    (add-admin auth)})
 
+;; TODO: make this updatable.
 (def tx
   (fn [expr _]
     (def command (first expr))

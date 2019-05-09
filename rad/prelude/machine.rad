@@ -58,61 +58,57 @@
   (fn [machine exprs]
     (match exprs
            [] {:machine machine :result []}
-           (/cons 'e 'es) (do
-                            (def x (base-eval (list 'tx (list 'quote e) machine) machine))
-                            (def result (nth 0 x))
-                            (def new-state (nth 1 x))
-                            (def y (base-eval result new-state))
-                            (def new-new-state (nth 1 y))
-                            (def evd-result (nth 0 y))
-                            (modify-map :result
-                                        (fn [i] (cons evd-result i))
-                                        (tx-in-fake-machine new-new-state es))))))
+           (/cons 'e 'es) (do (def x (base-eval (list 'tx (list 'quote e) machine) machine))
+                              (def y (base-eval (nth 0 x) (nth 1 x)))
+                              (def new-state (nth 1 y))
+                              (def result (nth 0 y))
+                              (modify-map :result
+                                          (fn [i] (cons result i))
+                                          (tx-in-fake-machine new-state es))))))
 
-(:test "eval-in-fake-machine"
-       [:setup
-        (do (def res1 (tx-in-fake-machine new-fake-machine '[(def x 3)]))
-            (def res (tx-in-fake-machine (lookup :machine res1) '[(+ x 2)])))
-        ]
-       [ (view (@ :result) res) ==> [5] ]
-       )
+(:test "tx-in-fake-machine"
+  [:setup
+    (do (def res1 (tx-in-fake-machine new-fake-machine '[(def x 3)]))
+        (def res (tx-in-fake-machine (lookup :machine res1) '[(+ x 2)])))
+  ]
+  [ (view (@ :result) res) ==> [5] ]
+)
 
 (def install-remote-machine-fake
   "Install test doubles for the `send!`, `query!`, and `new-machine! primitives
   that use a mutable dictionary to store RSMs. Requires
   `rad/test/stub-primitives` to be loaded"
   (fn []
-    (def remote-machines (ref {}))
+      (def remote-machines (ref {}))
 
-    (write-ref primitive-stub-ref/send!
-               (fn [name exprs]
-                 (def m (lookup name (read-ref remote-machines)))
-                 (def res (tx-in-fake-machine m exprs))
-                 (modify-ref remote-machines (fn [rms] (insert name (lookup :machine res) rms)))
-                 (lookup :result res)))
+      (write-ref primitive-stub-ref/send!
+        (fn [name exprs]
+          (def m (lookup name (read-ref remote-machines)))
+          (def res (tx-in-fake-machine m exprs))
+          (modify-ref remote-machines (fn [rms] (insert name (lookup :machine res) rms)))
+          (lookup :result res)))
 
-    (write-ref primitive-stub-ref/query!
-               (fn [name expr]
-                 (def machine (lookup name (read-ref remote-machines)))
-                 (first (lookup :result (tx-in-fake-machine machine [expr])))))
+      (write-ref primitive-stub-ref/query!
+        (fn [name expr]
+          (def machine (lookup name (read-ref remote-machines)))
+          (first (lookup :result (tx-in-fake-machine machine [expr])))))
 
-    (write-ref primitive-stub-ref/new-machine!
-               (fn []
-                 (def name (uuid!))
-                 (modify-ref remote-machines (fn [rm] (insert name new-fake-machine rm)))
-                 name))
-    ))
+      (write-ref primitive-stub-ref/new-machine!
+        (fn []
+          (def name (uuid!))
+          (modify-ref remote-machines (fn [rm] (insert name new-fake-machine rm)))
+          name))
+))
 
 (:test "install-remote-machine-fake"
-       [:setup
-        (do (install-remote-machine-fake)
-            (def machine (new-machine!))
-            (def send-result (send! machine '[(def foo 5) foo]))
-            )]
-       [ send-result ==> [() 5] ]
-       [ (query! machine '(+ 1 foo)) ==> 6 ]
-       )
-
+  [:setup
+    (do (install-remote-machine-fake)
+        (def machine (new-machine!))
+        (def send-result (send! machine '[(def foo 5) foo]))
+  )]
+  [ send-result ==> [() 5] ]
+  [ (query! machine '(+ 1 foo)) ==> 6 ]
+)
 
 (def eval-fn-app
   "Given a state, a function, an argument and a callback, returns
