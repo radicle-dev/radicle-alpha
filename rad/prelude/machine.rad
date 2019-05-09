@@ -165,7 +165,7 @@
     (def ks (get-keys!))
     (def sig
       (gen-signature! (lookup :private-key ks)
-                      (show e_)))
+                      (show-unbound e_)))
     (<> e_
         {:author    (lookup :public-key ks)
          :signature sig})))
