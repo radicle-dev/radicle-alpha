@@ -1,5 +1,19 @@
 # Revision history for radicle
 
+## 0.0.4  -- 2019-05-09
+
+### Added
+
+* Machines can now define a `(get-html)`; if that returns a IPFS CID, then
+  querying `v0/machines/<machine-id>/frontend/<path>` will return the result of
+  querying `CID/<path>` on IPFS. This allows easily making frontends for
+  machines ([PR](https://github.com/radicle-dev/radicle/pull/630)).
+
+### Fixed
+
+* Pubsub was not restarted if connection was lost. Now we try restarting, with
+  backoff ([PR](https://github.com/radicle-dev/radicle/pull/634)).
+
 ## 0.0.3  -- 2019-04-12
 
 ### Fixed
