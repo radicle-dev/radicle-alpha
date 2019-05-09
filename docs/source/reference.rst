@@ -59,6 +59,11 @@ the the second argument (a list).
 
 Returns a string representing the argument value.
 
+``show-unbound``
+~~~~~~~~~~~~~~~~
+
+Returns a string representing the argument value. (No extra formatting)
+
 ``throw``
 ~~~~~~~~~
 
