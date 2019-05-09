@@ -155,7 +155,6 @@ test_eval =
         f "(insert (ref 0) 1 {})"
         f "{(ref 0) 1}"
         "(lookup :k {'(fn [x] y) 1 :k :v})" `succeedsWith` Keyword [ident|v|]
-        --f "(tx {'(fn [y] y) :a-fun} (get-current-state))"
         f "(dict (ref 0) 1)"
 
     , testProperty "'string-append' concatenates string" $ \ss -> do

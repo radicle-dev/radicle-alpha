@@ -35,8 +35,8 @@ pureEnv =
   where
     e = fromList . allDocs $
           [ ( "tx"
-            , "The evaluation function used to evaluate inputs. Intially\
-                \this is set to `identity`."
+            , "The transactor function used for the machine inputs. Intially\
+                \this is set to `initial-tx`."
             , PrimFn $ unsafeToIdent "identity"
             )
           ]
@@ -64,7 +64,7 @@ addPrimFn name doc run (PrimFns primFns) = PrimFns primFns'
 -- | The universal primops. These are available in chain evaluation.
 purePrimFns :: forall m. (Monad m) => PrimFns m
 purePrimFns = fromList $ allDocs $
-    [ ( "identity"
+    [ ( "initial-tx"
       , "Returns the first argument unchanged."
       , \case
           [] -> throwErrorHere $ WrongNumberOfArgs "identity" 1 0

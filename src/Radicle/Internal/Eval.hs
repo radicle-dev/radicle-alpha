@@ -42,6 +42,10 @@ baseEval val = logValPos val $ case val of
 -- - First @tx@ is resovled, this is expected to be invocable.
 -- - It is invoked on the input expression.
 -- - The result of this is evaluated normally.
+--
+-- At the moment we are also passing the tx function the current state, but this
+-- is just to make the current testing framework setup work, and will be
+-- removed.
 transact :: Monad m => Value -> Lang m Value
 transact expr = do
     tx <- lookupAtom (Ident "tx")
