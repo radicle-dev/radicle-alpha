@@ -177,16 +177,17 @@
 
 (def commands
   "The set of allowed machine commands."
-  {'create-patch   create-patch
-   'list-patches   list-patches
-   'edit-patch     edit-patch
-   'add-comment    add-comment
-   'add-admin      (add-admin auth)})
+  (ref
+   {'create-patch   create-patch
+    'list-patches   list-patches
+    'edit-patch     edit-patch
+    'add-comment    add-comment
+    'add-admin      (add-admin auth)}))
 
 (def tx
   (lock-machine (auth [:allowed :admin])
                 (fn [expr]
                   (def command (first expr))
                   (def args    (rest expr))
-                  (def do-this (lookup command commands))
+                  (def do-this (lookup command (read-ref commands)))
                   (apply do-this args))))
