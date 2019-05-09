@@ -74,16 +74,17 @@
 
 (def commands
   "The set of allowed commands."
-  {'add-rsm   add-rsm
-   'set-meta  set-meta
-   'get-meta  get-meta
-   'list-rsms list-rsms
-   'add-admin (add-admin auth)})
+  (ref
+   {'add-rsm   add-rsm
+    'set-meta  set-meta
+    'get-meta  get-meta
+    'list-rsms list-rsms
+    'add-admin (add-admin auth)}))
 
 (def tx
   (lock-machine (auth [:allowed :admin])
                 (fn [expr]
                   (def command (first expr))
                   (def args    (rest expr))
-                  (def do-this (lookup command commands))
+                  (def do-this (lookup command (read-ref commands)))
                   (apply do-this args))))
