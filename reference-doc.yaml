@@ -24,6 +24,7 @@ primFns:
 - eq?
 - apply
 - show
+- show-unbound
 - throw
 - exit!
 - read-annotated
