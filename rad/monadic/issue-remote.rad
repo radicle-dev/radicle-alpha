@@ -12,7 +12,7 @@
 (import prelude/lens :unqualified)
 (import prelude/nonces :unqualified)
 (import prelude/auth '[make-simple-auth add-admin] :unqualified)
-(import prelude/machine-remote '[make-updatable-eval] :unqualified)
+(import prelude/machine-remote '[lock-machine] :unqualified)
 
 (def machine-id
   "The name of this machine."
@@ -240,8 +240,6 @@
   "List existing issues."
   (fn [] (read-ref issues)))
 
-;; General logic
-
 (def commands
   "The set of allowed machine commands."
   {'create-issue create-issue
@@ -251,10 +249,10 @@
    'list-issues  list-issues
    'add-admin    (add-admin auth)})
 
-;; TODO: make this updatable.
 (def tx
-  (fn [expr _]
-    (def command (first expr))
-    (def args    (rest expr))
-    (def do-this (lookup command commands))
-    (apply do-this args)))
+  (lock-machine (auth [:allowed :admin])
+                (fn [expr]
+                  (def command (first expr))
+                  (def args    (rest expr))
+                  (def do-this (lookup command commands))
+                  (apply do-this args))))

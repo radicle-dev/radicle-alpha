@@ -12,7 +12,7 @@
 (import prelude/lens :unqualified)
 (import prelude/nonces :unqualified)
 (import prelude/set :as 'set)
-(import prelude/machine-remote '[make-updatable-eval] :unqualified)
+(import prelude/machine-remote '[lock-machine] :unqualified)
 (import prelude/auth '[make-simple-auth add-admin] :unqualified)
 
 (def rsms
@@ -80,10 +80,10 @@
    'list-rsms list-rsms
    'add-admin (add-admin auth)})
 
-;; TODO: make this updatable
 (def tx
-  (fn [expr _]
-    (def command (first expr))
-    (def args    (rest expr))
-    (def do-this (lookup command commands))
-    (apply do-this args)))
+  (lock-machine (auth [:allowed :admin])
+                (fn [expr]
+                  (def command (first expr))
+                  (def args    (rest expr))
+                  (def do-this (lookup command commands))
+                  (apply do-this args))))

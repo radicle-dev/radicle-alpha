@@ -10,6 +10,7 @@
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/lens '[make-lens .. ... view set over @ @def] :unqualified)
 (import prelude/basic :unqualified)
+(import prelude/dict :unqualified)
 (import prelude/io :unqualified)
 (import prelude/patterns :unqualified)
 (import prelude/strings :unqualified)
