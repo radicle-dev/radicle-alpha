@@ -199,25 +199,25 @@ test_eval =
                    |]
         prog `succeedsWith` List [List [int 1, int 1]]
 
-    -- , testCase "'eval' evaluates the list" $ do
-    --     let prog = [s|(first (eval (quote #t) (get-current-state)))|]
-    --     prog `succeedsWith` Boolean True
+    , testCase "'eval' evaluates the list" $ do
+        let prog = [s|(first (eval (quote #t) (get-current-state)))|]
+        prog `succeedsWith` Boolean True
 
-    -- , testCase "'eval' only evaluates the first quote" $ do
-    --     let prog1 = [s|(first (eval (quote (quote (+ 3 2))) (get-current-state)))|]
-    --         prog2 = [s|(quote (+ 3 2))|]
-    --         res1 = runPureCode prog1
-    --         res2 = runPureCode prog2
-    --     res1 @?= res2
+    , testCase "'eval' only evaluates the first quote" $ do
+        let prog1 = [s|(first (eval (quote (quote (+ 3 2))) (get-current-state)))|]
+            prog2 = [s|(quote (+ 3 2))|]
+            res1 = runPureCode prog1
+            res2 = runPureCode prog2
+        res1 @?= res2
 
-    -- , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
-    --     let prog1 = [i| (first (eval (fn [] #{renderPrettyDef _v}) (get-current-state))) |]
-    --         prog2 = [i| (fn [] #{renderPrettyDef _v}) |]
-    --         res1 = runPureCode $ toS prog1
-    --         res2 = runPureCode $ toS prog2
-    --         info = "Expected:\n" <> prettyEither res2
-    --             <> "\nGot:\n" <> prettyEither res1
-    --     counterexample (toS info) $ res1 == res2
+    , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
+        let prog1 = [i| (first (eval (fn [] #{renderPrettyDef _v}) (get-current-state))) |]
+            prog2 = [i| (fn [] #{renderPrettyDef _v}) |]
+            res1 = runPureCode $ toS prog1
+            res2 = runPureCode $ toS prog2
+            info = "Expected:\n" <> prettyEither res2
+                <> "\nGot:\n" <> prettyEither res1
+        counterexample (toS info) $ res1 == res2
 
     , testCase "lambdas with explicit arguments work" $ do
         let prog = [s|((fn [x] x) #t)|]
@@ -386,12 +386,12 @@ test_eval =
             |]
         prog `succeedsWith` Boolean True
 
-    -- , testCase "evaluation can be redefined" $ do
-    --     let prog = [s|
-    --         (def eval (fn [expr env] (list #f env)))
-    --         #t
-    --         |]
-    --     prog `succeedsWith` Boolean False
+    , testCase "tx can be redefined" $ do
+        let prog = [s|
+            (def tx (fn [expr state] #f))
+            #t
+            |]
+        prog `succeedsWith` Boolean False
 
     , testCase "redefining eval keeps access to future definitions" $ do
         let prog = [s|
@@ -777,15 +777,6 @@ test_repl =
                      , "#t"
                      ]
         assertReplInteraction input output
-
-    -- , testCase "handles 'eval' redefinition" $ do
-    --     let input = [ "(def eval (fn [expr env] (list #t env)))"
-    --                 , "#f"
-    --                 ]
-    --         output = [ "()"
-    --                  , "#t"
-    --                  ]
-    --     assertReplInteraction input output
 
     , testCase "(def eval base-eval) doesn't change things" $ do
         let input = [ "(def eval base-eval)"
