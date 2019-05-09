@@ -122,7 +122,7 @@ server :: Env -> Server Api.DaemonApi
 server env = hoistServer Api.daemonApi nt daemonServer
   where
     daemonServer :: ServerT Api.DaemonApi Daemon
-    daemonServer = newMachine :<|> query :<|> send :<|> pure Api.swagger
+    daemonServer = newMachine :<|> query :<|> send :<|> frontend :<|> pure Api.swagger
 
     nt :: Daemon a -> Handler a
     nt d = do
@@ -237,6 +237,36 @@ send id (Api.SendRequest expressions) = do
           pure Api.SendResponse{..}
         Nothing -> throw $ MachineError id AckTimeout
 
+
+-- | Give the HTML specified by a machine (via defining `(get-html)`).
+frontend :: MachineId -> [Text] -> Daemon Api.HtmlText
+frontend id path = do
+    m <- ensureMachineLoaded id
+    bumpPolling id
+    case runIdentity $ interpret "[frontend]" "(get-html)" (machineState m) of
+        Left err -> do
+            logError "Frontend load failed" [("machine-id", getMachineId id)]
+            throw $ MachineError id
+                  $ FrontendError
+                  $ "(get-html) failed: " <> renderCompactPretty err
+        Right (String v) -> do
+            logInfo "Handled frontend request" [("machine-id", getMachineId id)]
+            case Ipfs.cidFromText v of
+                Left _ -> do
+                    logError "Frontend returned invalid CID" [("machine-id", getMachineId id)]
+                    throw $ MachineError id
+                          $ FrontendError "get-html returned invalid CID"
+                Right v' -> do
+                    let ipfsPath = show v' <> "/" <> T.intercalate "/" path
+                    logInfo "Query HTML" [ ("CID", show v')
+                                         , ("machine-id", getMachineId id)
+                                         , ("ipfs-path", ipfsPath)
+                                         ]
+                    val <- Ipfs.ipfsHttpGet' "cat" [("arg", ipfsPath)]
+                    pure $ Api.HtmlText $ toS val
+        Right _ -> do
+            logError "Frontend load failed" [("machine-id", getMachineId id)]
+            throw $ MachineError id $ FrontendError "(get-html) did not evaluate to a string"
 
 -- | Given an 'MachineId', makes sure the machine is loaded and
 -- fetch the latest inputs.

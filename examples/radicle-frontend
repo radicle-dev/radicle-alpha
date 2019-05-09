@@ -1,0 +1,28 @@
+#!/usr/bin/env radicle
+
+(load! (find-module-file! "prelude.rad"))
+(import prelude/machine '[send! new-machine!] :unqualified)
+
+(def machine-code
+  "The code that will live in the remote machine.  Usually it is best to keep
+  this in a separate file.
+
+  The CID is that of the ./frontend directory, which contains a simple
+  index.html page.
+  "
+  '(def get-html
+     (fn []
+       "QmNYGU5355YzzaB4AMUFHDjLKx3L3Yr47TufpM4vbphWHH")) )
+
+
+(def create-machine
+  (fn []
+    (def id (new-machine!))
+    (send! id [ machine-code ])
+    id))
+
+(put-str!
+  (string-append
+    "Created machine. Visit it at: http://localhost:8909/v0/machines/"
+    (create-machine)
+    "/frontend/index.html"))
