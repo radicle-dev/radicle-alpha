@@ -37,7 +37,7 @@ main = do
     res_ <- interpret
                "reference-doc"
                (   "(do"
-                <> "(file-module! \"prelude/test-eval.rad\") (import prelude/test-eval '[eval tests] :unqualified)"
+                <> "(file-module! \"prelude/test-eval.rad\") (import prelude/test-eval '[tx tests] :unqualified)"
                 <> foldMap (\m -> "(file-module! \"" <> m <> ".rad\")") (modules content)
                 <> "(get-current-state))")
                bindings

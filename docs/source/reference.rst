@@ -12,6 +12,11 @@ available on all machines but may be shadowed by later definitions.
 Those that end in a ``!`` are only available locally, not on 'pure'
 machines.
 
+``identity``
+~~~~~~~~~~~~
+
+Returns the first argument unchanged.
+
 ``*``
 ~~~~~
 
@@ -513,7 +518,7 @@ Reads a single line of input and returns it as a string.
 ~~~~~~~~~
 
 Evaluates the contents of a file. Each seperate radicle expression is
-``eval``\ uated according to the current definition of ``eval``.
+transacted according to the current definition of ``tx``.
 
 ``cd!``
 ~~~~~~~
@@ -1443,11 +1448,6 @@ ones. This is intended for testing.
 
 Functions for simulating remote machines.
 
-``(eval expr state)``
-~~~~~~~~~~~~~~~~~~~~~
-
-Evaluation function that adds :test macro to register tests.
-
 ``(updatable-eval sub-eval)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1488,13 +1488,6 @@ vector with the evaluation results.
 
 Send an expression to be evaluated on a machine. Does not alter the
 machine.
-
-``(install-remote-machine-fake)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Install test doubles for the ``send!``, ``query!``, and
-``new-machine! primitives that use a mutable dictionary to store RSMs. Requires``\ rad/test/stub-primitives\`
-to be loaded
 
 ``(send-signed-command! machine machine-id cmd payload)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

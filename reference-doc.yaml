@@ -15,6 +15,7 @@ preludeModulesDoc: >-
 
 primFns:
 # Basics
+- identity
 - "*"
 - "+"
 - "-"
