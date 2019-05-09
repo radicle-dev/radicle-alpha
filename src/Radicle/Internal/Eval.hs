@@ -39,7 +39,7 @@ baseEval val = logValPos val $ case val of
 
 -- |
 -- A transaction happens as follows:
--- - First @tx@ is resovled, this is expected to be invocable.
+-- - First @tx@ is resolved, this is expected to be invocable.
 -- - It is invoked on the input expression.
 -- - The result of this is evaluated normally.
 --
