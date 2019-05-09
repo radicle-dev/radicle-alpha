@@ -37,7 +37,7 @@ pureEnv =
           [ ( "tx"
             , "The transactor function used for the machine inputs. Intially\
                 \this is set to `initial-tx`."
-            , PrimFn $ unsafeToIdent "identity"
+            , PrimFn $ unsafeToIdent "initial-tx"
             )
           ]
 

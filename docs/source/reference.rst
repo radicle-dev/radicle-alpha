@@ -12,11 +12,6 @@ available on all machines but may be shadowed by later definitions.
 Those that end in a ``!`` are only available locally, not on 'pure'
 machines.
 
-``identity``
-~~~~~~~~~~~~
-
-Returns the first argument unchanged.
-
 ``*``
 ~~~~~
 
@@ -95,6 +90,11 @@ is a string which is used to annotate the values with line numbers.
 The default evaluation function. Expects an expression and a radicle
 state. Return a list of length 2 consisting of the result of the
 evaluation and the new state.
+
+``initial-tx``
+~~~~~~~~~~~~~~
+
+Returns the first argument unchanged.
 
 ``ref``
 ~~~~~~~
@@ -1454,20 +1454,6 @@ ones. This is intended for testing.
 -------------------
 
 Functions for simulating remote machines.
-
-``(updatable-eval sub-eval)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given an evaluation function ``f``, returns a new one which augments
-``f`` with a new command ``(update expr)`` which evaluates arbitrary
-expression using ``base-eval``.
-
-``(eval-fn-app state f arg cb)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a state, a function, an argument and a callback, returns the
-result of evaluating the function call on the arg in the given state,
-while also calling the callback on the result.
 
 ``(send-prelude! machine-id)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
