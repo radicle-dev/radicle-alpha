@@ -1496,6 +1496,13 @@ vector with the evaluation results.
 Send an expression to be evaluated on a machine. Does not alter the
 machine.
 
+``(install-remote-machine-fake)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Install test doubles for the ``send!``, ``query!``, and
+``new-machine! primitives that use a mutable dictionary to store RSMs. Requires``\ rad/test/stub-primitives\`
+to be loaded
+
 ``(send-signed-command! machine machine-id cmd payload)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
