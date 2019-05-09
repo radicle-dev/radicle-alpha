@@ -74,10 +74,16 @@
 
 (def commands
   "The set of allowed commands."
-   {'add-rsm   add-rsm
-    'set-meta  set-meta
-    'get-meta  get-meta
-    'list-rsms list-rsms
-    'add-admin (add-admin auth)})
+  {'add-rsm   add-rsm
+   'set-meta  set-meta
+   'get-meta  get-meta
+   'list-rsms list-rsms
+   'add-admin (add-admin auth)})
 
-(def eval (make-updatable-eval commands (auth [:allowed :admin])))
+;; TODO: make this updatable
+(def tx
+  (fn [expr _]
+    (def command (first expr))
+    (def args    (rest expr))
+    (def do-this (lookup command commands))
+    (apply do-this args)))

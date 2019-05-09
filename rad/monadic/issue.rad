@@ -152,10 +152,8 @@
       (simple-create-issue! machine "newer" "newer")
       (simple-add-comment! machine 0 "new" "name0")
       (def is (list-issues machine))
-      (set-fake-keys! owner-keys)
-      (print! is)
-      )
-  ]
+      (set-fake-keys! owner-keys))
+ ]
  [ (length (seq is)) ==> 4 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
@@ -167,66 +165,66 @@
  ;; authorization
  ;; owner can edit comments
  [ (do
-     (set-fake-keys! owner-keys)
-     (catch 'validation-failure
-         (do (simple-edit-comment! machine 0 0 {:body "edit"})
-             :valid)
-       (fn [_] :not-valid))) ==> :valid
-  ]
+      (set-fake-keys! owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-comment! machine 0 0 {:body "edit"})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
  ;; author can edit comments
  [ (do
-     (set-fake-keys! non-owner-keys)
-     (catch 'validation-failure
-         (do (simple-edit-comment! machine 0 1 {:body "edit"})
-             :valid)
-       (fn [_] :not-valid))) ==> :valid
-  ]
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-comment! machine 0 1 {:body "edit"})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
  ;; non-owner/non-author cannot edit comments
  [ (do
-     (set-fake-keys! non-owner-keys)
-     (catch 'validation-failure
-         (do (simple-edit-comment! machine 0 0 {:body "edit"})
-             :valid)
-       (fn [_] :not-valid))) ==> :not-valid
-  ]
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-comment! machine 0 0 {:body "edit"})
+                 :valid)
+             (fn [_] :not-valid))) ==> :not-valid
+ ]
  ;; owner can edit issues
  [ (do
-     (set-fake-keys! owner-keys)
-     (catch 'validation-failure
-         (do (simple-edit-issue! machine 2 {:state :closed})
-             :valid)
-       (fn [_] :not-valid))) ==> :valid
-  ]
+      (set-fake-keys! owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-issue! machine 2 {:state :closed})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
  ;; author can edit comments
  [ (do
-     (set-fake-keys! non-owner-keys)
-     (catch 'validation-failure
-         (do (simple-edit-comment! machine 0 1 {:body "edit"})
-             :valid)
-       (fn [_] :not-valid))) ==> :valid
-  ]
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-comment! machine 0 1 {:body "edit"})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
  ;; author can edit issues
  [ (do
-     (set-fake-keys! non-owner-keys)
-     (catch 'validation-failure
-         (do (simple-edit-issue! machine 2 {:state :closed})
-             :valid)
-       (fn [_] :not-valid))) ==> :valid
-  ]
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-issue! machine 2 {:state :closed})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
  ;; non-owner/non-author cannot edit comments
  [ (do
-     (set-fake-keys! non-owner-keys)
-     (catch 'validation-failure
-         (do (simple-edit-comment! machine 0 0 {:body "edit"})
-             :valid)
-       (fn [_] :not-valid))) ==> :not-valid
-  ]
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-comment! machine 0 0 {:body "edit"})
+                 :valid)
+             (fn [_] :not-valid))) ==> :not-valid
+ ]
  ;; non-owner/non-author cannot edit issues
  [ (do
-     (set-fake-keys! non-owner-keys)
-     (catch 'validation-failure
-         (do (simple-edit-issue! machine 0 {:state :closed})
-             :valid)
-       (fn [_] :not-valid))) ==> :not-valid
-  ]
- )
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-issue! machine 0 {:state :closed})
+                 :valid)
+             (fn [_] :not-valid))) ==> :not-valid
+ ]
+)

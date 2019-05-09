@@ -25,23 +25,23 @@
       (tx expr state))))
 
 (:test "'test' works (including :setup)"
-       [:setup
-        (do
+    [:setup
+       (do
           (def x 3)
           (def y (ref 0))
           (write-ref y 1))
-        ]
-       [(+ 3 2) ==> 5]
-       [x       ==> 3]
-       )
+    ]
+    [(+ 3 2) ==> 5]
+    [x       ==> 3]
+)
 
 (:test "'test' handles exceptions properly"
-       [:setup
-        (do
-          (def x (catch 'any (throw 'blah) (fn [x] #t)))
-          (def y (catch 'any (throw 'blah) (fn [x] #f)))
-          )
-        ]
-       [x ==> #t]
-       [y ==> #f]
-       )
+    [:setup
+      (do
+        (def x (catch 'any (throw 'blah) (fn [x] #t)))
+        (def y (catch 'any (throw 'blah) (fn [x] #f)))
+      )
+    ]
+    [x ==> #t]
+    [y ==> #f]
+)

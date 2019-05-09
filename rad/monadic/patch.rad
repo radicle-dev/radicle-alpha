@@ -75,32 +75,32 @@
 (def list-patches
   "Return the full map of patches."
   (fn [machine]
-  (machine/query! machine '(list-patches))))
+    (machine/query! machine '(list-patches))))
 
-;; (:test
-;;  "The monadic patch machine works."
-;;  [:setup
-;;   (do (machine/install-remote-machine-fake)
-;;       (def owner-keys (gen-key-pair! (default-ecc-curve)))
-;;       (def non-owner-keys (gen-key-pair! (default-ecc-curve)))
-;;       (set-fake-keys! owner-keys)
-;;       (def machine (create-patch-machine!))
-;;       (simple-create-patch! machine {:title "title0" :description "desc0" :patch "patch0"})
-;;       (simple-create-patch! machine {:title "title1" :description "desc1" :patch "patch1"})
-;;       (simple-add-comment! machine 0 "comment0" "name0")
-;;       (simple-add-comment! machine 1 "comment1" "name1")
-;;       (simple-edit-patch! machine 0 {:state :accepted})
-;;       (def patches (list-patches machine)))]
-;;    [ (length (seq patches)) ==> 2 ]
-;;    [ (view (.. (@ 0) (@ :title)) patches) ==> "title0" ]
-;;    [ (view (.. (@ 1) (@ :title)) patches) ==> "title1" ]
-;;    [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment0" ]
-;;    [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment1" ]
-;;    [ (view (.. (@ 0) (@ :state)) patches) ==> :accepted ]
-;;    ;; authorization
-;;    [ (do
-;;         (set-fake-keys! non-owner-keys)
-;;         (catch 'validation-failure
-;;                (simple-edit-patch! machine 1 {:state :accepted})
-;;                (fn [_] :ok))) ==> :ok ]
-;; )
+(:test
+ "The monadic patch machine works."
+ [:setup
+  (do (machine/install-remote-machine-fake)
+      (def owner-keys (gen-key-pair! (default-ecc-curve)))
+      (def non-owner-keys (gen-key-pair! (default-ecc-curve)))
+      (set-fake-keys! owner-keys)
+      (def machine (create-patch-machine!))
+      (simple-create-patch! machine {:title "title0" :description "desc0" :patch "patch0"})
+      (simple-create-patch! machine {:title "title1" :description "desc1" :patch "patch1"})
+      (simple-add-comment! machine 0 "comment0" "name0")
+      (simple-add-comment! machine 1 "comment1" "name1")
+      (simple-edit-patch! machine 0 {:state :accepted})
+      (def patches (list-patches machine)))]
+   [ (length (seq patches)) ==> 2 ]
+   [ (view (.. (@ 0) (@ :title)) patches) ==> "title0" ]
+   [ (view (.. (@ 1) (@ :title)) patches) ==> "title1" ]
+   [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment0" ]
+   [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment1" ]
+   [ (view (.. (@ 0) (@ :state)) patches) ==> :accepted ]
+   ;; authorization
+   [ (do
+        (set-fake-keys! non-owner-keys)
+        (catch 'validation-failure
+               (simple-edit-patch! machine 1 {:state :accepted})
+               (fn [_] :ok))) ==> :ok ]
+)

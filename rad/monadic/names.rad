@@ -20,18 +20,18 @@
 (def add-name!
   (fn [name-machine-url name key]
     (machine/send!
-       name-machine-url
-       [(list 'add-name name key)])))
+     name-machine-url
+     [(list 'add-name name key)])))
 
-;; (:test
-;;   "The monadic name machine works."
-;;   [:setup
-;;     (do (machine/install-remote-machine-fake)
-;;         (def machine (create-name-machine!))
-;;         (add-name! machine "alice" "a")
-;;         (add-name! machine "bob" "b"))
-;;         ]
-;;   [ (lookup-key machine "a") ==> "alice" ]
-;;   [ (lookup-key machine "b") ==> "bob" ]
-;;   [ (lookup-key machine "c") ==> :nothing ]
-;; )
+(:test
+  "The monadic name machine works."
+  [:setup
+    (do (machine/install-remote-machine-fake)
+        (def machine (create-name-machine!))
+        (add-name! machine "alice" "a")
+        (add-name! machine "bob" "b"))
+        ]
+  [ (lookup-key machine "a") ==> "alice" ]
+  [ (lookup-key machine "b") ==> "bob" ]
+  [ (lookup-key machine "c") ==> :nothing ]
+)
