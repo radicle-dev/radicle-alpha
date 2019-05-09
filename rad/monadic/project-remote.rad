@@ -12,7 +12,7 @@
 (import prelude/lens :unqualified)
 (import prelude/nonces :unqualified)
 (import prelude/set :as 'set)
-(import prelude/machine-remote '[lock-machine] :unqualified)
+(import prelude/machine-remote '[lock-machine-commands] :unqualified)
 (import prelude/auth '[make-simple-auth add-admin] :unqualified)
 
 (def rsms
@@ -82,9 +82,5 @@
     'add-admin (add-admin auth)}))
 
 (def tx
-  (lock-machine (auth [:allowed :admin])
-                (fn [expr]
-                  (def command (first expr))
-                  (def args    (rest expr))
-                  (def do-this (lookup command (read-ref commands)))
-                  (apply do-this args))))
+  (lock-machine-commands (auth [:allowed :admin])
+                         commands))
