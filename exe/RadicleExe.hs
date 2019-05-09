@@ -64,7 +64,6 @@ data Opts = Opts
     { sourceFile :: FilePath
     , histFile   :: Maybe FilePath
     , scriptArgs :: [String]
---    , bypassTx   :: Bool
     }
 
 opts :: Parser Opts
@@ -85,8 +84,3 @@ opts = Opts
            )
        ))
     <*> many (strArgument mempty)
-    -- <*> switch
-    --     ( long "bypassTx"
-    --    <> help ""
-    --    <> showDefault
-    --     )
