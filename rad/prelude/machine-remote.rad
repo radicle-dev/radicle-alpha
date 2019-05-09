@@ -1,6 +1,6 @@
 {:module 'prelude/machine-remote
  :doc "Functions for writing remote RSMs"
- :exports '[lock-machine]}
+ :exports '[lock-machine lock-machine-commands]}
 
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/patterns :unqualified)
@@ -16,6 +16,16 @@
                               (f expr))
              _ (f expr))
       )))
+
+(def lock-machine-commands
+  "Lock the machine with a ref of a dict of commands."
+  (fn [validator commands-ref]
+    (lock-machine validator
+                  (fn [expr]
+                    (def command (first expr))
+                    (def args    (rest expr))
+                    (def do-this (lookup command (read-ref commands-ref)))
+                    (apply do-this args)))))
 
 (:test
  "lock-machine"

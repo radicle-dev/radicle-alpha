@@ -9,7 +9,7 @@
 (import prelude/util :unqualified)
 (import prelude/lens :unqualified)
 (import prelude/auth '[make-simple-auth add-admin] :unqualified)
-(import prelude/machine-remote '[lock-machine] :unqualified)
+(import prelude/machine-remote '[lock-machine-commands] :unqualified)
 
 (def machine-id
   "The name of this machine."
@@ -185,9 +185,5 @@
     'add-admin      (add-admin auth)}))
 
 (def tx
-  (lock-machine (auth [:allowed :admin])
-                (fn [expr]
-                  (def command (first expr))
-                  (def args    (rest expr))
-                  (def do-this (lookup command (read-ref commands)))
-                  (apply do-this args))))
+  (lock-machine-commands (auth [:allowed :admin])
+                         commands))
