@@ -15,6 +15,7 @@ import           Radicle.Ipfs
 data MachineError
   = InvalidInput (LangError Value)
   | IpfsError IpfsException
+  | FrontendError Text
   | AckTimeout
   | DaemonError Text
   | MachineNotCached
@@ -39,6 +40,7 @@ displayError = \case
     case e of
       InvalidInput err -> ("Invalid radicle input", [mid, ("radicle-error", renderCompactPretty err)])
       IpfsError (ipfsErr -> (msg, infos)) -> (msg, mid : infos)
+      FrontendError err -> ("Frontend error", [mid, ("error", err)])
       AckTimeout -> ("No response received from the machine owner. This could be because they are offline, or that waiting for the response timed out", [mid])
       MachineNotCached -> ("Machine was not found in cache", [mid])
       DaemonError err -> ("Internal error", [mid, ("error", err)])

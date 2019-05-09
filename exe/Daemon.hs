@@ -42,7 +42,6 @@ import qualified Radicle.Ipfs as Ipfs
 
 import           Radicle hiding (DaemonError, Env)
 import qualified Radicle.Internal.ConcurrentMap as CMap
-import           Radicle.Internal.Core (toLangError)
 import qualified Radicle.Internal.UUID as UUID
 
 
@@ -245,12 +244,18 @@ frontend id path = do
     m <- ensureMachineLoaded id
     bumpPolling id
     case runIdentity $ interpret "[frontend]" "(get-html)" (machineState m) of
-        Left err -> throw $ MachineError id (InvalidInput err)
+        Left err -> do
+            logError "Frontend load failed" [("machine-id", getMachineId id)]
+            throw $ MachineError id
+                  $ FrontendError
+                  $ "(get-html) failed: " <> renderCompactPretty err
         Right (String v) -> do
             logInfo "Handled frontend request" [("machine-id", getMachineId id)]
             case Ipfs.cidFromText v of
-                Left _ -> throw $ MachineError id
-                    (InvalidInput $ toLangError $ OtherError "get-html returned invalid CID")
+                Left _ -> do
+                    logError "Frontend returned invalid CID" [("machine-id", getMachineId id)]
+                    throw $ MachineError id
+                          $ FrontendError "get-html returned invalid CID"
                 Right v' -> do
                     let ipfsPath = show v' <> "/" <> T.intercalate "/" path
                     logInfo "Query HTML" [ ("CID", show v')
@@ -259,7 +264,9 @@ frontend id path = do
                                          ]
                     val <- Ipfs.ipfsHttpGet' "cat" [("arg", ipfsPath)]
                     pure $ Api.HtmlText $ toS val
-        Right _ -> throw $ MachineError id (DaemonError "get-html returned non-string")
+        Right _ -> do
+            logError "Frontend load failed" [("machine-id", getMachineId id)]
+            throw $ MachineError id $ FrontendError "(get-html) did not evaluate to a string"
 
 -- | Given an 'MachineId', makes sure the machine is loaded and
 -- fetch the latest inputs.
