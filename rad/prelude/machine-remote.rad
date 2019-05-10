@@ -10,12 +10,11 @@
   (fn [validator f]
     (fn [expr _state]
       (match expr
-             (/cons 'cmd _) (if (eq? cmd 'update)
-                              (do (validator (nth 1 expr))
-                                  (lookup :eval (nth 1 expr)))
-                              (f expr))
-             _ (f expr))
-      )))
+             (/cons (/= 'update) (/cons 'e /nil))
+             (do (validator e)
+                 (lookup :eval e))
+             _
+             (f expr)))))
 
 (def lock-machine-commands
   "Lock the machine with a ref of a dict of commands."
@@ -52,7 +51,7 @@
             (match e
                    :inc ((read-ref inc))
                    :get (get)
-                   _    (throw 'bad-input "Just :inc!")))))])
+                   _    (throw 'bad-input "Just :inc or :get!")))))])
     (machine/send! id [:inc :inc])
     (def i (machine/query! id :get))
     (machine/send!
