@@ -198,19 +198,19 @@ test_eval =
                    |]
         prog `succeedsWith` List [List [int 1, int 1]]
 
-    , testCase "'eval' evaluates the list" $ do
-        let prog = [s|(first (eval (quote #t) (get-current-state)))|]
+    , testCase "'base-eval' evaluates the list" $ do
+        let prog = [s|(first (base-eval (quote #t) (get-current-state)))|]
         prog `succeedsWith` Boolean True
 
-    , testCase "'eval' only evaluates the first quote" $ do
-        let prog1 = [s|(first (eval (quote (quote (+ 3 2))) (get-current-state)))|]
+    , testCase "'base-eval' only evaluates the first quote" $ do
+        let prog1 = [s|(first (base-eval (quote (quote (+ 3 2))) (get-current-state)))|]
             prog2 = [s|(quote (+ 3 2))|]
             res1 = runPureCode prog1
             res2 = runPureCode prog2
         res1 @?= res2
 
-    , testProperty "'eval' does not alter functions" $ \(_v :: Value) -> do
-        let prog1 = [i| (first (eval (fn [] #{renderPrettyDef _v}) (get-current-state))) |]
+    , testProperty "'base-eval' does not alter functions" $ \(_v :: Value) -> do
+        let prog1 = [i| (first (base-eval (fn [] #{renderPrettyDef _v}) (get-current-state))) |]
             prog2 = [i| (fn [] #{renderPrettyDef _v}) |]
             res1 = runPureCode $ toS prog1
             res2 = runPureCode $ toS prog2
@@ -470,7 +470,7 @@ test_eval =
         runPureCode "(show #f)" @?= Right (String "#f")
         runPureCode "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1 \"foo\" (b (quote x) 2 \"bar\"))")
         runPureCode "(show [1 :a])" @?= Right (String "[1 :a]")
-        runPureCode "tx" @?= Right (PrimFn [ident|identity|])
+        runPureCode "tx" @?= Right (PrimFn [ident|initial-tx|])
         runPureCode "(show (dict 'a 1))" @?= Right (String "{a 1}")
         runPureCode "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
