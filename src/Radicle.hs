@@ -71,6 +71,7 @@ module Radicle
     -- * Pretty-printing
     , renderPretty
     , renderPrettyDef
+    , renderPrettyUnbounded
     , renderCompactPretty
     -- ** Re-exports
     , PageWidth(..)
