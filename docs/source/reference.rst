@@ -84,12 +84,12 @@ string which is used to annotate the value with line numbers.
 values. The resulting values are not evaluated. The ``label`` argument
 is a string which is used to annotate the values with line numbers.
 
-``base-eval``
-~~~~~~~~~~~~~
+``eval``
+~~~~~~~~
 
-The default evaluation function. Expects an expression and a radicle
-state. Return a list of length 2 consisting of the result of the
-evaluation and the new state.
+The evaluation function. Expects an expression and a radicle state.
+Return a list of length 2 consisting of the result of the evaluation and
+the new state.
 
 ``initial-tx``
 ~~~~~~~~~~~~~~

@@ -70,8 +70,8 @@ purePrimFns = fromList $ allDocs $
           [] -> throwErrorHere $ WrongNumberOfArgs "initial-tx" 1 0
           x:_ -> pure x
       )
-    , ( "base-eval"
-      , "The default evaluation function. Expects an expression and a radicle\
+    , ( "eval"
+      , "The evaluation function. Expects an expression and a radicle\
         \ state. Return a list of length 2 consisting of the result of the\
         \ evaluation and the new state."
       , \case
@@ -82,7 +82,7 @@ purePrimFns = fromList $ allDocs $
               st' <- get
               put originalBindings
               pure $ List [val, bindingsToRadicle st']
-          xs -> throwErrorHere $ WrongNumberOfArgs "base-eval" 2 (length xs)
+          xs -> throwErrorHere $ WrongNumberOfArgs "eval" 2 (length xs)
       )
     , ( "pure-state"
       , "Returns a pure initial radicle state. This is the state of a radicle\
