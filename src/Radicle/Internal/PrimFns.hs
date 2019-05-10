@@ -570,7 +570,7 @@ purePrimFns = fromList $ allDocs $
       , oneArg "show" (pure . String . renderPrettyDef))
     , ( "show-unbound"
       , "Returns a string representing the argument value. (No extra formatting)"
-      , oneArg "show-com" (pure . String . renderPrettyUnbounded))
+      , oneArg "show-unbound" (pure . String . renderPrettyUnbounded))
     , ( "seq"
       , "Given a structure `s`, returns a sequence. Lists and vectors are returned\
         \ without modification while for dicts a vector of key-value-pairs is returned:\
