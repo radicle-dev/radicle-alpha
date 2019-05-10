@@ -67,7 +67,7 @@ purePrimFns = fromList $ allDocs $
     [ ( "initial-tx"
       , "Returns the first argument unchanged."
       , \case
-          [] -> throwErrorHere $ WrongNumberOfArgs "identity" 1 0
+          [] -> throwErrorHere $ WrongNumberOfArgs "initial-tx" 1 0
           x:_ -> pure x
       )
     , ( "base-eval"
