@@ -59,8 +59,8 @@
   (fn [machine exprs]
     (match exprs
            [] {:machine machine :result []}
-           (/cons 'e 'es) (do (def x (base-eval (list 'tx (list 'quote e) machine) machine))
-                              (def y (base-eval (nth 0 x) (nth 1 x)))
+           (/cons 'e 'es) (do (def x (eval (list 'tx (list 'quote e) machine) machine))
+                              (def y (eval (nth 0 x) (nth 1 x)))
                               (def new-state (nth 1 y))
                               (def result (nth 0 y))
                               (modify-map :result

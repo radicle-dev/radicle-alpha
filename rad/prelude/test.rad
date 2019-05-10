@@ -57,7 +57,7 @@
     (def rhs (nth 2 step))
     (if (eq? marker '==>)
         (fn [env]
-          (def lhs-res (head (base-eval lhs env)))
+          (def lhs-res (head (eval lhs env)))
           (assert-equal lhs-res rhs))
         (throw 'parse-test-step "Expected and actual not separate by ==>"))
   ))
@@ -97,7 +97,7 @@
     (def setup (nth 0 setup-and-steps))
     (def steps (nth 1 setup-and-steps))
     (def step-runners (map parse-doc-test-step steps))
-    (def test-env (nth 1 (base-eval setup test-env)))
+    (def test-env (nth 1 (eval setup test-env)))
     (def run
       (fn []
         (map (fn [r] (r test-env)) step-runners)
