@@ -67,7 +67,7 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
         Macro _ -> angles "macro"
         Dict mp -> braces . align $
             sep [ prettyV k <+> prettyV val
-                | (k, val) <- Map.toList mp ]
+                | (k, val) <- Map.toAscList mp ]
         Lambda ids vals _ -> prettyLambda ids vals
         LambdaRec _ ids vals _ -> prettyLambda ids vals
         VEnv _ -> angles "env"
