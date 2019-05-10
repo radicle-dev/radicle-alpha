@@ -713,6 +713,11 @@ The wildcard pattern.
 Predicate pattern. Takes a predicate function as argument. Values match
 against this pattern if the predicate returns a truthy value.
 
+``(/= x)``
+~~~~~~~~~~
+
+Matches values for equality.
+
 ``(/as var pat)``
 ~~~~~~~~~~~~~~~~~
 

@@ -1,6 +1,6 @@
 {:module  'prelude/patterns
  :doc     "Pattern matching is first-class in radicle so new patterns can easily be defined. These are the most essential."
- :exports '[match-pat _ /? /as /cons /nil /just /member]}
+ :exports '[match-pat _ /? /= /as /cons /nil /just /member]}
 
 (import prelude/basic :unqualified)
 
@@ -164,6 +164,10 @@
                 (/? (fn [l] (< 0 (length l)))) :yes
                 _ :no) ==> :yes])
 
+(def /=
+  "Matches values for equality."
+  (fn [x] (/? \(eq? x ?))))
+
 (def /as
   "As pattern. Takes a variable and a sub-pattern. If the subpattern matches then
   the whole pattern matches and furthermore the variable is bound to the matched
@@ -230,4 +234,4 @@
   [(match [1 4]
           [1 (/member [1 3 5])] :no
           [1 (/member [2 4 8])] :yes
-          _                     :no) ==> :yes])
+_ :no) ==> :yes])
