@@ -279,6 +279,12 @@ keys to the same thing, the greatest key and value are kept.
 Given a function ``f`` and a dict ``d``, returns a dict with the same
 keys as ``d`` but ``f`` applied to all the associated values.
 
+``string->symbol``
+~~~~~~~~~~~~~~~~~~
+
+Turns a string into a symbol. If the string is not a valid identifier an
+exception is thrown.
+
 ``string-append``
 ~~~~~~~~~~~~~~~~~
 
@@ -625,6 +631,13 @@ these modules expose.
 Basic function used for checking equality, determining the type of a
 value, etc.
 
+``if``
+~~~~~~
+
+Macro which is called as ``(if c a b)``. If the expression ``c``
+evaluates to true, then the value of the whole expression is the
+evaluation of ``a``, otherwise it is the evaluation of ``b``.
+
 ``(or x y)``
 ~~~~~~~~~~~~
 
@@ -685,6 +698,17 @@ Reads many radicle values from a string.
 ~~~~~~~~~~~~
 
 Test if ``x`` is less than or equal to ``y``.
+
+``(gensym)``
+~~~~~~~~~~~~
+
+Returns a new symbol with a pseudo-unique name. The returned symbols are
+``G__#``, where # is a number.
+
+This is used for generating names for "fresh" variables in
+macro-expanded code. Technically it is possible to still get a clash,
+but this won't happen as long as human code-writers never use symbols of
+the form ``G__#``.
 
 ``prelude/patterns``
 --------------------
