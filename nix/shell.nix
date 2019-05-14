@@ -22,12 +22,12 @@ stdenv.mkDerivation {
       ++ (if extras then [ vimPlugins.stylish-haskell haskellPackages.apply-refact hlint haskellPackages.ghcid haskellPackages.weeder] else []);
     LANG = "en_US.UTF-8";
     libraryPkgconfigDepends = [ zlib ];
+    LOCALE_ARCHIVE = pkgs.lib.optionalString (buildPlatform.libc == "glibc") "${pkgs.glibcLocales}/lib/locale/locale-archive";
     shellHook = ''
       export PATH=$PATH:`stack path --local-bin`:$PWD/bin
       export RADPATH=$PWD/rad
       export STACK_IN_NIX_EXTRA_ARGS="--system-ghc --nix-packages zlib"
       export IS_NIX_SHELL="true"
-      export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
       export RAD_BIN="$(stack path --docker --local-install-root)/bin"
       export COMPOSE_FILE=test/docker-compose.yaml
       eval $(grep export ${ghc}/bin/ghc)
