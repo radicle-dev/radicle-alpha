@@ -64,15 +64,15 @@ gen textGen n | n == 0 = frequency $ first pred <$> freqs
     -- anything a user can write. So we don't generate dicts directly,
     -- instead requiring they go via the primop.
     freqs = [ (3, Atom <$> (arbitrary `suchThat` (\x -> not (isPrimop x || isNum x))))
-                , (3, String <$> textGen)
-                , (3, Boolean <$> arbitrary)
-                , (3, Number <$> arbitrary)
-                , (1, List <$> sizedList)
-                , (6, PrimFn <$> elements (Map.keys $ getPrimFns prims))
-                , (1, Lambda <$> lambdaArgs
-                             <*> scale (`div` 3) arbitrary
-                             <*> scale (`div` 3) arbitrary)
-                ]
+            , (3, String <$> textGen)
+            , (3, Boolean <$> arbitrary)
+            , (3, Number <$> arbitrary)
+            , (1, List <$> sizedList)
+            , (6, PrimFn <$> elements (Map.keys $ getPrimFns prims))
+            , (1, Lambda <$> lambdaArgs
+                         <*> scale (`div` 3) arbitrary
+                         <*> scale (`div` 3) arbitrary)
+            ]
 
     sizedList :: Arbitrary a => Gen [a]
     sizedList = sized $ \s -> do
