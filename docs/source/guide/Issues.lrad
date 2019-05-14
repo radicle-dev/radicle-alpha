@@ -93,7 +93,7 @@ we'll talk about that later.
       (fn [expr _state]
         (match expr
           (/cons (/= 'update) (/cons 'e /nil)) e
-          _ (process-command expr))))
+          _                                    (process-command expr))))
 
 Now we can start creating some issues. To generate some UUIDs, use the `uuid!`
 function at the REPL.
