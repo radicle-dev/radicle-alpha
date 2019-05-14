@@ -21,7 +21,7 @@ import qualified Text.Megaparsec.Pos as Par
 
 import           Radicle
 import qualified Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Arbitrary ()
+import           Radicle.Internal.Arbitrary (NoSpaceValue(..))
 import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Bar(..), Baz(..), Foo)
 import           Radicle.Internal.TestCapabilities
@@ -479,7 +479,7 @@ test_eval =
         runPureCode "(show-unbound {:bar \"bar bar bar bar bar bar bar bar bar bar bar bar bar bar bar\" :foo \"foo foo foo foo foo\"})"
           @?= Right (String "{:bar \"bar bar bar bar bar bar bar bar bar bar bar bar bar bar bar\" :foo \"foo foo foo foo foo\"}")
 
-    , testProperty "'show-unbounds does not add any whitespace characters'" $ \(val :: Value) -> do
+    , testProperty "'show-unbounds does not add any whitespace characters'" $ \(NoSpaceValue val :: NoSpaceValue) -> do
         let res = runPureCode $ toS [i|(show-unbound (quote #{renderPrettyUnbounded val}))|]
             info = "Expected to not include any double whitespace characters, line breaks or tabs:\n" <> toS (prettyEither res)
         counterexample info $ no_unallowed_whitespace (prettyEither res)
@@ -584,8 +584,8 @@ test_eval =
   where
     failsWith src err    = noStack (runPureCode src) @?= Left err
     succeedsWith src val = runPureCode src @?= Right val
-    no_tabs t = not $ T.isInfixOf "\t" t
-    no_line_breaks t = not $ T.isInfixOf "\n" t
+    no_tabs t = not $ T.any (== '\t') t
+    no_line_breaks t = not $ T.any (== '\n') t
     no_double_spaces t = not $ T.isInfixOf "  " t
     no_unallowed_whitespace t = no_double_spaces t && no_line_breaks t && no_tabs t
 
