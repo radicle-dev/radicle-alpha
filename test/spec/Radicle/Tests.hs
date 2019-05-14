@@ -21,7 +21,7 @@ import qualified Text.Megaparsec.Pos as Par
 
 import           Radicle
 import qualified Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Arbitrary (NoSpaceValue(..))
+import           Radicle.Internal.Arbitrary
 import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Bar(..), Baz(..), Foo)
 import           Radicle.Internal.TestCapabilities

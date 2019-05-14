@@ -1,5 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Radicle.Internal.Arbitrary where
+module Radicle.Internal.Arbitrary
+    ( NoSpaceValue(..)
+    ) where
 
 import           Protolude
 
@@ -20,13 +22,13 @@ instance Arbitrary r => Arbitrary (Env r) where
     arbitrary = Env <$> arbitrary
 
 instance Arbitrary Value where
-    arbitrary = sized (go arbitrary)
+    arbitrary = sized (gen arbitrary)
 
 newtype NoSpaceValue = NoSpaceValue Value
   deriving Show
 
 instance Arbitrary NoSpaceValue where
-    arbitrary = NoSpaceValue <$> sized (go textNoDoubleSpaces)
+    arbitrary = NoSpaceValue <$> sized (gen textNoDoubleSpaces)
       where textNoDoubleSpaces = arbitrary `suchThat` (not . T.isInfixOf "  ")
 
 instance Arbitrary UntaggedValue where
@@ -52,9 +54,9 @@ instance Arbitrary a => Arbitrary (Bindings a) where
 instance Arbitrary a => Arbitrary (Doc.Docd a) where
     arbitrary = Doc.Docd Nothing <$> arbitrary
 
-go :: Gen Text -> Int -> Gen Value
-go textGen n | n == 0 = frequency $ first pred <$> freqs
-             | otherwise = frequency freqs
+gen :: Gen Text -> Int -> Gen Value
+gen textGen n | n == 0 = frequency $ first pred <$> freqs
+              | otherwise = frequency freqs
   where
     -- There's no literal syntax for dicts, only the 'dict' primop. If we
     -- generated them directly, we would generate something that can only
