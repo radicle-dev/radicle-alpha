@@ -173,7 +173,9 @@ steps:
     - |
       set -euxo pipefail
 
-      RADPATH="$(pwd)/rad" stack exec radicle-doc docs/source/guide/Basics.lrad
+      RADPATH="$(pwd)/rad"
+      stack exec radicle-doc docs/source/guide/Basics.lrad
+      stack exec radicle-doc docs/source/guide/Issues.lrad
 
   - id: "Integration tests"
     waitFor:
