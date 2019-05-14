@@ -74,6 +74,15 @@ specialForms = Map.fromList $ first Ident <$>
   , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
+  , ( "defmacro"
+    , \case
+        [Atom name, val] -> do
+          e <- gets bindingsEnv
+          val' <- baseEval val
+          defineAtom name Nothing (Macro e val')
+          pure nil
+        _ -> throwErrorHere $ OtherError "bad defmacro" -- TODO
+    )
   , ("def", \case
           [Atom name, val] -> def name Nothing val
           [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
@@ -247,10 +256,15 @@ f $$ vs = case f of
     Atom i ->
       case Map.lookup i specialForms of
         Just form -> form vs
-        Nothing   -> fnApp
-    _ -> fnApp
+        Nothing   -> appFnOrMacro
+    _ -> appFnOrMacro
   where
-    fnApp = do
+    appFnOrMacro = do
       f' <- baseEval f
-      vs' <- traverse baseEval vs
-      callFn f' vs'
+      case f' of
+        Macro defsite g -> do
+          e <- callFn g vs
+          withEnv (defsite <>) (baseEval e)
+        _ -> do
+          vs' <- traverse baseEval vs
+          callFn f' vs'

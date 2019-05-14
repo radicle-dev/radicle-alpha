@@ -263,6 +263,7 @@ data ValueF r =
     -- The first argument is the name for recursive calls to the
     -- function in the body.
     | LambdaRecF Ident LambdaArgs (NonEmpty r) (Env r)
+    | MacroF (Env r) r
     | VEnvF (Env r)
     | VStateF State
     deriving (Eq, Ord, Read, Show, Generic, Functor)
@@ -292,6 +293,7 @@ valType = \case
   ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
   LambdaRec{} -> TFunction
+  Macro{} -> TFunction -- debatable lol
   VEnv _ -> TEnv
   VState _ -> TState
 
@@ -308,6 +310,7 @@ hashable = \case
   ProcHandle _ -> False
   Lambda{} -> False
   LambdaRec{} -> False
+  Macro{} -> False
   VEnv _ -> False
   VState _ -> False
   List xs -> all hashable xs
@@ -320,7 +323,7 @@ dict kvs = case filter (not . hashable) (Map.keys kvs) of
   []    -> pure $ Dict kvs
   k : _ -> throwErrorHere $ NonHashableKey k
 
-{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict
+{-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Macro
   , Ref, Handle, ProcHandle, Lambda, LambdaRec, VEnv, VState #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
@@ -384,6 +387,11 @@ pattern ProcHandle :: ValueConC t => ProcHdl -> Annotated t ValueF
 pattern ProcHandle i <- (Ann.match -> ProcHandleF i)
     where
     ProcHandle = Ann.annotate . ProcHandleF
+
+pattern Macro :: ValueConC t => Env (Annotated t ValueF) -> Annotated t ValueF -> Annotated t ValueF
+pattern Macro env f <- (Ann.match -> MacroF env f)
+    where
+    Macro env f = Ann.annotate $ MacroF env f
 
 pattern Lambda :: ValueConC t => LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
