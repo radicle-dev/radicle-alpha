@@ -6,9 +6,9 @@ import           Protolude
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import           Data.Scientific (Scientific)
+import qualified Data.Text as T
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
-import qualified Data.Text as T
 
 import           Radicle
 import qualified Radicle.Internal.Doc as Doc
