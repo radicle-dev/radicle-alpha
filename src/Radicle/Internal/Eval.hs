@@ -74,14 +74,13 @@ specialForms = Map.fromList $ first Ident <$>
   , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
-  , ( "defmacro"
+  , ( "macro"
     , \case
-        [Atom name, val] -> do
+        [val] -> do
           e <- gets bindingsEnv
           val' <- baseEval val
-          defineAtom name Nothing (Macro e val')
-          pure nil
-        _ -> throwErrorHere $ OtherError "bad defmacro" -- TODO
+          pure (Macro e val')
+        _ -> throwErrorHere $ SpecialForm "macro" "Takes a single argument, which should evaluate to a function (which transforms syntax)."
     )
   , ("def", \case
           [Atom name, val] -> def name Nothing val

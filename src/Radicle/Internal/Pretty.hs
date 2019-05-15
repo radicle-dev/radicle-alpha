@@ -64,6 +64,7 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
           v' :<| Empty -> brackets $ prettyV v'
           _            -> brackets . sep $ prettyV <$> toList vs
         PrimFn i -> pretty i
+        Macro e f -> angles "macro"
         Dict mp -> braces . align $
             sep [ prettyV k <+> prettyV val
                 | (k, val) <- Map.toList mp ]
