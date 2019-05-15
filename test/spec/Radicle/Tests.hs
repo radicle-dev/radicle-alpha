@@ -474,15 +474,15 @@ test_eval =
         runPureCode "(show (dict 'a 1))" @?= Right (String "{a 1}")
         runPureCode "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
-    , testCase "'show-unbounds' works" $ do
-        runPureCode "(show-unbound {:b 2 :a 1})" @?= Right (String "{:a 1 :b 2}")
-        runPureCode "(show-unbound {:bar \"bar bar bar bar bar bar bar bar bar bar bar bar bar bar bar\" :foo \"foo foo foo foo foo\"})"
+    , testCase "'show-unformatted' works" $ do
+        runPureCode "(show-unformatted {:b 2 :a 1})" @?= Right (String "{:a 1 :b 2}")
+        runPureCode "(show-unformatted {:bar \"bar bar bar bar bar bar bar bar bar bar bar bar bar bar bar\" :foo \"foo foo foo foo foo\"})"
           @?= Right (String "{:bar \"bar bar bar bar bar bar bar bar bar bar bar bar bar bar bar\" :foo \"foo foo foo foo foo\"}")
 
-    , testProperty "'show-unbounds does not add any whitespace characters'" $ \(NoSpaceValue val :: NoSpaceValue) -> do
-        let res = runPureCode $ toS [i|(show-unbound (quote #{renderPrettyUnbounded val}))|]
+    , testProperty "'show-unformatted' does not add any whitespace characters" $ \(NoDoubleSpacesValue val :: NoDoubleSpacesValue) -> do
+        let res = runPureCode $ toS [i|(show-unformatted #{renderPrettyUnbounded val})|]
             info = "Expected to not include any double whitespace characters, line breaks or tabs:\n" <> toS (prettyEither res)
-        counterexample info $ no_unallowed_whitespace (prettyEither res)
+        counterexample info $ isLeft res || noUnallowedWhitespace (prettyEither res)
 
     , testCase "'read-anotated' works" $
         runPureCode "(read-annotated \"foo\" \"(:hello 42)\")" @?= Right (List [Keyword [ident|hello|], int 42])
@@ -584,10 +584,10 @@ test_eval =
   where
     failsWith src err    = noStack (runPureCode src) @?= Left err
     succeedsWith src val = runPureCode src @?= Right val
-    no_tabs t = not $ T.any (== '\t') t
-    no_line_breaks t = not $ T.any (== '\n') t
-    no_double_spaces t = not $ T.isInfixOf "  " t
-    no_unallowed_whitespace t = no_double_spaces t && no_line_breaks t && no_tabs t
+    noTabs t = not $ T.any (== '\t') t
+    noLineBreaks t = not $ T.any (== '\n') t
+    noDoubleSpaces t = not $ T.isInfixOf "  " t
+    noUnallowedWhitespace t = noDoubleSpaces t && noLineBreaks t && noTabs t
 
 stackTraceLines :: [Ann.SrcPos] -> [Int]
 stackTraceLines = concatMap go
