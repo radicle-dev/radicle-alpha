@@ -61,7 +61,7 @@
                                                msg)))
         'x                             (throw 'invalid-command x)))))
 
-(:test "make-simple-auth"
+(test "make-simple-auth"
   [:setup (do
     (def auth (make-simple-auth [:admin]))
     (auth [:create-group :regular])

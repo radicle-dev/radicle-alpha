@@ -2,6 +2,11 @@
  :doc     "Basic function used for checking equality, determining the type of a value, etc."
  :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem? head tail read read-many <=]}
 
+;; (def if
+;;   (macro
+;;    (fn [c tt ff]
+;;      (list cond c tt #f ff))))
+
 ;; or
 
 (def head
@@ -17,7 +22,7 @@
   (fn [x y]
     (if x x y)))
 
-(:test "or"
+(test "or"
        [ (or #t #t) ==> #t ]
        [ (or #t #f) ==> #t ]
        [ (or #f #t) ==> #t ]
@@ -30,7 +35,7 @@
   "Checks that there is a least one truthy value in a list."
   (fn [xs] (foldr or #f xs)))
 
-(:test "some"
+(test "some"
        [ (some '())            ==> #f ]
        [ (some '(#t))          ==> #t ]
        [ (some '(#f))          ==> #f ]
@@ -46,7 +51,7 @@
         (eq? xs []))))
 
 ;; TODO move to file for primitive tests
-(:test "length"
+(test "length"
   [ (length (list)) ==> 0]
   [ (length (list 2)) ==> 1]
   [ (length []) ==> 0]
@@ -82,7 +87,7 @@
  (fn [x xs]
    (some (map (fn [c] (eq? c x)) xs))))
 
-(:test "elem?"
+(test "elem?"
  [ (elem? "f" (list "f" "g" "h")) ==> #t]
  [ (elem? "h" ["f" "g" "h"]) ==> #t]
  [ (elem? "a" (list "f" "g" "h")) ==> #f])
@@ -92,7 +97,7 @@
   (fn [s]
     (read-annotated "[read]" s)))
 
-(:test "read"
+(test "read"
   [ (read "[:a 42 \"foo\" {:key (1 2 3)}]") ==> [:a 42 "foo" {:key (1 2 3)}] ])
 
 (def read-many
@@ -100,7 +105,7 @@
   (fn [s]
     (read-many-annotated "[read-many]" s)))
 
-(:test "read-many"
+(test "read-many"
   [ (read-many "([:one] {:two 3}) (four \"five\" 6)") ==> [([:one] {:two 3}) (four "five" 6)]])
 
 (def <=

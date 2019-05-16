@@ -23,7 +23,7 @@
   (fn [arg cmd]
     (string-append "Missing argument \"" arg "\" for command \"" cmd "\"")))
 
-(:test "missing-arg"
+(test "missing-arg"
   [(missing-arg "foo" "bar") ==> "Missing argument \"foo\" for command \"bar\""])
 
 (def too-many-args
@@ -31,14 +31,14 @@
   (fn [cmd]
     (string-append "Too many arguments for command \"" cmd "\"")))
 
-(:test "too-many-args"
+(test "too-many-args"
   [(too-many-args "foobar") ==> "Too many arguments for command \"foobar\""])
 
 (def valid-args-help
   (fn [args]
     (string-append "Valid arguments: " (intercalate ", " args))))
 
-(:test "valid-args-help"
+(test "valid-args-help"
   [(valid-args-help ["foo" "bar"]) ==> "Valid arguments: foo, bar"])
 
 (def missing-arg-for-opt
@@ -48,7 +48,7 @@
       "Missing argument for option \"" opt "\". "
       (valid-args-help valid-args))))
 
-(:test "missing-arg-for-opt"
+(test "missing-arg-for-opt"
   [(missing-arg-for-opt "-s" ["foo" "bar"]) ==> "Missing argument for option \"-s\". Valid arguments: foo, bar"])
 
 (def invalid-arg-for-opt
@@ -58,7 +58,7 @@
       "Invalid argument \"" arg "\" for option \"" opt "\". "
       (valid-args-help valid-args))))
 
-(:test "invalid-arg-for-opt"
+(test "invalid-arg-for-opt"
   [(invalid-arg-for-opt "foobar" "-s" ["foo" "bar"]) ==> "Invalid argument \"foobar\" for option \"-s\". Valid arguments: foo, bar"])
 
 (def invalid-opt-for-cmd
@@ -66,7 +66,7 @@
   (fn [opt cmd]
     (string-append "Invalid option \"" opt "\" for command " cmd ".")))
 
-(:test "invalid-opt-for-cmd"
+(test "invalid-opt-for-cmd"
   [(invalid-opt-for-cmd "foo" "list") ==> "Invalid option \"foo\" for command list."])
 
 ;; unexported helpers for app errors
@@ -95,7 +95,7 @@
       "The directory \"" dir-name "\" already exists.\n"
       "Refusing to continue.")))
 
-(:test "dir-already-exists"
+(test "dir-already-exists"
   [(dir-already-exists "foobar") ==>
     "The directory \"foobar\" already exists.
 Refusing to continue."])
@@ -110,7 +110,7 @@ Refusing to continue."])
       "or the IPNS link is stale, or because no online node "
       "with the data could be found.")))
 
-(:test "git-clone-failure"
+(test "git-clone-failure"
   [(git-clone-failure "foo" "bar") ==>
     "The repo is currently not available. Cloning \"bar\" from \"foo\" failed.
 This may be because you have no internet connection, or the IPNS link is stale, or because no online node with the data could be found."])
@@ -123,7 +123,7 @@ This may be because you have no internet connection, or the IPNS link is stale, 
       "Error: git commit --allow-empty --message \"Radicle Setup\" failed.\n"
       "Make sure that git was initialized correctly and rerun 'rad project init'")))
 
-(:test "upstream-commit-failure"
+(test "upstream-commit-failure"
   [(upstream-commit-failure) ==> "Error: git commit --allow-empty --message \"Radicle Setup\" failed.
 Make sure that git was initialized correctly and rerun 'rad project init'"])
 
@@ -135,7 +135,7 @@ Make sure that git was initialized correctly and rerun 'rad project init'"])
       "Error: git -u origin master failed.\n"
       "Set the upstream branch manually and rerun 'rad project init'")))
 
-(:test "upstream-push-failure"
+(test "upstream-push-failure"
   [(upstream-push-failure) ==> "Error: git -u origin master failed.
 Set the upstream branch manually and rerun 'rad project init'"])
 
@@ -147,7 +147,7 @@ Set the upstream branch manually and rerun 'rad project init'"])
     (string-append
       "Commit " commit " can't be found.")))
 
-(:test "unknown-commit"
+(test "unknown-commit"
   [(unknown-commit "12345") ==> "Commit 12345 can't be found."])
 
 (def parent-commit-not-master
@@ -157,7 +157,7 @@ Set the upstream branch manually and rerun 'rad project init'"])
       "Commit " commit " is not on top of origin/master.\n"
       "Squash all commits on your branch and rebase if necessary.")))
 
-(:test "parent-commit-not-master"
+(test "parent-commit-not-master"
   [(parent-commit-not-master "12345") ==> "Commit 12345 is not on top of origin/master.
 Squash all commits on your branch and rebase if necessary."])
 
@@ -166,7 +166,7 @@ Squash all commits on your branch and rebase if necessary."])
   (fn [branch]
     (string-append "Creating and switching to branch " branch " failed.")))
 
-(:test "checkout-new-branch-failure"
+(test "checkout-new-branch-failure"
   [(checkout-new-branch-failure "patch/3") ==> "Creating and switching to branch patch/3 failed."])
 
 (def checkout-master-failure
@@ -176,7 +176,7 @@ Squash all commits on your branch and rebase if necessary."])
       "Checkout branch master failed.\n"
       "Refusing to continue.")))
 
-(:test "checkout-master-failure"
+(test "checkout-master-failure"
   [(checkout-master-failure) ==> "Checkout branch master failed.
 Refusing to continue."])
 
@@ -188,7 +188,7 @@ Refusing to continue."])
       "Applying the patch failed.\n"
       "Abort or resolve any conflicts via 'git am'.")))
 
-(:test "applying-patch-failure"
+(test "applying-patch-failure"
   [(applying-patch-failure) ==> "Applying the patch failed.
 Abort or resolve any conflicts via 'git am'."])
 
@@ -200,7 +200,7 @@ Abort or resolve any conflicts via 'git am'."])
       (applying-patch-failure) "\n"
       "Then run 'git push'.")))
 
-(:test "applying-accepted-patch-failure"
+(test "applying-accepted-patch-failure"
   [(applying-accepted-patch-failure) ==> "Applying the patch failed.
 Abort or resolve any conflicts via 'git am'.
 Then run 'git push'."])
@@ -214,7 +214,7 @@ Then run 'git push'."])
       "you are not authorized to push to origin, "
       "or the remote is currently not reachable.")))
 
-(:test "push-patch-failure"
+(test "push-patch-failure"
   [(push-patch-failure) ==> "Pushing the patch failed.
 This may be because you have no internet connection, you are not authorized to push to origin, or the remote is currently not reachable."])
 
@@ -225,7 +225,7 @@ This may be because you have no internet connection, you are not authorized to p
   (fn [item item-number]
     (string-append (uppercase-item item) " #" item-number " does not exist.")))
 
-(:test "item-not-found"
+(test "item-not-found"
   [(item-not-found :patch "2") ==> "Patch #2 does not exist."]
   [(item-not-found :issue "3") ==> "Issue #3 does not exist."])
 
@@ -235,7 +235,7 @@ This may be because you have no internet connection, you are not authorized to p
   (fn [item]
     (string-append (uppercase-item item) " numbers must be whole numbers!")))
 
-(:test "whole-item-number"
+(test "whole-item-number"
   [(whole-item-number :patch) ==> "Patch numbers must be whole numbers!"]
   [(whole-item-number :issue) ==> "Issue numbers must be whole numbers!"])
 
@@ -247,7 +247,7 @@ This may be because you have no internet connection, you are not authorized to p
       "To " action " " (a-or-an item-name) " " item-name
       ", please provide the " item-name " number.")))
 
-(:test "missing-item-number"
+(test "missing-item-number"
   [(missing-item-number :patch "change the state of") ==> "To change the state of a patch, please provide the patch number."]
   [(missing-item-number :issue "show") ==> "To show an issue, please provide the issue number."])
 
@@ -258,7 +258,7 @@ This may be because you have no internet connection, you are not authorized to p
       (uppercase-item item) " could not be " state ". "
       "Are you authorized to do so?")))
 
-(:test "state-change-failure"
+(test "state-change-failure"
   [(state-change-failure :patch "rejected") ==> "Patch could not be rejected. Are you authorized to do so?"]
   [(state-change-failure :issue "closed") ==> "Issue could not be closed. Are you authorized to do so?"])
 
@@ -268,7 +268,7 @@ This may be because you have no internet connection, you are not authorized to p
   (fn [item]
     (string-append (uppercase-item item) " created but unexpected results returned.")))
 
-(:test "no-number-returned"
+(test "no-number-returned"
   [(no-number-returned :patch) ==> "Patch created but unexpected results returned."]
   [(no-number-returned :issue) ==> "Issue created but unexpected results returned."])
 
@@ -277,7 +277,7 @@ This may be because you have no internet connection, you are not authorized to p
   (fn [cmd]
     (string-append "Unknown command: " cmd)))
 
-(:test "unknown-command"
+(test "unknown-command"
   [(unknown-command "foo") ==> "Unknown command: foo"])
 
 ;; key management
@@ -289,7 +289,7 @@ This may be because you have no internet connection, you are not authorized to p
       "Missing file: my-keys.rad\n"
       "Do `rad key create` to create your own key pair and rerun your command.")))
 
-(:test "missing-key-file"
+(test "missing-key-file"
   [(missing-key-file) ==> "Missing file: my-keys.rad
 Do `rad key create` to create your own key pair and rerun your command."])
 
@@ -301,7 +301,7 @@ Do `rad key create` to create your own key pair and rerun your command."])
       "error: Failed to create key for Git IPFS repository:\n"
       stderr)))
 
-(:test "rad-ipfs-key-gen-failure"
+(test "rad-ipfs-key-gen-failure"
   [(rad-ipfs-key-gen-failure "stderr") ==>  "error: Failed to create key for Git IPFS repository:\nstderr"])
 
 (def rad-ipfs-name-publish-failure
@@ -313,7 +313,7 @@ Do `rad key create` to create your own key pair and rerun your command."])
       "error: Failed to publish key for Git IPFS repository:\n"
       stderr)))
 
-(:test "rad-ipfs-name-publish-failure"
+(test "rad-ipfs-name-publish-failure"
   [(rad-ipfs-name-publish-failure "stderr") ==>  "error: Failed to publish key for Git IPFS repository:\nstderr"])
 
 ;; sub-processes
@@ -328,7 +328,7 @@ Do `rad key create` to create your own key pair and rerun your command."])
     (unlines (cons message stderr-output))
     ))
 
-(:test "process-exit-error"
+(test "process-exit-error"
   [(process-exit-error "foo" ["arg1" "arg2"] 5 ["fail1" "fail2"]) ==>
 "error: Command \"foo arg1 arg2\" exited with status code 5
   stderr: fail1

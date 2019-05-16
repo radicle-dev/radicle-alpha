@@ -67,7 +67,7 @@
                                           (fn [i] (cons result i))
                                           (tx-in-fake-machine new-state es))))))
 
-(:test "tx-in-fake-machine"
+(test "tx-in-fake-machine"
   [:setup
     (do (def res1 (tx-in-fake-machine new-fake-machine '[(def x 3)]))
         (def res (tx-in-fake-machine (lookup :machine res1) '[(+ x 2)])))
@@ -101,7 +101,7 @@
           name))
 ))
 
-(:test "install-remote-machine-fake"
+(test "install-remote-machine-fake"
   [:setup
     (do (install-remote-machine-fake)
         (def machine (new-machine!))
