@@ -1,5 +1,42 @@
 (load! "prompts.rad")
 
+[:upd "secret"
+ (def tx
+  (fn [e _]
+    (match
+     e
+     [:msg 'm] :ok
+     [:upd 'pw 'c]
+     (if (member? pw admins)
+       c
+       (throw 'bad "wrong password!")))))]
+
+
+
+
+
+
+"June 11: Meetup at Full Node"
+
+
+
+
+
+
+
+
+
+
+
+
+;; step 1
+(def tx
+     (fn [e _]
+         (if (string? e)
+             :ok
+           (throw 'any "Only strings!"))))
+
+;; step 2
 (def tx
      (fn [e _]
          (match e
@@ -9,12 +46,11 @@
                     c
                   (throw 'any "unauth")))))
 
-
-
-
+;; step 3
 [:upd "secret"
 (def admins ["pw1" "pw2"])]
 
+;; step 4
 [:upd "secret"
 (def tx
      (fn [e _]
@@ -25,79 +61,3 @@
                     c
                   (throw 'any "unauth")))))]
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-;; Step 1
-
-(def tx
-     (fn [e _]
-         (if (string? e)
-             :ok
-           (throw 'any "Only strings!"))))
-
-(def tx
-     (fn [e _]
-         (match e
-                [:msg 'm] :ok
-                [:upd 'pw 'c]
-                (if (eq? pw "secret")
-                    c
-                  (throw 'any "not allowed!")))))
-
-(def admins
-     ["pw1" "pw2"])
-
-;; Step 2
-(def tx
-     (fn [e _]
-         (match e
-                [:msg 'm] (add-msg m)
-                :query (read-ref ms)
-                [:upd 'pw 'c]
-                (if (eq? pw "secret")
-                    c
-                  (throw 'any "not allowed!")))))
-
-
-
-
-[:upd "secret"
-(def tx
-     (fn [e _]
-         (match e
-                [:msg 'm] (add-msg m)
-                :query (read-ref ms)
-                [:upd 'pw 'c]
-                (if (member? pw ["pw1" "pw2"])
-                    c
-                  (throw 'any "not allowed!")))))]

@@ -2,26 +2,36 @@
 
 (def prompts
   [
-"Radicle!
---------
+"r a d i c l e
+-------------
+
+A scripting language for append-only logs
 
 James Haydon - Monadic
-               (Open Source Coin)"
+               Open Source Coin
+
+www.radicle.xyz
+June 11: Meetup at Full Node"
    
-"Append only log of data!
-(Scuttlebutt, DAT, OrbitDB, ...)
+"Append-only, non-forgeable logs!
+(SSB, DAT, OrbitDB, ...)
 
-Data is meaningless without the code to interpret it.
+Of DATA.
 
-Radicle: language for append-only logs
-         -> machines"
+Radicle: Code which interprets/validates
+data lives with the data."
+
+"Radicle:
+- LISP: code = data
+- data and its code living in the same place
+- \"Radicle machines\""
 
 "demo!"
 ])
 
 (def next
   (fn []
-    (put-str! "\n\n\n")
+    (put-str! "")
     (put-str! (nth (read-ref i) prompts))
-    (put-str! "\n\n------\n\n")
+    (put-str! "\n------\n")
     (modify-ref i \(+ 1 ?))))
