@@ -39,14 +39,17 @@ module Radicle.Ipfs
     , ipfsHttpPost'
     ) where
 
-import           Protolude hiding (TypeError, catch, catches, try)
+import           Protolude hiding (TypeError, catch)
 
 import           Control.Exception.Safe
+                 (MonadCatch, MonadMask, catch, throw, throwString)
+import qualified Control.Exception.Safe as Safe
 import           Control.Monad.Fail
 import           Control.Monad.Trans.Resource
 import           Control.Retry
-                 ( RetryPolicyM
+                 ( RetryPolicyM(..)
                  , capDelay
+                 , defaultRetryStatus
                  , fullJitterBackoff
                  , logRetries
                  , recovering
@@ -62,6 +65,7 @@ import qualified Data.Conduit as C
 import qualified Data.Conduit.Attoparsec as C
 import qualified Data.Conduit.Combinators as C
 import qualified Data.HashMap.Strict as HashMap
+import           Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import           Data.IPLD.CID
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -71,6 +75,7 @@ import qualified Network.HTTP.Client as HttpClient
 import qualified Network.HTTP.Client.MultipartFormData as HttpClient
 import qualified Network.HTTP.Conduit as HttpConduit
 import qualified Network.HTTP.Types.Method as Http
+import qualified System.Clock as Clock
 import           System.Environment (lookupEnv)
 
 import           Radicle.Daemon.Logging
@@ -248,11 +253,14 @@ subscribe topic messageHandler = do
         pure ()
   where
     withBackoff :: (MonadLog m, MonadMask m) => m a -> m a
-    withBackoff action
-        = recovering
-            policy
+    withBackoff action = do
+        lastFailure <- liftIO $ Clock.getTime Clock.Monotonic >>= newIORef
+        recovering
+            (resetAfter lastFailure (60 * minutes) policy)
             (skipAsyncExceptions ++ [h]) -- `h` should be *after* skipAsync!
-            (const action)
+            . const $
+                action `Safe.onException`
+                    liftIO (Clock.getTime Clock.Monotonic >>= writeIORef lastFailure)
       where
         h = logRetries (\(_ :: SomeException) -> pure True)
                        (\_ exc rs ->
@@ -263,6 +271,21 @@ subscribe topic messageHandler = do
 
     policy :: (MonadIO m) => RetryPolicyM m
     policy = capDelay (1 * minutes) $ fullJitterBackoff (seconds `div` 10)
+
+    resetAfter
+        :: (MonadIO m)
+        => IORef Clock.TimeSpec
+        -> Int
+        -> RetryPolicyM m
+        -> RetryPolicyM m
+    resetAfter ref (fromIntegral . div seconds -> secs) p = RetryPolicyM $ \n -> do
+        delta <- liftIO $
+            Clock.diffTimeSpec
+                <$> readIORef ref
+                <*> Clock.getTime Clock.Monotonic
+        let n' | Clock.sec delta > secs = defaultRetryStatus
+               | otherwise              = n
+        getRetryPolicyM p n'
 
     fromJSONC :: (MonadThrow m, Aeson.FromJSON a) => C.ConduitT ByteString a m ()
     fromJSONC = jsonC .| C.mapM parseThrow
