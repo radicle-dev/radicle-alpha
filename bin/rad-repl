@@ -14,12 +14,22 @@ Type (doc! '<name>) for further documentation of <name>.")
       (def line (get-line!))
       (if (eq? line nil)
         (exit! 0)
-        (read-many-annotated "[read-line-or-exit!]" line))))
+        line)))
+
+(def-rec read-full
+  (fn [cur]
+    (fn []
+      (def l (read-line-or-exit!))
+      (def i (string-append cur " " l))
+      (catch 'parse-error
+          (read-many-annotated "[read-line-or-exit!]" i)
+        (fn [_err]
+          ((read-full i)))))))
 
 (put-str! help)
 (def repl
   {:name "repl"
    ;; Parse errors are thrown here
-   :getter read-line-or-exit!})
+   :getter (read-full "")})
 
 (subscribe-to! repl (fn [xs] (map print! xs)))

@@ -162,7 +162,7 @@ replPrimFns sysArgs = fromList $ allDocs $
                             y <- callFn g []
                             case y of
                               Vec ys -> do
-                                ys' <- traverse baseEval ys
+                                ys' <- traverse transact ys
                                 -- The application of the subscriber function is
                                 -- evaluated in the original environment.
                                 void $ withEnv (const e) (callFn fn [Vec ys'])
