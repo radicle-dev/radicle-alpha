@@ -106,7 +106,8 @@
                 ['x 'y] :yes) ==> :yes ]
        [ (match [1 1]
                 ['x 'x] :yes
-                ['x 'y] :no) ==> :yes])
+                ['x 'y] :no) ==> :yes]
+       )
 
 (def /just
   "Pattern which matches `[:just x]`."

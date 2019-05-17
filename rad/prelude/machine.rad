@@ -140,7 +140,7 @@
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new machine."
   (<> [(file-to-module (find-module-file! "prelude/test-eval.rad"))
-       '(import prelude/test-eval '[tx tests] :unqualified)]
+       '(import prelude/test-eval '[test tests] :unqualified)]
       (map file-to-module pure-prelude-files)))
 
 (def send-prelude!

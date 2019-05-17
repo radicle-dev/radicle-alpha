@@ -7,8 +7,6 @@
 ;;    (fn [c tt ff]
 ;;      (list cond c tt #f ff))))
 
-;; or
-
 (def head
   "Backwards compatible alias for `first`."
   first)

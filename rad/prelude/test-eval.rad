@@ -13,21 +13,18 @@
 (def test
   (macro
    (fn es
-     (def state (get-current-state))
-     (def env (state->env state))
-     (def inter
-       (catch 'any
-           (get-binding 'or env)
-         (fn [_err] "no intercalate")))
-     ;; (put-str! (string-append (nth 0 es) " : " (show inter)))
-     (put-str! (nth 0 es))
-     (write-ref
-      tests
-      (add-right {:doc-test (drop 1 es)
-                  :name (nth 0 es)
-                  :env state}
-                 (read-ref tests)))
-     :test-added)))
+     (list
+      'do
+      (list
+       write-ref
+       tests
+       (list
+        add-right
+        {:doc-test (list 'quote (drop 1 es))
+         :name     (nth 0 es)
+         :env      (list get-current-state)}
+        (list read-ref tests)))
+      :test-added))))
 
 ;; ;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
 ;; (def tx
