@@ -1,14 +1,6 @@
 (load! "prompts.rad")
 
-
-
-
-
-
-
-
-"June 11: Meetup at Full Node"
-
+;; call (next) a few times..
 
 
 (+ 1 1)
@@ -25,14 +17,16 @@
 
 (double 5)
 
+"hello"
 
+"world"
 
+{:author "james"
+ :msg "hello dnt!"}
 
+;; how do we ensure messages are valid? e.g. well signed?
 
-
-
-
-
+;; E.g. let's just say for now must be a string:
 
 ;; step 1
 (def tx
@@ -40,6 +34,8 @@
     (if (string? e)
       :ok
       (throw 'any "Only strings!"))))
+
+;; We could check for crypto signatures, but let's just do passwords here:
 
 ;; step 2
 (def tx
@@ -50,6 +46,8 @@
            (if (eq? pw "secret")
              c
              (throw 'any "unauth")))))
+
+;; Now we want to update the tx, after we have defined it!
 
 ;; step 3
 [:upd "secret"
