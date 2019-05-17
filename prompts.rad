@@ -1,0 +1,27 @@
+(def i (ref 0))
+
+(def prompts
+  [
+"Radicle!
+--------
+
+James Haydon - Monadic
+               (Open Source Coin)"
+   
+"Append only log of data!
+(Scuttlebutt, DAT, OrbitDB, ...)
+
+Data is meaningless without the code to interpret it.
+
+Radicle: language for append-only logs
+         -> machines"
+
+"demo!"
+])
+
+(def next
+  (fn []
+    (put-str! "\n\n\n")
+    (put-str! (nth (read-ref i) prompts))
+    (put-str! "\n\n------\n\n")
+    (modify-ref i \(+ 1 ?))))
