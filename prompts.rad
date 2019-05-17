@@ -7,8 +7,8 @@
 
 A scripting language for append-only logs
 
-James Haydon - Monadic
-               Open Source Coin
+Julian Arni - Monadic
+              Open Source Coin
 
 www.radicle.xyz
 June 11: Meetup at Full Node"
@@ -26,8 +26,7 @@ data lives with the data."
 - data and its code living in the same place
 - \"Radicle machines\""
 
-"demo!"
-])
+"demo!"])
 
 (def next
   (fn []
@@ -35,3 +34,9 @@ data lives with the data."
     (put-str! (nth (read-ref i) prompts))
     (put-str! "\n------\n")
     (modify-ref i \(+ 1 ?))))
+
+(def thanks!
+(fn []
+  (put-str! "Thanks!
+
+June 11: Meetup at Full Node")))

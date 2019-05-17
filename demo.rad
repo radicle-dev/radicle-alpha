@@ -11,6 +11,20 @@
 
 
 
+(+ 1 1)
+
+(* 2 2)
+
+(def x 32)
+
+(+ x x)
+
+(def double (fn [x] (+ x x)))
+
+(double 4)
+
+(double 5)
+
 
 
 
@@ -41,7 +55,6 @@
 [:upd "secret"
  (def admins ["pw1" "pw2"])]
 
-;; step 4
 [:upd "secret"
  (def tx
    (fn [e _]
@@ -52,3 +65,4 @@
               c
               (throw 'any "unauth")))))]
 
+[:upd "pw1" (thanks!)]
