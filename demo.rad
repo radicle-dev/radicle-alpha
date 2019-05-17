@@ -1,15 +1,6 @@
 (load! "prompts.rad")
 
-[:upd "secret"
- (def tx
-  (fn [e _]
-    (match
-     e
-     [:msg 'm] :ok
-     [:upd 'pw 'c]
-     (if (member? pw admins)
-       c
-       (throw 'bad "wrong password!")))))]
+
 
 
 
@@ -31,33 +22,33 @@
 
 ;; step 1
 (def tx
-     (fn [e _]
-         (if (string? e)
-             :ok
-           (throw 'any "Only strings!"))))
+  (fn [e _]
+    (if (string? e)
+      :ok
+      (throw 'any "Only strings!"))))
 
 ;; step 2
 (def tx
-     (fn [e _]
-         (match e
-                [:msg 's] :ok
-                [:upd 'pw 'c]
-                (if (eq? pw "secret")
-                    c
-                  (throw 'any "unauth")))))
+  (fn [e _]
+    (match e
+           [:msg 's] :ok
+           [:upd 'pw 'c]
+           (if (eq? pw "secret")
+             c
+             (throw 'any "unauth")))))
 
 ;; step 3
 [:upd "secret"
-(def admins ["pw1" "pw2"])]
+ (def admins ["pw1" "pw2"])]
 
 ;; step 4
 [:upd "secret"
-(def tx
-     (fn [e _]
-         (match e
-                [:msg 's] :ok
-                [:upd 'pw 'c]
-                (if (member? pw admins)
-                    c
-                  (throw 'any "unauth")))))]
+ (def tx
+   (fn [e _]
+     (match e
+            [:msg 's] :ok
+            [:upd 'pw 'c]
+            (if (member? pw admins)
+              c
+              (throw 'any "unauth")))))]
 
