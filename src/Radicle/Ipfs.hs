@@ -292,7 +292,7 @@ dagGet addr = do
 
 namePublish :: (MonadIpfs m) => IpnsId -> Address -> m ()
 namePublish ipnsId addr = do
-    _ :: Aeson.Value <- ipfsHttpGet "name/publish" [("arg", addressToText addr), ("key", ipnsId)]
+    _ :: Aeson.Value <- ipfsHttpGet "name/publish" [("arg", addressToText addr), ("allow-offline", "true"), ("key", ipnsId)]
     pure ()
 
 

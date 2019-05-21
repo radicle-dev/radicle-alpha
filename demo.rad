@@ -28,12 +28,27 @@
 
 ;; E.g. let's just say for now must be a string:
 
-;; step 1
+;; step 1 - the functionality
+(def chat (ref []))
+
+(def say
+  (fn [msg]
+      (modify-ref chat (fn [c] (cons msg c)))))
+
+(def logs
+  (fn []
+      (put-str! (string/unlines (reverse (read-ref chat))))))
+
+;; step 2 - *remove* unnecessary functionality
+
 (def tx
   (fn [e _]
-    (if (string? e)
-      :ok
-      (throw 'any "Only strings!"))))
+    (cond
+      (string? e) (do (say e)
+                      :ok)
+      (eq? e :logs) (do (logs)
+                        :ok)
+      _ (throw 'any "Only strings!"))))
 
 ;; We could check for crypto signatures, but let's just do passwords here:
 

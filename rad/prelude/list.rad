@@ -1,13 +1,12 @@
 {:module 'prelude/list
  :doc "Functions for creating lists. See also `prelude/seq`."
- :exports '[nil range]}
+ :exports '[nil repeat range]}
 
 
 (import prelude/basic :unqualified)
 (import prelude/bool :unqualified)
 
 (def nil "The empty list." (list))
-
 
 (def-rec range
   "Returns a list with all integers from `from` to `to`, inclusive."
@@ -19,3 +18,9 @@
 (:test "range"
   [ (range 1 5) ==> (1 2 3 4 5) ]
 )
+
+(def repeat
+  "A list with `item` repeated `n` times."
+  (fn [n item]
+      (map (fn [_] item) (range 0 n))))
+

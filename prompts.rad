@@ -1,3 +1,6 @@
+(import prelude/strings :unqualified)
+(import prelude/list :unqualified)
+(import prelude/machine :unqualified)
 (def i (ref 0))
 
 (def prompts
@@ -5,34 +8,70 @@
 "r a d i c l e
 -------------
 
-A scripting language for append-only logs
+A P2P programming language
 
 Julian Arni - Monadic
-              Open Source Coin
 
 www.radicle.xyz
 June 11: Meetup at Full Node"
-   
-"Append-only, non-forgeable logs!
-(SSB, DAT, OrbitDB, ...)
 
-Of DATA.
+"An append-only log"
 
-Radicle: Code which interprets/validates
-data lives with the data."
+"A *program* (a.k.a. machine)"
 
-"Radicle:
-- LISP: code = data
-- data and its code living in the same place
-- \"Radicle machines\""
+"A REPL
+
+(demo)"
+
+"Determinism:
+
+- Can reconstitute the machine from the logs alone
+"
+
+"REPL:
+
+- Easy to define 'chat' functions
+"
+
+"REPL:
+
+- Easy to define 'chat' functions
+- But unsafe!
+"
+
+"REPL:
+
+- Easy to define 'chat' functions
+- But unsafe!
+- So we use validation
+"
+
+"REPL:
+
+- Easy to define 'chat' functions
+- But unsafe!
+- So we use validation
+- But now no longer upgradable
+"
+
+"Application
+
+- Code collaboration
+"
 
 "demo!"])
 
+(def height 10)
+(def clear (fn [] (put-str! (unlines (repeat 50 " ")))))
+
 (def next
   (fn []
-    (put-str! "")
-    (put-str! (nth (read-ref i) prompts))
+    (clear)
+    (def it (nth (read-ref i) prompts))
+    (def fill (unlines (repeat (- height (length (lines it))) " ")))
+    (put-str! it)
     (put-str! "\n------\n")
+    (put-str! fill)
     (modify-ref i \(+ 1 ?))))
 
 (def thanks!
@@ -40,3 +79,6 @@ data lives with the data."
   (put-str! "Thanks!
 
 June 11: Meetup at Full Node")))
+
+
+(clear)
