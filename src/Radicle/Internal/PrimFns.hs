@@ -716,7 +716,7 @@ purePrimFns = fromList $ allDocs $
                     else throwErrorHere
                       $ OtherError
                       $ "import: cannot import undefined symbols: "
-                        <> T.intercalate ", " (sort (fromIdent <$> Set.toList missing))
+                        <> T.intercalate ", " (fromIdent <$> Set.toAscList missing)
                 Nothing -> pure allMod
           let qualifier = case qual of
                 Qualified q    -> ((q <> Ident "/") <>)
