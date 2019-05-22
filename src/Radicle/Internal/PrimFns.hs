@@ -709,10 +709,14 @@ purePrimFns = fromList $ allDocs $
           let allMod = fromEnv e
           toImport <- case v_ of
                 Just vs -> do
-                  is <- Set.fromList <$> Protolude.toList <$> traverse isAtom vs ?? toLangError (OtherError "import: must be given a vector of symbols to import")
-                  if Set.null (is Set.\\ Map.keysSet allMod)
+                  is <- (Set.fromList . Protolude.toList <$> traverse isAtom vs) ?? toLangError (OtherError "import: must be given a vector of symbols to import")
+                  let missing = is Set.\\ Map.keysSet allMod
+                  if Set.null missing
                     then pure $ Map.restrictKeys allMod is
-                    else throwErrorHere (OtherError "import: cannot import undefined symbols")
+                    else throwErrorHere
+                      $ OtherError
+                      $ "import: cannot import undefined symbols: "
+                        <> T.intercalate ", " (sort (fromIdent <$> Set.toList missing))
                 Nothing -> pure allMod
           let qualifier = case qual of
                 Qualified q    -> ((q <> Ident "/") <>)
