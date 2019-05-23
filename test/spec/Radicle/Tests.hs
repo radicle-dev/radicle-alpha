@@ -544,6 +544,7 @@ test_eval =
                       (import foo :unqualified)
                       (list foo/z bar/z baz/z z)|]
         prog `succeedsWith` List (replicate 4 (Number 3))
+
     , testCase "Modules don't leak non-exported defs" $ do
         let prog = [s|(module
                         {:module 'foo :doc "" :exports '[z]}
@@ -557,6 +558,17 @@ test_eval =
     , testCase "Modules complain if exports are undefined" $ do
         let prog = [s|(module {:module 'foo :doc "" :exports '[x y]} (def x 0))|]
         prog `failsWith` ModuleError (UndefinedExports [ident|foo|] [[ident|y|]])
+
+    , testCase "Importing complains if symbols are not exported" $ do
+        let prog = [s|(module
+                        {:module 'foo :doc "" :exports '[x]}
+                        (def x 1) ;; x: defined and exported
+                        (def y 2) ;; y: defined but not exported
+                                  ;; z: neither defined nor exported
+                      )
+                      (import foo '[y x z]) ;; failed imports appear sorted in error message
+                      |]
+        prog `failsWith` OtherError "import: cannot import undefined symbols: y, z"
     ]
   where
     failsWith src err    = noStack (runPureCode src) @?= Left err

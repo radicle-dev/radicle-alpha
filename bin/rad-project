@@ -13,7 +13,7 @@
 (import prelude/cmd-parsing :unqualified)
 (import prelude/io :as 'io)
 (import prelude/io-utils
-  '[set-git-config get-git-config process-git-with-exit!]
+  '[set-git-config! get-git-config! process-git-with-exit!]
   :unqualified)
 
 (import monadic/issue '[create-issue-machine!] :unqualified)
