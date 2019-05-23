@@ -103,6 +103,8 @@ tests:
     - tasty-quickcheck
     - text
     - time
+    build-tools:
+    - tasty-discover
     ghc-options: -threaded -rtsopts -with-rtsopts=-N
   doctest:
     main: Main.hs
@@ -126,11 +128,12 @@ tests:
     - git-remote-ipfs
     - safe-exceptions
     - tasty
-    - tasty-discover
     - tasty-hunit
     - temporary
     - text
     - unliftio
+    build-tools:
+    - tasty-discover
 
 executables:
   rad:
@@ -204,7 +207,7 @@ executables:
     - radicle
     - containers
     - time
-    - github
+    - github < 0.21
     - optparse-applicative
     ghc-options: -main-is GithubIssues
 

@@ -20,3 +20,6 @@ my-keys.rad
 TAGS
 rad/my-keys.rad
 .radicle-issues
+dist-newstyle
+.ghc.environment*
+cabal.project.local

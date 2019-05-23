@@ -1,0 +1,42 @@
+packages: ./radicle.cabal
+
+package sandi
+  flags: -with-conduit
+
+-- Below are only here because package.yaml still uses source dependencies. The
+-- packages are all on Hackage now.
+source-repository-package
+  type: git
+  location: https://github.com/oscoin/ipfs.git
+  tag: 057ba4a4bf9bb846a08b1208b0ed45af33a38082
+  subdir: ipfs-api
+
+source-repository-package
+  type: git
+  location: https://github.com/oscoin/ipfs.git
+  tag: 057ba4a4bf9bb846a08b1208b0ed45af33a38082
+  subdir: ipld-cid
+
+source-repository-package
+  type: git
+  location: https://github.com/oscoin/ipfs.git
+  tag: 057ba4a4bf9bb846a08b1208b0ed45af33a38082
+  subdir: binary-varint
+
+source-repository-package
+  type: git
+  location: https://github.com/oscoin/ipfs.git
+  tag: 057ba4a4bf9bb846a08b1208b0ed45af33a38082
+  subdir: git-remote-ipfs
+
+source-repository-package
+  type: git
+  location: https://github.com/oscoin/ipfs.git
+  tag: 057ba4a4bf9bb846a08b1208b0ed45af33a38082
+  subdir: multibase
+
+source-repository-package
+  type: git
+  location: https://github.com/oscoin/ipfs.git
+  tag: 057ba4a4bf9bb846a08b1208b0ed45af33a38082
+  subdir: multihash-cryptonite
