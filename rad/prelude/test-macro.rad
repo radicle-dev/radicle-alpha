@@ -6,8 +6,7 @@
  :exports '[test tests]}
 
 (def tests
-  "Reference that collects tests defined with the `test` macro. This
-  value is updated by a custom `eval`."
+  "Reference that collects tests defined with the `test` macro, defined below."
   (ref []))
 
 (def test
@@ -25,23 +24,16 @@
            :test-added))))
 
 (test "'test' works (including :setup)"
-    [:setup
-       (do
-          (def x 3)
-          (def y (ref 0))
-          (write-ref y 1))
-    ]
-    [(+ 3 2) ==> 5]
-    [x       ==> 3]
-)
+      [:setup
+       (def x 3)
+       (def y (ref 0))
+       (write-ref y 1)]
+      [(+ 3 2) ==> 5]
+      [x       ==> 3])
 
 (test "'test' handles exceptions properly"
-    [:setup
-      (do
-        (def x (catch 'any (throw 'blah) (fn [x] #t)))
-        (def y (catch 'any (throw 'blah) (fn [x] #f)))
-      )
-    ]
-    [x ==> #t]
-    [y ==> #f]
-)
+      [:setup
+       (def x (catch 'any (throw 'blah) (fn [x] #t)))
+       (def y (catch 'any (throw 'blah) (fn [x] #f)))]
+      [x ==> #t]
+      [y ==> #f])

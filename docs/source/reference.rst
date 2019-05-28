@@ -692,6 +692,21 @@ Reads many radicle values from a string.
 
 Test if ``x`` is less than or equal to ``y``.
 
+``(gensym)``
+~~~~~~~~~~~~
+
+Returns a new symbol with a pseudo-unique name. The returned symbols are
+``G__#``, where # is a number.
+
+This is used for generating names for "fresh" variables in
+macro-expanded code. Technically it is possible to still get a clash,
+but this won't happen as long as:
+
+-  This function is the only one that updates ``gensym-counter``, which
+   isn't exported from this module.
+
+-  Humans never use symbols starting with ``G__``.
+
 ``prelude/patterns``
 --------------------
 
