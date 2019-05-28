@@ -29,8 +29,7 @@
   (fn [tag f]
     (def handle-error
       (fn [msg] [:error msg]))
-    [:ok (f)]
-    ;;(catch tag [:ok (f)] handle-error)
+    (catch tag [:ok (f)] handle-error)
   ))
 
 (def foldl-with-index

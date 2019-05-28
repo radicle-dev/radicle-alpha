@@ -71,9 +71,7 @@ specialForms = Map.fromList $ first Ident <$>
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
   , ( "macro"
     , \case
-        [val] -> do
-          val' <- baseEval val
-          pure (Macro val')
+        [val] -> Macro <$> baseEval val
         _ -> throwErrorHere $ SpecialForm "macro" "Takes a single argument, which should evaluate to a function (which transforms syntax)."
     )
   , ("def", \case
