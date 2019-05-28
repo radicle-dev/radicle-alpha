@@ -234,4 +234,4 @@
   [(match [1 4]
           [1 (/member [1 3 5])] :no
           [1 (/member [2 4 8])] :yes
-_ :no) ==> :yes])
+          _                     :no) ==> :yes])
