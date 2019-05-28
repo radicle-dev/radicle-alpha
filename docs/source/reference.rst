@@ -279,6 +279,12 @@ keys to the same thing, the greatest key and value are kept.
 Given a function ``f`` and a dict ``d``, returns a dict with the same
 keys as ``d`` but ``f`` applied to all the associated values.
 
+``string->symbol``
+~~~~~~~~~~~~~~~~~~
+
+Turns a string into a symbol. If the string is not a valid identifier an
+exception is thrown.
+
 ``string-append``
 ~~~~~~~~~~~~~~~~~
 
@@ -617,6 +623,13 @@ these modules expose.
 
 Basic function used for checking equality, determining the type of a
 value, etc.
+
+``if``
+~~~~~~
+
+Macro which is called as ``(if c a b)``. If the expression ``c``
+evaluates to true, then the value of the whole expression is the
+evaluation of ``a``, otherwise it is the evaluation of ``b``.
 
 ``(or x y)``
 ~~~~~~~~~~~~

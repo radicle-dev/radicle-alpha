@@ -105,13 +105,6 @@ specialForms = Map.fromList $ first Ident <$>
                          else throwError err
                   _ -> throwErrorHere $ SpecialForm "catch" "first argument must be atom"
           xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
-    -- , ("if", \case
-    --       [condition, t, f] -> do
-    --         b <- baseEval condition
-    --         -- I hate this as much as everyone that might ever read Haskell, but
-    --         -- in Lisps a lot of things that one might object to are True...
-    --         if b == Boolean False then baseEval f else baseEval t
-    --       xs -> throwErrorHere $ WrongNumberOfArgs "if" 3 (length xs))
     , ( "cond", (cond =<<) . evenArgs "cond" )
     , ( "match", match )
   ]
@@ -258,7 +251,7 @@ f $$ vs = case f of
         Macro g -> do
           e <- callFn g vs
           -- The expansion of a macro is evaluated in its own scope:
-          withEnv identity $ baseEval e          
+          withEnv identity $ baseEval e
         _ -> do
           vs' <- traverse baseEval vs
           callFn f' vs'

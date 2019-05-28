@@ -3,6 +3,9 @@
  :exports '[if or some empty-seq? length maybe->>= maybe-foldlM elem? head tail read read-many <=]}
 
 (def if
+  "Macro which is called as `(if c a b)`. If the expression `c` evaluates to true,
+  then the value of the whole expression is the evaluation of `a`, otherwise it
+  is the evaluation of `b`."
   (macro
    (fn [c tt ff]
      (list 'cond c tt #t ff))))
