@@ -1,5 +1,5 @@
 (file-module! "prelude/test-eval.rad")
-(import prelude/test-eval '[eval tests] :unqualified)
+(import prelude/test-eval '[tx tests] :unqualified)
 
 (file-module! "prelude/basic.rad")
 (file-module! "prelude/patterns.rad")
