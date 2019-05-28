@@ -1,4 +1,4 @@
-{:module 'prelude/test-eval
+{:module 'prelude/test-macro
  :doc
  "Provides eval that adds a `test` macro. If an the eval encounters an
    expression of the form `(test \"desc\" tests...)` we add it to the vector

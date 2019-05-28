@@ -2,7 +2,7 @@
  :doc "Functions for writing remote RSMs"
  :exports '[lock-machine lock-machine-commands]}
 
-(import prelude/test-eval '[test tests] :unqualified)
+(import prelude/test-macro '[test tests] :unqualified)
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/patterns :unqualified)
 

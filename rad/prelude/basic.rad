@@ -109,3 +109,17 @@
 (def <=
   "Test if `x` is less than or equal to `y`."
   (fn [x y] (or (eq? x y) (< x y))))
+
+(def gensym-counter (ref 0))
+
+(def gensym
+  "Returns a new symbol with a pseud-unique name. The returned symbols are `G__#`,
+  where # is a number."
+  (fn []
+    (def i (read-ref gensym-counter))
+    (write-ref gensym-counter (+ i 1))
+    (string->symbol (string-append "G__" (show i)))))
+
+(test "gensym"
+      [ (gensym) ==> G__0 ]
+      [ (eq? (gensym) (gensym)) ==> #f ])
