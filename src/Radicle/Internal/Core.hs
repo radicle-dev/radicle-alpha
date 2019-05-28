@@ -293,7 +293,7 @@ valType = \case
   ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
   LambdaRec{} -> TFunction
-  Macro{} -> TFunction -- debatable lol
+  Macro{} -> TMacro
   VEnv _ -> TEnv
   VState _ -> TState
 

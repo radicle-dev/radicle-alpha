@@ -15,6 +15,7 @@ data Type
   | TVec
   | TSequence
   | TFunction
+  | TMacro
   | TDict
   | TStructure
   | TRef
