@@ -8,6 +8,7 @@
             install-fake-filesystem! prompt!
            ]}
 
+(import prelude/basic :unqualified)
 (import prelude/patterns :unqualified)
 (import prelude/strings :as 'strings)
 (import prelude/dict :unqualified)

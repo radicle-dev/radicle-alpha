@@ -11,7 +11,8 @@
     (machine/send-prelude! id)
     (machine/send!
      id
-     '[(import prelude/patterns :unqualified)
+     '[(import prelude/basic :unqualified)
+       (import prelude/patterns :unqualified)
        (import prelude/ref :unqualified)
        (import prelude/machine-remote '[lock-machine] :unqualified)
        (def counter (ref 0))

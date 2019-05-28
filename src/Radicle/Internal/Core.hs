@@ -263,7 +263,7 @@ data ValueF r =
     -- The first argument is the name for recursive calls to the
     -- function in the body.
     | LambdaRecF Ident LambdaArgs (NonEmpty r) (Env r)
-    | MacroF (Env r) r
+    | MacroF r
     | VEnvF (Env r)
     | VStateF State
     deriving (Eq, Ord, Read, Show, Generic, Functor)
@@ -388,10 +388,10 @@ pattern ProcHandle i <- (Ann.match -> ProcHandleF i)
     where
     ProcHandle = Ann.annotate . ProcHandleF
 
-pattern Macro :: ValueConC t => Env (Annotated t ValueF) -> Annotated t ValueF -> Annotated t ValueF
-pattern Macro env f <- (Ann.match -> MacroF env f)
+pattern Macro :: ValueConC t => Annotated t ValueF -> Annotated t ValueF
+pattern Macro f <- (Ann.match -> MacroF f)
     where
-    Macro env f = Ann.annotate $ MacroF env f
+    Macro f = Ann.annotate $ MacroF f
 
 pattern Lambda :: ValueConC t => LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
 pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)

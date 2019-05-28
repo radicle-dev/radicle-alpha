@@ -1,11 +1,11 @@
 {:module  'prelude/basic
  :doc     "Basic function used for checking equality, determining the type of a value, etc."
- :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem? head tail read read-many <=]}
+ :exports '[if or some empty-seq? length maybe->>= maybe-foldlM elem? head tail read read-many <=]}
 
-;; (def if
-;;   (macro
-;;    (fn [c tt ff]
-;;      (list cond c tt #f ff))))
+(def if
+  (macro
+   (fn [c tt ff]
+     (list 'cond c tt #t ff))))
 
 (def head
   "Backwards compatible alias for `first`."

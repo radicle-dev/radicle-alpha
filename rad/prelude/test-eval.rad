@@ -13,33 +13,15 @@
 (def test
   (macro
    (fn es
-     (list
-      'do
-      (list
-       write-ref
-       tests
-       (list
-        add-right
-        {:doc-test (list 'quote (drop 1 es))
-         :name     (nth 0 es)
-         :env      (list get-current-state)}
-        (list read-ref tests)))
-      :test-added))))
-
-;; ;; Annoyingly verbose since we have neither the prelude nor pattern-matching.
-;; (def tx
-;;   "Transaction function that adds test macro to register tests."
-;;   (fn [expr state]
-;;     (if (list? expr)
-;;       (if (> (length expr) 0)
-;;         (if (eq? (first expr) 'test)
-;;           (do ;; (put-str! (nth 1 expr))
-;;               (def next-tests {:doc-test (drop 2 expr) :name (nth 1 expr) :env state})
-;;               (write-ref tests (add-right next-tests (read-ref tests)))
-;;               :test-added)
-;;           (tx expr state))
-;;         (tx expr state))
-;;       (tx expr state))))
+     (list 'do
+           (list write-ref
+                 tests
+                 (list add-right
+                       {:doc-test (list 'quote (drop 1 es))
+                        :name     (nth 0 es)
+                        :env      (list get-current-state)}
+                       (list read-ref tests)))
+           :test-added))))
 
 (test "'test' works (including :setup)"
     [:setup

@@ -3,6 +3,7 @@
  :exports
  '[make-simple-auth add-admin]}
 
+(import prelude/basic :unqualified)
 (import prelude/validation :as 'validation)
 (import prelude/set :as 'set)
 (import prelude/dict '[dict-from-seq keys] :unqualified)

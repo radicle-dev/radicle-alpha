@@ -6,6 +6,7 @@
             send-signed-command!
             catch-daemon!]}
 
+(import prelude/basic :unqualified)
 (import prelude/io '[read-file-value! read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/lens '[make-lens .. ... view set over @ @def] :unqualified)

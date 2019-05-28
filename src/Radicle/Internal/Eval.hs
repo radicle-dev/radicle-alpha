@@ -77,9 +77,8 @@ specialForms = Map.fromList $ first Ident <$>
   , ( "macro"
     , \case
         [val] -> do
-          e <- gets bindingsEnv
           val' <- baseEval val
-          pure (Macro e val')
+          pure (Macro val')
         _ -> throwErrorHere $ SpecialForm "macro" "Takes a single argument, which should evaluate to a function (which transforms syntax)."
     )
   , ("def", \case
@@ -111,13 +110,13 @@ specialForms = Map.fromList $ first Ident <$>
                          else throwError err
                   _ -> throwErrorHere $ SpecialForm "catch" "first argument must be atom"
           xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
-    , ("if", \case
-          [condition, t, f] -> do
-            b <- baseEval condition
-            -- I hate this as much as everyone that might ever read Haskell, but
-            -- in Lisps a lot of things that one might object to are True...
-            if b == Boolean False then baseEval f else baseEval t
-          xs -> throwErrorHere $ WrongNumberOfArgs "if" 3 (length xs))
+    -- , ("if", \case
+    --       [condition, t, f] -> do
+    --         b <- baseEval condition
+    --         -- I hate this as much as everyone that might ever read Haskell, but
+    --         -- in Lisps a lot of things that one might object to are True...
+    --         if b == Boolean False then baseEval f else baseEval t
+    --       xs -> throwErrorHere $ WrongNumberOfArgs "if" 3 (length xs))
     , ( "cond", (cond =<<) . evenArgs "cond" )
     , ( "match", match )
   ]
@@ -134,20 +133,20 @@ specialForms = Map.fromList $ first Ident <$>
       v : cases -> do
         cs <- evenArgs "match" cases
         v' <- baseEval v
-        goMatches v' cs
+        matchPat <- lookupAtom (Ident "match-pat")
+        goMatches matchPat v' cs
       _ -> throwErrorHere $ PatternMatchError NoValue
 
-    goMatches _ [] = throwErrorHere (PatternMatchError NoMatch)
-    goMatches v ((m, body):cases) = do
+    goMatches _ _ [] = throwErrorHere (PatternMatchError NoMatch)
+    goMatches matchPat v ((m, body):cases) = do
       patFn <- baseEval m
-      matchPat <- lookupAtom (Ident "match-pat")
       res <- callFn matchPat [patFn, v]
       let res_ = fromRad res
       case res_ of
         Right (Just (Dict binds)) -> do
           b <- bindsToEnv m binds
           addBinds b *> baseEval body
-        Right Nothing -> goMatches v cases
+        Right Nothing -> goMatches matchPat v cases
         _ -> throwErrorHere $ PatternMatchError (BadBindings m)
 
     bindsToEnv pat m = do
@@ -261,9 +260,10 @@ f $$ vs = case f of
     appFnOrMacro = do
       f' <- baseEval f
       case f' of
-        Macro defsite g -> do
+        Macro g -> do
           e <- callFn g vs
-          withEnv (defsite <>) (baseEval e)
+          -- The expansion of a macro is evaluated in its own scope:
+          withEnv identity $ baseEval e          
         _ -> do
           vs' <- traverse baseEval vs
           callFn f' vs'

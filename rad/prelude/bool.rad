@@ -2,7 +2,7 @@
  :doc "Functions for dealing with truthiness and #f."
  :exports '[not and all and-predicate]}
 
-;; boolean functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(import prelude/basic :unqualified)
 
 ;; not
 
