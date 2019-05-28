@@ -183,7 +183,7 @@ test_eval =
         prog `succeedsWith` int 2
 
     , testCase "'foldl-string' foldls a string" $ do
-        let prog = [s|(foldl-string (fn [x y] (if (eq? y "a") (+ x 1) x))
+        let prog = [s|(foldl-string (fn [x y] (cond (eq? y "a") (+ x 1) :else x))
                                     0
                                     "blablabla")
                    |]
@@ -254,16 +254,16 @@ test_eval =
               |]
         prog `succeedsWith` Boolean True
 
-    , testCase "'if' works with three arguments and true cond" $ do
-        let prog = [s|(if #t "a" "b")|]
+    , testCase "'cond' works for first condition" $ do
+        let prog = [s|(cond #t "a" :else "b")|]
         prog `succeedsWith` String "a"
 
-    , testCase "'if' works with three arguments and false cond" $ do
-        let prog = [s|(if #f "a" "b")|]
+    , testCase "'cond' works for second condition" $ do
+        let prog = [s|(cond #f "a" #t "b")|]
         prog `succeedsWith` String "b"
 
-    , testCase "'if' is lazy" $ do
-        let prog = [s|(if #t "a" (#t "non-sense"))|]
+    , testCase "'cond' is lazy" $ do
+        let prog = [s|(cond #t "a" :else (#t "non-sense"))|]
         prog `succeedsWith` String "a"
 
     , testCase "'keyword?' is true for keywords" $ do
@@ -387,7 +387,7 @@ test_eval =
 
     , testCase "tx can be redefined" $ do
         let prog = [s|
-            (def tx (fn [expr state] #f))
+            (def tx (fn [expr] #f))
             #t
             |]
         prog `succeedsWith` Boolean False
@@ -490,9 +490,9 @@ test_eval =
         let prog = [s|
             (def-rec triangular
               (fn [n]
-                (if (eq? n 0)
-                    0
-                    (+ n (triangular (- n 1))))))
+                (cond
+                  (eq? n 0) 0
+                  :else     (+ n (triangular (- n 1))))))
             (triangular 10)
             |]
         runPureCode prog @?= Right (int 55)
@@ -501,7 +501,9 @@ test_eval =
             (def decrement #f)
             (def-rec decrement
               (fn [n]
-                (if (eq? n 0) 0 (decrement (- n 1)))))
+                (cond
+                  (eq? n 0) 0
+                  :else     (decrement (- n 1)))))
             (decrement 10)
             |]
         runPureCode prog @?= Right (int 0)

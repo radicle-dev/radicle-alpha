@@ -9,7 +9,7 @@
 (def lock-machine
   "Lock the arbitrary transactions of a machine using a validator."
   (fn [validator f]
-    (fn [expr _state]
+    (fn [expr]
       (match expr
              (/cons (/= 'update) (/cons 'e /nil))
              (do (validator e)
