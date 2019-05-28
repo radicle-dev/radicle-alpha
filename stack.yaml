@@ -70,4 +70,7 @@ docker:
 # extra-lib-dirs: [/path/to/dir]
 #
 # Allow a newer minor version of GHC than the snapshot specifies
-# compiler-check: newer-minor
+compiler-check: newer-minor
+nix:
+    enable: false
+    shell-file: nix/shell.nix
