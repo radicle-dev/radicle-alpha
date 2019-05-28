@@ -11,6 +11,7 @@
   (ref []))
 
 (def test
+  "Macro for registering tests."
   (macro
    (fn es
      (list 'do
