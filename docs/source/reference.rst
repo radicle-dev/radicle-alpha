@@ -84,12 +84,17 @@ string which is used to annotate the value with line numbers.
 values. The resulting values are not evaluated. The ``label`` argument
 is a string which is used to annotate the values with line numbers.
 
-``base-eval``
-~~~~~~~~~~~~~
+``eval``
+~~~~~~~~
 
-The default evaluation function. Expects an expression and a radicle
-state. Return a list of length 2 consisting of the result of the
-evaluation and the new state.
+The evaluation function. Expects an expression and a radicle state.
+Return a list of length 2 consisting of the result of the evaluation and
+the new state.
+
+``initial-tx``
+~~~~~~~~~~~~~~
+
+Returns the first argument unchanged.
 
 ``ref``
 ~~~~~~~
@@ -513,7 +518,7 @@ Reads a single line of input and returns it as a string.
 ~~~~~~~~~
 
 Evaluates the contents of a file. Each seperate radicle expression is
-``eval``\ uated according to the current definition of ``eval``.
+transacted according to the current definition of ``tx``.
 
 ``cd!``
 ~~~~~~~
@@ -700,6 +705,11 @@ The wildcard pattern.
 
 Predicate pattern. Takes a predicate function as argument. Values match
 against this pattern if the predicate returns a truthy value.
+
+``(/= x)``
+~~~~~~~~~~
+
+Matches values for equality.
 
 ``(/as var pat)``
 ~~~~~~~~~~~~~~~~~
@@ -1442,25 +1452,6 @@ ones. This is intended for testing.
 -------------------
 
 Functions for simulating remote machines.
-
-``(eval expr state)``
-~~~~~~~~~~~~~~~~~~~~~
-
-Evaluation function that adds :test macro to register tests.
-
-``(updatable-eval sub-eval)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given an evaluation function ``f``, returns a new one which augments
-``f`` with a new command ``(update expr)`` which evaluates arbitrary
-expression using ``base-eval``.
-
-``(eval-fn-app state f arg cb)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Given a state, a function, an argument and a callback, returns the
-result of evaluating the function call on the arg in the given state,
-while also calling the callback on the result.
 
 ``(send-prelude! machine-id)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

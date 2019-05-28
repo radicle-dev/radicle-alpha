@@ -55,18 +55,18 @@
   the result of evaluating the function call on the arg in the given
   state, while also calling the callback on the result."
   (fn [state f arg cb]
-    (def exec (base-eval (list f (list 'quote arg)) state))
+    (def exec (eval (list f (list 'quote arg)) state))
     (cb (first exec))
     exec))
 
 (def updatable-eval
   "Given an evaluation function `f`, returns a new one which augments `f` with a new
-  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
+  command `(update expr)` which evaluates arbitrary expression using `eval`."
   (fn [sub-eval]
     (fn [expr state]
       (match expr
              (/cons 'cmd _) (if (eq? cmd 'update)
-                              (base-eval (nth 1 expr) state)
+                              (eval (nth 1 expr) state)
                               (sub-eval expr state))
              _ (sub-eval expr state)))))
 

@@ -34,10 +34,10 @@ pureEnv =
     addPrimFns purePrimFns $ Bindings e mempty mempty 0 mempty 0 mempty 0
   where
     e = fromList . allDocs $
-          [ ( "eval"
-            , "The evaluation function used to evaluate inputs. Intially\
-                \this is set to `base-eval`."
-            , PrimFn $ unsafeToIdent "base-eval"
+          [ ( "tx"
+            , "The transactor function used for the machine inputs. Intially\
+                \this is set to `initial-tx`."
+            , PrimFn $ unsafeToIdent "initial-tx"
             )
           ]
 
@@ -64,8 +64,14 @@ addPrimFn name doc run (PrimFns primFns) = PrimFns primFns'
 -- | The universal primops. These are available in chain evaluation.
 purePrimFns :: forall m. (Monad m) => PrimFns m
 purePrimFns = fromList $ allDocs $
-    [ ( "base-eval"
-      , "The default evaluation function. Expects an expression and a radicle\
+    [ ( "initial-tx"
+      , "Returns the first argument unchanged."
+      , \case
+          [] -> throwErrorHere $ WrongNumberOfArgs "initial-tx" 1 0
+          x:_ -> pure x
+      )
+    , ( "eval"
+      , "The evaluation function. Expects an expression and a radicle\
         \ state. Return a list of length 2 consisting of the result of the\
         \ evaluation and the new state."
       , \case
@@ -76,7 +82,7 @@ purePrimFns = fromList $ allDocs $
               st' <- get
               put originalBindings
               pure $ List [val, bindingsToRadicle st']
-          xs -> throwErrorHere $ WrongNumberOfArgs "base-eval" 2 (length xs)
+          xs -> throwErrorHere $ WrongNumberOfArgs "eval" 2 (length xs)
       )
     , ( "pure-state"
       , "Returns a pure initial radicle state. This is the state of a radicle\
