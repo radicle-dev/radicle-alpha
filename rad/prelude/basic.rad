@@ -1,6 +1,7 @@
 {:module  'prelude/basic
  :doc     "Basic function used for checking equality, determining the type of a value, etc."
- :exports '[if or some empty-seq? length maybe->>= maybe-foldlM elem? head tail read read-many <=]}
+ :exports '[if or some empty-seq? length maybe->>= maybe-foldlM elem? head tail
+            read read-many <= gensym]}
 
 (def if
   "Macro which is called as `(if c a b)`. If the expression `c` evaluates to true,
@@ -116,8 +117,17 @@
 (def gensym-counter (ref 0))
 
 (def gensym
-  "Returns a new symbol with a pseud-unique name. The returned symbols are `G__#`,
-  where # is a number."
+  "Returns a new symbol with a pseudo-unique name. The returned symbols are `G__#`,
+  where # is a number.
+
+  This is used for generating names for \"fresh\" variables in macro-expanded
+  code. Technically it is possible to still get a clash, but this won't happen
+  as long as:
+  
+  - This function is the only one that updates `gensym-counter`, which isn't
+    exported from this module.
+  
+  - Humans never use symbols starting with `G__`."
   (fn []
     (def i (read-ref gensym-counter))
     (write-ref gensym-counter (+ i 1))
