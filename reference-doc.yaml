@@ -65,6 +65,7 @@ primFns:
 - map-keys
 - map-values
 # Strings
+- string->symbol
 - string-append
 - string-length
 - string-replace

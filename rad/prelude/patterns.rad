@@ -91,7 +91,7 @@
       :else
       (pat v))))
 
-(:test "basic pattern matching"
+(test "basic pattern matching"
        [ (match 42 12 :not-42 'x x) ==> 42 ]
        [ (match 42 12 :not-42 42 :yes) ==> :yes ]
        [ (match :fourty-two :not-42 :no :fourty-two :yes) ==> :yes ]
@@ -106,7 +106,8 @@
                 ['x 'y] :yes) ==> :yes ]
        [ (match [1 1]
                 ['x 'x] :yes
-                ['x 'y] :no) ==> :yes])
+                ['x 'y] :no) ==> :yes]
+       )
 
 (def /just
   "Pattern which matches `[:just x]`."
@@ -115,7 +116,7 @@
       (maybe->>= v
                  (fn [x] (match-pat pat x))))))
 
-(:test "Just patterns"
+(test "Just patterns"
        [ (match [:just 42] (/just 'x) x _ :no) ==> 42 ]
        [ (match :nothing   (/just 'x) x _ :yes) ==> :yes ])
 
@@ -141,7 +142,7 @@
       [:just {}]
       :nothing)))
 
-(:test "Sequence pattern matching"
+(test "Sequence pattern matching"
        [ (match (list) /nil :yes _ :no) ==> :yes ]
        [ (match (list 1 2 3) /nil :no (/cons 'x 'xs) [x xs]) ==> [1 (2 3)]]
        [ (match [] /nil :yes _ :no) ==> :yes ]
@@ -156,7 +157,7 @@
         [:just {}]
         :nothing))))
 
-(:test "Predicate patterns"
+(test "Predicate patterns"
        [ (match (list)
                 (/? (fn [l] (< 0 (length l)))) :no
                 _ :yes) ==> :yes]
@@ -179,7 +180,7 @@
                    (fn [bs] [:just (insert var v bs)])))
       (throw 'pattern-error "The first argument of `/as` should be an atom."))))
 
-(:test "As-patterns work"
+(test "As-patterns work"
        [ (match [1 2 3]
                 (/as 'xs [_ 7 _]) :no
                 (/as 'xs [_ _ 3]) xs) ==> [1 2 3]]
@@ -188,7 +189,7 @@
                 [_ _ (/as 'xs [_ _])] xs) ==> [3 4]]
        )
 
-(:test "Non-linear patterns"
+(test "Non-linear patterns"
   [ (match [1 1 1]
            ['x 'x 'x] x)  ==> 1
   ]
@@ -230,7 +231,7 @@
         [:just {}]
         :nothing))))
 
-(:test "/member"
+(test "/member"
   [(match [1 4]
           [1 (/member [1 3 5])] :no
           [1 (/member [2 4 8])] :yes

@@ -1,8 +1,15 @@
 {:module  'prelude/basic
  :doc     "Basic function used for checking equality, determining the type of a value, etc."
- :exports '[or some empty-seq? length maybe->>= maybe-foldlM elem? head tail read read-many <=]}
+ :exports '[if or some empty-seq? length maybe->>= maybe-foldlM elem? head tail
+            read read-many <= gensym]}
 
-;; or
+(def if
+  "Macro which is called as `(if c a b)`. If the expression `c` evaluates to true,
+  then the value of the whole expression is the evaluation of `a`, otherwise it
+  is the evaluation of `b`."
+  (macro
+   (fn [c tt ff]
+     (list 'cond c tt #t ff))))
 
 (def head
   "Backwards compatible alias for `first`."
@@ -17,7 +24,7 @@
   (fn [x y]
     (if x x y)))
 
-(:test "or"
+(test "or"
        [ (or #t #t) ==> #t ]
        [ (or #t #f) ==> #t ]
        [ (or #f #t) ==> #t ]
@@ -30,7 +37,7 @@
   "Checks that there is a least one truthy value in a list."
   (fn [xs] (foldr or #f xs)))
 
-(:test "some"
+(test "some"
        [ (some '())            ==> #f ]
        [ (some '(#t))          ==> #t ]
        [ (some '(#f))          ==> #f ]
@@ -46,7 +53,7 @@
         (eq? xs []))))
 
 ;; TODO move to file for primitive tests
-(:test "length"
+(test "length"
   [ (length (list)) ==> 0]
   [ (length (list 2)) ==> 1]
   [ (length []) ==> 0]
@@ -82,7 +89,7 @@
  (fn [x xs]
    (some (map (fn [c] (eq? c x)) xs))))
 
-(:test "elem?"
+(test "elem?"
  [ (elem? "f" (list "f" "g" "h")) ==> #t]
  [ (elem? "h" ["f" "g" "h"]) ==> #t]
  [ (elem? "a" (list "f" "g" "h")) ==> #f])
@@ -92,7 +99,7 @@
   (fn [s]
     (read-annotated "[read]" s)))
 
-(:test "read"
+(test "read"
   [ (read "[:a 42 \"foo\" {:key (1 2 3)}]") ==> [:a 42 "foo" {:key (1 2 3)}] ])
 
 (def read-many
@@ -100,9 +107,27 @@
   (fn [s]
     (read-many-annotated "[read-many]" s)))
 
-(:test "read-many"
+(test "read-many"
   [ (read-many "([:one] {:two 3}) (four \"five\" 6)") ==> [([:one] {:two 3}) (four "five" 6)]])
 
 (def <=
   "Test if `x` is less than or equal to `y`."
   (fn [x y] (or (eq? x y) (< x y))))
+
+(def gensym
+  "Returns a new symbol with a pseudo-unique name. The returned symbols are `G__#`,
+  where # is a number.
+
+  This is used for generating names for \"fresh\" variables in macro-expanded
+  code. Technically it is possible to still get a clash, but this won't happen
+  as long as human code-writers never use symbols of the form `G__#`."
+  ((fn []
+     (def gensym-counter (ref 0))
+     (fn []
+       (def i (read-ref gensym-counter))
+       (write-ref gensym-counter (+ i 1))
+       (string->symbol (string-append "G__" (show i)))))))
+
+(test "gensym"
+      [ (gensym) ==> G__0 ]
+      [ (eq? (gensym) (gensym)) ==> #f ])

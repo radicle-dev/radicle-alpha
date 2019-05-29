@@ -4,6 +4,7 @@
  this can be adjusted by setting `$XDG_CONFIG_HOME`."
  :exports '[read-keys! get-keys! create-keys! set-fake-keys! use-fake-keys!]}
 
+(import prelude/basic :unqualified)
 (import prelude/io :as 'io)
 (import prelude/io-utils :as 'io)
 (import prelude/strings :as 'string)

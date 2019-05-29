@@ -88,7 +88,7 @@
         (/cons cmd 'os) [:just {opts (add-defaults (parse-cli os))}]
         _               :nothing))))
 
-(:test "/cmd-opts"
+(test "/cmd-opts"
   [:setup
     (do
       (set-ref parse-failure-mode (@ :stub) #t)
@@ -132,7 +132,7 @@
         (/cons cmd _) (parse-failure (error/too-many-args cmd) help)
         _ :nothing))))
 
-(:test "/cmd-2"
+(test "/cmd-2"
   [:setup
    (do
      (set-ref parse-failure-mode (@ :stub) #t)
@@ -155,7 +155,7 @@
         (/cons cmd _) (parse-failure (error/too-many-args cmd) help)
         _ :nothing))))
 
-(:test "/cmd-1"
+(test "/cmd-1"
   [:setup
    (do
      (set-ref parse-failure-mode (@ :stub) #t)
@@ -175,7 +175,7 @@
        (/cons cmd _) (parse-failure (error/too-many-args cmd) help)
        _ :nothing))))
 
-(:test "/cmd-0"
+(test "/cmd-0"
   [:setup
     (do
       (set-ref parse-failure-mode (@ :stub) #t)
@@ -193,7 +193,7 @@
         (/cons 'cmd _) (if (elem? cmd help-cmds) [:just {}] :nothing)
         []            :nothing))))
 
-(:test "/cmd-help"
+(test "/cmd-help"
   [ ((/cmd-help) ["help"]) ==> [:just {}]]
   [ ((/cmd-help) ["-h"]) ==> [:just {}]]
   [ ((/cmd-help) ["--help"]) ==> [:just {}]]
@@ -213,7 +213,7 @@
         (parse-failure (error/whole-item-number :issue) help))
       (parse-failure (error/missing-item-number item action) help))))
 
-(:test "whole-num"
+(test "whole-num"
   [:setup
    (do
      (set-ref parse-failure-mode (@ :stub) #t)

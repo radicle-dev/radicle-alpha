@@ -90,7 +90,7 @@ course you wouldn't want to leave such an `update` command with no restrictions;
 we'll talk about that later.
     
     (def tx
-      (fn [expr _state]
+      (fn [expr]
         (match expr
           (/cons (/= 'update) (/cons 'e /nil)) e
           _                                    (process-command expr))))
