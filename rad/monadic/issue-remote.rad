@@ -250,6 +250,10 @@
   "List existing issues."
   (fn [] (read-ref issues)))
 
+(def get-html
+  "The frontend."
+  (fn [] "QmQ1mvvp2kSNZwFQV2RAABdYFNEHYV3HXXEk64ZUGiKUX8"))
+
 ;; General logic
 
 (def commands
@@ -260,6 +264,7 @@
    'add-comment             add-comment
    'edit-comment            edit-comment
    'list-issues             list-issues
+   'get-html                get-html
    'add-admin               (add-admin auth)})
 
 
