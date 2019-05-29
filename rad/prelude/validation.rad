@@ -243,7 +243,7 @@
        (verify-signature
         (lookup :author d)
         (lookup :signature d)
-        (show (delete-many [:author :signature] d)))))]))
+        (show-unformatted (delete-many [:author :signature] d)))))]))
 
 (test "signed"
   [:setup
@@ -253,12 +253,10 @@
        (def payload
          {:nonce (uuid!)
           :some "data"})
-       (def payload_ (insert :some "datadata" payload))
-       (def sig  (gen-signature! sk (show payload)))
+       (def sig  (gen-signature! sk (show-unformatted payload)))
        (def seal {:author    (lookup :public-key keys)
                   :signature sig})
        (def full (<> payload seal))
-       (def full_ (<> payload_ seal))
        (def ok
          (catch 'validation-failure (do (signed full) :ok) (fn [_] :not-ok)))
        )

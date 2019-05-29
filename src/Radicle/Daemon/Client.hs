@@ -9,6 +9,7 @@ module Radicle.Daemon.Client
     , query
     , send
     , MachineId(..)
+    , getMachineIndex
     ) where
 
 import           Protolude hiding (TypeError)
@@ -64,6 +65,10 @@ newMachine client = do
     NewResponse {..} <- runClient client $ Servant.client newMachineEndpoint
     pure machineId
 
+
+--- | Get the index page for a machine.
+getMachineIndex :: (ClientM m) => Client -> MachineId -> m HtmlText
+getMachineIndex client mid = runClient client $ Servant.client frontendEndpoint mid ["index.html"]
 
 -- | Primitive function defitions for @daemon/send!@, @daemon/query!@, and
 -- @daemon/new-machine!@.

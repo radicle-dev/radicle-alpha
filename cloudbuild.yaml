@@ -222,9 +222,9 @@ steps:
     - |
       set -euxo pipefail
       if [[ "$TAG_NAME" == v* ]]; then
-        VERSION="$TAG_NAME" TARGET=debian ./packaging/build-package.sh
+        VERSION=${TAG_NAME/#"v"} TARGET=debian ./packaging/build-package.sh
         cp  \
-          "packaging/out/radicle_${TAG_NAME}_amd64.deb" \
+          "packaging/out/radicle_v${TAG_NAME}_amd64.deb" \
           "packaging/out/radicle_latest_amd64.deb"
         ./packaging/upload.sh
       fi

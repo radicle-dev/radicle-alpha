@@ -18,6 +18,9 @@ module Radicle.Daemon.HttpApi
     , NewResponse(..)
     , newMachineEndpoint
 
+    , frontendEndpoint
+    , HtmlText(..)
+
     , DaemonApi
     , daemonApi
 
@@ -55,6 +58,28 @@ instance ToRad Ann.WithPos a => MimeRender RadicleData a where
 
 instance FromRad Ann.WithPos a => MimeUnrender RadicleData a where
   mimeUnrender _ = first toS . (fromRad <=< parse "[daemon]") . toS
+
+
+data HTML deriving Typeable
+
+-- | @text/html;charset=utf-8@
+instance Accept HTML where
+    contentTypes _ =
+      "text" HttpMedia.// "html" HttpMedia./: ("charset", "utf-8") :|
+      ["text" HttpMedia.// "html"]
+
+instance MimeRender HTML HtmlText where
+    mimeRender _ (HtmlText h) = toS h
+
+instance MimeUnrender HTML HtmlText where
+    mimeUnrender _ msg = case decodeUtf8' (toS msg) of
+        Left e  -> Left $ show e
+        Right v -> Right $ HtmlText v
+
+newtype HtmlText = HtmlText Text
+    deriving (Eq, Show, Read, Generic, IsString)
+
+instance ToSchema HtmlText
 
 -- | Content type for values encoded *loosely* as JSON. This encoding is meant
 -- to be convenient (for consuming in the browser) but lossy (since JSON has
@@ -164,10 +189,15 @@ type NewMachineEndpoint = MachinesEndpoint ("new" :> Post '[JSON, RadicleData] N
 newMachineEndpoint :: Proxy NewMachineEndpoint
 newMachineEndpoint = Proxy
 
+type FrontendEndpoint = MachineEndpoint ("frontend" :> CaptureAll "path" Text :> Get '[HTML] HtmlText)
+frontendEndpoint :: Proxy FrontendEndpoint
+frontendEndpoint = Proxy
+
 type DaemonApi =
          NewMachineEndpoint
     :<|> MachineQueryEndpoint
     :<|> MachineSendEndpoint
+    :<|> FrontendEndpoint
     :<|> "v0" :> "docs" :> Get '[JSON] Swagger
 
 daemonApi :: Proxy DaemonApi

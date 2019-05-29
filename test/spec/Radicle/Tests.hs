@@ -21,7 +21,7 @@ import qualified Text.Megaparsec.Pos as Par
 
 import           Radicle
 import qualified Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Arbitrary ()
+import           Radicle.Internal.Arbitrary
 import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Bar(..), Baz(..), Foo)
 import           Radicle.Internal.TestCapabilities
@@ -474,6 +474,16 @@ test_eval =
         runPureCode "(show (dict 'a 1))" @?= Right (String "{a 1}")
         runPureCode "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
+    , testCase "'show-unformatted' works" $ do
+        runPureCode "(show-unformatted {:b 2 :a 1})" @?= Right (String "{:a 1 :b 2}")
+        runPureCode "(show-unformatted {:bar \"bar bar bar bar bar bar bar bar bar bar bar bar bar bar bar\" :foo \"foo foo foo foo foo\"})"
+          @?= Right (String "{:bar \"bar bar bar bar bar bar bar bar bar bar bar bar bar bar bar\" :foo \"foo foo foo foo foo\"}")
+
+    , testProperty "'show-unformatted' does not add any whitespace characters" $ \(NoDoubleSpacesValue val :: NoDoubleSpacesValue) -> do
+        let res = runPureCode $ toS [i|(show-unformatted #{renderPrettyUnbounded val})|]
+            info = "Expected to not include any double whitespace characters, line breaks or tabs:\n" <> toS (prettyEither res)
+        counterexample info $ isLeft res || noUnallowedWhitespace (prettyEither res)
+
     , testCase "'read-anotated' works" $
         runPureCode "(read-annotated \"foo\" \"(:hello 42)\")" @?= Right (List [Keyword [ident|hello|], int 42])
 
@@ -562,6 +572,10 @@ test_eval =
   where
     failsWith src err    = noStack (runPureCode src) @?= Left err
     succeedsWith src val = runPureCode src @?= Right val
+    noTabs t = not $ T.any (== '\t') t
+    noLineBreaks t = not $ T.any (== '\n') t
+    noDoubleSpaces t = not $ T.isInfixOf "  " t
+    noUnallowedWhitespace t = noDoubleSpaces t && noLineBreaks t && noTabs t
 
 stackTraceLines :: [Ann.SrcPos] -> [Int]
 stackTraceLines = concatMap go

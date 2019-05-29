@@ -17,9 +17,9 @@ in
 
 stdenv.mkDerivation {
     name = "radicle-dev";
-    buildInputs = [ ghc zlib glibcLocales python3 wget stack postgresql moreutils fzf docker_compose]
+    buildInputs = [ ghc zlib glibcLocales python3 wget stack moreutils fzf docker_compose ]
       ++ (if doc then [docstuffs postgresql] else [])
-      ++ (if extras then [ vimPlugins.stylish-haskell haskellPackages.apply-refact hlint ] else []);
+      ++ (if extras then [ vimPlugins.stylish-haskell haskellPackages.apply-refact hlint haskellPackages.ghcid haskellPackages.weeder] else []);
     LANG = "en_US.UTF-8";
     libraryPkgconfigDepends = [ zlib ];
     shellHook = ''
@@ -29,6 +29,7 @@ stdenv.mkDerivation {
       export IS_NIX_SHELL="true"
       export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
       export RAD_BIN="$(stack path --docker --local-install-root)/bin"
+      export COMPOSE_FILE=test/docker-compose.yaml
       eval $(grep export ${ghc}/bin/ghc)
       alias check="pushd $PWD && ./scripts/check-fmt.sh && hlint . && popd"
       alias mkdocs="pushd $PWD/docs && make html && popd"
@@ -41,6 +42,5 @@ stdenv.mkDerivation {
       alias sts="stack test --fast radicle:spec"
       alias str="stack test --fast radicle:spec --ta '--pattern \"Radicle source file tests\"'"
       alias server="stack exec radicle-server -- "
-      alias rad="stack exec --silent radicle -- rad/repl.rad"
     '';
 }

@@ -28,7 +28,7 @@ import qualified Radicle.Ipfs as Ipfs
 
 
 newtype Daemon a = Daemon (ReaderT Env IO a)
-  deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO, MonadReader Env, MonadUnliftIO)
+  deriving (Functor, Applicative, Monad, MonadMask, MonadThrow, MonadCatch, MonadIO, MonadReader Env, MonadUnliftIO)
 
 runDaemon :: Env -> Daemon a -> IO (Either Error a)
 runDaemon env (Daemon x) = try $ runReaderT x env
