@@ -1,0 +1,31 @@
+{:module  'prelude/macros
+ :doc     "Some basic macros."
+ :exports '[defn]}
+
+(import prelude/basic :unqualified)
+(import prelude/patterns :unqualified)
+
+(def expand-defn
+  (fn [name args docstring? body]
+    (def lamb (cons 'fn (cons args body)))
+    (match docstring?
+           :nothing (list 'def name lamb)
+           [:just 'ds] (list 'def name ds lamb))))
+
+(def defn
+  "Def your functions."
+  (macro
+   (fn args
+     (match (vec-to-list args)
+            (/cons (/as 'name (/? atom?)) 'rest)
+            (match rest
+                   (/cons 'args (/cons (/as 'docstring (/? string?)) 'body)) (expand-defn name args [:just docstring] body)
+                   (/cons 'args 'body) (expand-defn name args :nothing body))
+            _ (throw 'macro-error "The `defn` macro takes at least a name (a symbol) and some arguments.")))))
+
+(test "defn"
+      [:setup
+       (defn foo [x]
+         "foo does doo"
+         (+ x 1))]
+      [ (foo 1) ==> 2 ])
