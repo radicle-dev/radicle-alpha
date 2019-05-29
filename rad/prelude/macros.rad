@@ -1,19 +1,28 @@
 {:module  'prelude/macros
- :doc     "Some basic macros."
- :exports '[defn]}
+ :doc     "Basic macros."
+ :exports '[defn let]}
 
 (import prelude/basic :unqualified)
 (import prelude/patterns :unqualified)
 
+(def lamb
+  (fn [args body]
+    (cons 'fn (cons args body))))
+
 (def expand-defn
   (fn [name args docstring? body]
-    (def lamb (cons 'fn (cons args body)))
     (match docstring?
-           :nothing (list 'def name lamb)
-           [:just 'ds] (list 'def name ds lamb))))
+           :nothing (list 'def name (lamb args body))
+           [:just 'ds] (list 'def name ds (lamb args body)))))
 
 (def defn
-  "Def your functions."
+  "A macro for defining functions. Takes a symbol, function argument(s), an optional doc-string, and the body for the function.
+
+  Example usages:
+  `(def f [x] (+ x 1))`
+  `(def f xs (print! (reverse xs)))`
+  `(def f [x] \"Increment function.\" (+ x 1))`
+  `(def f xs \"Reverse and print.\" (print! (reverse xs)))`"
   (macro
    (fn args
      (match (vec-to-list args)
@@ -21,11 +30,42 @@
             (match rest
                    (/cons 'args (/cons (/as 'docstring (/? string?)) 'body)) (expand-defn name args [:just docstring] body)
                    (/cons 'args 'body) (expand-defn name args :nothing body))
-            _ (throw 'macro-error "The `defn` macro takes at least a name (a symbol) and some arguments.")))))
+            _ (throw 'macro-error "The `defn` macro requires at least the function name (a symbol) and some arguments.")))))
 
 (test "defn"
       [:setup
        (defn foo [x]
          "foo does doo"
-         (+ x 1))]
-      [ (foo 1) ==> 2 ])
+         (+ x 1))
+       (defn bar [x] (+ x 2))]
+      [ (foo 1) ==> 2 ]
+      [ (bar 1) ==> 3 ])
+
+(def-rec expand-let
+  (fn [bindings body]
+    (match bindings
+           (/cons (/as 'x (/? atom?)) (/cons 'y 'rest-bindings))
+           (list (list (lamb [x] (expand-let rest-bindings body)) y))
+           (/cons _ /nil) (throw 'macro-error "The bindings vector in a `let` must have an even number nof forms.")
+           _ body)))
+
+(def let
+  "A macro for defining local variables.
+
+  Used as `(let [x1 e1 x2 e2 ... xn en] body..)` where the `xi` are symbols and
+  the `ei` are expressions. Each pair `xi ei` establishes a binding of the
+  symbol `xi` to the result of evaluating `ei`. The binding has effect on all
+  the expressions that follow it, and the body (unless shadowed by another
+  binding/def).
+
+  Evaluation of the body takes place with the bindings in place, and its value
+  becomes the value of the whole let-expression."
+  (macro
+   (fn args
+     (match (vec-to-list args)
+            (/cons 'bindings (/as 'body (/cons _ _))) (first (expand-let bindings body))
+            _ (throw 'macro-error "The `let` macro needs a bindings vector and a body.")))))
+
+(test "let"
+      [ (let [x (+ 42 1)] (+ x 1)) ==> 44]
+      [ (let [x 42 y (+ x 1)] [x y]) ==> [42 43]])
