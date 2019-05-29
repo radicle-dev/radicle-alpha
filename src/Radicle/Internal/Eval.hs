@@ -42,16 +42,11 @@ baseEval val = logValPos val $ case val of
 -- - First @tx@ is resolved, this is expected to be invocable.
 -- - It is invoked on the input expression.
 -- - The result of this is evaluated normally.
---
--- At the moment we are also passing the tx function the current state, but this
--- is just to make the current testing framework setup work, and will be
--- removed.
 transact :: Monad m => Value -> Lang m Value
 transact expr = do
     tx <- lookupAtom (Ident "tx")
-    st <- gets bindingsToRadicle
     logValPos tx $ do
-        expr' <- callFn tx [expr, st]
+        expr' <- callFn tx [expr]
         baseEval expr'
 
 specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)
@@ -74,6 +69,11 @@ specialForms = Map.fromList $ first Ident <$>
   , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
+  , ( "macro"
+    , \case
+        [val] -> Macro <$> baseEval val
+        _ -> throwErrorHere $ SpecialForm "macro" "Takes a single argument, which should evaluate to a function (which transforms syntax)."
+    )
   , ("def", \case
           [Atom name, val] -> def name Nothing val
           [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
@@ -103,13 +103,6 @@ specialForms = Map.fromList $ first Ident <$>
                          else throwError err
                   _ -> throwErrorHere $ SpecialForm "catch" "first argument must be atom"
           xs -> throwErrorHere $ WrongNumberOfArgs "catch" 3 (length xs))
-    , ("if", \case
-          [condition, t, f] -> do
-            b <- baseEval condition
-            -- I hate this as much as everyone that might ever read Haskell, but
-            -- in Lisps a lot of things that one might object to are True...
-            if b == Boolean False then baseEval f else baseEval t
-          xs -> throwErrorHere $ WrongNumberOfArgs "if" 3 (length xs))
     , ( "cond", (cond =<<) . evenArgs "cond" )
     , ( "match", match )
   ]
@@ -126,20 +119,20 @@ specialForms = Map.fromList $ first Ident <$>
       v : cases -> do
         cs <- evenArgs "match" cases
         v' <- baseEval v
-        goMatches v' cs
+        matchPat <- lookupAtom (Ident "match-pat")
+        goMatches matchPat v' cs
       _ -> throwErrorHere $ PatternMatchError NoValue
 
-    goMatches _ [] = throwErrorHere (PatternMatchError NoMatch)
-    goMatches v ((m, body):cases) = do
+    goMatches _ _ [] = throwErrorHere (PatternMatchError NoMatch)
+    goMatches matchPat v ((m, body):cases) = do
       patFn <- baseEval m
-      matchPat <- lookupAtom (Ident "match-pat")
       res <- callFn matchPat [patFn, v]
       let res_ = fromRad res
       case res_ of
         Right (Just (Dict binds)) -> do
           b <- bindsToEnv m binds
           addBinds b *> baseEval body
-        Right Nothing -> goMatches v cases
+        Right Nothing -> goMatches matchPat v cases
         _ -> throwErrorHere $ PatternMatchError (BadBindings m)
 
     bindsToEnv pat m = do
@@ -247,10 +240,16 @@ f $$ vs = case f of
     Atom i ->
       case Map.lookup i specialForms of
         Just form -> form vs
-        Nothing   -> fnApp
-    _ -> fnApp
+        Nothing   -> appFnOrMacro
+    _ -> appFnOrMacro
   where
-    fnApp = do
+    appFnOrMacro = do
       f' <- baseEval f
-      vs' <- traverse baseEval vs
-      callFn f' vs'
+      case f' of
+        Macro g -> do
+          e <- callFn g vs
+          -- The expansion of a macro is evaluated in its own scope:
+          withEnv identity $ baseEval e
+        _ -> do
+          vs' <- traverse baseEval vs
+          callFn f' vs'

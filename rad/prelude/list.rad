@@ -16,6 +16,6 @@
         (list to)
         (cons from (range (+ 1 from) to)))))
 
-(:test "range"
+(test "range"
   [ (range 1 5) ==> (1 2 3 4 5) ]
 )

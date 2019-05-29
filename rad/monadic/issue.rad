@@ -133,7 +133,7 @@
     (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-issues machine))))
     (take n is)))
 
-(:test
+(test
  "The monadic issue machine works."
  [:setup
   (do (machine/install-remote-machine-fake)
