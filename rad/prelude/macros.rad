@@ -67,5 +67,10 @@
             _ (throw 'macro-error "The `let` macro needs a bindings vector and a body.")))))
 
 (test "let"
-      [ (let [x (+ 42 1)] (+ x 1)) ==> 44]
-      [ (let [x 42 y (+ x 1)] [x y]) ==> [42 43]])
+      [ (let [] 42) ==> 42 ]
+      [ (let [x (+ 42 1)] (+ x 1)) ==> 44 ]
+      [ (let [x 42 y (+ x 1)] [x y]) ==> [42 43] ]
+      [ (let [x 0] x x) ==> 0 ])
+
+(test "multiple-macro-expansion"
+      [ (let [x (if #t :a :b) y (if #f :f x)] (if 42 [x y] :boo)) ==> [:a :a]])
