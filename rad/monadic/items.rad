@@ -4,7 +4,6 @@
  '[summary pretty-item-view list-items pretty-state enrich-item
    verify-item-number]}
 
-(file-module! "prelude/error-messages.rad")
 (import prelude/error-messages :as 'error)
 
 (def summary

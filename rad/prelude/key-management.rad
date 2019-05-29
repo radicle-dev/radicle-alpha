@@ -8,8 +8,6 @@
 (import prelude/io-utils :as 'io)
 (import prelude/strings :as 'string)
 (import prelude/lens :unqualified)
-
-(file-module! "prelude/error-messages.rad")
 (import prelude/error-messages :as 'error)
 
 (def key-pair-mode (ref {:use-fake-key #f}))
