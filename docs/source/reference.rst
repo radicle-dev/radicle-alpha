@@ -700,12 +700,8 @@ Returns a new symbol with a pseudo-unique name. The returned symbols are
 
 This is used for generating names for "fresh" variables in
 macro-expanded code. Technically it is possible to still get a clash,
-but this won't happen as long as:
-
--  This function is the only one that updates ``gensym-counter``, which
-   isn't exported from this module.
-
--  Humans never use symbols starting with ``G__``.
+but this won't happen as long as human code-writers never use symbols of
+the form ``G__#``.
 
 ``prelude/patterns``
 --------------------

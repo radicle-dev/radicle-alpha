@@ -114,24 +114,19 @@
   "Test if `x` is less than or equal to `y`."
   (fn [x y] (or (eq? x y) (< x y))))
 
-(def gensym-counter (ref 0))
-
 (def gensym
   "Returns a new symbol with a pseudo-unique name. The returned symbols are `G__#`,
   where # is a number.
 
   This is used for generating names for \"fresh\" variables in macro-expanded
   code. Technically it is possible to still get a clash, but this won't happen
-  as long as:
-  
-  - This function is the only one that updates `gensym-counter`, which isn't
-    exported from this module.
-  
-  - Humans never use symbols starting with `G__`."
-  (fn []
-    (def i (read-ref gensym-counter))
-    (write-ref gensym-counter (+ i 1))
-    (string->symbol (string-append "G__" (show i)))))
+  as long as human code-writers never use symbols of the form `G__#`."
+  ((fn []
+     (def gensym-counter (ref 0))
+     (fn []
+       (def i (read-ref gensym-counter))
+       (write-ref gensym-counter (+ i 1))
+       (string->symbol (string-append "G__" (show i)))))))
 
 (test "gensym"
       [ (gensym) ==> G__0 ]
