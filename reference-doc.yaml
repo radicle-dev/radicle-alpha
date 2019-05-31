@@ -98,6 +98,7 @@ primFns:
 - now!
 # JSON
 - to-json
+- from-json
 # UUIDs
 - uuid!
 - uuid?
