@@ -1,0 +1,172 @@
+;; Registry machine
+;; Meant to be sent to a machine with send-code!
+
+(import prelude/basic :unqualified)
+(import prelude/bool :unqualified)
+(import prelude/dict :unqualified)
+(import prelude/set :as 'set)
+(import prelude/ref :unqualified)
+(import prelude/validation :as 'validator)
+(import prelude/patterns :unqualified)
+(import prelude/util :unqualified)
+(import prelude/lens :unqualified)
+(import prelude/nonces :unqualified)
+(import prelude/auth '[make-simple-auth add-admin] :unqualified)
+(import prelude/machine-remote '[lock-machine-commands] :unqualified)
+
+(def machine-id
+  "The name of this machine."
+  "monadic/radicle/registry")
+
+(def projects
+  "Projects are stored in a dict in a ref, keyed by project-number."
+  (ref {}))
+
+(def project-counter
+  "We use a stateful counter for giving projects numbers."
+  (make-counter))
+
+(def noncer (make-noncer))
+
+(def auth (make-simple-auth [:admin]))
+
+(def set-projects
+  "A helper to set stuff in the projects ref."
+  (fn [l v]
+    (set-ref projects l v)))
+
+(def over-projects
+  "A helper to modify stuff in the projects ref."
+  (fn [l f]
+    (over-ref projects l f)))
+
+(def input-keys
+  {:nonce      (noncer :validator)
+   :machine-id (validator/= machine-id)})
+
+(def validator/time-created
+  (validator/and
+   [(validator/keys
+     {;; NOTE that timestamps are claimed by authors, are not verified, and may
+      ;; be incorrect.
+      :created-at validator/timestamp
+      :modified-at validator/timestamp})
+    (validator/pred "`:modified-at` and `:create-at` are equal"
+                    (fn [t]
+                      (eq? (lookup :created-at t)
+                           (lookup :modified-at t))))]))
+
+(def validator/time-modified
+  (validator/keys
+   {:modified-at validator/timestamp}))
+
+(def validator/input
+  "Checks that the input as a valid new *machine input*, that is, it has an unused
+  nonce, is marked with this machine name, and is signed."
+  (validator/and
+   [(validator/keys input-keys)
+    validator/signed]))
+
+(def validator/project-number
+  "A validator for numbers which refer to existing projects."
+  (validator/pred "Existing project number" (fn [n] (member? n (read-ref projects)))))
+
+(def validator/project-reference
+  "Refers to an existing project."
+  (validator/optional-keys {:project-number validator/project-number}))
+
+(def project-keys
+  {:name        (validator/string-of-max-length 100)
+   :description (validator/string-of-max-length 4000)
+   :labels      (validator/every (validator/string-of-max-length 80))
+   :state       (validator/member [:open :closed])
+   :project-id  (validator/string-of-max-length 80)})
+
+(def validator/full-project (validator/keys project-keys))
+
+(def validator/sub-project (validator/optional-keys project-keys))
+
+(def validator/project-input
+  "An project should have all the required fields, be a signed input, etc."
+  (validator/and
+   [;; NOTE that we don't check `validator/input` at this point, because some of
+    ;; the data is fixed before validation.
+    validator/time-created
+    validator/full-project]))
+
+(def edit-keys
+  (fn [ks]
+    (<> ks
+        (<> (keys input-keys)
+            [:project-number :modified-at :author :signature]))))
+
+(def validator/project-edit-input
+  "An input to edit an project."
+  (validator/and
+   [validator/input
+    validator/time-modified
+    validator/sub-project
+    validator/project-reference
+    (validator/or
+          [(validator/pred
+            "edit author == original author"
+            (fn [c]
+              (match c
+                     {:project-number 'n
+                      :author 'a}
+                     (eq? (view-ref projects (... [(@ n) (@ :author)]))
+                          a))))
+          (auth [:allowed :admin])])
+    (validator/contains-only (edit-keys (keys project-keys)))]))
+
+(def strip-input
+  "After an entity input has been processed/verified, we no longer need some of
+  the fields."
+  (fn [e]
+    (delete-many [:machine-id :signature :nonce :project-number] e)))
+
+(def register-project
+  "Register a project from a dict, checking that it is valid and storing it in `projects`."
+  (fn [i]
+    (validator/input i)
+    (validator/project-input i)
+    (def n (project-counter :next))
+    (def i_
+      (strip-input
+       (<> i
+           {:number   n})))
+    (set-projects (@ n) i_)
+    (noncer [:use (lookup :nonce i)])
+    n))
+
+(def merge-new
+  (fn [new]
+    (fn [old]
+      (<> old new))))
+
+(def edit-project
+  "Modify some of the attributes of an project."
+  (fn [i]
+    (validator/project-edit-input i)
+    (def i_ (delete :author (strip-input i)))
+    (over-projects (@ (lookup :project-number i)) (merge-new i_))))
+
+;; These are intended for clients to run locally with eval-in-machine
+
+(def list-projects
+  "List existing projects."
+  (fn [] (read-ref projects)))
+
+;; General logic
+
+(def commands
+  "The set of allowed machine commands."
+  (ref
+    {'register-project  register-project
+     'edit-project      edit-project
+     'list-projects     list-projects
+     'add-admin         (add-admin auth)}))
+
+(def tx
+  (lock-machine-commands (auth [:allowed :admin])
+                         commands))

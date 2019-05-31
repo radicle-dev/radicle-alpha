@@ -1,0 +1,125 @@
+;; Helpers for setting up and interacting with the registry machine (as defined in
+;; rad/monadic/registry-remote.rad)
+{:module  'monadic/registry
+ :doc     "Functions for interacting with registry machine"
+ :exports '[create-registry-machine!]}
+
+(import prelude/lens :unqualified)
+(import prelude/machine '[send-code! send-signed-command!] :unqualified)
+(import prelude/time '[install-fake-clock] :unqualified)
+(import prelude/io :as 'io)
+(import prelude/key-management '[use-fake-keys! get-keys!] :unqualified)
+
+(def radicle-registry-machine-id
+  "The name of this machine."
+  "monadic/radicle/registry")
+
+(def create-registry-machine!
+  "Create a remote registry machine with the given url."
+  (fn []
+    (def owner-keys (lookup :public-key (get-keys!)))
+    (def id (machine/new-machine!))
+    (machine/send-prelude! id)
+    (send-code! id (find-module-file! "monadic/registry-remote.rad"))
+    (machine/send-signed-command! id radicle-registry-machine-id 'add-admin {:key owner-keys})
+    id))
+
+(def simple-project
+  "Register an open project with no labels."
+  (fn [i]
+    (def t (now!))
+    (<> {:labels      []
+         :state       :open
+         :created-at  t
+         :modified-at t}
+        i)))
+
+(def register-project!
+  "Register a new remote project with the keys in `my-keys.rad`."
+  (fn [machine i]
+    (machine/send-signed-command! machine radicle-registry-machine-id 'register-project i)))
+
+(def edit-project!
+  "Edit a remote project with the keys in `my-keys.rad`."
+  (fn [machine i]
+    (machine/send-signed-command! machine radicle-registry-machine-id 'edit-project i)))
+
+(def simple-register-project!
+  "Register a remote project with sensible defaults."
+  (fn [machine name desc id]
+    (register-project! machine (simple-project {:name name :description desc :project-id id}))))
+
+(def simple-edit-project!
+  (fn [machine n i]
+    (edit-project! machine
+                 (<> {:project-number n
+                      :modified-at (now!)}
+                     i))))
+
+(def list-projects
+  "Return the full map of projects."
+  (fn [machine]
+    (machine/query! machine '(list-projects))))
+
+(def short
+  "Short render of a project."
+  (fn [i]
+    (string-append
+     (show (lookup :number i))
+     ": "
+     (lookup :name i))))
+
+(def list-last
+  "Get the last `n` projects."
+  (fn [machine n]
+    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-projects machine))))
+    (take n is)))
+
+(test
+ "The monadic registry machine works."
+ [:setup
+  (do (machine/install-remote-machine-fake)
+      (def owner-keys (gen-key-pair! (default-ecc-curve)))
+      (def non-owner-keys (gen-key-pair! (default-ecc-curve)))
+      (set-fake-keys! owner-keys)
+      (def machine (create-registry-machine!))
+      (simple-register-project! machine "name0" "desc0" "123")
+      (simple-register-project! machine "name1" "desc1" "456")
+      (simple-edit-project! machine 0 {:state :closed})
+      (set-fake-keys! non-owner-keys)
+      (simple-register-project! machine "new" "new" "111")
+      (def is (list-projects machine))
+      (set-fake-keys! owner-keys))
+ ]
+ [ (length (seq is)) ==> 3 ]
+ [ (view (.. (@ 0) (@ :name)) is) ==> "name0" ]
+ [ (view (.. (@ 1) (@ :name)) is) ==> "name1" ]
+ [ (short (first (values is))) ==> "0: name0" ]
+ [ (short (first (list-last machine 1))) ==> "2: new" ]
+ [ (view (.. (@ 0) (@ :state)) is) ==> :closed ]
+ ;; authorization
+ ;; owner can change the state
+ [ (do
+      (set-fake-keys! owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-project! machine 2 {:state :closed})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
+ ;; author can change the state
+ [ (do
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-project! machine 2 {:state :open})
+                 :valid)
+             (fn [_] :not-valid))) ==> :valid
+ ]
+ ;; non-owner/non-author cannot change the state
+ [ (do
+      (set-fake-keys! non-owner-keys)
+      (catch 'validation-failure
+             (do (simple-edit-project! machine 0 {:state :open})
+                 :valid)
+             (fn [_] :not-valid))) ==> :not-valid
+ ]
+)
