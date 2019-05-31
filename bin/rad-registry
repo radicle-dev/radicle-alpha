@@ -11,10 +11,28 @@
 (import prelude/strings '[split-by] :unqualified)
 (import prelude/validation :as 'validation)
 (import prelude/machine :as 'machine)
+(import prelude/io :as 'io)
+(import prelude/io-utils :as 'io)
 
 ;; (import monadic/registry '[create-registry-machine!] :unqualified)
+(def path!
+  (fn []
+    (string-append (io/base-path!) "/registry.rad")))
 
-(def machine-name (fn [] "12D3KooWNdyJ1QpNy5RbBfjKEx1gPvRJ72tgYo1vs6jvXU8yuQN2"))
+(def init-registry-file!
+  (fn []
+    (io/shell! (string-append "mkdir -p " (io/base-path!)) "")
+    (io/init-file-dict! (path!))))
+
+(def machine-name
+  (fn []
+    (init-registry-file!)
+    (match (io/read-file-key! (path!) :registry)
+      :nothing    (do
+                    (put-str! "No registry set. Run `rad registry set <registry-id>`.")
+                    (exit! 1))
+      [:just 'r]  r
+      )))
 
 (def valid-states ["open" "closed"])
 
@@ -35,7 +53,8 @@
         rad registry new
         rad registry [show | close | mark-read | mark-unread] <project-number>
         rad registry all-read
-        rad init
+        rad registry init
+        rad registry set <registry-id>
         rad registry help
 
      list         - Lists all projects
@@ -56,7 +75,8 @@
      mark-read    - Mark project as read
      mark-unread  - Mark project as unread
      all-read     - Mark all projects as read
-     init         - Initialize a new register machine
+     init         - Initialize a new registry machine
+     set          - Set the registry that is used for the commands.
      help         - Print this help and exit
        "))
 
@@ -139,12 +159,19 @@
     (put-str! "=> Assembled rad registry machine")
     (put-str! (string-append "=> registry id: " registry))))
 
+(def set-registry!
+  (fn [id]
+    (init-registry-file!)
+    (io/write-file-key! (path!) :registry id)
+    (put-str! (string-append "=> Set registry machine to " id))))
+
 (machine/catch-daemon!
  (fn []
    (match args
           (/list-cmd 'options)           (list (machine-name) options)
           (/cmd-0 "new" help)            (new-project (machine-name))
           (/cmd-0 "init" help)           (new-registry!)
+          (/cmd-1 "set" 'n help)         (set-registry! n)
           (/cmd-1 "close" 'n help)       (whole-project-num "close" n (fn [n] (close-project n (machine-name))))
           (/cmd-1 "show" 'n help)        (whole-project-num "show" n (fn [n] (show-project! n (machine-name))))
           (/cmd-1 "show-id" 'n help)     (whole-project-num "show-id" n (fn [n] (show-project-id! n (machine-name))))

@@ -87,7 +87,7 @@
 (def validator/sub-project (validator/optional-keys project-keys))
 
 (def validator/project-input
-  "An project should have all the required fields, be a signed input, etc."
+  "A project should have all the required fields, be a signed input, etc."
   (validator/and
    [;; NOTE that we don't check `validator/input` at this point, because some of
     ;; the data is fixed before validation.
@@ -101,7 +101,7 @@
             [:project-number :modified-at :author :signature]))))
 
 (def validator/project-edit-input
-  "An input to edit an project."
+  "An input to edit a project."
   (validator/and
    [validator/input
     validator/time-modified
@@ -145,7 +145,7 @@
       (<> old new))))
 
 (def edit-project
-  "Modify some of the attributes of an project."
+  "Modify some of the attributes of a project."
   (fn [i]
     (validator/project-edit-input i)
     (def i_ (delete :author (strip-input i)))
