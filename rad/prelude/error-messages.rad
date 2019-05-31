@@ -82,11 +82,11 @@
 
 (def uppercase-item
   (fn [item]
-    (lookup item {:issue "Issue" :patch  "Patch"})))
+    (lookup item {:issue "Issue" :patch "Patch" :project "Project"})))
 
 (def lowercase-item
   (fn [item]
-    (lookup item {:issue "issue" :patch  "patch"})))
+    (lookup item {:issue "issue" :patch "patch" :project "project"})))
 
 ;; rad project specific errors
 
