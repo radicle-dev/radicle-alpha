@@ -20,6 +20,7 @@
 (file-module! "prelude/ref.rad")
 (file-module! "prelude/lens.rad")
 (file-module! "prelude/io-utils.rad")
+(file-module! "prelude/http.rad")
 (file-module! "prelude/key-management.rad")
 (file-module! "prelude/machine.rad")
 (file-module! "prelude/machine-remote.rad")

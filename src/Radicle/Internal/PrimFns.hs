@@ -577,6 +577,14 @@ purePrimFns = fromList $ allDocs $
             Left e -> throwErrorHere $ OtherError $ "Could not convert to JSON: " <> e
             Right js -> pure js
       )
+    , ( "from-json"
+      , "Converts a JSON string into Radicle data. If the string is not valid JSON\
+        \ then `:nothing` is returned, otherwise `[:just v]` is returned where `v`\
+        \ is a Radicle representation of the JSON data."
+      , oneArg "from-json" $ \case
+          String json -> pure $ toRad $ Json.fromJson <$> Aeson.decode (toS json)
+          v -> throwErrorHere $ TypeError "from-json" 0 TString v
+      )
     , ( "default-ecc-curve"
       , "Returns the default elliptic-curve used for generating cryptographic keys."
       ,

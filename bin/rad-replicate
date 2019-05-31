@@ -4,6 +4,7 @@
 (load! (find-module-file! "monadic/project.rad"))
 
 (import prelude/strings '[ends-with?] :unqualified)
+(import prelude/http :as 'http)
 
 (def default-url
   "Default replication URL"
@@ -48,14 +49,12 @@
         "v0/machines/"
         machine
         "/query"))
-    (match (process-with-stdout-stderr-exitcode!
-             "curl"
-             ["-s" url "-d" "{ \"expression\": \"(+ 3 2)\" }" "-H" "Content-Type: application/json"]
-             "")
-           [_ _ :ok] :ok
-           [_ _ _  ] (do
-                        (put-str! (string-append "Machine " machine ": error reaching replicator"))
-                        (exit! 1)))))
+    (catch 'http
+        (do (http/json-post! url {:expression "(+ 3 2)"})
+            :ok)
+      (fn [err]
+        (put-str! (string-append "Machine " machine ": error reaching replicator"))
+        (exit! 1)))))
 
 (def replicate-all
   (fn [murl]
