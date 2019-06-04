@@ -244,15 +244,27 @@
           (def c_ (strip-input c))
           (over-issues (... [(@ n) (@ :comments) (@nth i)]) (merge-new c_))))))
 
+
+;; HTML frontend
+
+(def html (ref "QmcENMqxFaYifTCGpHwureKnyEAEfgQXZ8fW35kn17uQPP"))
+
+(def get-html
+  "The frontend."
+  (fn [] (read-ref html)))
+
+(def set-html
+  "The frontend."
+  (fn []
+      (auth [:allowed :admin])
+      (read-ref html)))
+
 ;; These are intended for clients to run locally with eval-in-machine
 
 (def list-issues
   "List existing issues."
   (fn [] (read-ref issues)))
 
-(def get-html
-  "The frontend."
-  (fn [] "QmQ1mvvp2kSNZwFQV2RAABdYFNEHYV3HXXEk64ZUGiKUX8"))
 
 ;; General logic
 
