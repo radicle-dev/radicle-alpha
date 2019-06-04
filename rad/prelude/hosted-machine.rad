@@ -1,0 +1,15 @@
+{:module 'prelude/hosted-machine
+ :doc "Functions for interacting with hosted machines."
+ :exports '[]}
+
+(import prelude/http :as 'http)
+
+(def default-hosting-url
+  "Default hosting URL."
+  "http://replicate.radicle.xyz")
+
+(def new-hosted-machine!
+  (fn []
+    (match (http/json-post! (string-append default-hosting-url "/v0/machines/new") {})
+           [:just {"machineId" 'mid}] mid
+           _ (throw 'new-hosted-machine "Could not parse response from host-provider."))))
