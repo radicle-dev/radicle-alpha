@@ -38,6 +38,7 @@ library:
   - aeson
   - ansi-terminal
   - bytestring
+  - clock
   - conduit
   - conduit-extra
   - containers
