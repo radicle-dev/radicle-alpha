@@ -20,8 +20,8 @@
 (def add-name!
   (fn [name-machine-url name key]
     (machine/send!
-       name-machine-url
-       [(list 'add-name name key)])))
+     name-machine-url
+     [(list 'add-name name key)])))
 
 (:test
   "The monadic name machine works."

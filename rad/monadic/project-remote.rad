@@ -12,7 +12,7 @@
 (import prelude/lens :unqualified)
 (import prelude/nonces :unqualified)
 (import prelude/set :as 'set)
-(import prelude/machine-remote '[make-updatable-eval] :unqualified)
+(import prelude/machine-remote '[lock-machine-commands] :unqualified)
 (import prelude/auth '[make-simple-auth add-admin] :unqualified)
 
 (def rsms
@@ -74,10 +74,13 @@
 
 (def commands
   "The set of allowed commands."
+  (ref
    {'add-rsm   add-rsm
     'set-meta  set-meta
     'get-meta  get-meta
     'list-rsms list-rsms
-    'add-admin (add-admin auth)})
+    'add-admin (add-admin auth)}))
 
-(def eval (make-updatable-eval commands (auth [:allowed :admin])))
+(def tx
+  (lock-machine-commands (auth [:allowed :admin])
+                         commands))

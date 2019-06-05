@@ -83,18 +83,17 @@ arguments. Finally we print the issues so that we can see how the state evolves.
         (print! (read-ref issues))
         :ok))
 
-Now we update the eval. We will check for a special command `update` for
-updating the semantics of our machine (by executing arbitrary code), but otherwise
-we delegate to `process-command`. In general of course you wouldn't want to
-leave such an `update` command with no restrictions; we'll talk about that
-later.
-
-    (load! "rad/machine.rad")
-
-    (def eval
-      (updatable-eval
-        (fn [expr state]
-          (eval-fn-app state 'process-command expr print!))))
+Now we update the `tx` function. We will check for a special command `update`
+for updating the semantics of our machine (by executing arbitrary code, by just
+returning it), but otherwise we delegate to `process-command`. In general of
+course you wouldn't want to leave such an `update` command with no restrictions;
+we'll talk about that later.
+    
+    (def tx
+      (fn [expr _state]
+        (match expr
+          (/cons (/= 'update) (/cons 'e /nil)) e
+          _                                    (process-command expr))))
 
 Now we can start creating some issues. To generate some UUIDs, use the `uuid!`
 function at the REPL.
@@ -260,26 +259,23 @@ To generate a signed issue we can call, after loading that code into a REPL:
 And submit the result to the machine:
 
     (create
-      {:author [:public-key
-       {:public_curve [:curve-fp
-        [:curve-prime
-        1.15792089237316195423570985008687907853269984665640564039457584007908834671663e77
-        [:curve-common
-        {:ecc_a 0.0
-         :ecc_b 7.0
-         :ecc_g [:Point
-         5.506626302227734366957871889516853432625060345377759417550018736038911672924e76
-         3.2670510020758816978083085130507043184471273380659243275938904335757337482424e76]
-         :ecc_h 1.0
-         :ecc_n 1.15792089237316195423570985008687907852837564279074904382605163141518161494337e77}]]]
-        :public_q [:Point
-        1.11054692487265016800292649812157504820937148585989526304621614094061257232989e77
-        3.6059272479591624612420581719526072934261866833779446725219340058438651734523e76]}]
+      {:author {:public_curve [:curve-fP
+                [:curve-prime
+                115792089237316195423570985008687907853269984665640564039457584007908834671663
+                {:ecc_a 0
+                 :ecc_b 7
+                 :ecc_g [:point
+                 55066263022277343669578718895168534326250603453777594175500187360389116729240
+                 32670510020758816978083085130507043184471273380659243275938904335757337482424]
+                 :ecc_h 1
+                 :ecc_n 115792089237316195423570985008687907852837564279074904382605163141518161494337}]]
+                :public_q [:point
+                1586540975871139910492059063500089494477229513147906504918938970723766793669
+                74983891113881023096743645247308456896420847655960927256341242535397070787987]}
        :body "This is the body of the first issue with a verified author."
-       :id "76dd218b-fbc1-4384-9962-8bfbec5da2a2"
-       :signature [:Signature
-       {:sign_r 1.07685492960818947345554835683887719269111710108141784367526228085824476440077e77
-        :sign_s 3.740767076693925401519339475669557891360406440839428851888372253368058490896e76}]
+       :id "9acde0c6-9947-4487-b21d-c4098eeec148"
+       :signature {:sign_r 49074705514350374841918106922124016178680772245428117282000810858109960040776
+                   :sign_s 91323997871126045836257037323734538249052522716973625287059503099904115325393}
        :title "This issue has a verified author"})
 
 Signing comments would be done in a similar way.

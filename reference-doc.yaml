@@ -29,7 +29,8 @@ primFns:
 - read-annotated
 - read-many-annotated
 # Eval
-- base-eval
+- eval
+- initial-tx
 # Refs
 - ref
 - read-ref

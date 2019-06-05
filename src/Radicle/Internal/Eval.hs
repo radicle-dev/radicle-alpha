@@ -1,5 +1,5 @@
 module Radicle.Internal.Eval
-    ( eval
+    ( transact
     , baseEval
     , callFn
     , ($$)
@@ -20,7 +20,7 @@ import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier (Ident(..))
 import           Radicle.Internal.Orphans ()
 
--- | The built-in, original, eval.
+-- | Basic evaluation.
 baseEval :: Monad m => Value -> Lang m Value
 baseEval val = logValPos val $ case val of
     Atom i -> lookupAtom i
@@ -37,21 +37,22 @@ baseEval val = logValPos val $ case val of
     autoquote -> pure autoquote
 
 
--- | The buck-passing eval. Uses whatever 'eval' is in scope.
-eval :: Monad m => Value -> Lang m Value
-eval val = do
-    e <- lookupAtom (Ident "eval")
-    logValPos e $ do
-        st <- gets bindingsToRadicle
-        result <- callFn e [val, st]
-        case result of
-            List [val', newSt] -> do
-                setBindings newSt
-                pure val'
-            _ -> throwErrorHere
-               $ OtherError "eval: should return list with value and new env"
-
-
+-- |
+-- A transaction happens as follows:
+-- - First @tx@ is resolved, this is expected to be invocable.
+-- - It is invoked on the input expression.
+-- - The result of this is evaluated normally.
+--
+-- At the moment we are also passing the tx function the current state, but this
+-- is just to make the current testing framework setup work, and will be
+-- removed.
+transact :: Monad m => Value -> Lang m Value
+transact expr = do
+    tx <- lookupAtom (Ident "tx")
+    st <- gets bindingsToRadicle
+    logValPos tx $ do
+        expr' <- callFn tx [expr, st]
+        baseEval expr'
 
 specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)
 specialForms = Map.fromList $ first Ident <$>
@@ -178,7 +179,9 @@ createModule :: forall m. Monad m => [Value] -> Lang m Value
 createModule = \case
     (m : forms) -> do
       m' <- baseEval m >>= meta
-      e <- withEnv identity $ traverse_ eval forms *> gets bindingsEnv
+      -- TODO: The @transact@ in the following line is a bit of a wart, but
+      -- modules are thought of as a sequence of "top-level" s-expressions.
+      e <- withEnv identity $ traverse_ transact forms *> gets bindingsEnv
       let exportsSet = Set.fromList (exports m')
       let undefinedExports = Set.difference exportsSet (Map.keysSet (fromEnv e))
       env <- if null undefinedExports

@@ -155,7 +155,6 @@ test_eval =
         f "(insert (ref 0) 1 {})"
         f "{(ref 0) 1}"
         "(lookup :k {'(fn [x] y) 1 :k :v})" `succeedsWith` Keyword [ident|v|]
-        f "(eval {'(fn [y] y) :a-fun} (get-current-state))"
         f "(dict (ref 0) 1)"
 
     , testProperty "'string-append' concatenates string" $ \ss -> do
@@ -386,9 +385,9 @@ test_eval =
             |]
         prog `succeedsWith` Boolean True
 
-    , testCase "evaluation can be redefined" $ do
+    , testCase "tx can be redefined" $ do
         let prog = [s|
-            (def eval (fn [expr env] (list #f env)))
+            (def tx (fn [expr state] #f))
             #t
             |]
         prog `succeedsWith` Boolean False
@@ -471,7 +470,7 @@ test_eval =
         runPureCode "(show #f)" @?= Right (String "#f")
         runPureCode "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1 \"foo\" (b (quote x) 2 \"bar\"))")
         runPureCode "(show [1 :a])" @?= Right (String "[1 :a]")
-        runPureCode "eval" @?= Right (PrimFn [ident|base-eval|])
+        runPureCode "tx" @?= Right (PrimFn [ident|initial-tx|])
         runPureCode "(show (dict 'a 1))" @?= Right (String "{a 1}")
         runPureCode "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 

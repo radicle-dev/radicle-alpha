@@ -39,7 +39,7 @@ interpretWithState sourceName expr bnds = do
     let parsed = parseValue (toS sourceName) expr
     case parsed of
         Left e  -> pure (Left (LangError [Ann.thisPos] (ParseError e)), bnds)
-        Right v -> runLang bnds (eval v)
+        Right v -> runLang bnds (transact v)
 
 -- | Parse and evaluate a Text as multiple expressions.
 --
@@ -53,13 +53,13 @@ interpretWithState sourceName expr bnds = do
 -- Right (Annotated (Identity (BooleanF True)))
 interpretMany
     :: Monad m
-    => Text  -- ^ Name of source file (for error reporting)
-    -> Text  -- ^ Source code to be interpreted
+    => Text -- ^ Name of source file (for error reporting)
+    -> Text -- ^ Source code to be interpreted
     -> Lang m Value
 interpretMany sourceName src = case parseValues sourceName src of
     Left err -> throwErrorHere $ ParseError err
     Right vs -> do
-        es <- mapM eval vs
+        es <- mapM transact vs
         case lastMay es of
             Just e -> pure e
             _ -> throwErrorHere
