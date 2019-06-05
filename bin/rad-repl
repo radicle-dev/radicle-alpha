@@ -1,6 +1,5 @@
 #!/usr/bin/env radicle
 (load! (find-module-file! "prelude.rad"))
-(import prelude/machine '[eval] :unqualified)
 
 (def help
   "Default help text."
