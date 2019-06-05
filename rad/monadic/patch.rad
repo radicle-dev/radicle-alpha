@@ -75,7 +75,7 @@
 (def list-patches
   "Return the full map of patches."
   (fn [machine]
-  (machine/query! machine '(list-patches))))
+    (machine/query! machine '(list-patches))))
 
 (:test
  "The monadic patch machine works."

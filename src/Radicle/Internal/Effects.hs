@@ -81,7 +81,7 @@ repl histFile _ bindings = do
                 case parsed of
                     Left e -> outputStrLn e >> loop st
                     Right v -> do
-                        (res, newSt) <- runLang st (eval v)
+                        (res, newSt) <- runLang st (transact v)
                         case res of
                             Left e'  -> putPrettyAnsi e' >> loop st
                             Right v' -> putPrettyAnsi v' >> loop newSt
@@ -181,14 +181,13 @@ replPrimFns sysArgs = fromList $ allDocs $
                             -- environment in which it was defined, but the
                             -- /result/ of the getter is then evaluated in the
                             -- current environment.
-                            y <- g $$ []
+                            y <- callFn g []
                             case y of
                               Vec ys -> do
-                                ys' <- traverse eval ys
-                                -- Similarly, the application of the subscriber
-                                -- function is evaluated in the original
-                                -- environment.
-                                void $ withEnv (const e) (fn $$ [quote (Vec ys')])
+                                ys' <- traverse baseEval ys
+                                -- The application of the subscriber function is
+                                -- evaluated in the original environment.
+                                void $ withEnv (const e) (callFn fn [Vec ys'])
                               _ -> throwErrorHere $ OtherError "Getter should return a vector of values"
                 _  -> throwErrorHere $ TypeError "subscribe-to!" 0 TDict x
         xs  -> throwErrorHere $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))
@@ -222,7 +221,7 @@ replPrimFns sysArgs = fromList $ allDocs $
       )
     , ( "load!"
       , "Evaluates the contents of a file. Each seperate radicle expression is\
-        \ `eval`uated according to the current definition of `eval`."
+        \ transacted according to the current definition of `tx`."
       , oneArg "load!" $ \case
           String filename -> readFileS filename >>= \case
               Left err -> throwErrorHere . OtherError $ "Error reading file: " <> err
