@@ -23,7 +23,7 @@ import           Radicle
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (asValue, noStack)
-import           Radicle.Internal.Foo (Foo)
+import           Radicle.Internal.Foo (Bar(..), Baz(..), Foo)
 import           Radicle.Internal.TestCapabilities
 import           Radicle.TH
 
@@ -839,6 +839,22 @@ test_from_to_radicle =
         [ testForType (Proxy :: Proxy [Text]) ]
     , testGroup "Generic a => a"
         [ testForType (Proxy :: Proxy Foo) ]
+    , testGroup "Single constructor with selectors"
+        [ testForType (Proxy :: Proxy Bar) ]
+    , testGroup "Single constructor with no selectors"
+        [ testForType (Proxy :: Proxy Baz) ]
+    , testGroup "Constructors optional for single constructor datatypes"
+        [ let v = Vec $ fromList [ kw "bar"
+                                 , Dict $ fromList [ (kw "bar1", String "hello")
+                                                   , (kw "bar2", int 42)
+                                                   ]
+                                 ]
+              x = Bar{ bar1 = "hello", bar2 = 42 }
+          in testCase "works with selectors" $ fromRad v @?= Right x
+        , let v = Vec $ fromList [ kw "baz" , String "hello" ]
+              x = Baz "hello"
+          in testCase "works with no selectors" $ fromRad v @?= Right x
+        ]
 
     , testGroup "StdStream"
         [ kw "inherit" ~~ Inherit
