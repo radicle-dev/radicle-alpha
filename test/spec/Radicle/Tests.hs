@@ -392,9 +392,9 @@ test_eval =
             |]
         prog `succeedsWith` Boolean False
 
-    , testCase "redefining eval keeps access to future definitions" $ do
+    , testCase "redefining tx keeps access to future definitions" $ do
         let prog = [s|
-            (def eval (fn [expr env] (eval expr env)))
+            (def tx (fn [expr] (tx expr)))
             (def t #t)
             t
             |]
@@ -793,8 +793,8 @@ test_repl =
                      ]
         assertReplInteraction input output
 
-    , testCase "(def eval eval) doesn't change things" $ do
-        let input = [ "(def eval eval)"
+    , testCase "(def tx tx) doesn't change things" $ do
+        let input = [ "(def tx tx)"
                     , "(def id (fn [x] x))"
                     , "(id #t)"
                     ]
