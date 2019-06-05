@@ -1264,6 +1264,11 @@ This requires the ``prelude/test/primitive-stub`` script to be loaded.
 
 Ask for user input with a prompt.
 
+``(prompt-non-empty! prompt)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Same as ``prompt!``, but repeats id the input empty.
+
 ``prelude/exception``
 ---------------------
 
