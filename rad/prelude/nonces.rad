@@ -34,7 +34,7 @@
         [:use 'nonce] (use-nonce nonce)
         _ (throw 'match-failure "expecting [:use <nonce>] or :validate")))))
 
-(:test "make-noncer"
+(test "make-noncer"
   [:setup
     (do
       (def noncer (make-noncer))

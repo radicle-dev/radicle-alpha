@@ -2,6 +2,7 @@
  :doc     "Functions for manipualting dicts."
  :exports '[dict-from-seq keys values rekey modify-map delete-many lookup-default lookup-maybe safe-modify-map group-by]}
 
+(import prelude/basic :unqualified)
 (import prelude/patterns :unqualified)
 
 (def dict-from-seq
@@ -9,7 +10,7 @@
   (fn [xs]
     (foldr (fn [kv acc] (insert (first kv) (first (rest kv)) acc)) (dict) xs)))
 
-(:test "dict-from-seq"
+(test "dict-from-seq"
   [ (dict-from-seq (list (list :one 1) (list :two 2)))
     ==> { :one 1 :two 2 } ])
 
@@ -20,7 +21,7 @@
   (fn [d]
     (map first (seq d))))
 
-(:test "keys"
+(test "keys"
   [ (keys {:one 1 :two 2}) ==> [:one :two] ]
 )
 
@@ -29,7 +30,7 @@
   (fn [d]
     (map (fn [x] (nth 1 x)) (seq d))))
 
-(:test "values"
+(test "values"
   [ (values {:a 0 :b 1}) ==> [0 1] ]
 )
 
@@ -40,7 +41,7 @@
     (def old-val (lookup old-key d))
     (delete old-key (insert new-key old-val d))))
 
-(:test "rekey"
+(test "rekey"
   [ (rekey :a :b {:a 5}) ==> {:b 5} ])
 
 ;; modify-map
@@ -49,7 +50,7 @@
   (fn [k f d]
     (insert k (f (lookup k d)) d)))
 
-(:test "modify-map"
+(test "modify-map"
   [ (modify-map :a (fn [x] (+ x 1)) {:a 5})
      ==> {:a 6} ])
 
@@ -73,7 +74,7 @@
       [:just (lookup key dict)]
       :nothing)))
 
-(:test "lookup-default"
+(test "lookup-default"
   [ (lookup-default :one 2 {:one 1}) ==> 1 ]
   [ (lookup-default :two 2 {:one 1}) ==> 2 ])
 
@@ -87,7 +88,7 @@
            :nothing   (delete k d)
            [:just 'v] (insert k v d))))
 
-(:test "safe-modify-map"
+(test "safe-modify-map"
   [ (safe-modify-map :foo (fn [x] (match x :nothing [:just 0] [:just 'y] [:just (+ 1 y)])) {}) ==> {:foo 0} ]
   [ (safe-modify-map :foo (fn [x] (match x :nothing [:just 0] [:just 'y] [:just (+ 1 y)])) {:foo 42}) ==> {:foo 43} ]
   [ (safe-modify-map :foo (fn [x] (match x :nothing [:just 0] [:just _] :nothing)) {:foo 42}) ==> {}])
@@ -104,7 +105,7 @@
            {}
            xs)))
 
-(:test "group-by"
+(test "group-by"
        [ (group-by length []) ==> {} ]
        [ (group-by length ["foo" "foofoo" "bar" "foobar" "bar" "barbar"]) ==> {3 ["foo" "bar" "bar"]
                                                                                6 ["foofoo" "foobar" "barbar"]} ]

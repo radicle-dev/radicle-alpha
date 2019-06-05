@@ -1,0 +1,39 @@
+{:module 'prelude/test-macro
+ :doc
+ "Provides eval that adds a `test` macro. If an the eval encounters an
+   expression of the form `(test \"desc\" tests...)` we add it to the vector
+   stored in the `tests` ref. The tests are then run by `rad/prelude/test.rad`."
+ :exports '[test tests]}
+
+(def tests
+  "Reference that collects tests defined with the `test` macro, defined below."
+  (ref []))
+
+(def test
+  "Macro for registering tests."
+  (macro
+   (fn es
+     (list 'do
+           (list write-ref
+                 tests
+                 (list add-right
+                       {:doc-test (list 'quote (drop 1 es))
+                        :name     (nth 0 es)
+                        :env      (list get-current-state)}
+                       (list read-ref tests)))
+           :test-added))))
+
+(test "'test' works (including :setup)"
+      [:setup
+       (def x 3)
+       (def y (ref 0))
+       (write-ref y 1)]
+      [(+ 3 2) ==> 5]
+      [x       ==> 3])
+
+(test "'test' handles exceptions properly"
+      [:setup
+       (def x (catch 'any (throw 'blah) (fn [x] #t)))
+       (def y (catch 'any (throw 'blah) (fn [x] #f)))]
+      [x ==> #t]
+      [y ==> #f])

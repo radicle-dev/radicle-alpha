@@ -1,7 +1,7 @@
 Testing
 =======
 
-Radicle provides a ``:test`` macro which allows you to write tests next
+Radicle provides a ``test`` macro which allows you to write tests next
 to your code.
 
 .. code-block:: radicle
@@ -9,7 +9,7 @@ to your code.
   (def not
     (fn [x] (if x #f #t)))
 
-  (:test "not"
+  (test "not"
      [ (not #t) ==> #f ]
      [ (not #f) ==> #t ]
      )
@@ -24,7 +24,7 @@ Each test definition consists of a test name and a list of steps
 
 .. code-block:: radicle
 
-  (:test "my test" step1 step2 ...)
+  (test "my test" step1 step2 ...)
 
 Each step is a vector triple with the symbol ``==>`` in the middle. For
 example
@@ -53,7 +53,7 @@ environment that tests steps run in.
 
 .. code-block:: radicle
 
-  (:test "with setup"
+  (test "with setup"
     [ :setup (do
         (def foo 5)
         )]
@@ -70,6 +70,6 @@ steps.
 Running Tests
 -------------
 
-All tests defined with the ``:test`` macro are collected in the ``tests``
+All tests defined with the ``test`` macro are collected in the ``tests``
 reference. Tests can be executed using the ``run-all`` function from
 the ``prelude/test`` module.
