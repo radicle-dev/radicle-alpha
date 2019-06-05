@@ -266,6 +266,7 @@ data ValueF r =
     | MacroF r
     | VEnvF (Env r)
     | VStateF State
+    | VModuleRef Reference Ident
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
