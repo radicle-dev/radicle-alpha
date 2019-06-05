@@ -23,7 +23,7 @@
      name-machine-url
      [(list 'add-name name key)])))
 
-(:test
+(test
   "The monadic name machine works."
   [:setup
     (do (machine/install-remote-machine-fake)

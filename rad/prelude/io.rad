@@ -8,6 +8,7 @@
             install-fake-filesystem! prompt!
            ]}
 
+(import prelude/basic :unqualified)
 (import prelude/patterns :unqualified)
 (import prelude/strings :as 'strings)
 (import prelude/dict :unqualified)
@@ -69,7 +70,7 @@ Example: `(shell! \"ls -Glah\" \"\")`. "
             (wait-for-process! ph))
       _ (throw 'io-error "expected only stdin to be open"))))
 
-(:test "shell!"
+(test "shell!"
   [ (shell! "true" "") ==> :ok ]
   [ (shell! "false" "") ==> [:error 1] ]
 )
@@ -114,7 +115,7 @@ Example: `(shell-no-stdin! \"ls -Glah\")`. "
             out)
       _ (throw 'io-error "expected only stdin and stdout to be open"))))
 
-(:test "shell-with-stdout!"
+(test "shell-with-stdout!"
   [ (shell-with-stdout! "echo hi" "") ==> ["hi"] ]
   [ (shell-with-stdout! "cat" "there") ==> ["there"] ]
 )
@@ -142,7 +143,7 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
             (wait-for-process! ph))
       _ (throw 'io-error "expected only stdin to be open"))))
 
-(:test "process!"
+(test "process!"
   [ (process! "true" [] "") ==> :ok ]
   [ (process! "false" [] "") ==> [:error 1] ]
 )
@@ -168,7 +169,7 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
             out)
       _ (throw 'io-error "expected only stdin and stdout to be open"))))
 
-(:test "process-with-stdout!"
+(test "process-with-stdout!"
   [ (process-with-stdout! "echo" ["hi"] "") ==> ["hi"] ]
   [ (process-with-stdout! "cat" [] "there") ==> ["there"] ]
 )
@@ -196,7 +197,7 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
             out)
       _ (throw 'io-error "expected only stdin, stdout and stderr to be open"))))
 
-(:test "process-with-stdout-stderr-exitcode!"
+(test "process-with-stdout-stderr-exitcode!"
   [ (process-with-stdout-stderr-exitcode! "echo" ["hi"] "") ==> [["hi"] [] :ok] ]
   [ (process-with-stdout-stderr-exitcode! "false" [] "") ==> [[] [] [:error 1]] ]
 )
@@ -212,7 +213,7 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
           (exit! 1))
       )))
 
-(:test "process-with-stdout-strict!"
+(test "process-with-stdout-strict!"
   [ (process-with-stdout-strict! "echo" ["hi"] "") ==> ["hi"] ]
 )
 

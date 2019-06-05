@@ -65,25 +65,25 @@
     (make-lens (fn [mp] (lookup k mp))
                (fn [v mp] (insert k v mp)))))
 
-(:test "view lens"
+(test "view lens"
   [ (view (@ :one) {:one 1 :two 2}) ==> 1 ])
 
-(:test "set lens"
+(test "set lens"
   [ (set (@ :two) 42 {:one 1 :two 2}) ==> {:one 1 :two 42} ])
 
-(:test "over lens"
+(test "over lens"
   [ (over (@ :one)
           (fn [x] (+ x 1))
           {:one 1 :two 2})
     ==> {:one 2 :two 2} ])
 
-(:test "lens composition"
+(test "lens composition"
   [ (over (.. (@ :a) (@ :b))
           (fn [x] (+ x 1))
           {:a {:b 2}})
      ==> {:a {:b 3}} ])
 
-(:test "deep lenses"
+(test "deep lenses"
   [ (over (... (list (@ :a) (@ :b) (@ :c)))
           (fn [x] (+ x 1))
           {:a {:b {:c 0}}})
@@ -97,7 +97,7 @@
     (make-lens (fn [mp] (lookup-default k default mp))
                (fn [v mp] (insert k v mp)))))
 
-(:test "@def"
+(test "@def"
   [ (view (@def :one :default) {:one 1}) ==> 1 ]
   [ (view (@def :one :default) {:two 2}) ==> :default ]
   [ (set (@ :two) 42 {:one 1 :two 2}) ==> {:one 1 :two 42} ])
@@ -112,7 +112,7 @@
       (fn [val s]
          (<> (take n s) (cons val (drop (+ n 1) s)))))))
 
-(:test "@nth"
+(test "@nth"
   [ (view (@nth 1) [0 1]) ==> 1 ]
   [ (over (@nth 1) (fn [x] (+ x 1)) [0 1]) ==> [0 2] ])
 
@@ -124,7 +124,7 @@
   (fn [r lens]
     (view lens (read-ref r))))
 
-(:test "view-ref"
+(test "view-ref"
   [ (view-ref (ref {:key 1}) (@ :key)) ==> 1 ])
 
 ;; set-ref
@@ -134,7 +134,7 @@
   (fn [r lens v]
     (modify-ref r (fn [x] (set lens v x)))))
 
-(:test "set-ref"
+(test "set-ref"
   [ ((fn [r]
        (set-ref r (@ :a) 2)
        (view-ref r (@ :a)))
@@ -148,7 +148,7 @@
   (fn [r lens f]
     (modify-ref r (fn [x] (over lens f x)))))
 
-(:test "over-ref"
+(test "over-ref"
   [ ((fn [r]
       (over-ref r (@ :a) (fn [x] (* x 2)))
       (view-ref r (@ :a)))

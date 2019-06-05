@@ -3,6 +3,7 @@
  :exports
  '[make-simple-auth add-admin]}
 
+(import prelude/basic :unqualified)
 (import prelude/validation :as 'validation)
 (import prelude/set :as 'set)
 (import prelude/dict '[dict-from-seq keys] :unqualified)
@@ -61,7 +62,7 @@
                                                msg)))
         'x                             (throw 'invalid-command x)))))
 
-(:test "make-simple-auth"
+(test "make-simple-auth"
   [:setup (do
     (def auth (make-simple-auth [:admin]))
     (auth [:create-group :regular])

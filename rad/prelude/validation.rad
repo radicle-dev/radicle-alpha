@@ -7,6 +7,7 @@
    contains-only key optional-keys keys every uuid signed timestamp
    string-of-max-length always-valid]}
 
+(import prelude/basic :unqualified)
 (import prelude/dict :unqualified)
 (import prelude/dict :as 'dict)
 (import prelude/set :as 'set)
@@ -85,7 +86,7 @@
       (throw 'validation-failure {:info "Number was not an integer."
                                   :number n}))))
 
-(:test "integral"
+(test "integral"
        [ (integral 0) ==> 0 ]
        [ (catch 'validation-failure
              (integral 1/3)
@@ -102,7 +103,7 @@
             d)
         d))))
 
-(:test "optional-key"
+(test "optional-key"
        [ ((optional-key :a (= 0)) {}) ==> {} ]
        [ ((optional-key :a (= 0)) {:a 0}) ==> {:a 0} ]
        [ (catch 'validation-failure
@@ -120,7 +121,7 @@
                                     :element k
                                     :container x})))))
 
-(:test "contains"
+(test "contains"
        [ ((contains 42) {42 #t}) ==> {42 #t}]
        [ (catch 'validation-failure
              ((contains 42) {})
@@ -131,7 +132,7 @@
   (fn [k v]
     (and [(contains k) (optional-key k v)])))
 
-(:test "key"
+(test "key"
        [ ((key :a (= 0)) {:a 0}) ==> {:a 0} ]
        [ (catch 'validation-failure
              ((key :a (= 0)) {})
@@ -153,7 +154,7 @@
          d)
         (throw 'validation-failure (string-append "Not a dict: " (show d)))))))
 
-(:test "optional-keys"
+(test "optional-keys"
        [ ((optional-keys {0 (= 0) 1 (= 1)}) {0 0 1 1}) ==> {0 0 1 1}]
        [ (catch 'validation-failure
              ((optional-keys {0 (= 0) 1 (= 1)}) {0 0 1 2})
@@ -165,7 +166,7 @@
   (fn [ks]
     (and (map contains ks))))
 
-(:test "contains-all"
+(test "contains-all"
        [ ((contains-all [0 1]) {0 0 1 1}) ==> {0 0 1 1}]
        [ (catch 'validation-failure
              ((contains-all [0 1]) {0 0 2 2})
@@ -181,7 +182,7 @@
                                     :dict d
                                     :allowed-keys ks})))))
 
-(:test "contains-only"
+(test "contains-only"
        [ ((contains-only [0 1]) {0 0}) ==> {0 0}]
        [ (catch 'validation-failure
              ((contains-only [0 1]) {0 0 2 2})
@@ -194,7 +195,7 @@
   (fn [d]
     (and [(contains-all (dict/keys d)) (optional-keys d)])))
 
-(:test "keys"
+(test "keys"
        [ ((keys {0 (= 0) 1 (= 1)}) {0 0 1 1}) ==> {0 0 1 1}]
        [ (catch 'validation-failure
              ((keys {0 (= 0) 1 (= 1)}) {0 0})
@@ -210,7 +211,7 @@
     (fn [xs]
       (map v xs))))
 
-(:test "every"
+(test "every"
        [ ((every (= 0)) [0 0 0]) ==> [0 0 0]]
        [ ((every (= 0)) []) ==> []]
        [ (catch 'validation-failure
@@ -223,7 +224,7 @@
    [(type :string)
     (pred "valid UUID" uuid?)]))
 
-(:test "uuid"
+(test "uuid"
        [ (uuid "3c038e2f-0f0c-4d49-8f10-6a44e75fbf40") ==> "3c038e2f-0f0c-4d49-8f10-6a44e75fbf40"]
        [ (catch 'validation-failure
              (uuid "nope")
@@ -244,7 +245,7 @@
         (lookup :signature d)
         (show (delete-many [:author :signature] d)))))]))
 
-(:test "signed"
+(test "signed"
   [:setup
    (do (def keys (gen-key-pair! (default-ecc-curve)))
        (def sk (lookup :private-key keys))
@@ -271,7 +272,7 @@
   (and [(type :string)
         (pred "valid timestamp" timestamp?)]))
 
-(:test "timestamp"
+(test "timestamp"
        [ (timestamp "2018-12-12T14:10:21Z") ==> "2018-12-12T14:10:21Z"]
        [ (catch 'validation-failure
              (timestamp "12-12-2018T14:10:21Z")

@@ -5,6 +5,7 @@
             base-path!
             ]}
 
+(import prelude/basic :unqualified)
 (import prelude/io '[shell-with-stdout! write-file! process-with-stdout!] :unqualified)
 (import prelude/strings '[unlines] :unqualified)
 

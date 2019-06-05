@@ -77,7 +77,7 @@
   (fn [rsm-type]
     (lookup :id (first-rsm-of-type! (get-project-url!) rsm-type))))
 
-(:test "The monadic project machine works."
+(test "The monadic project machine works."
 
  [:setup
   (do (machine/install-remote-machine-fake)

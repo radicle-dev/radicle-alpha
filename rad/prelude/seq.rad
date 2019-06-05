@@ -11,7 +11,7 @@
   "Returns `#t` if `x` is a list or a vector."
   (fn [x] (or (list? x) (vector? x))))
 
-(:test "seq?"
+(test "seq?"
   [ (seq? (list)) ==> #t ]
   [ (seq? []) ==> #t ]
   [ (seq? :foo) ==> #f ]
@@ -22,7 +22,7 @@
   "True if `seq` is empty, false otherwise."
   (fn [seq] (or (eq? seq '()) (eq? seq []))))
 
-(:test "empty"
+(test "empty"
   [ (empty? (list 2)) ==> #f ]
   [ (empty? (list)) ==> #t ]
 
@@ -46,7 +46,7 @@
       )
     ))
 
-(:test "reverse"
+(test "reverse"
   [ (reverse (list 1 2 3)) ==> (3 2 1) ]
   [ (reverse [1 2 3]) ==> [3 2 1] ]
 )
@@ -60,7 +60,7 @@
         (pred (head ls)) (cons (head ls) (filter pred (tail ls)))
         :else            (filter pred (tail ls)))))
 
-(:test "filter"
+(test "filter"
   [ (filter (fn [x] (< x 10)) (list 3 10 11 5))
      ==> (3 5) ]
   [ (filter (fn [x] (< x 10)) [3 10 11 5])
@@ -78,7 +78,7 @@
                           (list)
                           []))))
 
-(:test "take-while"
+(test "take-while"
   [ (take-while (fn [x] (eq? x "bar")) (list "foo" "bar") ) ==> () ]
   [ (take-while (fn [x] (not (eq? x "bar"))) (list "foo" "bar") ) ==> ("foo") ]
   [ (take-while (fn [x] (< x 10)) [3 9 10 11] ) ==> [3 9] ])
@@ -89,7 +89,7 @@
   (fn [s prefix]
     (eq? (take (length prefix) s) prefix)))
 
-(:test "starts-with?"
+(test "starts-with?"
   [ (starts-with? "abc" "ab") ==> #t ]
   [ (starts-with? "abc" "abc") ==> #t ]
   [ (starts-with? "abc" "") ==> #t ]
@@ -113,7 +113,7 @@
         :nothing)
   )))
 
-(:test "/prefix"
+(test "/prefix"
   [ (match [0 2 3]
       (/prefix [0 2] 'rs) rs
       )
@@ -149,7 +149,7 @@
   "Concatenate a sequence of sequences."
   (fn [ss] (foldl <> [] ss)))
 
-(:test "concat"
+(test "concat"
        [ (concat []) ==> [] ]
        [ (concat [[]]) ==> [] ]
        [ (concat [[] []]) ==> [] ]

@@ -373,6 +373,15 @@ purePrimFns = fromList $ allDocs $
          (String _, v, _) -> throwErrorHere $ TypeError "string-replace" 1 TString v
          (v, _, _) -> throwErrorHere $ TypeError "string-replace" 0 TString v
       )
+    , ( "string->symbol"
+      , "Turns a string into a symbol. If the string is not a valid identifier\
+        \ an exception is thrown."
+      , oneArg "string->symbol" $ \case
+          String t -> case mkIdent (toS t) of
+            Just x -> pure (Atom x)
+            Nothing -> throwErrorHere $ OtherError "string->symbol: not a valid identifier"
+          v -> throwErrorHere $ TypeError "string->symbol" 0 TString v
+      )
     , ( "insert"
       , "Given `k`, `v` and a dict `d`, returns a dict with the same associations\
         \ as `d` but with `k` associated to `d`. If `d` isn't a dict or if `k` isn't\

@@ -6,6 +6,7 @@
             send-signed-command!
             catch-daemon!]}
 
+(import prelude/basic :unqualified)
 (import prelude/io '[read-file-value! read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/lens '[make-lens .. ... view set over @ @def] :unqualified)
@@ -59,7 +60,7 @@
   (fn [machine exprs]
     (match exprs
            [] {:machine machine :result []}
-           (/cons 'e 'es) (do (def x (eval (list 'tx (list 'quote e) machine) machine))
+           (/cons 'e 'es) (do (def x (eval (list 'tx (list 'quote e)) machine))
                               (def y (eval (nth 0 x) (nth 1 x)))
                               (def new-state (nth 1 y))
                               (def result (nth 0 y))
@@ -67,7 +68,7 @@
                                           (fn [i] (cons result i))
                                           (tx-in-fake-machine new-state es))))))
 
-(:test "tx-in-fake-machine"
+(test "tx-in-fake-machine"
   [:setup
     (do (def res1 (tx-in-fake-machine new-fake-machine '[(def x 3)]))
         (def res (tx-in-fake-machine (lookup :machine res1) '[(+ x 2)])))
@@ -101,7 +102,7 @@
           name))
 ))
 
-(:test "install-remote-machine-fake"
+(test "install-remote-machine-fake"
   [:setup
     (do (install-remote-machine-fake)
         (def machine (new-machine!))
@@ -139,8 +140,8 @@
 
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new machine."
-  (<> [(file-to-module (find-module-file! "prelude/test-eval.rad"))
-       '(import prelude/test-eval '[tx tests] :unqualified)]
+  (<> [(file-to-module (find-module-file! "prelude/test-macro.rad"))
+       '(import prelude/test-macro '[test tests] :unqualified)]
       (map file-to-module pure-prelude-files)))
 
 (def send-prelude!
