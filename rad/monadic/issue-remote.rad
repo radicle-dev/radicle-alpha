@@ -254,10 +254,10 @@
   (fn [] (read-ref html)))
 
 (def set-html
-  "The frontend."
-  (fn []
-      (auth [:allowed :admin])
-      (read-ref html)))
+  "Change frontend. The new HTML should be an IPFS CID."
+  (fn [new-html]
+      ((validator/and [(auth [:allowed :admin]) validator/signed]) new-html)
+      (write-ref html new-html)))
 
 ;; These are intended for clients to run locally with eval-in-machine
 
@@ -277,6 +277,7 @@
    'edit-comment            edit-comment
    'list-issues             list-issues
    'get-html                get-html
+   'set-html                set-html
    'add-admin               (add-admin auth)})
 
 
