@@ -244,11 +244,27 @@
           (def c_ (strip-input c))
           (over-issues (... [(@ n) (@ :comments) (@nth i)]) (merge-new c_))))))
 
+
+;; HTML frontend
+
+(def html (ref "QmcENMqxFaYifTCGpHwureKnyEAEfgQXZ8fW35kn17uQPP"))
+
+(def get-html
+  "The frontend."
+  (fn [] (read-ref html)))
+
+(def set-html
+  "Change frontend. The new HTML should be an IPFS CID."
+  (fn [new-html]
+      ((validator/and [(auth [:allowed :admin]) validator/signed]) new-html)
+      (write-ref html new-html)))
+
 ;; These are intended for clients to run locally with eval-in-machine
 
 (def list-issues
   "List existing issues."
   (fn [] (read-ref issues)))
+
 
 ;; General logic
 
@@ -260,6 +276,8 @@
    'add-comment             add-comment
    'edit-comment            edit-comment
    'list-issues             list-issues
+   'get-html                get-html
+   'set-html                set-html
    'add-admin               (add-admin auth)})
 
 
