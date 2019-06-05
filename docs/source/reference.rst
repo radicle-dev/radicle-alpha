@@ -453,6 +453,13 @@ Lists and vectors are converted to JSON arrays. Dicts are converted to
 JSON objects as long as all the keys are strings, atoms, keywords,
 booleans or numbers.
 
+``from-json``
+~~~~~~~~~~~~~
+
+Converts a JSON string into Radicle data. If the string is not valid
+JSON then ``:nothing`` is returned, otherwise ``[:just v]`` is returned
+where ``v`` is a Radicle representation of the JSON data.
+
 ``uuid!``
 ~~~~~~~~~
 

@@ -1,0 +1,22 @@
+{:module 'prelude/http
+ :doc "Functions for making HTTP requests."
+ :exports '[json-get! json-post!]}
+
+(import prelude/strings ['intercalate] :unqualified)
+(import prelude/io :unqualified)
+
+(def json-req!
+  (fn [url extra-opts]
+    (def opts (<> ["-s" url "-H" "Accept: application/json"] extra-opts))
+    (match (process-with-stdout-stderr-exitcode! "curl" opts "")
+           ['resp _ :ok]  (from-json (intercalate "" resp))
+           [_     _ 'err] (throw 'http err))))
+
+(def json-get!
+  "Makes an HTTP request for some JSON data, and parses the response."
+  (fn [url] (json-req! url [])))
+
+(def json-post!
+  "HTTP JSON post-request."
+  (fn [url data]
+    (json-req! url ["-d" (to-json data)])))
