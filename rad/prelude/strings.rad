@@ -18,7 +18,7 @@
           (first strs)
           (map (fn [ln] (string-append sep ln)) (tail strs))))))
 
-(:test "intercalate"
+(test "intercalate"
   [ (intercalate "aa" ["hi" "there"]) ==> "hiaathere" ]
 )
 
@@ -27,7 +27,7 @@
   (fn [x]
     (intercalate "\n" x)))
 
-(:test "unlines"
+(test "unlines"
   [ (unlines ["hi" "there"]) ==> "hi\nthere" ]
 )
 
@@ -36,7 +36,7 @@
   (fn [x]
     (intercalate " " x)))
 
-(:test "unwords"
+(test "unwords"
   [ (unwords ["hi" "there"]) ==> "hi there" ]
 )
 
@@ -49,7 +49,7 @@
   (fn [x]
     (elem? x space-chars)))
 
-(:test "is-space-char?"
+(test "is-space-char?"
   [ (is-space-char? "s") ==> #f]
   [ (is-space-char? "s ") ==> #f]
   [ (is-space-char? " ") ==> #t]
@@ -74,7 +74,7 @@
       ['ls ""] ls
       ['ls 'x] (add-right x ls))))
 
-(:test "split-by"
+(test "split-by"
   [ (split-by (fn [x] (eq? "b" x)) "foobar") ==> ["foo" "ar"]]
   [ (split-by is-space-char? "foo bar") ==> ["foo" "bar"]])
 
@@ -85,7 +85,7 @@
   (fn [xs]
     (split-by is-space-char? xs)))
 
-(:test "words"
+(test "words"
   [ (words "foo bar") ==> ["foo" "bar"]]
   [ (words "foo bar\nfoo ") ==> ["foo" "bar" "foo"]]
   [ (words "foo   bar") ==> ["foo" "bar"]]
@@ -101,7 +101,7 @@
   (fn [xs]
     (split-by (fn [x] (eq? "\n" x)) xs)))
 
-(:test "lines"
+(test "lines"
   [ (lines "foo bar") ==> ["foo bar"]]
   [ (lines "foo bar\nfoo ") ==> ["foo bar" "foo "]]
   [ (lines "foo bar\n\n\nfoo") ==> ["foo bar" "foo"]]
@@ -121,7 +121,7 @@
         (def pad (intercalate "" (map (fn [x] " ") (range 1 l))))
         (string-append word (take (- l w-length) pad))))))
 
-(:test "pad-right-to"
+(test "pad-right-to"
   [ (pad-right-to 0 "foobar") ==> "foobar"]
   [ (pad-right-to 3 "foobar") ==> "foobar"]
   [ (pad-right-to 6 "") ==> "      "]
@@ -139,7 +139,7 @@
         (string-append acc (f new-char))))
     (foldl-string g "" xs)))
 
-(:test "map-string"
+(test "map-string"
   [ (map-string (fn [x] "A") "foo") ==> "AAA"]
   [ (map-string (fn [x] "Ah") "foo") ==> "AhAhAh"]
   [ (map-string (fn [x] "A") "") ==> ""]
@@ -152,7 +152,7 @@
     (def g (fn [a b] (string-append b a)))
     (foldl-string g "" str)))
 
-(:test "reverse-string"
+(test "reverse-string"
   [ (reverse-string "abc") ==> "cba" ]
 )
 
@@ -161,6 +161,6 @@
   (fn [str substr]
     (starts-with? (reverse-string str) substr)))
 
-(:test "ends-with?"
+(test "ends-with?"
   [ (ends-with? "abc" "c") ==> #t]
 )

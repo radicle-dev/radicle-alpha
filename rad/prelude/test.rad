@@ -1,5 +1,5 @@
 {:module 'prelude/test
- :doc "Provides eval that adds a `:test` macro."
+ :doc "Provides eval that adds a `test` macro."
  :exports '[run-all make-suite assert-equal]}
 
 
