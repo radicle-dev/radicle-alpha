@@ -1443,11 +1443,6 @@ ones. This is intended for testing.
 
 Functions for simulating remote machines.
 
-``(eval expr state)``
-~~~~~~~~~~~~~~~~~~~~~
-
-Evaluation function that adds :test macro to register tests.
-
 ``(updatable-eval sub-eval)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
