@@ -161,7 +161,7 @@
         "**State:** " (pretty-state state) "\n"
         "**Labels:** " (show ls) "\n\n"
         "**Project ID:** " (show id) "\n\n"
-        desc "\n\n"
+        desc
         ))
       '{:patch p
         :created-at c-a

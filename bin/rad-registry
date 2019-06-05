@@ -14,7 +14,6 @@
 (import prelude/io :as 'io)
 (import prelude/io-utils :as 'io)
 
-;; (import monadic/registry '[create-registry-machine!] :unqualified)
 (def path!
   (fn []
     (string-append (io/base-path!) "/registry.rad")))
@@ -24,15 +23,18 @@
     (io/shell! (string-append "mkdir -p " (io/base-path!)) "")
     (io/init-file-dict! (path!))))
 
+;; TODO Replace with server hosted machine
+(def default-machine-name
+  "The default registry machine."
+  (fn []
+    "12D3KooWNdyJ1QpNy5RbBfjKEx1gPvRJ72tgYo1vs6jvXU8yuQN2"))
+
 (def machine-name
   (fn []
     (init-registry-file!)
     (match (io/read-file-key! (path!) :registry)
-      :nothing    (do
-                    (put-str! "No registry set. Run `rad registry set <registry-id>`.")
-                    (exit! 1))
-      [:just 'r]  r
-      )))
+      :nothing    (default-machine-name)
+      [:just 'r]  r)))
 
 (def valid-states ["open" "closed"])
 
@@ -76,7 +78,8 @@
      mark-unread  - Mark project as unread
      all-read     - Mark all projects as read
      init         - Initialize a new registry machine
-     set          - Set the registry that is used for the commands.
+     set          - Set the registry that is used for the commands instead of
+                    the default. Delete the file to use the default registry.
      help         - Print this help and exit
        "))
 
@@ -117,9 +120,9 @@
 
 (def prompt-for-metadata!
   (fn []
-    (def name (prompt! "? What's the name of your project: "))
+    (def name (prompt-non-empty! "? What's the name of your project: "))
     (def desc (prompt! "? Briefly describe the project: "))
-    (def id (prompt! "? What's the id of your project: "))
+    (def id (prompt-non-empty! "? What's the id of your project: "))
     (def labels (prompt! "? Do you want to add any labels (comma seperated): "))
     {:name name :description desc :project-id id :labels (split-by (fn [x] (eq? x ",")) labels)}))
 

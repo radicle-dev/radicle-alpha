@@ -5,7 +5,7 @@
             process-with-stdout! process-with-stdout-stderr-exitcode!
             process-with-stdout-strict!
             init-file-dict! read-file-key! write-file-key! delete-file-key! ls! modify-file!
-            install-fake-filesystem! prompt!
+            install-fake-filesystem! prompt! prompt-non-empty!
            ]}
 
 (import prelude/basic :unqualified)
@@ -259,6 +259,16 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
   (fn [prompt]
     (write-handle! (stderr!) prompt)
     (read-line-handle! (stdin!))))
+
+(def-rec prompt-non-empty!
+  "Same as `prompt!`, but repeats id the input empty."
+  (fn [prompt]
+    (write-handle! (stderr!) prompt)
+    (match (read-line-handle! (stdin!))
+      ""  (do
+            (put-str! "Can't be empty!")
+            (prompt-non-empty! prompt))
+      'i  i)))
 
 (def install-fake-filesystem!
   "Installs a fake for `read-file!` that simulates the presence of
