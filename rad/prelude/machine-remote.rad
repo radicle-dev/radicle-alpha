@@ -1,70 +1,76 @@
 {:module 'prelude/machine-remote
  :doc "Functions for writing remote RSMs"
- :exports '[make-updatable-eval]}
+ :exports '[lock-machine lock-machine-commands]}
 
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/patterns :unqualified)
 
-(def eval-fn-app
-  "Given a state, a function, an argument and a callback, returns
-  the result of evaluating the function call on the arg in the given
-  state, while also calling the callback on the result."
-  (fn [state f arg cb]
-    (def exec (base-eval (list f (list 'quote arg)) state))
-    (cb (first exec))
-    exec))
-
-(def updatable-eval
-  "Given an evaluation function `f`, returns a new one which augments `f` with a new
-  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
-  (fn [sub-eval validator]
-    (fn [expr state]
+(def lock-machine
+  "Lock the arbitrary transactions of a machine using a validator."
+  (fn [validator f]
+    (fn [expr _state]
       (match expr
-             (/cons 'cmd _) (if (eq? cmd 'update)
-                              (do (validator (nth 1 expr))
-                                  (base-eval (lookup :eval (nth 1 expr)) state))
-                              (sub-eval expr state))
-             _ (sub-eval expr state)))))
+             (/cons (/= 'update) (/cons 'e /nil))
+             (do (validator e)
+                 (lookup :eval e))
+             _
+             (f expr)))))
 
-(def make-updatable-eval
-  "Make an updatable eval from a list of command mappings and a validator for updates."
-  (fn [initial-commands validator]
-    (def commands (ref initial-commands))
-    (def process-command
-      "Function that maps post-eval commands to existing functions"
-      (fn [expr]
-        (def command (first expr))
-        (def args    (rest expr))
-        (def do-this (lookup command (read-ref commands)))
-        (apply do-this args)))
-    (updatable-eval
-        (fn [expr state]
-          (eval-fn-app state process-command expr (fn [x] x)))
-        validator)))
+(def lock-machine-commands
+  "Lock the machine with a ref of a dict of commands."
+  (fn [validator commands-ref]
+    (lock-machine validator
+                  (fn [expr]
+                    (def command (first expr))
+                    (def args    (rest expr))
+                    (def do-this (lookup command (read-ref commands-ref)))
+                    (apply do-this args)))))
 
-(:test "make-updatable-eval"
-  [:setup
-    (do
-      (def counter (ref 0))
-      (def commands
-        {'inc (fn [] (modify-ref counter (fn [x] (+ x 1))))
-         'get (fn [] (read-ref counter))})
-      (def ev
-        (make-updatable-eval
-          commands
-          (fn [x] (if (eq? (lookup :pwd x) "secret")
-                      :ok
-                      (throw 'validation-failure "nope")))))
-      (def res (ev '(inc) (get-current-state)))
-      (def st (nth 1 res))
+(:test
+ "lock-machine"
+ [:setup
+  (do
+    (machine/install-remote-machine-fake)
+    (def id (machine/new-machine!))
+    (machine/send-prelude! id)
+    (machine/send!
+     id
+     '[(import prelude/patterns :unqualified)
+       (import prelude/ref :unqualified)
+       (import prelude/machine-remote '[lock-machine] :unqualified)
+       (def counter (ref 0))
+       (def inc (ref (fn [] (modify-ref counter (fn [x] (+ x 1))))))
+       (def get (fn [] (read-ref counter)))
+       (def tx
+         (lock-machine
+          (fn [x]
+            (if (eq? (lookup :pwd x) "secret")
+              :ok
+              (throw 'validation-failure "nope")))
+          (fn [e]
+            (match e
+                   :inc ((read-ref inc))
+                   :get (get)
+                   _    (throw 'bad-input "Just :inc or :get!")))))])
+    (machine/send! id [:inc :inc])
+    (def i (machine/query! id :get))
+    (machine/send!
+     id
+     ['(update
+        {:eval (write-ref inc (fn [] (modify-ref counter (fn [x] (+ x 2)))))
+         :pwd "secret"})])
+    (machine/send! id [:inc :inc])
+    (def j (machine/query! id :get))
+    (def ok (catch 'validation-failure
+                (machine/send!
+                 id
+                 ['(update
+                    {:eval (write-ref inc (fn [] (modify-ref counter (fn [x] (+ x 2)))))
+                     :pwd "badsecret"})])
+              (fn [ignore_] :ok)))
     )
   ]
-  [ (nth 0 (ev '(get) st)) ==> 1 ]
-  [ (catch 'validation-failure
-           (ev '(update {:pwd "blah" :eval eval}) st)
-           (fn [_] :ok)) ==> :ok ]
-  [ (catch 'validation-failure
-           (do (ev '(update {:pwd "secret" :eval eval}) st)
-               :ok)
-           (fn [_] :not-ok)) ==> :ok ]
-)
+ [ i ==> 2 ]
+ [ j ==> 6 ]
+ [ ok ==> :ok ]
+ )

@@ -19,7 +19,7 @@ counter :: Int -> Rational
 counter i = unwrap $ steps $
   [ "(def i (ref 0))"
   , "(def add (fn [x] (write-ref i (+ (read-ref i) x))))"
-  , "(def eval (fn [expr state] (base-eval (list 'add expr) state)))" ]
+  , "(def eval (fn [expr state] (eval (list 'add expr) state)))" ]
   ++ (show <$> take i (cycle [1..20::Int]))
   where
     unwrap (Number r) = r

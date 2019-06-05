@@ -1,13 +1,16 @@
 {:module 'prelude/machine
  :doc "Functions for simulating remote machines."
- :exports '[updatable-eval eval-fn-app send-prelude! new-machine!
-            send-code! send! query! install-remote-machine-fake send-signed-command!
+ :exports '[send-prelude! new-machine!
+            send-code! send! query!
+            install-remote-machine-fake
+            send-signed-command!
             catch-daemon!]}
 
 (import prelude/io '[read-file-value! read-file-values!] :as 'io)
 (import prelude/ref '[modify-ref] :unqualified)
 (import prelude/lens '[make-lens .. ... view set over @ @def] :unqualified)
 (import prelude/basic :unqualified)
+(import prelude/dict :unqualified)
 (import prelude/io :unqualified)
 (import prelude/patterns :unqualified)
 (import prelude/strings :unqualified)
@@ -50,24 +53,24 @@
   "An empty fake machine, which does not use the daemon"
   (pure-state))
 
-(def-rec eval-in-fake-machine
-  "Evaluates `expr` in the `machine` and returns a dict with the `:result` and the resulting `:machine`."
+(def-rec tx-in-fake-machine
+  "Transacts `exprs` in the `machine` and returns a dict with the `:result` and
+  the resulting `:machine`."
   (fn [machine exprs]
     (match exprs
-      [] {:machine machine :result []}
-      (/cons 'e 'es) (do
-                        (def machine-eval (view (@var 'eval) machine))
-                        (def x (machine-eval e machine))
-                        (def result (nth 0 x))
-                        (def new-state (nth 1 x))
-                        (modify-map :result
-                                    (fn [i] (cons result i))
-                                    (eval-in-fake-machine new-state es))))))
+           [] {:machine machine :result []}
+           (/cons 'e 'es) (do (def x (eval (list 'tx (list 'quote e) machine) machine))
+                              (def y (eval (nth 0 x) (nth 1 x)))
+                              (def new-state (nth 1 y))
+                              (def result (nth 0 y))
+                              (modify-map :result
+                                          (fn [i] (cons result i))
+                                          (tx-in-fake-machine new-state es))))))
 
-(:test "eval-in-fake-machine"
+(:test "tx-in-fake-machine"
   [:setup
-    (do (def res1 (eval-in-fake-machine new-fake-machine '[(def x 3)]))
-        (def res (eval-in-fake-machine (lookup :machine res1) '[(+ x 2)])))
+    (do (def res1 (tx-in-fake-machine new-fake-machine '[(def x 3)]))
+        (def res (tx-in-fake-machine (lookup :machine res1) '[(+ x 2)])))
   ]
   [ (view (@ :result) res) ==> [5] ]
 )
@@ -82,21 +85,21 @@
       (write-ref primitive-stub-ref/send!
         (fn [name exprs]
           (def m (lookup name (read-ref remote-machines)))
-          (def res (eval-in-fake-machine m exprs))
+          (def res (tx-in-fake-machine m exprs))
           (modify-ref remote-machines (fn [rms] (insert name (lookup :machine res) rms)))
           (lookup :result res)))
 
       (write-ref primitive-stub-ref/query!
         (fn [name expr]
           (def machine (lookup name (read-ref remote-machines)))
-          (first (lookup :result (eval-in-fake-machine machine [expr])))))
+          (first (lookup :result (tx-in-fake-machine machine [expr])))))
 
       (write-ref primitive-stub-ref/new-machine!
         (fn []
           (def name (uuid!))
           (modify-ref remote-machines (fn [rm] (insert name new-fake-machine rm)))
           name))
-  ))
+))
 
 (:test "install-remote-machine-fake"
   [:setup
@@ -107,27 +110,6 @@
   [ send-result ==> [() 5] ]
   [ (query! machine '(+ 1 foo)) ==> 6 ]
 )
-
-
-(def eval-fn-app
-  "Given a state, a function, an argument and a callback, returns
-  the result of evaluating the function call on the arg in the given
-  state, while also calling the callback on the result."
-  (fn [state f arg cb]
-    (def exec (base-eval (list f (list 'quote arg)) state))
-    (cb (first exec))
-    exec))
-
-(def updatable-eval
-  "Given an evaluation function `f`, returns a new one which augments `f` with a new
-  command `(update expr)` which evaluates arbitrary expression using `base-eval`."
-  (fn [sub-eval]
-    (fn [expr state]
-      (match expr
-             (/cons 'cmd _) (if (eq? cmd 'update)
-                              (base-eval (nth 1 expr) state)
-                              (sub-eval expr state))
-             _ (sub-eval expr state)))))
 
 (def pure-prelude-files
   "List of files which together define the pure prelude."
@@ -158,7 +140,7 @@
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new machine."
   (<> [(file-to-module (find-module-file! "prelude/test-eval.rad"))
-       '(import prelude/test-eval '[eval tests] :unqualified)]
+       '(import prelude/test-eval '[tx tests] :unqualified)]
       (map file-to-module pure-prelude-files)))
 
 (def send-prelude!

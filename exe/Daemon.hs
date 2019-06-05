@@ -42,6 +42,7 @@ import qualified Radicle.Ipfs as Ipfs
 
 import           Radicle hiding (DaemonError, Env)
 import qualified Radicle.Internal.ConcurrentMap as CMap
+import           Radicle.Internal.Eval as Eval
 import qualified Radicle.Internal.UUID as UUID
 
 
@@ -189,7 +190,7 @@ query :: MachineId -> Api.QueryRequest -> Daemon Api.QueryResponse
 query id (Api.QueryRequest v) = do
   m <- ensureMachineLoaded id
   bumpPolling id
-  case fst <$> runIdentity $ runLang (machineState m) $ eval v of
+  case fst <$> runIdentity $ runLang (machineState m) $ Eval.baseEval v of
     Left err -> throw $ MachineError id (InvalidInput err)
     Right rv -> do
       logInfo "Handled query" [("machine-id", getMachineId id)]
@@ -308,12 +309,12 @@ loadMachine mode id = do
   m <- emptyMachine id mode sub
   addInputs is idx m
 
--- | Runs some inputs over the state of a cached machine. Returns the new state
--- that would result, and the outputs. Throws an error if the inputs are
+-- | Transacts some inputs over the state of a cached machine. Returns the new
+-- state that would result, and the outputs. Throws an error if the inputs are
 -- invalid.
-runInputs :: Machine -> [Value] -> Daemon (Bindings (PrimFns Identity), [Value])
-runInputs m inputs = do
-  let (result, newState) = runIdentity $ runLang (machineState m) $ traverse eval inputs
+transactInputs :: Machine -> [Value] -> Daemon (Bindings (PrimFns Identity), [Value])
+transactInputs m inputs = do
+  let (result, newState) = runIdentity $ runLang (machineState m) $ traverse transact inputs
   case result of
     Left err      -> throw $ MachineError (machineId m) (InvalidInput err)
     Right outputs -> pure (newState, outputs)
@@ -332,7 +333,7 @@ updateState newState index m = do
 -- inputs are valid.
 addInputs :: [Value] -> MachineEntryIndex -> Machine -> Daemon Machine
 addInputs is idx m = do
-  (newState, _) <- runInputs m is
+  (newState, _) <- transactInputs m is
   updateState newState idx m
 
 machineIpfs :: MachineId -> Daemon a -> Daemon a
@@ -440,7 +441,7 @@ writeInputs :: Text -> MachineId -> [Value] -> Maybe Text -> Daemon [Value]
 writeInputs source id inputs nonce = do
     (rs, idx) <- modifyMachine id $ \machine -> do
         -- We check that the new inputs are valid before writing them to IPFS.
-        (newState, results) <- runInputs machine inputs
+        (newState, results) <- transactInputs machine inputs
         newIndex <- machineIpfs id $ writeIpfs id inputs
         machine' <- updateState newState newIndex machine
         machineIpfs id $ publish id (New InputsApplied{results, nonce})
