@@ -23,6 +23,7 @@ data Type
   | TProcHandle
   | TEnv
   | TState
+  | TModuleRef
   deriving (Eq, Show, Read, Generic)
 
 instance Serialise Type

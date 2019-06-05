@@ -297,6 +297,7 @@ valType = \case
   Macro{} -> TMacro
   VEnv _ -> TEnv
   VState _ -> TState
+  VModuleRef{} -> TModuleRef
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
