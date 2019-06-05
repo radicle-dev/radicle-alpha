@@ -261,14 +261,16 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
     (read-line-handle! (stdin!))))
 
 (def-rec prompt-non-empty!
-  "Same as `prompt!`, but repeats id the input empty."
-  (fn [prompt]
+  "Same as `prompt!`, but returns the `err-msg` and repeats the prompt if the
+  input does not pass the `validator`."
+  (fn [prompt validator err-msg]
     (write-handle! (stderr!) prompt)
-    (match (read-line-handle! (stdin!))
-      ""  (do
-            (put-str! "Can't be empty!")
-            (prompt-non-empty! prompt))
-      'i  i)))
+    (def input (read-line-handle! (stdin!)))
+    (if (validator input)
+      input
+      (do
+        (put-str! err-msg)
+        (prompt-non-empty! prompt validator err-msg)))))
 
 (def install-fake-filesystem!
   "Installs a fake for `read-file!` that simulates the presence of

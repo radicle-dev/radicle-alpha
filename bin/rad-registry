@@ -24,16 +24,13 @@
     (io/init-file-dict! (path!))))
 
 ;; TODO Replace with server hosted machine
-(def default-machine-name
-  "The default registry machine."
-  (fn []
-    "12D3KooWNdyJ1QpNy5RbBfjKEx1gPvRJ72tgYo1vs6jvXU8yuQN2"))
+(def default-machine-name "12D3KooWNdyJ1QpNy5RbBfjKEx1gPvRJ72tgYo1vs6jvXU8yuQN2")
 
 (def machine-name
   (fn []
     (init-registry-file!)
     (match (io/read-file-key! (path!) :registry)
-      :nothing    (default-machine-name)
+      :nothing    default-machine-name
       [:just 'r]  r)))
 
 (def valid-states ["open" "closed"])
@@ -87,17 +84,22 @@
   (fn [error]
     (parse-failure error help)))
 
+(def get-project
+  "Returns the project of given number `n`."
+  (fn [n machine]
+    (items/verify-item-number n (list-projects machine) :project)))
+
 (def show-project!
   "Shows a single PROJECT `n`"
   (fn [n machine]
-    (def project (items/verify-item-number n (list-projects machine) :project))
+    (def project (get-project n machine))
     (put-str! (items/pretty-item-view (items/enrich-item machine project)))
     (newness/mark-read! machine n)))
 
 (def show-project-id!
   "Shows the id of a single PROJECT `n`"
   (fn [n machine]
-    (def project (items/verify-item-number n (list-projects machine) :project))
+    (def project (get-project n machine))
     (put-str! (lookup :project-id project))
     (newness/mark-read! machine n)))
 
@@ -105,7 +107,7 @@
   (fn [n machine]
     (catch 'daemon-error
       (do
-        (items/verify-item-number n (list-projects machine) :project)
+        (get-project n machine)
         (simple-edit-project! machine n {:state :closed})
         (put-str! (string-append "Project #" (show n) " has been closed."))
         (newness/mark-read! machine n))
@@ -120,9 +122,15 @@
 
 (def prompt-for-metadata!
   (fn []
-    (def name (prompt-non-empty! "? What's the name of your project: "))
+    (def name (prompt-non-empty!
+                "? What's the name of your project: "
+                \(not (eq? ? ""))
+                "Project name can't be empty!"))
     (def desc (prompt! "? Briefly describe the project: "))
-    (def id (prompt-non-empty! "? What's the id of your project: "))
+    (def id (prompt-non-empty!
+              "? What's the id of your project: "
+              \(not (eq? ? ""))
+              "Project id can't be empty!"))
     (def labels (prompt! "? Do you want to add any labels (comma seperated): "))
     {:name name :description desc :project-id id :labels (split-by (fn [x] (eq? x ",")) labels)}))
 
