@@ -186,7 +186,7 @@ replPrimFns sysArgs = fromList $ allDocs $
                                 ys' <- traverse baseEval ys
                                 -- The application of the subscriber function is
                                 -- evaluated in the original environment.
-                                void $ withEnv (const e) (callFn fn [Vec ys'])
+                                void $ withEnv identity (const e) (callFn fn [Vec ys'])
                               _ -> throwErrorHere $ OtherError "Getter should return a vector of values"
                 _  -> throwErrorHere $ TypeError "subscribe-to!" 0 TDict x
         xs  -> throwErrorHere $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))

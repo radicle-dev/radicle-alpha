@@ -31,7 +31,7 @@ import qualified Radicle.Internal.UUID as UUID
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
 pureEnv =
-    addPrimFns purePrimFns $ Bindings e mempty mempty 0 mempty 0 mempty 0
+    addPrimFns purePrimFns $ emptyBindings e
   where
     e = fromList . allDocs $
           [ ( "tx"

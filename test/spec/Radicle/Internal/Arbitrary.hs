@@ -15,7 +15,7 @@ import           Test.QuickCheck.Instances ()
 import           Radicle
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
-                 (isValidIdentFirst, isValidIdentRest)
+                 (isValidIdentFirst, isValidIdentRest, Ident(..))
 import           Radicle.Internal.PrimFns (purePrimFns)
 
 instance Arbitrary r => Arbitrary (Env r) where
@@ -48,7 +48,7 @@ instance Arbitrary a => Arbitrary (Bindings a) where
         refs <- arbitrary
         env <- arbitrary
         prims <- arbitrary
-        pure $ Bindings env prims (IntMap.fromList $ zip [0..] refs)
+        pure $ Bindings env mempty (Ident "toplevel") prims (IntMap.fromList $ zip [0..] refs)
             (length refs) mempty 0 mempty 0
 
 instance Arbitrary a => Arbitrary (Doc.Docd a) where
