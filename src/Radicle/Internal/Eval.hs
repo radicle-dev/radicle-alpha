@@ -248,8 +248,7 @@ f $$ vs = case f of
       case f' of
         Macro g -> do
           e <- callFn g vs
-          -- The expansion of a macro is evaluated in its own scope:
-          withEnv identity $ baseEval e
+          baseEval e
         _ -> do
           vs' <- traverse baseEval vs
           callFn f' vs'
