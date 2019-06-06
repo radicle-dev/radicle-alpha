@@ -72,6 +72,7 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
         LambdaRec _ ids vals _ -> prettyLambda ids vals
         VEnv _ -> angles "env"
         VState _ -> angles "state"
+        ModuleRef{} -> angles "module-ref"
       where
         -- We print string literals escaped just like Haskell does.
         escapeStr = T.init . T.tail . show

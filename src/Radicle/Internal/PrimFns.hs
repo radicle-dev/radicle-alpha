@@ -565,6 +565,13 @@ purePrimFns = fromList $ allDocs $
                                   $ TypeError "write-ref" 0 TRef v
           xs                     -> throwErrorHere
                                   $ WrongNumberOfArgs "write-ref" 2 (length xs))
+    , ( "create-module-ref"
+      , "Creates a module reference. Expects a ref and a symbol." 
+      , twoArg "create-module-ref" $ \case
+          (Ref r, Atom i) -> pure (ModuleRef r i)
+          (Ref _, v) -> throwErrorHere $ TypeError "create-module-ref" 1 TAtom v
+          (v, _) -> throwErrorHere $ TypeError "create-module-ref" 0 TRef v
+      )
     , ( "show"
       , "Returns a string representing the argument value."
       , oneArg "show" (pure . String . renderPrettyDef))

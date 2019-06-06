@@ -1,0 +1,99 @@
+(def should-be
+  (fn [x y]
+    (put-str! (string-append "should be " (show x) ": " (show y)))))
+
+(def gensym
+  ((fn []
+     (def gensym-counter (ref 0))
+     (fn []
+       (def i (read-ref gensym-counter))
+       (write-ref gensym-counter (+ i 1))
+       (string->symbol (string-append "G__" (show i)))))))
+
+(def toplevel (ref {:name "toplevel"}))
+
+(def *current-namespace* (ref toplevel))
+
+(def defm
+  (macro
+   (fn [symb expr]
+     (def val-gs (gensym))
+     (def ns-gs (gensym))
+     (list 'do
+           (list 'def val-gs expr)
+           (list 'def ns-gs (list read-ref *current-namespace*))
+           (list write-ref ns-gs (list insert (list 'quote symb) val-gs (list read-ref ns-gs)))
+           (list 'def symb (create-module-ref (read-ref *current-namespace*) symb))))))
+
+(defm toplevel toplevel)
+
+(def new-ns
+  (macro
+   (fn [symb name]
+     (def the-new-ns (ref {:name name}))
+     (write-ref *current-namespace* the-new-ns)
+     (write-ref toplevel (insert symb the-new-ns (read-ref toplevel)))
+     (list 'def symb (create-module-ref toplevel symb)))))
+
+(def enter-ns
+  (macro
+   (fn [symb]
+     (list write-ref *current-namespace* symb))))
+
+(new-ns foo "foo")
+
+(defm bar 42)
+
+(defm f
+  (fn [n]
+    (+ n bar)))
+
+(should-be 42 bar)
+(should-be 42 (f 1))
+
+(defm bar 77)
+
+(should-be 77 bar)
+(should-be 78 (f 1))
+
+(new-ns foofoo "foofoo")
+
+(defm bar 100)
+
+(defm g
+  (fn [n]
+    (+ n bar)))
+
+(enter-ns toplevel)
+
+(should-be 101 (g 1))
+
+(enter-ns foo)
+
+(defm bar 0)
+
+(should-be 1 (f 1))
+
+(enter-ns foofoo)
+
+(defm bar 99)
+
+(should-be 100 (g 1))
+
+(new-ns arith "arith")
+
+(def odd (create-module-ref arith 'odd))
+
+(defm even
+  (fn [n]
+    (cond
+      (eq? n 0) #t
+      :else (odd (- n 1)))))
+
+(defm odd
+  (fn [n]
+    (cond
+      (eq? n 0) #f
+      :else (even (- n 1)))))
+
+(should-be #t (even 100))

@@ -266,7 +266,7 @@ data ValueF r =
     | MacroF r
     | VEnvF (Env r)
     | VStateF State
-    | VModuleRef Reference Ident
+    | ModuleRefF Reference Ident
     deriving (Eq, Ord, Read, Show, Generic, Functor)
 
 instance Serialise r => Serialise (ValueF r)
@@ -297,7 +297,7 @@ valType = \case
   Macro{} -> TMacro
   VEnv _ -> TEnv
   VState _ -> TState
-  VModuleRef{} -> TModuleRef
+  ModuleRef{} -> TModuleRef
 
 hashable :: (CPA t) => Annotated t ValueF -> Bool
 hashable = \case
@@ -315,6 +315,7 @@ hashable = \case
   Macro{} -> False
   VEnv _ -> False
   VState _ -> False
+  ModuleRef{} -> False
   List xs -> all hashable xs
   Vec xs -> all hashable xs
   Dict kvs -> getAll $ Map.foldMapWithKey (\k v -> All (hashable k && hashable v)) kvs
@@ -326,7 +327,7 @@ dict kvs = case filter (not . hashable) (Map.keys kvs) of
   k : _ -> throwErrorHere $ NonHashableKey k
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Macro
-  , Ref, Handle, ProcHandle, Lambda, LambdaRec, VEnv, VState #-}
+  , Ref, Handle, ProcHandle, Lambda, LambdaRec, VEnv, VState, ModuleRef #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -414,6 +415,11 @@ pattern VState :: ValueConC t => State -> Annotated t ValueF
 pattern VState s <- (Ann.match -> VStateF s)
   where
     VState s = Ann.annotate $ VStateF s
+
+pattern ModuleRef :: ValueConC t => Reference -> Ident -> Annotated t ValueF
+pattern ModuleRef r i <- (Ann.match -> ModuleRefF r i)
+  where
+    ModuleRef r i = Ann.annotate $ ModuleRefF r i
 
 type UntaggedValue = Annotated Identity ValueF
 type Value = Annotated Ann.WithPos ValueF

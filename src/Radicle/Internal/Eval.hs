@@ -19,11 +19,16 @@ import           Radicle.Internal.Core
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier (Ident(..))
 import           Radicle.Internal.Orphans ()
+import qualified Radicle.Internal.Pretty as Pretty
 
 -- | Basic evaluation.
 baseEval :: Monad m => Value -> Lang m Value
 baseEval val = logValPos val $ case val of
-    Atom i -> lookupAtom i
+    Atom i -> do
+      v <- lookupAtom i
+      case v of
+        ModuleRef r j -> evModRef r j
+        _ -> pure v
     List (f:vs) -> f $$ vs
     List xs -> throwErrorHere
         $ WrongNumberOfArgs ("application: " <> show xs)
@@ -35,6 +40,14 @@ baseEval val = logValPos val $ case val of
         kvs <- traverse evalBoth (Map.toList mp)
         dict $ Map.fromList kvs
     autoquote -> pure autoquote
+  where
+    evModRef r j = do
+      m <- readRef r
+      case m of
+        Dict d -> case Map.lookup (Atom j) d of
+          Just v' -> pure v'
+          _ -> throwErrorHere $ OtherError $ "symbol " <> show j <> " did not exist in module: " <> Pretty.renderPrettyDef m
+        _ -> throwErrorHere $ OtherError "Encountered a module reference that wasn't a module (i.e. a dict)." -- TODO(james): make better error.
 
 
 -- |
@@ -45,6 +58,15 @@ baseEval val = logValPos val $ case val of
 transact :: Monad m => Value -> Lang m Value
 transact expr = do
     tx <- lookupAtom (Ident "tx")
+
+
+
+
+
+
+
+
+
     logValPos tx $ do
         expr' <- callFn tx [expr]
         baseEval expr'
@@ -248,8 +270,7 @@ f $$ vs = case f of
       case f' of
         Macro g -> do
           e <- callFn g vs
-          -- The expansion of a macro is evaluated in its own scope:
-          withEnv identity $ baseEval e
+          baseEval e
         _ -> do
           vs' <- traverse baseEval vs
           callFn f' vs'
