@@ -1264,7 +1264,7 @@ This requires the ``prelude/test/primitive-stub`` script to be loaded.
 
 Ask for user input with a prompt.
 
-``(prompt-non-empty! prompt validator err-msg)``
+``(prompt-validated! prompt validator err-msg)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Same as ``prompt!``, but returns the ``err-msg`` and repeats the prompt

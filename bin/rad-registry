@@ -107,12 +107,12 @@
 
 (def prompt-for-metadata!
   (fn []
-    (def name (prompt-non-empty!
+    (def name (prompt-validated!
                 "? What's the name of your Radicle machine: "
                 \(not (eq? ? ""))
                 "Radicle machine name can't be empty!"))
     (def desc (prompt! "? Briefly describe the Radicle machine: "))
-    (def id (prompt-non-empty!
+    (def id (prompt-validated!
               "? What's the id of your Radicle machine: "
               \(not (eq? ? ""))
               "Radicle machine id can't be empty!"))

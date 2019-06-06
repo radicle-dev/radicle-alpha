@@ -5,7 +5,7 @@
             process-with-stdout! process-with-stdout-stderr-exitcode!
             process-with-stdout-strict!
             init-file-dict! read-file-key! write-file-key! delete-file-key! ls! modify-file!
-            install-fake-filesystem! prompt! prompt-non-empty!
+            install-fake-filesystem! prompt! prompt-validated!
            ]}
 
 (import prelude/basic :unqualified)
@@ -260,17 +260,16 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
     (write-handle! (stderr!) prompt)
     (read-line-handle! (stdin!))))
 
-(def-rec prompt-non-empty!
+(def-rec prompt-validated!
   "Same as `prompt!`, but returns the `err-msg` and repeats the prompt if the
   input does not pass the `validator`."
   (fn [prompt validator err-msg]
-    (write-handle! (stderr!) prompt)
-    (def input (read-line-handle! (stdin!)))
+    (def input (prompt! prompt))
     (if (validator input)
       input
       (do
         (put-str! err-msg)
-        (prompt-non-empty! prompt validator err-msg)))))
+        (prompt-validated! prompt validator err-msg)))))
 
 (def install-fake-filesystem!
   "Installs a fake for `read-file!` that simulates the presence of
