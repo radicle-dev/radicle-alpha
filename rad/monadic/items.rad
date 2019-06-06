@@ -1,7 +1,7 @@
 {:module  'monadic/items
  :doc     "Functions for interacting with dicts of items in machines"
  :exports
- '[summary pretty-item-view list-items pretty-state enrich-item
+ '[summary pretty-item-view list-items list-items-plain pretty-state enrich-item
    verify-item-number]}
 
 (import prelude/error-messages :as 'error)
@@ -41,14 +41,28 @@
     (def c-length (lookup cell-key cells))
     (string-append (take c-length (string/pad-right-to c-length phrase)) " ")))
 
+(def item-title
+  (fn [item-flag]
+    (match item-flag
+      :issue              "title"
+      :patch              "commit"
+      :registered-machine "Radicle machine name")))
+
 (def pretty-table-header
-  (fn []
-    (string-append
-      (wrap-cell "state" :state)
-      (wrap-cell "#" :number)
-      (wrap-cell "commit" :title)
-      (wrap-cell "author" :author)
-      (wrap-cell "updated" :modified-at))))
+  (fn [item-flag]
+    (def title (item-title item-flag))
+    (match item-flag
+    :registered-machine  (string-append
+                           (wrap-cell "#" :number)
+                           (wrap-cell title :title)
+                           (wrap-cell "author" :author)
+                           (wrap-cell "updated" :modified-at))
+    _                    (string-append
+                           (wrap-cell "state" :state)
+                           (wrap-cell "#" :number)
+                           (wrap-cell title :title)
+                           (wrap-cell "author" :author)
+                           (wrap-cell "updated" :modified-at)))))
 
 (def pretty-modified-at
   (fn [i]
@@ -67,6 +81,24 @@
          (show n)
          tit
          un
+         (pretty-modified-at i)])
+      '{:number n
+        :name name
+        :state s
+        :username un}
+      (string/unwords
+        [(pretty-state s)
+         (show n)
+         name
+         un
+         (pretty-modified-at i)])
+      '{:number n
+        :name name
+        :username un}
+      (string/unwords
+        [(show n)
+         name
+         un
          (pretty-modified-at i)]))))
 
 (def pretty-row
@@ -80,6 +112,24 @@
         (wrap-cell (pretty-state s) :state)
         (wrap-cell (show n) :number)
         (wrap-cell tit :title)
+        (wrap-cell un :author)
+        (wrap-cell (pretty-modified-at i) :modified-at))
+      '{:number n
+        :name name
+        :state s
+        :username un}
+      (string-append
+        (wrap-cell (pretty-state s) :state)
+        (wrap-cell (show n) :number)
+        (wrap-cell name :title)
+        (wrap-cell un :author)
+        (wrap-cell (pretty-modified-at i) :modified-at))
+      '{:number n
+        :name name
+        :username un}
+      (string-append
+        (wrap-cell (show n) :number)
+        (wrap-cell name :title)
         (wrap-cell un :author)
         (wrap-cell (pretty-modified-at i) :modified-at)))))
 
@@ -117,6 +167,22 @@
         "Comments\n"
         "--------\n\n"
         (pretty-comments cs)))
+      '{:number n
+        :name tit
+        :description desc
+        :labels ls
+        :registered-machine-id id
+        :username un
+        :created-at c-a}
+      (string-replace
+       "\r"
+       ""
+       (string-append
+        (pretty-headline i) "\n\n"
+        "**Labels:** " (show ls) "\n\n"
+        "**Radicle machine ID:** " (show id) "\n\n"
+        desc
+        ))
       '{:patch p
         :created-at c-a
         :comments cs}
@@ -130,8 +196,9 @@
 (def items-name
   (fn [item-flag]
     (match item-flag
-      :issue  "issues"
-      :patch  "patches")))
+      :issue               "issues"
+      :patch               "patches"
+      :registered-machine  "Radicle machines")))
 
 (def add-username
   (fn [d]
@@ -141,8 +208,10 @@
 
 (def add-username-item
   (fn [i]
-    (add-username
-     (insert :comments (map add-username (lookup :comments i)) i))))
+    (match (lookup-maybe :comments i)
+      :nothing  (add-username i)
+      _         (add-username
+                  (insert :comments (map add-username (lookup :comments i)) i)))))
 
 (def enrich-item
   "Adds if the item has been read by the user since it was last modified, and
@@ -156,9 +225,9 @@
 
     (def mk-key
       (fn [i]
-        (if (lookup :fancy options)
-          [(pretty-headline i) i]
-          [(pretty-row i) i])))
+        (match (lookup-maybe :fancy options)
+          [:just #t]  [(pretty-headline i) i]
+          _           [(pretty-row i) i])))
 
     (def state-filt
       (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
@@ -198,30 +267,57 @@
     (def items-dict (dict-from-seq filtered-items))
     (if (empty-seq? filtered-items)
       (no-filtered-items)
-      (if (lookup :fancy options)
-        (match (fzf-select-with-preview!
-                 (map first filtered-items)
-                 (fn [s] (pretty-item-view (lookup s items-dict))))
-               (/just 's)
-               (do (def selected (lookup s items-dict))
-                   (def item-number (match selected {:number 'n} n))
-                   (def pretty-item
-                     (add-comment-md
-                      (pretty-item-view selected)))
-                   (def edited-item (edit-in-editor! pretty-item))
-                   (def added-comment
-                     (string/unlines
-                      (take-while (fn [x] (not (eq? x comment-divider)))
-                                  (string/lines edited-item))))
-                   (put-str!
-                    (if (eq? added-comment "")
-                      "Item was not updated."
-                      (add-comment! machine item-number added-comment))))
-               _ (put-str! "No selection made."))
-        (do
-          (put-str! (pretty-table-header))
-          (map (fn [d] (put-str! (first d))) filtered-items)
-          (put-str! (summary (items-name item-flag) items)))))))
+      (match (lookup-maybe :fancy options)
+        [:just #t] (match (fzf-select-with-preview!
+                            (map first filtered-items)
+                            (fn [s] (pretty-item-view (lookup s items-dict))))
+                     (/just 's)
+                       (do
+                         (def selected (lookup s items-dict))
+                         (def item-number (match selected {:number 'n} n))
+                         (def pretty-item
+                           (add-comment-md (pretty-item-view selected)))
+                         (def edited-item (edit-in-editor! pretty-item))
+                         (def added-comment
+                           (string/unlines
+                             (take-while
+                               (fn [x] (not (eq? x comment-divider)))
+                               (string/lines edited-item))))
+                         (put-str!
+                           (if (eq? added-comment "")
+                             "Item was not updated."
+                             (add-comment! machine item-number added-comment))))
+                     _ (put-str! "No selection made."))
+        _          (do
+                     (put-str! (pretty-table-header item-flag))
+                     (map (fn [d] (put-str! (first d))) filtered-items)
+                     (put-str! (summary (items-name item-flag) items)))))))
+
+(def list-items-plain
+  "Lists the recent items only with `unread` option."
+  (fn [machine options items item-flag]
+
+    (def newness-filt
+      (if (lookup :unread options)
+        (fn [x] (not (lookup :read? x)))
+        (fn [x] #t)))
+
+    (def filtered-items
+      (map (fn [i] [(pretty-row i) i])
+           (filter newness-filt
+                   (map (fn [i] (enrich-item machine i)) items))))
+
+    (def no-filtered-items
+      (fn []
+        (if (empty-seq? items)
+          (put-str! (string-append "No " (items-name item-flag) "!"))
+          (put-str! (string-append "No unread " (items-name item-flag) "!")))))
+
+    (if (empty-seq? filtered-items)
+      (no-filtered-items)
+      (do
+        (put-str! (pretty-table-header item-flag))
+        (map (fn [d] (put-str! (first d))) filtered-items)))))
 
 (def verify-item-number
   "Verifies that the item corresponding to `item-number` is part of the given

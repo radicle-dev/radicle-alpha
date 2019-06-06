@@ -1,0 +1,178 @@
+#!/usr/bin/env radicle
+
+(load! (find-module-file! "prelude.rad"))
+(load! (find-module-file! "monadic/registry.rad"))
+(file-module! "prelude/io-utils.rad")
+(file-module! "prelude/error-messages.rad")
+(file-module! "monadic/items.rad")
+
+(import prelude/error-messages :as 'error)
+(import monadic/items :as 'items)
+(import prelude/strings '[split-by] :unqualified)
+(import prelude/validation :as 'validation)
+(import prelude/machine :as 'machine)
+(import prelude/io :as 'io)
+(import prelude/io-utils :as 'io)
+
+(def path!
+  (fn []
+    (string-append (io/base-path!) "/registry.rad")))
+
+(def init-registry-file!
+  (fn []
+    (io/shell! (string-append "mkdir -p " (io/base-path!)) "")
+    (io/init-file-dict! (path!))))
+
+;; TODO Replace with server hosted machine
+(def default-machine-name "12D3KooWNdyJ1QpNy5RbBfjKEx1gPvRJ72tgYo1vs6jvXU8yuQN2")
+
+(def machine-name
+  (fn []
+    (init-registry-file!)
+    (match (io/read-file-key! (path!) :registry)
+      :nothing    default-machine-name
+      [:just 'r]  r)))
+
+(def help
+  (string-append
+  "rad registry - Radicle Registry CLI
+
+   Usage:
+        rad registry list [--unread]
+        rad registry new
+        rad registry [show | delete | mark-read | mark-unread] <registered-machine-number>
+        rad registry all-read
+        rad registry init
+        rad registry set <registry-id>
+        rad registry help
+
+     list         - Lists all registered Radicle machines
+                    If the option '--unread' is appended, only unread machines
+                    are listed.
+                    Unread machines are marked with a * after the timestamp.
+     new          - Register a new Radicle machine in $EDITOR
+     show         - Show a registered Radicle machine
+     show-id      - Show the registered Radicle machine id
+     delete       - Delete a Radicle machine from the registry
+                    This command is restricted to the maintainer of the registry
+                    and the registrant.
+     mark-read    - Mark registered Radicle machine as read
+     mark-unread  - Mark registered Radicle machine as unread
+     all-read     - Mark all registered Radicle machines as read
+     init         - Initialize a new registry machine
+     set          - Set the registry that is used for the commands instead of
+                    the default. Delete the file to use the default registry.
+     help         - Print this help and exit
+       "))
+
+(def cmd-parse-failure
+  (fn [error]
+    (parse-failure error help)))
+
+(def get-registered-machine
+  "Returns the machine of given number `n`."
+  (fn [n machine]
+    (items/verify-item-number n (list-registered-machines machine) :registered-machine)))
+
+(def show-registered-machine!
+  "Shows a single MACHINE `n`"
+  (fn [n machine]
+    (def registered-machine (get-registered-machine n machine))
+    (put-str! (items/pretty-item-view (items/enrich-item machine registered-machine)))
+    (newness/mark-read! machine n)))
+
+(def show-registered-machine-id!
+  "Shows the id of a single MACHINE `n`"
+  (fn [n machine]
+    (def registered-machine (get-registered-machine n machine))
+    (put-str! (lookup :registered-machine-id registered-machine))
+    (newness/mark-read! machine n)))
+
+(def delete-registered-machine
+  (fn [n machine]
+    (catch 'daemon-error
+      (do
+        (get-registered-machine n machine)
+        (delete-registered-machine! machine {:registered-machine-number n})
+        (put-str! (string-append "Radicle machine #" (show n) " has been deleted."))
+        (newness/mark-read! machine n))
+      (fn [_]
+        (put-str! (error/state-change-failure :registered-machine "deleted"))
+        (exit! 1)))))
+
+(def list
+  (fn [machine options]
+    (def registered-machines (values (list-registered-machines machine)))
+    (items/list-items-plain machine options registered-machines :registered-machine)))
+
+(def prompt-for-metadata!
+  (fn []
+    (def name (prompt-validated!
+                "? What's the name of your Radicle machine: "
+                \(not (eq? ? ""))
+                "Radicle machine name can't be empty!"))
+    (def desc (prompt! "? Briefly describe the Radicle machine: "))
+    (def id (prompt-validated!
+              "? What's the id of your Radicle machine: "
+              \(not (eq? ? ""))
+              "Radicle machine id can't be empty!"))
+    (def labels (prompt! "? Do you want to add any labels (comma seperated): "))
+    {:name name :description desc :registered-machine-id id :labels (split-by (fn [x] (eq? x ",")) labels)}))
+
+(def register-machine
+  (fn [machine]
+    (def meta (prompt-for-metadata!))
+    (def author {:git-username (get-git-username!)})
+    (match (register-machine! machine (simple-registered-machine (<> meta author)))
+           ['n] (do (put-str! (string-append "Registered Radicle machine #" (show n) " in " machine))
+                    (newness/mark-read! machine n))
+           _    (put-str! (error/no-number-returned :registered-machine)))))
+
+(def cmd-options
+  [
+    { :key :unread :type :flag :options ["--unread"] :default #f }
+  ])
+
+(def /list-cmd
+  (fn [opts]
+    (/cmd-opts "list" opts cmd-options help)))
+
+(def args (get-args!))
+
+(def whole-registered-machine-num
+  (fn [action num-str f]
+    (whole-num help :registered-machine action num-str f)))
+
+(def mark-all-read!
+  (fn [machine]
+    (map (fn [i] (newness/mark-read! machine (lookup :number i)))
+         (values (list-registered-machines machine)))))
+
+(def new-registry!
+  (fn []
+    (def registry (create-registry-machine!))
+    (put-str! "=> Assembled rad registry machine")
+    (put-str! (string-append "=> registry id: " registry))))
+
+(def set-registry!
+  (fn [id]
+    (init-registry-file!)
+    (io/write-file-key! (path!) :registry id)
+    (put-str! (string-append "=> Set registry machine to " id))))
+
+(machine/catch-daemon!
+ (fn []
+   (match args
+          (/list-cmd 'options)           (list (machine-name) options)
+          (/cmd-0 "new" help)            (register-machine (machine-name))
+          (/cmd-0 "init" help)           (new-registry!)
+          (/cmd-1 "set" 'n help)         (set-registry! n)
+          (/cmd-1 "delete" 'n help)      (whole-registered-machine-num "delete" n (fn [n] (delete-registered-machine n (machine-name))))
+          (/cmd-1 "show" 'n help)        (whole-registered-machine-num "show" n (fn [n] (show-registered-machine! n (machine-name))))
+          (/cmd-1 "show-id" 'n help)     (whole-registered-machine-num "show-id" n (fn [n] (show-registered-machine-id! n (machine-name))))
+          (/cmd-1 "mark-read" 'n help)   (whole-registered-machine-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
+          (/cmd-1 "mark-unread" 'n help) (whole-registered-machine-num "mark as unread" n (fn [n] (newness/mark-unread! (machine-name) n)))
+          (/cmd-0 "all-read" help)       (mark-all-read! (machine-name))
+          (/cmd-help)                    (put-str! help)
+          (/cons 'cmd _)                 (cmd-parse-failure (error/unknown-command cmd))
+          []                             (put-str! help))))
