@@ -25,11 +25,10 @@
     id))
 
 (def simple-project
-  "Register an open project with no labels."
+  "Register a project with no labels."
   (fn [i]
     (def t (now!))
     (<> {:labels      []
-         :state       :open
          :created-at  t
          :modified-at t}
         i)))
@@ -43,6 +42,11 @@
   "Edit a remote project with the keys in `my-keys.rad`."
   (fn [machine i]
     (machine/send-signed-command! machine radicle-registry-machine-id 'edit-project i)))
+
+(def delete-project!
+  "Delete a remote project with the keys in `my-keys.rad`."
+  (fn [machine i]
+    (machine/send-signed-command! machine radicle-registry-machine-id 'delete-project i)))
 
 (def simple-register-project!
   "Register a remote project with sensible defaults."
@@ -85,8 +89,9 @@
       (def machine (create-registry-machine!))
       (simple-register-project! machine "name0" "desc0" "123")
       (simple-register-project! machine "name1" "desc1" "456")
-      (simple-edit-project! machine 0 {:state :closed})
       (set-fake-keys! non-owner-keys)
+      (simple-register-project! machine "will be deleted" "none" "111")
+      (delete-project! machine {:project-number 2})
       (simple-register-project! machine "new" "new" "111")
       (def is (list-projects machine))
       (set-fake-keys! owner-keys))
@@ -95,30 +100,29 @@
  [ (view (.. (@ 0) (@ :name)) is) ==> "name0" ]
  [ (view (.. (@ 1) (@ :name)) is) ==> "name1" ]
  [ (short (first (values is))) ==> "0: name0" ]
- [ (short (first (list-last machine 1))) ==> "2: new" ]
- [ (view (.. (@ 0) (@ :state)) is) ==> :closed ]
+ [ (short (first (list-last machine 1))) ==> "3: new" ]
  ;; authorization
- ;; owner can change the state
+ ;; owner can change the project name
  [ (do
       (set-fake-keys! owner-keys)
       (catch 'validation-failure
-             (do (simple-edit-project! machine 2 {:state :closed})
+             (do (simple-edit-project! machine 3 {:name "New name"})
                  :valid)
              (fn [_] :not-valid))) ==> :valid
  ]
- ;; author can change the state
+ ;; author can change the project name
  [ (do
       (set-fake-keys! non-owner-keys)
       (catch 'validation-failure
-             (do (simple-edit-project! machine 2 {:state :open})
+             (do (simple-edit-project! machine 3 {:name "New name"})
                  :valid)
              (fn [_] :not-valid))) ==> :valid
  ]
- ;; non-owner/non-author cannot change the state
+ ;; non-owner/non-author cannot change the project name
  [ (do
       (set-fake-keys! non-owner-keys)
       (catch 'validation-failure
-             (do (simple-edit-project! machine 0 {:state :open})
+             (do (simple-edit-project! machine 0 {:name "New name"})
                  :valid)
              (fn [_] :not-valid))) ==> :not-valid
  ]

@@ -79,7 +79,6 @@
   {:name        (validator/string-of-max-length 100)
    :description (validator/string-of-max-length 4000)
    :labels      (validator/every (validator/string-of-max-length 80))
-   :state       (validator/member [:open :closed])
    :project-id  (validator/string-of-max-length 80)})
 
 (def validator/full-project (validator/keys project-keys))
@@ -94,7 +93,22 @@
     validator/time-created
     validator/full-project]))
 
+(def validator/admin-or-author
+  "Checks if the author of th request is either an admin or the author of the
+  project."
+  (validator/or
+    [(validator/pred
+      "edit author == original author"
+      (fn [c]
+        (match c
+               {:project-number 'n
+                :author 'a}
+               (eq? (view-ref projects (... [(@ n) (@ :author)]))
+                    a))))
+    (auth [:allowed :admin])]))
+
 (def edit-keys
+  "List of all allowed keys included in a edit request."
   (fn [ks]
     (<> ks
         (<> (keys input-keys)
@@ -107,16 +121,7 @@
     validator/time-modified
     validator/sub-project
     validator/project-reference
-    (validator/or
-          [(validator/pred
-            "edit author == original author"
-            (fn [c]
-              (match c
-                     {:project-number 'n
-                      :author 'a}
-                     (eq? (view-ref projects (... [(@ n) (@ :author)]))
-                          a))))
-          (auth [:allowed :admin])])
+    validator/admin-or-author
     (validator/contains-only (edit-keys (keys project-keys)))]))
 
 (def strip-input
@@ -138,6 +143,13 @@
     (set-projects (@ n) i_)
     (noncer [:use (lookup :nonce i)])
     n))
+
+(def delete-project
+  "Deletes the project from the prejects ref."
+  (fn [i]
+    (validator/input i)
+    (validator/admin-or-author i)
+    (modify-ref projects \(delete (lookup :project-number i) ?))))
 
 (def merge-new
   (fn [new]
@@ -164,6 +176,7 @@
   (ref
     {'register-project  register-project
      'edit-project      edit-project
+     'delete-project    delete-project
      'list-projects     list-projects
      'add-admin         (add-admin auth)}))
 

@@ -33,44 +33,29 @@
       :nothing    default-machine-name
       [:just 'r]  r)))
 
-(def valid-states ["open" "closed"])
-
-(def status-opts ["--filter-by-state" "--state" "-s"])
-
-(def list-opts-help
-  (string-append
-    "[("
-    (string/intercalate " | " status-opts)
-    ") <state>]"))
-
 (def help
   (string-append
   "rad registry - Radicle Registry CLI
 
    Usage:
-        rad registry list " list-opts-help "
+        rad registry list [--unread]
         rad registry new
-        rad registry [show | close | mark-read | mark-unread] <project-number>
+        rad registry [show | delete | mark-read | mark-unread] <project-number>
         rad registry all-read
         rad registry init
         rad registry set <registry-id>
         rad registry help
 
      list         - Lists all projects
-                    The list can be filtered by state:
-                      " (string/intercalate ", " valid-states) "
-                    The flags for filtering by state:
-                      " (string/intercalate ", " status-opts) "
-                    Filtering by multiple states is possible via '-s <state1> -s
-                    <state2> ...'.
                     If the option '--unread' is appended, only unread projects
                     are listed.
                     Unread projects are marked with a * after the timestamp.
      new          - Register a new project in $EDITOR
      show         - Show a project
      show-id      - Show the project id
-     close        - Close a project
-                    This command is restricted to the maintainer of the project.
+     delete       - Delete a project
+                    This command is restricted to the maintainer of the registry
+                    and the registrant.
      mark-read    - Mark project as read
      mark-unread  - Mark project as unread
      all-read     - Mark all projects as read
@@ -103,22 +88,22 @@
     (put-str! (lookup :project-id project))
     (newness/mark-read! machine n)))
 
-(def close-project
+(def delete-project
   (fn [n machine]
     (catch 'daemon-error
       (do
         (get-project n machine)
-        (simple-edit-project! machine n {:state :closed})
-        (put-str! (string-append "Project #" (show n) " has been closed."))
+        (delete-project! machine {:project-number n})
+        (put-str! (string-append "Project #" (show n) " has been deleted."))
         (newness/mark-read! machine n))
       (fn [_]
-        (put-str! (error/state-change-failure :project "closed"))
+        (put-str! (error/state-change-failure :project "deleted"))
         (exit! 1)))))
 
 (def list
   (fn [machine options]
     (def projects (values (list-projects machine)))
-    (items/list-items machine options projects :project (fn [] ""))))
+    (items/list-items-plain machine options projects :project)))
 
 (def prompt-for-metadata!
   (fn []
@@ -145,7 +130,6 @@
 
 (def cmd-options
   [
-    { :key :state :type :multi-opt :options ["-s" "--state" "--filter-by-state"] :possible-values valid-states :default ["open"]}
     { :key :unread :type :flag :options ["--unread"] :default #f }
   ])
 
@@ -183,7 +167,7 @@
           (/cmd-0 "new" help)            (new-project (machine-name))
           (/cmd-0 "init" help)           (new-registry!)
           (/cmd-1 "set" 'n help)         (set-registry! n)
-          (/cmd-1 "close" 'n help)       (whole-project-num "close" n (fn [n] (close-project n (machine-name))))
+          (/cmd-1 "delete" 'n help)      (whole-project-num "delete" n (fn [n] (delete-project n (machine-name))))
           (/cmd-1 "show" 'n help)        (whole-project-num "show" n (fn [n] (show-project! n (machine-name))))
           (/cmd-1 "show-id" 'n help)     (whole-project-num "show-id" n (fn [n] (show-project-id! n (machine-name))))
           (/cmd-1 "mark-read" 'n help)   (whole-project-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))

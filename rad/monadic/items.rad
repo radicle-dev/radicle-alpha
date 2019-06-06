@@ -1,7 +1,7 @@
 {:module  'monadic/items
  :doc     "Functions for interacting with dicts of items in machines"
  :exports
- '[summary pretty-item-view list-items pretty-state enrich-item
+ '[summary pretty-item-view list-items list-items-plain pretty-state enrich-item
    verify-item-number]}
 
 (import prelude/error-messages :as 'error)
@@ -51,12 +51,18 @@
 (def pretty-table-header
   (fn [item-flag]
     (def title (item-title item-flag))
-    (string-append
-      (wrap-cell "state" :state)
-      (wrap-cell "#" :number)
-      (wrap-cell title :title)
-      (wrap-cell "author" :author)
-      (wrap-cell "updated" :modified-at))))
+    (match item-flag
+    :project  (string-append
+                (wrap-cell "#" :number)
+                (wrap-cell title :title)
+                (wrap-cell "author" :author)
+                (wrap-cell "updated" :modified-at))
+    _         (string-append
+                (wrap-cell "state" :state)
+                (wrap-cell "#" :number)
+                (wrap-cell title :title)
+                (wrap-cell "author" :author)
+                (wrap-cell "updated" :modified-at)))))
 
 (def pretty-modified-at
   (fn [i]
@@ -85,6 +91,14 @@
          (show n)
          name
          un
+         (pretty-modified-at i)])
+      '{:number n
+        :name name
+        :username un}
+      (string/unwords
+        [(show n)
+         name
+         un
          (pretty-modified-at i)]))))
 
 (def pretty-row
@@ -106,6 +120,14 @@
         :username un}
       (string-append
         (wrap-cell (pretty-state s) :state)
+        (wrap-cell (show n) :number)
+        (wrap-cell name :title)
+        (wrap-cell un :author)
+        (wrap-cell (pretty-modified-at i) :modified-at))
+      '{:number n
+        :name name
+        :username un}
+      (string-append
         (wrap-cell (show n) :number)
         (wrap-cell name :title)
         (wrap-cell un :author)
@@ -148,7 +170,6 @@
       '{:number n
         :name tit
         :description desc
-        :state state
         :labels ls
         :project-id id
         :username un
@@ -158,7 +179,6 @@
        ""
        (string-append
         (pretty-headline i) "\n\n"
-        "**State:** " (pretty-state state) "\n"
         "**Labels:** " (show ls) "\n\n"
         "**Project ID:** " (show id) "\n\n"
         desc
@@ -271,6 +291,32 @@
                     (put-str! (pretty-table-header item-flag))
                     (map (fn [d] (put-str! (first d))) filtered-items)
                     (put-str! (summary (items-name item-flag) items)))))))
+
+(def list-items-plain
+  "Lists the recent items only with `unread` option."
+  (fn [machine options items item-flag]
+
+    (def newness-filt
+      (if (lookup :unread options)
+        (fn [x] (not (lookup :read? x)))
+        (fn [x] #t)))
+
+    (def filtered-items
+      (map (fn [i] [(pretty-row i) i])
+           (filter newness-filt
+                   (map (fn [i] (enrich-item machine i)) items))))
+
+    (def no-filtered-items
+      (fn []
+        (if (empty-seq? items)
+          (put-str! (string-append "No " (items-name item-flag) "!"))
+          (put-str! (string-append "No unread " (items-name item-flag) "!")))))
+
+    (if (empty-seq? filtered-items)
+      (no-filtered-items)
+      (do
+        (put-str! (pretty-table-header item-flag))
+        (map (fn [d] (put-str! (first d))) filtered-items)))))
 
 (def verify-item-number
   "Verifies that the item corresponding to `item-number` is part of the given
