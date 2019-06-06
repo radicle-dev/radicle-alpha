@@ -53,6 +53,7 @@ library:
   - http-media
   - ipld-cid
   - megaparsec
+  - mmorph
   - mtl
   - multibase
   - optparse-applicative
@@ -175,6 +176,17 @@ executables:
     - wai-cors
     - warp
     ghc-options: -main-is Daemon
+
+  rad-repl:
+    main: RadicleRepl.hs
+    source-dirs: exe
+    other-modules: []
+    dependencies:
+    - radicle
+    - bytestring
+    - directory
+    - optparse-applicative
+    ghc-options: -main-is RadicleRepl
 
   radicle-doc:
     main: Doc.hs

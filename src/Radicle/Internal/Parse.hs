@@ -3,6 +3,7 @@ module Radicle.Internal.Parse where
 import           Protolude hiding (SrcLoc, try)
 
 import           Control.Monad.Fail
+import           Control.Monad.Morph (generalize, hoist)
 import qualified Data.Char as Char
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
@@ -209,6 +210,37 @@ parseTop p src code = runIdentity $ runReaderT (M.runParserT p (toS src) code) N
 
 parseValue :: Text -> Text -> Either (Par.ParseErrorBundle Text Void) Value
 parseValue = parseTop (spaceConsumer *> valueP <* eof)
+
+-- | Attempts to parse a value. If input is still left unconsumed, calls the
+-- provided `m (Maybe Text)` to get more text. This allows for multiline inputs
+-- in the REPL.
+--
+-- Megaparsec doesn't yet have streaming support (see
+-- <https://github.com/mrkkrp/megaparsec/issues/332 this issue>), so we reparse
+-- from scratch if more input is needed, which is somewhat inefficient.
+parseREPL
+    :: Monad m
+    => m (Maybe Text)
+    -> Text
+    -> m (Either [Char] Value)
+parseREPL getter code
+    = runReaderT (go code) NotInShortLambda
+  where
+    isEOFError e = case e of
+        Par.TrivialError _ (Just Par.EndOfInput) _ -> True
+        _                                          -> False
+    go this = do
+        res <- hoist generalize $ M.runParserT (spaceConsumer *> valueP) "[repl]" this
+        case res of
+            Left errs ->
+                if any isEOFError (Par.bundleErrors errs)
+                    then do
+                        next <- lift getter
+                        case next of
+                            Nothing    -> pure . Left $ Par.errorBundlePretty errs
+                            Just next' -> go $ this <> "\n" <> next'
+                    else pure . Left $ Par.errorBundlePretty errs
+            Right v -> pure $ Right v
 
 -- | Parse a Text as a series of values.
 --
