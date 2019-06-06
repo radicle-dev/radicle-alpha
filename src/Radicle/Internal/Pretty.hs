@@ -67,7 +67,7 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
         Macro _ -> angles "macro"
         Dict mp -> braces . align $
             sep [ prettyV k <+> prettyV val
-                | (k, val) <- Map.toList mp ]
+                | (k, val) <- Map.toAscList mp ]
         Lambda ids vals _ -> prettyLambda ids vals
         LambdaRec _ ids vals _ -> prettyLambda ids vals
         VEnv _ -> angles "env"
@@ -164,6 +164,15 @@ renderCompactPretty = renderStrict . layoutCompact . prettyV
 -- "(\"hi\"\n  \"there\")"
 renderPretty :: PrettyV v => PageWidth -> v -> Text
 renderPretty pg = renderStrict . layoutSmart (LayoutOptions pg) . prettyV
+
+-- | 'renderPretty', but with unbounded width.
+--
+-- Example:
+--
+-- >>> renderPrettyUnbounded (asValue (List [String "hi", String "there"]))
+-- "(\"hi\" \"there\")"
+renderPrettyUnbounded :: PrettyV v => v -> Text
+renderPrettyUnbounded = renderPretty Unbounded
 
 -- | 'renderPretty', but with default layout options (80 chars, 1.0 ribbon)
 --
