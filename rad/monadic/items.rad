@@ -269,28 +269,29 @@
       (no-filtered-items)
       (match (lookup-maybe :fancy options)
         [:just #t] (match (fzf-select-with-preview!
-                       (map first filtered-items)
-                       (fn [s] (pretty-item-view (lookup s items-dict))))
-                      (/just 's)
-                      (do (def selected (lookup s items-dict))
+                            (map first filtered-items)
+                            (fn [s] (pretty-item-view (lookup s items-dict))))
+                     (/just 's)
+                       (do
+                         (def selected (lookup s items-dict))
                          (def item-number (match selected {:number 'n} n))
                          (def pretty-item
-                           (add-comment-md
-                            (pretty-item-view selected)))
+                           (add-comment-md (pretty-item-view selected)))
                          (def edited-item (edit-in-editor! pretty-item))
                          (def added-comment
                            (string/unlines
-                            (take-while (fn [x] (not (eq? x comment-divider)))
-                                        (string/lines edited-item))))
+                             (take-while
+                               (fn [x] (not (eq? x comment-divider)))
+                               (string/lines edited-item))))
                          (put-str!
-                          (if (eq? added-comment "")
-                            "Item was not updated."
-                            (add-comment! machine item-number added-comment))))
-                      _ (put-str! "No selection made."))
-        _         (do
-                    (put-str! (pretty-table-header item-flag))
-                    (map (fn [d] (put-str! (first d))) filtered-items)
-                    (put-str! (summary (items-name item-flag) items)))))))
+                           (if (eq? added-comment "")
+                             "Item was not updated."
+                             (add-comment! machine item-number added-comment))))
+                     _ (put-str! "No selection made."))
+        _          (do
+                     (put-str! (pretty-table-header item-flag))
+                     (map (fn [d] (put-str! (first d))) filtered-items)
+                     (put-str! (summary (items-name item-flag) items)))))))
 
 (def list-items-plain
   "Lists the recent items only with `unread` option."
