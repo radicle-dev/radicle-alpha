@@ -40,25 +40,25 @@
    Usage:
         rad registry list [--unread]
         rad registry new
-        rad registry [show | delete | mark-read | mark-unread] <project-number>
+        rad registry [show | delete | mark-read | mark-unread] <registered-machine-number>
         rad registry all-read
         rad registry init
         rad registry set <registry-id>
         rad registry help
 
-     list         - Lists all projects
-                    If the option '--unread' is appended, only unread projects
+     list         - Lists all registered Radicle machines
+                    If the option '--unread' is appended, only unread machines
                     are listed.
-                    Unread projects are marked with a * after the timestamp.
-     new          - Register a new project in $EDITOR
-     show         - Show a project
-     show-id      - Show the project id
-     delete       - Delete a project
+                    Unread machines are marked with a * after the timestamp.
+     new          - Register a new Radicle machine in $EDITOR
+     show         - Show a registered Radicle machine
+     show-id      - Show the registered Radicle machine id
+     delete       - Delete a Radicle machine from the registry
                     This command is restricted to the maintainer of the registry
                     and the registrant.
-     mark-read    - Mark project as read
-     mark-unread  - Mark project as unread
-     all-read     - Mark all projects as read
+     mark-read    - Mark registered Radicle machine as read
+     mark-unread  - Mark registered Radicle machine as unread
+     all-read     - Mark all registered Radicle machines as read
      init         - Initialize a new registry machine
      set          - Set the registry that is used for the commands instead of
                     the default. Delete the file to use the default registry.
@@ -69,64 +69,64 @@
   (fn [error]
     (parse-failure error help)))
 
-(def get-project
-  "Returns the project of given number `n`."
+(def get-registered-machine
+  "Returns the machine of given number `n`."
   (fn [n machine]
-    (items/verify-item-number n (list-projects machine) :project)))
+    (items/verify-item-number n (list-registered-machines machine) :registered-machine)))
 
-(def show-project!
-  "Shows a single PROJECT `n`"
+(def show-registered-machine!
+  "Shows a single MACHINE `n`"
   (fn [n machine]
-    (def project (get-project n machine))
-    (put-str! (items/pretty-item-view (items/enrich-item machine project)))
+    (def registered-machine (get-registered-machine n machine))
+    (put-str! (items/pretty-item-view (items/enrich-item machine registered-machine)))
     (newness/mark-read! machine n)))
 
-(def show-project-id!
-  "Shows the id of a single PROJECT `n`"
+(def show-registered-machine-id!
+  "Shows the id of a single MACHINE `n`"
   (fn [n machine]
-    (def project (get-project n machine))
-    (put-str! (lookup :project-id project))
+    (def registered-machine (get-registered-machine n machine))
+    (put-str! (lookup :registered-machine-id registered-machine))
     (newness/mark-read! machine n)))
 
-(def delete-project
+(def delete-registered-machine
   (fn [n machine]
     (catch 'daemon-error
       (do
-        (get-project n machine)
-        (delete-project! machine {:project-number n})
-        (put-str! (string-append "Project #" (show n) " has been deleted."))
+        (get-registered-machine n machine)
+        (delete-registered-machine! machine {:registered-machine-number n})
+        (put-str! (string-append "Radicle machine #" (show n) " has been deleted."))
         (newness/mark-read! machine n))
       (fn [_]
-        (put-str! (error/state-change-failure :project "deleted"))
+        (put-str! (error/state-change-failure :registered-machine "deleted"))
         (exit! 1)))))
 
 (def list
   (fn [machine options]
-    (def projects (values (list-projects machine)))
-    (items/list-items-plain machine options projects :project)))
+    (def registered-machines (values (list-registered-machines machine)))
+    (items/list-items-plain machine options registered-machines :registered-machine)))
 
 (def prompt-for-metadata!
   (fn []
     (def name (prompt-non-empty!
-                "? What's the name of your project: "
+                "? What's the name of your Radicle machine: "
                 \(not (eq? ? ""))
-                "Project name can't be empty!"))
-    (def desc (prompt! "? Briefly describe the project: "))
+                "Radicle machine name can't be empty!"))
+    (def desc (prompt! "? Briefly describe the Radicle machine: "))
     (def id (prompt-non-empty!
-              "? What's the id of your project: "
+              "? What's the id of your Radicle machine: "
               \(not (eq? ? ""))
-              "Project id can't be empty!"))
+              "Radicle machine id can't be empty!"))
     (def labels (prompt! "? Do you want to add any labels (comma seperated): "))
-    {:name name :description desc :project-id id :labels (split-by (fn [x] (eq? x ",")) labels)}))
+    {:name name :description desc :registered-machine-id id :labels (split-by (fn [x] (eq? x ",")) labels)}))
 
-(def new-project
+(def register-machine
   (fn [machine]
     (def meta (prompt-for-metadata!))
     (def author {:git-username (get-git-username!)})
-    (match (register-project!  machine (simple-project (<> meta author)))
-           ['n] (do (put-str! (string-append "Created project #" (show n) " in " machine))
+    (match (register-machine! machine (simple-registered-machine (<> meta author)))
+           ['n] (do (put-str! (string-append "Registered Radicle machine #" (show n) " in " machine))
                     (newness/mark-read! machine n))
-           _    (put-str! (error/no-number-returned :project)))))
+           _    (put-str! (error/no-number-returned :registered-machine)))))
 
 (def cmd-options
   [
@@ -139,14 +139,14 @@
 
 (def args (get-args!))
 
-(def whole-project-num
+(def whole-registered-machine-num
   (fn [action num-str f]
-    (whole-num help :project action num-str f)))
+    (whole-num help :registered-machine action num-str f)))
 
 (def mark-all-read!
   (fn [machine]
     (map (fn [i] (newness/mark-read! machine (lookup :number i)))
-         (values (list-projects machine)))))
+         (values (list-registered-machines machine)))))
 
 (def new-registry!
   (fn []
@@ -164,14 +164,14 @@
  (fn []
    (match args
           (/list-cmd 'options)           (list (machine-name) options)
-          (/cmd-0 "new" help)            (new-project (machine-name))
+          (/cmd-0 "new" help)            (register-machine (machine-name))
           (/cmd-0 "init" help)           (new-registry!)
           (/cmd-1 "set" 'n help)         (set-registry! n)
-          (/cmd-1 "delete" 'n help)      (whole-project-num "delete" n (fn [n] (delete-project n (machine-name))))
-          (/cmd-1 "show" 'n help)        (whole-project-num "show" n (fn [n] (show-project! n (machine-name))))
-          (/cmd-1 "show-id" 'n help)     (whole-project-num "show-id" n (fn [n] (show-project-id! n (machine-name))))
-          (/cmd-1 "mark-read" 'n help)   (whole-project-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
-          (/cmd-1 "mark-unread" 'n help) (whole-project-num "mark as unread" n (fn [n] (newness/mark-unread! (machine-name) n)))
+          (/cmd-1 "delete" 'n help)      (whole-registered-machine-num "delete" n (fn [n] (delete-registered-machine n (machine-name))))
+          (/cmd-1 "show" 'n help)        (whole-registered-machine-num "show" n (fn [n] (show-registered-machine! n (machine-name))))
+          (/cmd-1 "show-id" 'n help)     (whole-registered-machine-num "show-id" n (fn [n] (show-registered-machine-id! n (machine-name))))
+          (/cmd-1 "mark-read" 'n help)   (whole-registered-machine-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
+          (/cmd-1 "mark-unread" 'n help) (whole-registered-machine-num "mark as unread" n (fn [n] (newness/mark-unread! (machine-name) n)))
           (/cmd-0 "all-read" help)       (mark-all-read! (machine-name))
           (/cmd-help)                    (put-str! help)
           (/cons 'cmd _)                 (cmd-parse-failure (error/unknown-command cmd))

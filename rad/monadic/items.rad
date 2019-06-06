@@ -44,25 +44,25 @@
 (def item-title
   (fn [item-flag]
     (match item-flag
-      :issue    "title"
-      :patch    "commit"
-      :project  "project name")))
+      :issue              "title"
+      :patch              "commit"
+      :registered-machine "Radicle machine name")))
 
 (def pretty-table-header
   (fn [item-flag]
     (def title (item-title item-flag))
     (match item-flag
-    :project  (string-append
-                (wrap-cell "#" :number)
-                (wrap-cell title :title)
-                (wrap-cell "author" :author)
-                (wrap-cell "updated" :modified-at))
-    _         (string-append
-                (wrap-cell "state" :state)
-                (wrap-cell "#" :number)
-                (wrap-cell title :title)
-                (wrap-cell "author" :author)
-                (wrap-cell "updated" :modified-at)))))
+    :registered-machine  (string-append
+                           (wrap-cell "#" :number)
+                           (wrap-cell title :title)
+                           (wrap-cell "author" :author)
+                           (wrap-cell "updated" :modified-at))
+    _                    (string-append
+                           (wrap-cell "state" :state)
+                           (wrap-cell "#" :number)
+                           (wrap-cell title :title)
+                           (wrap-cell "author" :author)
+                           (wrap-cell "updated" :modified-at)))))
 
 (def pretty-modified-at
   (fn [i]
@@ -171,7 +171,7 @@
         :name tit
         :description desc
         :labels ls
-        :project-id id
+        :registered-machine-id id
         :username un
         :created-at c-a}
       (string-replace
@@ -180,7 +180,7 @@
        (string-append
         (pretty-headline i) "\n\n"
         "**Labels:** " (show ls) "\n\n"
-        "**Project ID:** " (show id) "\n\n"
+        "**Radicle machine ID:** " (show id) "\n\n"
         desc
         ))
       '{:patch p
@@ -196,9 +196,9 @@
 (def items-name
   (fn [item-flag]
     (match item-flag
-      :issue    "issues"
-      :patch    "patches"
-      :project  "projects")))
+      :issue               "issues"
+      :patch               "patches"
+      :registered-machine  "Radicle machines")))
 
 (def add-username
   (fn [d]

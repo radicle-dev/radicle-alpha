@@ -18,27 +18,27 @@
   "The name of this machine."
   "monadic/radicle/registry")
 
-(def projects
-  "Projects are stored in a dict in a ref, keyed by project-number."
+(def registered-machines
+  "Registered machines are stored in a dict in a ref, keyed by registered-machine-number."
   (ref {}))
 
-(def project-counter
-  "We use a stateful counter for giving projects numbers."
+(def registered-machine-counter
+  "We use a stateful counter for giving registered machine numbers."
   (make-counter))
 
 (def noncer (make-noncer))
 
 (def auth (make-simple-auth [:admin]))
 
-(def set-projects
-  "A helper to set stuff in the projects ref."
+(def set-registered-machines
+  "A helper to set stuff in the registered machines ref."
   (fn [l v]
-    (set-ref projects l v)))
+    (set-ref registered-machines l v)))
 
-(def over-projects
-  "A helper to modify stuff in the projects ref."
+(def over-registered-machines
+  "A helper to modify stuff in the registered machines ref."
   (fn [l f]
-    (over-ref projects l f)))
+    (over-ref registered-machines l f)))
 
 (def input-keys
   {:nonce      (noncer :validator)
@@ -67,43 +67,43 @@
    [(validator/keys input-keys)
     validator/signed]))
 
-(def validator/project-number
-  "A validator for numbers which refer to existing projects."
-  (validator/pred "Existing project number" (fn [n] (member? n (read-ref projects)))))
+(def validator/registered-machine-number
+  "A validator for numbers which refer to existing registered machines."
+  (validator/pred "Existing registered machine number" (fn [n] (member? n (read-ref registered-machines)))))
 
-(def validator/project-reference
-  "Refers to an existing project."
-  (validator/optional-keys {:project-number validator/project-number}))
+(def validator/registered-machine-reference
+  "Refers to an existing registered machine."
+  (validator/optional-keys {:registered-machine-number validator/registered-machine-number}))
 
-(def project-keys
-  {:name        (validator/string-of-max-length 100)
-   :description (validator/string-of-max-length 4000)
-   :labels      (validator/every (validator/string-of-max-length 80))
-   :project-id  (validator/string-of-max-length 80)})
+(def registered-machine-keys
+  {:name                   (validator/string-of-max-length 100)
+   :description            (validator/string-of-max-length 4000)
+   :labels                 (validator/every (validator/string-of-max-length 80))
+   :registered-machine-id  (validator/string-of-max-length 80)})
 
-(def validator/full-project (validator/keys project-keys))
+(def validator/full-registered-machine (validator/keys registered-machine-keys))
 
-(def validator/sub-project (validator/optional-keys project-keys))
+(def validator/sub-registered-machine (validator/optional-keys registered-machine-keys))
 
-(def validator/project-input
-  "A project should have all the required fields, be a signed input, etc."
+(def validator/registered-machine-input
+  "A registered machine should have all the required fields, be a signed input, etc."
   (validator/and
    [;; NOTE that we don't check `validator/input` at this point, because some of
     ;; the data is fixed before validation.
     validator/time-created
-    validator/full-project]))
+    validator/full-registered-machine]))
 
 (def validator/admin-or-author
   "Checks if the author of th request is either an admin or the author of the
-  project."
+  registered machine."
   (validator/or
     [(validator/pred
       "edit author == original author"
       (fn [c]
         (match c
-               {:project-number 'n
+               {:registered-machine-number 'n
                 :author 'a}
-               (eq? (view-ref projects (... [(@ n) (@ :author)]))
+               (eq? (view-ref registered-machines (... [(@ n) (@ :author)]))
                     a))))
     (auth [:allowed :admin])]))
 
@@ -112,73 +112,74 @@
   (fn [ks]
     (<> ks
         (<> (keys input-keys)
-            [:project-number :modified-at :author :signature]))))
+            [:registered-machine-number :modified-at :author :signature]))))
 
-(def validator/project-edit-input
-  "An input to edit a project."
+(def validator/registered-machine-edit-input
+  "An input to edit a registered machine."
   (validator/and
    [validator/input
     validator/time-modified
-    validator/sub-project
-    validator/project-reference
+    validator/sub-registered-machine
+    validator/registered-machine-reference
     validator/admin-or-author
-    (validator/contains-only (edit-keys (keys project-keys)))]))
+    (validator/contains-only (edit-keys (keys registered-machine-keys)))]))
 
 (def strip-input
   "After an entity input has been processed/verified, we no longer need some of
   the fields."
   (fn [e]
-    (delete-many [:machine-id :signature :nonce :project-number] e)))
+    (delete-many [:machine-id :signature :nonce :registered-machine-number] e)))
 
-(def register-project
-  "Register a project from a dict, checking that it is valid and storing it in `projects`."
+(def register-machine
+  "Register a Radicle machine from a dict, checking that it is valid and storing
+  it in `registered-machines`."
   (fn [i]
     (validator/input i)
-    (validator/project-input i)
-    (def n (project-counter :next))
+    (validator/registered-machine-input i)
+    (def n (registered-machine-counter :next))
     (def i_
       (strip-input
        (<> i
            {:number   n})))
-    (set-projects (@ n) i_)
+    (set-registered-machines (@ n) i_)
     (noncer [:use (lookup :nonce i)])
     n))
 
-(def delete-project
-  "Deletes the project from the prejects ref."
+(def delete-registered-machine
+  "Deletes the registered machine from the registered machines ref."
   (fn [i]
     (validator/input i)
     (validator/admin-or-author i)
-    (modify-ref projects \(delete (lookup :project-number i) ?))))
+    (modify-ref registered-machines \(delete (lookup :registered-machine-number i) ?))))
 
 (def merge-new
   (fn [new]
     (fn [old]
       (<> old new))))
 
-(def edit-project
-  "Modify some of the attributes of a project."
+(def edit-registered-machine
+  "Modify some of the attributes of a registered machine."
   (fn [i]
-    (validator/project-edit-input i)
+    (validator/registered-machine-edit-input i)
     (def i_ (delete :author (strip-input i)))
-    (over-projects (@ (lookup :project-number i)) (merge-new i_))))
+    (over-registered-machines (@ (lookup :registered-machine-number i)) (merge-new i_))))
 
 ;; These are intended for clients to run locally with eval-in-machine
 
-(def list-projects
-  "List existing projects."
-  (fn [] (read-ref projects)))
+(def list-registered-machines
+  "List existing registered machines."
+  (fn [] (read-ref registered-machines)))
 
 ;; General logic
 
 (def commands
   "The set of allowed machine commands."
   (ref
-    {'register-project  register-project
-     'edit-project      edit-project
-     'delete-project    delete-project
-     'list-projects     list-projects
-     'add-admin         (add-admin auth)}))
+    {'register-machine             register-machine
+     'edit-registered-machine      edit-registered-machine
+     'delete-registered-machine    delete-registered-machine
+     'list-registered-machines     list-registered-machines
+     'add-admin                    (add-admin auth)}))
 
 (def tx
   (lock-machine-commands (auth [:allowed :admin])

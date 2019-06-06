@@ -24,8 +24,8 @@
     (machine/send-signed-command! id radicle-registry-machine-id 'add-admin {:key owner-keys})
     id))
 
-(def simple-project
-  "Register a project with no labels."
+(def simple-registered-machine
+  "Register a Radicle machine with no labels."
   (fn [i]
     (def t (now!))
     (<> {:labels      []
@@ -33,40 +33,40 @@
          :modified-at t}
         i)))
 
-(def register-project!
-  "Register a new remote project with the keys in `my-keys.rad`."
+(def register-machine!
+  "Register a new remote machine with the keys in `my-keys.rad`."
   (fn [machine i]
-    (machine/send-signed-command! machine radicle-registry-machine-id 'register-project i)))
+    (machine/send-signed-command! machine radicle-registry-machine-id 'register-machine i)))
 
-(def edit-project!
-  "Edit a remote project with the keys in `my-keys.rad`."
+(def edit-registered-machine!
+  "Edit a remote registered machine with the keys in `my-keys.rad`."
   (fn [machine i]
-    (machine/send-signed-command! machine radicle-registry-machine-id 'edit-project i)))
+    (machine/send-signed-command! machine radicle-registry-machine-id 'edit-registered-machine i)))
 
-(def delete-project!
-  "Delete a remote project with the keys in `my-keys.rad`."
+(def delete-registered-machine!
+  "Delete a remote registered machine with the keys in `my-keys.rad`."
   (fn [machine i]
-    (machine/send-signed-command! machine radicle-registry-machine-id 'delete-project i)))
+    (machine/send-signed-command! machine radicle-registry-machine-id 'delete-registered-machine i)))
 
-(def simple-register-project!
-  "Register a remote project with sensible defaults."
+(def simple-register-machine!
+  "Register a remote machine with sensible defaults."
   (fn [machine name desc id]
-    (register-project! machine (simple-project {:name name :description desc :project-id id}))))
+    (register-machine! machine (simple-registered-machine {:name name :description desc :registered-machine-id id}))))
 
-(def simple-edit-project!
+(def simple-edit-registered-machine!
   (fn [machine n i]
-    (edit-project! machine
-                 (<> {:project-number n
+    (edit-registered-machine! machine
+                 (<> {:registered-machine-number n
                       :modified-at (now!)}
                      i))))
 
-(def list-projects
-  "Return the full map of projects."
+(def list-registered-machines
+  "Return the full map of registered machines."
   (fn [machine]
-    (machine/query! machine '(list-projects))))
+    (machine/query! machine '(list-registered-machines))))
 
 (def short
-  "Short render of a project."
+  "Short render of a registered machine."
   (fn [i]
     (string-append
      (show (lookup :number i))
@@ -74,9 +74,9 @@
      (lookup :name i))))
 
 (def list-last
-  "Get the last `n` projects."
+  "Get the last `n` regsistered machines."
   (fn [machine n]
-    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-projects machine))))
+    (def is (sort-by (fn [i] (- 0 (lookup :number i))) (values (list-registered-machines machine))))
     (take n is)))
 
 (test
@@ -87,13 +87,13 @@
       (def non-owner-keys (gen-key-pair! (default-ecc-curve)))
       (set-fake-keys! owner-keys)
       (def machine (create-registry-machine!))
-      (simple-register-project! machine "name0" "desc0" "123")
-      (simple-register-project! machine "name1" "desc1" "456")
+      (simple-register-machine! machine "name0" "desc0" "123")
+      (simple-register-machine! machine "name1" "desc1" "456")
       (set-fake-keys! non-owner-keys)
-      (simple-register-project! machine "will be deleted" "none" "111")
-      (delete-project! machine {:project-number 2})
-      (simple-register-project! machine "new" "new" "111")
-      (def is (list-projects machine))
+      (simple-register-machine! machine "will be deleted" "none" "111")
+      (delete-registered-machine! machine {:registered-machine-number 2})
+      (simple-register-machine! machine "new" "new" "111")
+      (def is (list-registered-machines machine))
       (set-fake-keys! owner-keys))
  ]
  [ (length (seq is)) ==> 3 ]
@@ -102,27 +102,27 @@
  [ (short (first (values is))) ==> "0: name0" ]
  [ (short (first (list-last machine 1))) ==> "3: new" ]
  ;; authorization
- ;; owner can change the project name
+ ;; owner can change the registered machine name
  [ (do
       (set-fake-keys! owner-keys)
       (catch 'validation-failure
-             (do (simple-edit-project! machine 3 {:name "New name"})
+             (do (simple-edit-registered-machine! machine 3 {:name "New name"})
                  :valid)
              (fn [_] :not-valid))) ==> :valid
  ]
- ;; author can change the project name
+ ;; author can change the registered machine name
  [ (do
       (set-fake-keys! non-owner-keys)
       (catch 'validation-failure
-             (do (simple-edit-project! machine 3 {:name "New name"})
+             (do (simple-edit-registered-machine! machine 3 {:name "New name"})
                  :valid)
              (fn [_] :not-valid))) ==> :valid
  ]
- ;; non-owner/non-author cannot change the project name
+ ;; non-owner/non-author cannot change the registered machine name
  [ (do
       (set-fake-keys! non-owner-keys)
       (catch 'validation-failure
-             (do (simple-edit-project! machine 0 {:name "New name"})
+             (do (simple-edit-registered-machine! machine 0 {:name "New name"})
                  :valid)
              (fn [_] :not-valid))) ==> :not-valid
  ]
