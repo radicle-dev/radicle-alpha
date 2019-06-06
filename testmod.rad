@@ -1,0 +1,28 @@
+(ns foo)
+
+(def x 42)
+
+(def f
+  (fn [t]
+    (+ t x)))
+
+(put-str! (show [43 (f 1)]))
+
+(def x 0)
+
+(put-str! (show [1 (f 1)]))
+
+(ns bar)
+
+(require foo '[x])
+
+(def helper
+  (fn [] (+ 100 x)))
+
+(ns foo)
+
+(def x 1000)
+
+(ns bar)
+
+(put-str! (show (helper)))

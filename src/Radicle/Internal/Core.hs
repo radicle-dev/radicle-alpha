@@ -256,13 +256,13 @@ data ValueF r =
     --
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
-    | LambdaF LambdaArgs (NonEmpty r) (Env r)
+    | LambdaF LambdaArgs (NonEmpty r) (Env r) Ident
     -- | Like 'LambdaF' but indicates a function that can call itself
     -- recursively.
     --
     -- The first argument is the name for recursive calls to the
     -- function in the body.
-    | LambdaRecF Ident LambdaArgs (NonEmpty r) (Env r)
+    -- | LambdaRecF Ident LambdaArgs (NonEmpty r) (Env r) Ident
     | MacroF r
     | VEnvF (Env r)
     | VStateF State
@@ -292,7 +292,7 @@ valType = \case
   Handle _ -> THandle
   ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
-  LambdaRec{} -> TFunction
+  --LambdaRec{} -> TFunction
   Macro{} -> TMacro
   VEnv _ -> TEnv
   VState _ -> TState
@@ -309,7 +309,7 @@ hashable = \case
   Handle _ -> False
   ProcHandle _ -> False
   Lambda{} -> False
-  LambdaRec{} -> False
+  --LambdaRec{} -> False
   Macro{} -> False
   VEnv _ -> False
   VState _ -> False
@@ -324,7 +324,7 @@ dict kvs = case filter (not . hashable) (Map.keys kvs) of
   k : _ -> throwErrorHere $ NonHashableKey k
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Macro
-  , Ref, Handle, ProcHandle, Lambda, LambdaRec, VEnv, VState #-}
+  , Ref, Handle, ProcHandle, Lambda, VEnv, VState #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -393,15 +393,15 @@ pattern Macro f <- (Ann.match -> MacroF f)
     where
     Macro f = Ann.annotate $ MacroF f
 
-pattern Lambda :: ValueConC t => LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
-pattern Lambda vs exps env <- (Ann.match -> LambdaF vs exps env)
+pattern Lambda :: ValueConC t => LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Ident -> Annotated t ValueF
+pattern Lambda vs exps env ns <- (Ann.match -> LambdaF vs exps env ns)
     where
-    Lambda vs exps env = Ann.annotate $ LambdaF vs exps env
+    Lambda vs exps env ns = Ann.annotate $ LambdaF vs exps env ns
 
-pattern LambdaRec :: ValueConC t => Ident -> LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Annotated t ValueF
-pattern LambdaRec self vs exps env <- (Ann.match -> LambdaRecF self vs exps env)
-    where
-    LambdaRec self vs exps env = Ann.annotate $ LambdaRecF self vs exps env
+-- pattern LambdaRec :: ValueConC t => Ident -> LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Ident -> Annotated t ValueF
+-- pattern LambdaRec self vs exps env ns <- (Ann.match -> LambdaRecF self vs exps env ns)
+--     where
+--     LambdaRec self vs exps env ns = Ann.annotate $ LambdaRecF self vs exps env ns
 
 pattern VEnv :: ValueConC t => Env (Annotated t ValueF) -> Annotated t ValueF
 pattern VEnv e <- (Ann.match -> VEnvF e)
@@ -450,9 +450,18 @@ data State = State
 
 instance Serialise State
 
+data NamespaceBinding
+  = Here (Doc.Docd Value)
+  | There Ident Ident
+
+type Namespace = Map Ident NamespaceBinding
+type Namespaces = Map Ident (Doc.Docd Namespace)
+
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
     { bindingsEnv            :: Env Value
+    , bindingsNamespaces     :: Namespaces
+    , bindingsCurrentNamespace :: Ident
     , bindingsPrimFns        :: prims
     , bindingsRefs           :: IntMap Value
     , bindingsNextRef        :: Int
@@ -462,8 +471,8 @@ data Bindings prims = Bindings
     , bindingsNextProcHandle :: Int
     } deriving (Functor, Generic)
 
-emptyBindings :: Bindings (PrimFns m)
-emptyBindings = Bindings mempty mempty mempty 0 mempty 0 mempty 0
+emptyBindings :: Env Value -> Bindings (PrimFns m)
+emptyBindings e = Bindings e mempty (Ident "toplevel") mempty mempty 0 mempty 0 mempty 0
 
 -- | Extract an environment and references from a Radicle value and put
 -- them as the current bindings. Primitive functions are not changed.
@@ -489,9 +498,8 @@ setBindings value = do
 
 bindingsFromRadicle :: Value -> Either Text (Bindings (PrimFns m))
 bindingsFromRadicle x = case x of
-    VState s -> pure $ emptyBindings
-                { bindingsEnv = stateEnv s
-                , bindingsRefs = stateRefs s
+    VState s -> pure $ (emptyBindings (stateEnv s))
+                { bindingsRefs = stateRefs s
                 , bindingsNextRef = length (stateRefs s)
                 }
     _ -> throwError "Expecting state"
@@ -537,25 +545,24 @@ runLang e l = runStateT (runExceptT $ fromLangT l) e
 -- | Like 'local' or 'withState'. Will run an action with a modified environment
 -- and then restore the original environment. Other bindings (i.e. primops and
 -- refs) are not affected.
-withEnv :: Monad m => (Env Value -> Env Value) -> Lang m a -> Lang m a
-withEnv modifier action = do
+withEnv :: Monad m => (Ident -> Ident) -> (Env Value -> Env Value) -> Lang m a -> Lang m a
+withEnv modifyNs modifier action = do
     oldEnv <- gets bindingsEnv
-    modify $ \s -> s { bindingsEnv = modifier oldEnv }
+    oldCns <- gets bindingsCurrentNamespace
+    modify $ \s -> s { bindingsEnv = modifier oldEnv
+                     , bindingsCurrentNamespace = modifyNs oldCns }
     res <- action
-    modify $ \s -> s { bindingsEnv = oldEnv }
+    modify $ \s -> s { bindingsEnv = oldEnv
+                     , bindingsCurrentNamespace = oldCns }
     pure res
 
 -- * Functions
 
-addBinding :: Ident -> Maybe Text -> Value -> Bindings m -> Bindings m
-addBinding i d v b = b
-    { bindingsEnv = Env . Map.insert i (Doc.Docd d v) . fromEnv $ bindingsEnv b }
-
 callExample :: Text -> Value -> Maybe Text
 callExample name value = case value of
-    Lambda args _ _      -> Just $ lambdaDoc args
-    LambdaRec _ args _ _ -> Just $ lambdaDoc args
-    _                    -> Nothing
+    Lambda args _ _ _      -> Just $ lambdaDoc args
+    --LambdaRec _ args _ _ _ -> Just $ lambdaDoc args
+    _                      -> Nothing
   where
     lambdaDoc args = "(" <> T.intercalate " " (name : lambdaArgsDoc args) <> ")"
     lambdaArgsDoc args =
@@ -565,12 +572,23 @@ callExample name value = case value of
         VarArgs _ ->
           pure "arg1 ..."
 
-lookupAtomWithDoc :: Monad m => Ident -> Lang m (Doc.Docd Value)
-lookupAtomWithDoc i@(Ident name) = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
-    Nothing                -> throwErrorHere $ UnknownIdentifier i
-    Just x@(Doc.Docd d_ v) -> pure (maybe x (doc d_ v) $ callExample name v)
+-- TODO(james): improve error messages.
+lookupAtomWithDoc :: forall m. Monad m => Ident -> Lang m (Doc.Docd Value)
+lookupAtomWithDoc i@(Ident name) =
+  get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
+    Just x -> docd x
+    Nothing -> lookupInNamespace (bindingsNamespaces e) (bindingsCurrentNamespace e) i
   where
     doc d_ v t = Doc.Docd (Just (t <> maybe "" ("\n\n" <>) d_)) v
+    docd x@(Doc.Docd d_ v) = pure (maybe x (doc d_ v) $ callExample name v)
+
+    lookupInNamespace :: Namespaces -> Ident -> Ident -> Lang m (Doc.Docd Value)
+    lookupInNamespace nss nsk j = case Map.lookup nsk nss of
+      Just (Doc.Docd _ ns) -> case Map.lookup j ns of
+        Just (Here x) -> docd x
+        Just (There a b) -> lookupInNamespace nss a b
+        Nothing -> throwErrorHere $ OtherError "symbol doesn't exist in namespace!"
+      Nothing -> throwErrorHere $ OtherError "namespace doesn't exist!"
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
@@ -588,8 +606,18 @@ lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns 
     Nothing -> throwErrorHere $ Impossible $ "Unknown primop " <> fromIdent i
     Just v  -> pure (copoint v)
 
+modifyCurrentNamespace :: Monad m => (Namespace -> Namespace) -> Lang m ()
+modifyCurrentNamespace f = do
+    b@Bindings{ bindingsCurrentNamespace = cns
+              , bindingsNamespaces = nss } <- get
+    nss' <- Map.alterF f' cns nss
+    put $ b { bindingsNamespaces = nss' }
+  where
+    f' Nothing = throwErrorHere $ OtherError "namespace missing!" -- TODO(james): make better
+    f' (Just ns) = pure $ Just (f <$> ns)
+
 defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
-defineAtom i d v = modify $ addBinding i d v
+defineAtom i d v = modifyCurrentNamespace (Map.insert i (Here (Doc.Docd d v)))
 
 -- * From/ ToRadicle
 

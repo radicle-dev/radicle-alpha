@@ -113,14 +113,14 @@ replPrimFns sysArgs = fromList $ allDocs $
           v -> throwErrorHere $ TypeError "doc!" 0 TAtom v
       )
 
-    , ( "apropos!"
-      , "Prints documentation for all documented variables in scope."
-      , noArg "apropos!" $ do
-            env <- gets bindingsEnv
-            let docs = [ i <> "\n" <> doc | (Ident i, Just doc, _) <- toList env ]
-            putStrS (T.intercalate "\n\n" docs)
-            pure nil
-      )
+    -- , ( "apropos!"
+    --   , "Prints documentation for all documented variables in scope."
+    --   , noArg "apropos!" $ do
+    --         env <- gets bindingsEnv
+    --         let docs = [ i <> "\n" <> doc | (Ident i, Just doc, _) <- toList env ]
+    --         putStrS (T.intercalate "\n\n" docs)
+    --         pure nil
+    --   )
 
     , ( "get-line!"
       , "Reads a single line of input and returns it as a string."
@@ -165,7 +165,7 @@ replPrimFns sysArgs = fromList $ allDocs $
                                 ys' <- traverse baseEval ys
                                 -- The application of the subscriber function is
                                 -- evaluated in the original environment.
-                                void $ withEnv (const e) (callFn fn [Vec ys'])
+                                void $ withEnv identity (const e) (callFn fn [Vec ys'])
                               _ -> throwErrorHere $ OtherError "Getter should return a vector of values"
                 _  -> throwErrorHere $ TypeError "subscribe-to!" 0 TDict x
         xs  -> throwErrorHere $ WrongNumberOfArgs "subscribe-to!" 2 (length xs))

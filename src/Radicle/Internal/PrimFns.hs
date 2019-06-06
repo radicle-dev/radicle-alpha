@@ -31,7 +31,7 @@ import qualified Radicle.Internal.UUID as UUID
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
 pureEnv =
-    addPrimFns purePrimFns $ Bindings e mempty mempty 0 mempty 0 mempty 0
+    addPrimFns purePrimFns $ emptyBindings e
   where
     e = fromList . allDocs $
           [ ( "tx"
@@ -53,7 +53,6 @@ addPrimFns primFns bindings =
     primFnsEnv = Env $ Map.fromList
       $
       [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)]
-
 
 addPrimFn  :: Ident -> Text -> ([Value] -> Lang m Value) -> PrimFns m -> PrimFns m
 addPrimFn name doc run (PrimFns primFns) = PrimFns primFns'
@@ -109,7 +108,7 @@ purePrimFns = fromList $ allDocs $
       , twoArg "get-binding" $ \case
           (Atom i@(Ident t), VEnv (Env m)) -> case Map.lookup i m of
             Just v -> pure (copoint v)
-            Nothing -> throwErrorHere $ OtherError $ "get-binding: " <> t <> " was not in the input env."
+            _ -> throwErrorHere $ OtherError $ "get-binding: " <> t <> " was not in the input env."
           (Atom _, v) -> throwErrorHere $ TypeError "get-binding" 1 TEnv v
           (v, _) -> throwErrorHere $ TypeError "get-binding" 0 TAtom v
       )

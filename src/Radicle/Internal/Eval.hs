@@ -55,7 +55,8 @@ specialForms = Map.fromList $ first Ident <$>
     , \case
           args : b : bs -> do
             e <- gets bindingsEnv
-            let toLambda argNames = pure (Lambda argNames (b :| bs) e)
+            ns <- gets bindingsCurrentNamespace
+            let toLambda argNames = pure (Lambda argNames (b :| bs) e ns)
             case args of
               Vec atoms_ -> do
                 atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn" "One of the arguments was not an atom")
@@ -66,6 +67,32 @@ specialForms = Map.fromList $ first Ident <$>
           _ -> throwErrorHere $ SpecialForm "fn" "Function needs parameters (one atom or a vector of atoms) and a body"
       )
   , ( "module", createModule )
+  , ( "ns", \case
+        [a@(Atom i)] -> do
+          -- TODO(james): add optional arg to ns to add documentation to namespace.
+          nss <- gets bindingsNamespaces
+          let nss' = if Map.member i nss
+                     then nss
+                     else Map.insert i (Doc.Docd Nothing mempty) nss
+          _ <- modify $ \s -> s { bindingsCurrentNamespace = i
+                                , bindingsNamespaces = nss' }
+          pure a
+        _ -> throwErrorHere $ SpecialForm "ns" "The `ns` form expects a symbol."
+    )
+  , ( "require"
+    , \case
+        [Atom i, e] -> do
+          syms__ <- baseEval e
+          case syms__ of
+            Vec syms_ -> case traverse isAtom syms_ of
+              Just syms -> do
+                let binds = Map.fromList [(s, There i s) | s <- toList syms ]
+                _ <- modifyCurrentNamespace (binds <>)
+                pure (Keyword (Ident "ok"))
+              Nothing -> throwErrorHere $ OtherError "One of the items in the vector was not a symbol."
+            _ -> throwErrorHere $ OtherError "require needs a vector of symbols to import."
+        _ -> throwErrorHere $ OtherError "require needs a namespace identifier and a vector of symbols to import."
+    )
   , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -81,9 +108,9 @@ specialForms = Map.fromList $ first Ident <$>
           xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
     , ( "def-rec"
       , \case
-          [Atom name, val] -> defRec name Nothing val
+          [Atom name, val] -> def name Nothing val
           [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
-          [Atom name, String d, val] -> defRec name (Just d) val
+          [Atom name, String d, val] -> def name (Just d) val
           xs               -> throwErrorHere $ WrongNumberOfArgs "def-rec" 2 (length xs)
       )
     , ("do", (lastDef nil <$>) . traverse baseEval)
@@ -149,16 +176,15 @@ specialForms = Map.fromList $ first Ident <$>
       defineAtom name doc_ val'
       pure nil
 
-    defRec name doc_ val = do
-      val' <- baseEval val
-      case val' of
-        Lambda is b e -> do
-          defineAtom name doc_ $ LambdaRec name is b e
-          pure nil
-        LambdaRec{} -> throwErrorHere $
-            OtherError "'def-rec' cannot be used to alias functions. Use 'def' instead"
-        _ -> throwErrorHere $ OtherError "'def-rec' can only be used to define functions"
-
+    -- defRec name doc_ val = do
+    --   val' <- baseEval val
+    --   case val' of
+    --     Lambda is b e -> do
+    --       defineAtom name doc_ $ LambdaRec name is b e
+    --       pure nil
+    --     LambdaRec{} -> throwErrorHere $
+    --         OtherError "'def-rec' cannot be used to alias functions. Use 'def' instead"
+    --     _ -> throwErrorHere $ OtherError "'def-rec' can only be used to define functions"
 data ModuleMeta = ModuleMeta
   { name    :: Ident
   , exports :: [Ident]
@@ -174,7 +200,7 @@ createModule = \case
       m' <- baseEval m >>= meta
       -- TODO: The @transact@ in the following line is a bit of a wart, but
       -- modules are thought of as a sequence of "top-level" s-expressions.
-      e <- withEnv identity $ traverse_ transact forms *> gets bindingsEnv
+      e <- withEnv identity identity $ traverse_ transact forms *> gets bindingsEnv
       let exportsSet = Set.fromList (exports m')
       let undefinedExports = Set.difference exportsSet (Map.keysSet (fromEnv e))
       env <- if null undefinedExports
@@ -206,21 +232,21 @@ createModule = \case
 -- @argumenst@ are not evaluated.
 callFn :: forall m. Monad m => Value -> [Value] -> Lang m Value
 callFn f arguments = case f of
-    Lambda argNames body closure -> do
+    Lambda argNames body closure ns -> do
         args <- argumentBindings argNames
-        evalManyWithEnv (args <> closure) body
-    LambdaRec self argNames body closure -> do
-        args <- argumentBindings argNames
-        let selfBinding = GhcExts.fromList (Doc.noDocs [(self, f)])
-        evalManyWithEnv (args <> selfBinding <> closure) body
+        evalManyWithEnv ns (args <> closure) body
+    -- LambdaRec self argNames body closure -> do
+    --     args <- argumentBindings argNames
+    --     let selfBinding = GhcExts.fromList (Doc.noDocs [(self, f)])
+    --     evalManyWithEnv (args <> selfBinding <> closure) body
     PrimFn i -> do
         fn <- lookupPrimop i
         fn arguments
     _ -> throwErrorHere $ NonFunctionCalled f
   where
-    evalManyWithEnv :: Env Value -> NonEmpty Value -> Lang m Value
-    evalManyWithEnv env exprs =
-        NonEmpty.last <$> withEnv (const env) (traverse baseEval exprs)
+    evalManyWithEnv :: Ident -> Env Value -> NonEmpty Value -> Lang m Value
+    evalManyWithEnv ns env exprs =
+      NonEmpty.last <$> withEnv (const ns) (const env) (traverse baseEval exprs)
     argumentBindings :: LambdaArgs -> Lang m (Env Value)
     argumentBindings argNames = case argNames of
       PosArgs names ->
