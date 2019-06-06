@@ -11,6 +11,10 @@
    (fn [c tt ff]
      (list 'cond c tt #t ff))))
 
+(test "if"
+      [ (if #t :a :b) ==> :a ]
+      [ (if #f :a :b) ==> :b ])
+
 (def head
   "Backwards compatible alias for `first`."
   first)
