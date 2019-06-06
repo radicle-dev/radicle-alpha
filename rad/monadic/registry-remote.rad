@@ -162,7 +162,7 @@
   (fn [i]
     (validator/registered-machine-edit-input i)
     (def i_ (delete :author (strip-input i)))
-    (over-registered-machines (@ (lookup :registered-machine-number i)) (merge-new i_))))
+    (over-registered-machines (@ (lookup :registered-machine-number i)) \(<> ? i_))))
 
 ;; These are intended for clients to run locally with eval-in-machine
 
