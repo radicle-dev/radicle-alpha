@@ -774,54 +774,54 @@ test_repl_primops =
         let ws = defaultWorldState { worldStateStdin = stdin' }
         in fst <$> runCodeWithWorld ws prog
 
-test_repl :: [TestTree]
-test_repl =
-    [ testCase "evaluates correctly" $ do
-        let input = [ "((fn [x] x) #t)" ]
-            output = [ "#t" ]
-        assertReplInteraction input output
+-- test_repl :: [TestTree]
+-- test_repl =
+--     [ testCase "evaluates correctly" $ do
+--         let input = [ "((fn [x] x) #t)" ]
+--             output = [ "#t" ]
+--         assertReplInteraction input output
 
-    , testCase "handles env modifications" $ do
-        let input = [ "(def id (fn [x] x))"
-                    , "(id #t)"
-                    ]
-            output = [ "()"
-                     , "#t"
-                     ]
-        assertReplInteraction input output
+--     , testCase "handles env modifications" $ do
+--         let input = [ "(def id (fn [x] x))"
+--                     , "(id #t)"
+--                     ]
+--             output = [ "()"
+--                      , "#t"
+--                      ]
+--         assertReplInteraction input output
 
-    , testCase "handles 'eval' redefinition" $ do
-        let input = [ "(def eval (fn [expr env] (list #t env)))"
-                    , "#f"
-                    ]
-            output = [ "()"
-                     , "#t"
-                     ]
-        assertReplInteraction input output
+--     , testCase "handles 'eval' redefinition" $ do
+--         let input = [ "(def eval (fn [expr env] (list #t env)))"
+--                     , "#f"
+--                     ]
+--             output = [ "()"
+--                      , "#t"
+--                      ]
+--         assertReplInteraction input output
 
-    , testCase "(def eval base-eval) doesn't change things" $ do
-        let input = [ "(def eval base-eval)"
-                    , "(def id (fn [x] x))"
-                    , "(id #t)"
-                    ]
-            output = [ "()"
-                     , "()"
-                     , "#t"
-                     ]
-        assertReplInteraction input output
+--     , testCase "(def eval base-eval) doesn't change things" $ do
+--         let input = [ "(def eval base-eval)"
+--                     , "(def id (fn [x] x))"
+--                     , "(id #t)"
+--                     ]
+--             output = [ "()"
+--                      , "()"
+--                      , "#t"
+--                      ]
+--         assertReplInteraction input output
 
-    , testCase "exceptions are non-fatal" $ do
-        let input = [ "(throw 'something \"something happened\")"
-                    , "#t"
-                    ]
-        assertReplInteraction input ["#t"]
+--     , testCase "exceptions are non-fatal" $ do
+--         let input = [ "(throw 'something \"something happened\")"
+--                     , "#t"
+--                     ]
+--         assertReplInteraction input ["#t"]
 
-    , testCase "load! a non-existent file is a non-fatal exception" $ do
-        let input = [ "(load! \"not-a-thing.rad\")"
-                    , "#t"
-                    ]
-        assertReplInteraction input ["#t"]
-    ]
+--     , testCase "load! a non-existent file is a non-fatal exception" $ do
+--         let input = [ "(load! \"not-a-thing.rad\")"
+--                     , "#t"
+--                     ]
+--         assertReplInteraction input ["#t"]
+--     ]
 
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
