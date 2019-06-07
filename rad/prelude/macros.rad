@@ -12,8 +12,8 @@
 (def expand-defn
   (fn [name args docstring? body]
     (match docstring?
-           :nothing (list 'def name (lamb args body))
-           [:just 'ds] (list 'def name ds (lamb args body)))))
+           :nothing (list 'def* name (lamb args body))
+           [:just 'ds] (list 'def* name ds (lamb args body)))))
 
 (def defn
   "A macro for defining functions. Takes a symbol, function argument(s), an optional doc-string, and the body for the function.
