@@ -3,13 +3,13 @@ module RadicleRepl (main) where
 import           Prelude (String)
 import           Protolude hiding (TypeError, option, sourceFile)
 
-import qualified Data.ByteString as BS
+--import qualified Data.ByteString as BS
 import           Options.Applicative
-import           System.Directory (doesFileExist)
+--import           System.Directory (doesFileExist)
 
 import           Radicle
-import           Radicle.Internal.Effects (exitCode)
-import           Radicle.Internal.Pretty (putPrettyAnsi)
+--import           Radicle.Internal.Effects (exitCode)
+--import           Radicle.Internal.Pretty (putPrettyAnsi)
 
 main :: IO ()
 main = do

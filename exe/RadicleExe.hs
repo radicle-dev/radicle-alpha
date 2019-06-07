@@ -8,8 +8,8 @@ import           Options.Applicative
 import           System.Directory (doesFileExist)
 
 import           Radicle
-import           Radicle.Internal.Effects (exitCode)
-import           Radicle.Internal.Pretty (putPrettyAnsi)
+--import           Radicle.Internal.Effects (exitCode)
+--import           Radicle.Internal.Pretty (putPrettyAnsi)
 
 main :: IO ()
 main = do
@@ -47,7 +47,7 @@ radDesc = "Interprets a radicle program."
 
 data Opts = Opts
     { sourceFile :: FilePath
-    , histFile   :: Maybe FilePath
+    --, histFile   :: Maybe FilePath
     , scriptArgs :: [String]
     }
 
@@ -57,15 +57,15 @@ opts = Opts
         ( metavar "FILE"
        <> help "File to interpret. Use - to read the code from stdin."
         )
-    <*> optional (strOption
-        ( long "histfile"
-       <> short 'H'
-       <> metavar "FILE"
-       <> help
-           ( "File used to store the REPL history."
-          <> "Defaults to $DIR/radicle/config.rad "
-          <> "where $DIR is $XDG_DATA_HOME (%APPDATA% on Windows "
-          <> "if that is set, or else ~/.local/share."
-           )
-       ))
+    -- <*> optional (strOption
+    --     ( long "histfile"
+    --    <> short 'H'
+    --    <> metavar "FILE"
+    --    <> help
+    --        ( "File used to store the REPL history."
+    --       <> "Defaults to $DIR/radicle/config.rad "
+    --       <> "where $DIR is $XDG_DATA_HOME (%APPDATA% on Windows "
+    --       <> "if that is set, or else ~/.local/share."
+    --        )
+    --    ))
     <*> many (strArgument mempty)

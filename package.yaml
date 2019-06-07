@@ -183,8 +183,6 @@ executables:
     other-modules: []
     dependencies:
     - radicle
-    - bytestring
-    - directory
     - optparse-applicative
     ghc-options: -main-is RadicleRepl
 

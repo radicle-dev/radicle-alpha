@@ -63,8 +63,9 @@ script fileName code bindings = do
                      pure $ ExitFailure 1
         Right () -> pure ExitSuccess
 
+-- TODO: restore error preCode?
 repl :: Maybe FilePath -> Text -> Bindings (PrimFns (InputT IO)) -> IO ()
-repl histFile preCode bindings = do
+repl histFile _ bindings = do
     let settings = setComplete completion
                  $ defaultSettings { historyFile = histFile }
     runInputT settings $ loop bindings
