@@ -80,7 +80,7 @@ repl histFile _ bindings = do
                 case parsed of
                     Left e -> outputStrLn e >> loop st
                     Right v -> do
-                        (res, newSt) <- runLang st (eval v)
+                        (res, newSt) <- runLang st (transact v)
                         case res of
                             Left e'  -> putPrettyAnsi e' >> loop st
                             Right v' -> putPrettyAnsi v' >> loop newSt
