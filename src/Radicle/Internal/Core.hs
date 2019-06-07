@@ -587,8 +587,9 @@ lookupAtomWithDoc i@(Ident name) =
       Just (Doc.Docd _ ns) -> case Map.lookup j ns of
         Just (Here x) -> docd x
         Just (There a b) -> lookupInNamespace nss a b
-        Nothing -> throwErrorHere $ OtherError $ "symbol " <> show j <> " doesn't exist in namespace " <> show nsk
-      Nothing -> throwErrorHere $ OtherError $ "namespace doesn't exist: " <> show nsk
+        Nothing -> throwErrorHere err
+      Nothing -> throwErrorHere err
+    err = UnknownIdentifier i
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
