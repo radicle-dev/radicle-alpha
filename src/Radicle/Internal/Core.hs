@@ -262,7 +262,7 @@ data ValueF r =
     --
     -- The first argument is the name for recursive calls to the
     -- function in the body.
-    -- | LambdaRecF Ident LambdaArgs (NonEmpty r) (Env r) Ident
+    | LambdaRecF Ident LambdaArgs (NonEmpty r) (Env r) Ident
     | MacroF r
     | VEnvF (Env r)
     | VStateF State
@@ -292,7 +292,7 @@ valType = \case
   Handle _ -> THandle
   ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
-  --LambdaRec{} -> TFunction
+  LambdaRec{} -> TFunction
   Macro{} -> TMacro
   VEnv _ -> TEnv
   VState _ -> TState
@@ -309,7 +309,7 @@ hashable = \case
   Handle _ -> False
   ProcHandle _ -> False
   Lambda{} -> False
-  --LambdaRec{} -> False
+  LambdaRec{} -> False
   Macro{} -> False
   VEnv _ -> False
   VState _ -> False
@@ -324,7 +324,7 @@ dict kvs = case filter (not . hashable) (Map.keys kvs) of
   k : _ -> throwErrorHere $ NonHashableKey k
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Macro
-  , Ref, Handle, ProcHandle, Lambda, VEnv, VState #-}
+  , Ref, Handle, ProcHandle, Lambda, LambdaRec, VEnv, VState #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -398,10 +398,10 @@ pattern Lambda vs exps env ns <- (Ann.match -> LambdaF vs exps env ns)
     where
     Lambda vs exps env ns = Ann.annotate $ LambdaF vs exps env ns
 
--- pattern LambdaRec :: ValueConC t => Ident -> LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Ident -> Annotated t ValueF
--- pattern LambdaRec self vs exps env ns <- (Ann.match -> LambdaRecF self vs exps env ns)
---     where
---     LambdaRec self vs exps env ns = Ann.annotate $ LambdaRecF self vs exps env ns
+pattern LambdaRec :: ValueConC t => Ident -> LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Ident -> Annotated t ValueF
+pattern LambdaRec self vs exps env ns <- (Ann.match -> LambdaRecF self vs exps env ns)
+    where
+    LambdaRec self vs exps env ns = Ann.annotate $ LambdaRecF self vs exps env ns
 
 pattern VEnv :: ValueConC t => Env (Annotated t ValueF) -> Annotated t ValueF
 pattern VEnv e <- (Ann.match -> VEnvF e)
@@ -587,8 +587,9 @@ lookupAtomWithDoc i@(Ident name) =
       Just (Doc.Docd _ ns) -> case Map.lookup j ns of
         Just (Here x) -> docd x
         Just (There a b) -> lookupInNamespace nss a b
-        Nothing -> throwErrorHere $ OtherError "symbol doesn't exist in namespace!"
-      Nothing -> throwErrorHere $ OtherError "namespace doesn't exist!"
+        Nothing -> throwErrorHere err
+      Nothing -> throwErrorHere err
+    err = UnknownIdentifier i
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
@@ -616,8 +617,14 @@ modifyCurrentNamespace f = do
     f' Nothing = throwErrorHere $ OtherError "namespace missing!" -- TODO(james): make better
     f' (Just ns) = pure $ Just (f <$> ns)
 
+defineAtomInNs :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
+defineAtomInNs i d v = modifyCurrentNamespace (Map.insert i (Here (Doc.Docd d v)))
+
 defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
-defineAtom i d v = modifyCurrentNamespace (Map.insert i (Here (Doc.Docd d v)))
+defineAtom i d v = modify addBinding
+  where
+    addBinding b = b
+      { bindingsEnv = Env . Map.insert i (Doc.Docd d v) . fromEnv $ bindingsEnv b }
 
 -- * From/ ToRadicle
 

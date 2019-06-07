@@ -70,8 +70,10 @@ valueGenerator textGen n | n == 0 = frequency $ first pred <$> freqs
             , (1, List <$> sizedList)
             , (6, PrimFn <$> elements (Map.keys $ getPrimFns prims))
             , (1, Lambda <$> lambdaArgs
-                         <*> scale (`div` 3) arbitrary
-                         <*> scale (`div` 3) arbitrary)
+                         <*> scale (`div` 4) arbitrary
+                         <*> scale (`div` 4) arbitrary
+                         <*> scale (`div` 4) arbitrary)
+                         
             ]
 
     sizedList :: Arbitrary a => Gen [a]

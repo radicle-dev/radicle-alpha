@@ -101,6 +101,13 @@ specialForms = Map.fromList $ first Ident <$>
         [val] -> Macro <$> baseEval val
         _ -> throwErrorHere $ SpecialForm "macro" "Takes a single argument, which should evaluate to a function (which transforms syntax)."
     )
+  , ( "def*"
+    , \case
+        [Atom name, val] -> defNs name Nothing val
+        [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
+        [Atom name, String d, val] -> defNs name (Just d) val
+        xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs)
+    )
   , ("def", \case
           [Atom name, val] -> def name Nothing val
           [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
@@ -108,9 +115,9 @@ specialForms = Map.fromList $ first Ident <$>
           xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
     , ( "def-rec"
       , \case
-          [Atom name, val] -> def name Nothing val
+          [Atom name, val] -> defRec name Nothing val
           [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
-          [Atom name, String d, val] -> def name (Just d) val
+          [Atom name, String d, val] -> defRec name (Just d) val
           xs               -> throwErrorHere $ WrongNumberOfArgs "def-rec" 2 (length xs)
       )
     , ("do", (lastDef nil <$>) . traverse baseEval)
@@ -176,15 +183,21 @@ specialForms = Map.fromList $ first Ident <$>
       defineAtom name doc_ val'
       pure nil
 
-    -- defRec name doc_ val = do
-    --   val' <- baseEval val
-    --   case val' of
-    --     Lambda is b e -> do
-    --       defineAtom name doc_ $ LambdaRec name is b e
-    --       pure nil
-    --     LambdaRec{} -> throwErrorHere $
-    --         OtherError "'def-rec' cannot be used to alias functions. Use 'def' instead"
-    --     _ -> throwErrorHere $ OtherError "'def-rec' can only be used to define functions"
+    defRec name doc_ val = do
+      val' <- baseEval val
+      case val' of
+        Lambda is b e cns -> do
+          defineAtom name doc_ $ LambdaRec name is b e cns
+          pure nil
+        LambdaRec{} -> throwErrorHere $
+            OtherError "'def-rec' cannot be used to alias functions. Use 'def' instead"
+        _ -> throwErrorHere $ OtherError "'def-rec' can only be used to define functions"
+
+    defNs name doc_ val = do
+      val' <- baseEval val
+      defineAtomInNs name doc_ val'
+      pure nil
+
 data ModuleMeta = ModuleMeta
   { name    :: Ident
   , exports :: [Ident]
@@ -235,10 +248,10 @@ callFn f arguments = case f of
     Lambda argNames body closure ns -> do
         args <- argumentBindings argNames
         evalManyWithEnv ns (args <> closure) body
-    -- LambdaRec self argNames body closure -> do
-    --     args <- argumentBindings argNames
-    --     let selfBinding = GhcExts.fromList (Doc.noDocs [(self, f)])
-    --     evalManyWithEnv (args <> selfBinding <> closure) body
+    LambdaRec self argNames body closure ns -> do
+        args <- argumentBindings argNames
+        let selfBinding = GhcExts.fromList (Doc.noDocs [(self, f)])
+        evalManyWithEnv ns (args <> selfBinding <> closure) body
     PrimFn i -> do
         fn <- lookupPrimop i
         fn arguments
