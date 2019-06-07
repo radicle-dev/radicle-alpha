@@ -35,3 +35,28 @@
            [:msg 's] (add-msg s)
            [:upd 'code] code
            _ (throw 'any "Nope")))))
+
+[:msg "hello"]
+
+[:msg "how'd you do?"]
+
+[:upd (+ 1 2)]
+
+;; Let's update the tx, we want to check that messages have an author.
+
+(def tx
+  (fn [e]
+    (match e
+           [:msg {:author 'a :msg 's}] (add-msg s)
+           [:upd 'code] code
+           _ (throw 'any "Nope"))))
+
+;; oh no, we can't submit it, it must be an update!
+
+[:upd
+  '(def tx
+     (fn [e]
+       (match e
+              [:msg {:author 'a :msg 's}] (add-msg s)
+              [:upd 'code] code
+              _ (throw 'any "Nope"))))]
