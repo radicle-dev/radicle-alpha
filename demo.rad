@@ -1,0 +1,27 @@
+(load! "rad/prelude.rad")
+
+;; Script
+
+;; Radicle has values
+
+1
+2
+"hello"
+:a
+
+;; Function application
+
+(+ 1 2)
+
+(lookup :a {:a 100 :b 200})
+
+;; Can define things and functions
+
+(def* n 42)
+
+(defn foo [x]
+  (+ x n))
+
+;; Let's make a machine with... messages!
+
+
