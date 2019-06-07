@@ -425,14 +425,21 @@ isAtom :: Value -> Maybe Ident
 isAtom (Atom i) = pure i
 isAtom _        = Nothing
 
+data Binding a
+  = LocalBind (Doc.Docd a)
+  | NamespaceBind Ident Ident
+  deriving (Eq, Ord, Show, Read, Generic, Functor, Foldable, Traversable)
+
+instance Serialise a => Serialise (Binding a)
+
 -- | The environment, which keeps all known bindings.
-newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }
+newtype Env s = Env { fromEnv :: Map Ident (Binding s) }
     deriving (Eq, Ord, Semigroup, Monoid, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
 
 instance GhcExts.IsList (Env s) where
-    type Item (Env s) = (Ident, Maybe Text, s)
-    fromList xs = Env . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
-    toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . fromEnv $ e]
+    type Item (Env s) = (Ident, Binding s)
+    fromList = Env . Map.fromList
+    toList = GhcExts.toList . fromEnv
 
 -- | PrimFn mappings. The parameter specifies the monad the primops run in.
 newtype PrimFns m = PrimFns { getPrimFns :: Map Ident (Doc.Docd ([Value] -> Lang m Value)) }
@@ -453,7 +460,7 @@ instance Serialise State
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
     { bindingsEnv            :: Env Value
-    , bindingsNamespaces     :: Env (Env Value)
+    , bindingsNamespaces     :: Map Ident (Doc.Docd (Map Ident (Doc.Docd Value)))
     , bindingsCurrentNamespace :: Ident
     , bindingsPrimFns        :: prims
     , bindingsRefs           :: IntMap Value
@@ -551,9 +558,6 @@ withEnv modifyNs modifier action = do
 
 -- * Functions
 
-addToEnv :: Ident -> Maybe Text -> a -> Env a -> Env a
-addToEnv i d x (Env e) = Env (Map.insert i (Doc.Docd d x) e)
-
 callExample :: Text -> Value -> Maybe Text
 callExample name value = case value of
     Lambda args _ _ _      -> Just $ lambdaDoc args
@@ -568,21 +572,21 @@ callExample name value = case value of
         VarArgs _ ->
           pure "arg1 ..."
 
-lookupInEnv :: Monad m => Ident -> Env a -> Lang m (Doc.Docd a)
-lookupInEnv i (Env e) = case Map.lookup i e of
-  Just x -> pure x
-  Nothing -> throwErrorHere $ UnknownIdentifier i
-
+-- TODO(james): improve error messages.
 lookupAtomWithDoc :: Monad m => Ident -> Lang m (Doc.Docd Value)
-lookupAtomWithDoc i@(Ident name) = get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
-    Nothing -> do
-      cns <- gets bindingsCurrentNamespace
-      nss <- trace (show cns :: Text) $ gets bindingsNamespaces
-      ns <- lookupInEnv cns nss
-      lookupInEnv i (copoint ns)
-    Just x@(Doc.Docd d_ v) -> pure (maybe x (doc d_ v) $ callExample name v)
+lookupAtomWithDoc i@(Ident name) = 
+  get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
+    Just (LocalBind x) -> docd x
+    Just (NamespaceBind nsk j) ->
+      case Map.lookup nsk (bindingsNamespaces e) of
+        Just (Doc.Docd _ ns) -> case Map.lookup j ns of
+          Just x -> docd x
+          Nothing -> throwErrorHere (OtherError "binding doesnt exist in that module.")
+        Nothing -> throwErrorHere (OtherError "Module doesn't exist")
+    Nothing -> throwErrorHere (OtherError "No binding.")
   where
     doc d_ v t = Doc.Docd (Just (t <> maybe "" ("\n\n" <>) d_)) v
+    docd x@(Doc.Docd d_ v) = pure (maybe x (doc d_ v) $ callExample name v)
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
@@ -602,12 +606,15 @@ lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns 
 
 defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
 defineAtom i d v = do
-  b@Bindings{ bindingsCurrentNamespace = cnsk
-            , bindingsNamespaces = Env nss } <- get
-  case Map.lookup cnsk nss of
-    Just ns -> put $
-      b { bindingsNamespaces = Env $ Map.insert cnsk (addToEnv i d v <$> ns) nss }
-    Nothing -> throwErrorHere $ OtherError "Current namespace not defined!"
+    b@Bindings{ bindingsCurrentNamespace = cns
+              , bindingsNamespaces = nss
+              , bindingsEnv = e } <- get
+    nss' <- Map.alterF alterNs cns nss
+    put $ b { bindingsNamespaces = nss'
+            , bindingsEnv = Env (Map.insert i (NamespaceBind cns i) (fromEnv e)) }
+  where
+    alterNs Nothing = throwErrorHere $ OtherError "Current namespace not defined!" -- TODO(james): better error.
+    alterNs (Just ns) = pure $ Just (Map.insert i (Doc.Docd d v) <$> ns)
 
 -- * From/ ToRadicle
 

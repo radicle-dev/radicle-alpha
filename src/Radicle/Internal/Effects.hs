@@ -134,14 +134,14 @@ replPrimFns sysArgs = fromList $ allDocs $
           v -> throwErrorHere $ TypeError "doc!" 0 TAtom v
       )
 
-    , ( "apropos!"
-      , "Prints documentation for all documented variables in scope."
-      , noArg "apropos!" $ do
-            env <- gets bindingsEnv
-            let docs = [ i <> "\n" <> doc | (Ident i, Just doc, _) <- toList env ]
-            putStrS (T.intercalate "\n\n" docs)
-            pure nil
-      )
+    -- , ( "apropos!"
+    --   , "Prints documentation for all documented variables in scope."
+    --   , noArg "apropos!" $ do
+    --         env <- gets bindingsEnv
+    --         let docs = [ i <> "\n" <> doc | (Ident i, Just doc, _) <- toList env ]
+    --         putStrS (T.intercalate "\n\n" docs)
+    --         pure nil
+    --   )
 
     , ( "get-line!"
       , "Reads a single line of input and returns it as a string."

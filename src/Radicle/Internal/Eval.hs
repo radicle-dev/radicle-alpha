@@ -71,9 +71,9 @@ specialForms = Map.fromList $ first Ident <$>
         [a@(Atom i)] -> do
           -- TODO(james): add optional arg to ns to add documentation to namespace.
           nss <- gets bindingsNamespaces
-          let nss' = if Map.member i (fromEnv nss)
+          let nss' = if Map.member i nss
                      then nss
-                     else addToEnv i Nothing mempty nss
+                     else Map.insert i (Doc.Docd Nothing mempty) nss
           _ <- modify $ \s -> s { bindingsCurrentNamespace = i
                                 , bindingsNamespaces = nss' }
           pure a
@@ -150,7 +150,7 @@ specialForms = Map.fromList $ first Ident <$>
 
     bindsToEnv pat m = do
         is <- traverse isBind (Map.toList m)
-        pure $ Env (Map.fromList is)
+        pure $ Env (Map.fromList (second LocalBind <$> is))
       where
         isBind (Atom x, v) = pure (x, Doc.Docd Nothing v)
         isBind _ = throwErrorHere $ PatternMatchError (BadBindings pat)
@@ -242,7 +242,7 @@ callFn f arguments = case f of
         else toArgs $ zip names arguments
       VarArgs name ->
         toArgs [(name, Vec $ Seq.fromList arguments)]
-      where toArgs = pure . GhcExts.fromList . Doc.noDocs
+      where toArgs bs = pure $ GhcExts.fromList $ [ (i, LocalBind (Doc.Docd Nothing x)) | (i, x) <- bs ]
 
 -- | Process special forms or call function. If @f@ is an atom that
 -- indicates a special form that special form is processed. Otherwise
