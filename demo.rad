@@ -24,4 +24,14 @@
 
 ;; Let's make a machine with... messages!
 
+(def* msgs (ref []))
 
+(defn add-msg [s]
+  (modify-ref msgs (fn [ms] (add-right s ms))))
+
+(def tx
+  (fn [e]
+    (match e
+           [:msg 's] (add-msg s)
+           [:upd 'code] code
+           _ (throw 'any "Nope")))))
