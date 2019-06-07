@@ -1,8 +1,7 @@
-{:module  'prelude/maybe
- :doc     "Functions for dealing with optional values."
- :exports '[cat-maybes]}
+(ns prelude/maybe "Functions for dealing with optional values.")
 
-(import prelude/patterns :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/patterns [])
 
 (def cat-maybes
   (fn [xs]

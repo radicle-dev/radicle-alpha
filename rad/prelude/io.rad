@@ -1,18 +1,11 @@
-{:module 'prelude/io
- :doc "Some basic I/O functions."
- :exports '[print! shell! process! read-line! read-file-value! read-file-values!
-            shell-with-stdout! shell-no-stdin! write-file!
-            process-with-stdout! process-with-stdout-stderr-exitcode!
-            process-with-stdout-strict!
-            init-file-dict! read-file-key! write-file-key! delete-file-key! ls! modify-file!
-            install-fake-filesystem! prompt!
-           ]}
+(ns prelude/io "Some basic I/O functions.")
 
-(import prelude/basic :unqualified)
-(import prelude/patterns :unqualified)
-(import prelude/strings :as 'strings)
-(import prelude/dict :unqualified)
-(import prelude/error-messages :as 'error)
+(require prelude/test-macro ['test])
+(require prelude/basic [])
+(require prelude/patterns [])
+(require prelude/strings [] strings)
+(require prelude/dict [])
+(require prelude/error-messages [] error)
 
 (def read-line!
   "Read a single line of input and interpret it as radicle data."
@@ -40,14 +33,14 @@
     (write-handle! hdl contents)
     (close-handle! hdl)))
 
-(def-rec read-contents-handle!
+(def read-contents-handle!
   "Read all the contents of a handle. A *vector* of strings is returned, one
    string for each line of output."
   (fn [hdl]
     (def this-line (read-line-handle! hdl))
     (if (eq? this-line :eof)
-        []
-        (cons this-line (read-contents-handle! hdl)))))
+      []
+      (cons this-line (read-contents-handle! hdl)))))
 
 (def shell!
   "Executes `command` using the shell with `to-write` as input. Stdout and stderr are inherited.

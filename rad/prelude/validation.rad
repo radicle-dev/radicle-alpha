@@ -1,16 +1,13 @@
-{:module 'prelude/validation
- :doc "Functions for creating or combining *validators*, which are functions
+(ns prelude/validation
+  "Functions for creating or combining *validators*, which are functions
    which return the input unchanged or throw with an error message. These can be
-   used for checking data before accepting it onto a chain."
- :exports
- '[= member and or type pred integral optional-key contains contains-all
-   contains-only key optional-keys keys every uuid signed timestamp
-   string-of-max-length always-valid]}
+   used for checking data before accepting it onto a chain.")
 
-(import prelude/basic :unqualified)
-(import prelude/dict :unqualified)
-(import prelude/dict :as 'dict)
-(import prelude/set :as 'set)
+(require prelude/test-macro ['test])
+(require prelude/basic [])
+(require prelude/dict [])
+(require prelude/dict '[keys] dict)
+(require prelude/set [] set)
 
 (def always-valid
   "A validator that is always valid."
@@ -45,7 +42,7 @@
       (map (fn [v] (v x)) vs)
       x)))
 
-(def-rec or
+(def or
   "Given a vector of validators `vs`, returns a new validator which, given a
   value, checks if it conforms to at least one of the `vs`."
   (fn [vs]
@@ -53,8 +50,8 @@
       (if (eq? vs [])
         (throw 'validation-failure "validation/or: didn't satisfy any of the validators")
         (catch
-          'validation-failure
-          ((nth 0 vs) x)
+            'validation-failure
+            ((nth 0 vs) x)
           (fn [y] ((or (drop 1 vs)) x)))))))
 
 (def type

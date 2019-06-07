@@ -11,7 +11,8 @@
 (load! (find-module-file! "monadic/names.rad"))
 (load! (find-module-file! "monadic/project.rad"))
 
-(import prelude/test)
+(require prelude/test-macro ['tests])
+(require prelude/test ['run-all])
 
-(def tests-ok (prelude/test/run-all (read-ref tests)))
+(def tests-ok (run-all (read-ref tests)))
 (if tests-ok (exit! 0) (exit! 1))

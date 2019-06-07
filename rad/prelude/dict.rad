@@ -1,9 +1,8 @@
-{:module  'prelude/dict
- :doc     "Functions for manipualting dicts."
- :exports '[dict-from-seq keys values rekey modify-map delete-many lookup-default lookup-maybe safe-modify-map group-by]}
+(ns prelude/dict "Functions for manipualting dicts.")
 
-(import prelude/basic :unqualified)
-(import prelude/patterns :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/basic [])
+(require prelude/patterns [])
 
 (def dict-from-seq
   "Creates a dictionary from a list of key-value pairs."

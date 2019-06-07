@@ -1,8 +1,9 @@
-{:module  'prelude/patterns
- :doc     "Pattern matching is first-class in radicle so new patterns can easily be defined. These are the most essential."
- :exports '[match-pat _ /? /= /as /cons /nil /just /member]}
+(ns prelude/patterns
+  "Pattern matching is first-class in radicle so new patterns can easily be
+  defined. These are the most essential.")
 
-(import prelude/basic :unqualified)
+(require prelude/test-macro '[test])
+(require prelude/basic '[if or maybe->>= maybe-foldlM some])
 
 (def exclusive-dict-merge
   "Merges two dicts while checking for key conflicts. Returns
@@ -44,41 +45,45 @@
   "The wildcard pattern."
   (fn [v] [:just {}]))
 
-(def-rec match-pat
+(def /vec
+  (fn [pats]
+    (fn [v]
+      (if (or (vector? v) (list? v))
+        (if (eq? (length v) (length pats))
+          (maybe-foldlM
+           (fn [acc pair]
+             (maybe->>= (match-pat (nth 0 pair) (nth 1 pair))
+                        (fn [bs] (non-linear-merge acc bs))))
+           {}
+           (zip pats v))
+          :nothing)
+        :nothing))))
+
+(def /dict
+  (fn [keys-pat]
+    (fn [d]
+      (if (dict? d)
+        (maybe-foldlM
+         (fn [acc kv]
+           ((fn [k pat] ;; This is a `let`.
+              (if (member? k d)
+                (maybe->>= (match-pat pat (lookup k d))
+                           (fn [bs] (non-linear-merge acc bs)))
+                :nothing))
+            (nth 0 kv) ;; k
+            (nth 1 kv) ;; pat
+            ))
+         {}
+         (seq keys-pat))
+        :nothing))))
+
+(def match-pat
   "The pattern matching dispatch function. This function defines how patterns
   are treated in `match` expressions. Atoms are treated as bindings. Numbers,
   keywords and strings are constant patterns. Dicts of patterns match dicts
   whose values at those keys match those patterns. Vectors of patterns match
   vectors of the same length, pairing the patterns and elements by index."
   (fn [pat v]
-    (def /vec
-      (fn [pats]
-        (fn [v]
-          (if (or (vector? v) (list? v))
-            (if (eq? (length v) (length pat))
-              (maybe-foldlM
-               (fn [acc pair]
-                 (maybe->>= (match-pat (nth 0 pair) (nth 1 pair))
-                            (fn [bs] (non-linear-merge acc bs))))
-               {}
-               (zip pats v))
-              :nothing)
-            :nothing))))
-    (def /dict
-      (fn [keys-pat]
-        (fn [d]
-          (if (dict? d)
-            (maybe-foldlM
-             (fn [acc kv]
-               (def k (nth 0 kv))
-               (def pat (nth 1 kv))
-               (if (member? k d)
-                 (maybe->>= (match-pat pat (lookup k d))
-                            (fn [bs] (non-linear-merge acc bs)))
-                 :nothing))
-             {}
-             (seq keys-pat))
-            :nothing))))
     (cond
       (atom? pat)
       [:just {pat v}]

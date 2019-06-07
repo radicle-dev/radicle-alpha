@@ -18,6 +18,10 @@ instance Copointed Docd where
 doc :: Docd a -> Maybe Text
 doc (Docd d _) = d
 
+redoc :: Maybe Text -> Docd a -> Docd a
+redoc Nothing x = x
+redoc d@(Just _) (Docd _ x) = Docd d x
+
 instance Eq a => Eq (Docd a) where
   Docd _ x == Docd _ y = x == y
 

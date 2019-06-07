@@ -1,15 +1,13 @@
-{:module 'prelude/key-management
- :doc "Providing functions for creating and reading key pairs for signing send
- commands. Per default, key pairs are stored in `$HOME/.config/radicle/my-keys.rad`
- this can be adjusted by setting `$XDG_CONFIG_HOME`."
- :exports '[read-keys! get-keys! create-keys! set-fake-keys! use-fake-keys!]}
+(ns prelude/key-management "Providing functions for creating and reading key pairs for signing send
+  commands. Per default, key pairs are stored in `$HOME/.config/radicle/my-keys.rad`
+  this can be adjusted by setting `$XDG_CONFIG_HOME`.")
 
-(import prelude/basic :unqualified)
-(import prelude/io :as 'io)
-(import prelude/io-utils :as 'io)
-(import prelude/strings :as 'string)
-(import prelude/lens :unqualified)
-(import prelude/error-messages :as 'error)
+(require prelude/basic [])
+(require prelude/io [] io)
+(require prelude/io-utils [] io)
+(require prelude/strings [] string)
+(require prelude/lens [])
+(require prelude/error-messages [] error)
 
 (def key-pair-mode (ref {:use-fake-key #f}))
 

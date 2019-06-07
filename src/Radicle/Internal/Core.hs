@@ -49,17 +49,9 @@ data PatternMatchError
 
 instance Serialise PatternMatchError
 
-data ModuleError
-  = MissingDeclaration
-  | InvalidDeclaration Text Value
-  | UndefinedExports Ident [Ident]
-  deriving (Eq, Show, Read, Generic)
-
-instance Serialise ModuleError
-
 -- | An error thrown during parsing or evaluating expressions in the language.
 data LangErrorData r =
-      UnknownIdentifier Ident
+      UnknownIdentifier Ident Ident
     | Impossible Text
     -- | The special form that was misused, and information on the misuse.
     | SpecialForm Text Text
@@ -71,7 +63,6 @@ data LangErrorData r =
     -- args
     | WrongNumberOfArgs Text Int Int
     | NonHashableKey Value
-    | ModuleError ModuleError
     | OtherError Text
     | ParseError (Par.ParseErrorBundle Text Void)
     -- | Raised if @(throw ident value)@ is evaluated. Arguments are
@@ -105,9 +96,10 @@ errorDataToValue
     => LangErrorData Value
     -> Lang m (Ident, Value)
 errorDataToValue e = case e of
-    UnknownIdentifier i -> makeVal
+    UnknownIdentifier nsk i -> makeVal
         ( "unknown-identifier"
-        , [("identifier", makeA i)]
+        , [("identifier", makeA i)
+          ,("namespace", makeA nsk)]
         )
     -- "Now more than ever seems it rich to die"
     Impossible _ -> throwErrorHere e
@@ -135,13 +127,6 @@ errorDataToValue e = case e of
           , ("actual", Number $ fromIntegral actual)]
         )
     NonHashableKey k -> makeVal ("non-hashable-key", [("key", k)])
-    ModuleError me -> case me of
-      MissingDeclaration -> makeVal ( "missing-module-declaration", [])
-      InvalidDeclaration t v -> makeVal ( "invalid-module-declaration", [("info", String t), ("declaration", v)])
-      UndefinedExports n is -> makeVal ( "undefined-module-exports"
-                                       , [ ("undefined-exports", Vec (Seq.fromList (Atom <$> is)))
-                                         , ("module", Atom n) ]
-                                       )
     OtherError i -> makeVal
         ( "other-error"
         , [("info", String i)]
@@ -257,12 +242,6 @@ data ValueF r =
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
     | LambdaF LambdaArgs (NonEmpty r) (Env r) Ident
-    -- | Like 'LambdaF' but indicates a function that can call itself
-    -- recursively.
-    --
-    -- The first argument is the name for recursive calls to the
-    -- function in the body.
-    | LambdaRecF Ident LambdaArgs (NonEmpty r) (Env r) Ident
     | MacroF r
     | VEnvF (Env r)
     | VStateF State
@@ -292,7 +271,6 @@ valType = \case
   Handle _ -> THandle
   ProcHandle _ -> TProcHandle
   Lambda{} -> TFunction
-  LambdaRec{} -> TFunction
   Macro{} -> TMacro
   VEnv _ -> TEnv
   VState _ -> TState
@@ -309,7 +287,6 @@ hashable = \case
   Handle _ -> False
   ProcHandle _ -> False
   Lambda{} -> False
-  LambdaRec{} -> False
   Macro{} -> False
   VEnv _ -> False
   VState _ -> False
@@ -324,7 +301,7 @@ dict kvs = case filter (not . hashable) (Map.keys kvs) of
   k : _ -> throwErrorHere $ NonHashableKey k
 
 {-# COMPLETE Atom, Keyword, String, Number, Boolean, List, Vec, PrimFn, Dict, Macro
-  , Ref, Handle, ProcHandle, Lambda, LambdaRec, VEnv, VState #-}
+  , Ref, Handle, ProcHandle, Lambda, VEnv, VState #-}
 
 type ValueConC t = (HasCallStack, Ann.Annotation t, Copointed t)
 
@@ -398,11 +375,6 @@ pattern Lambda vs exps env ns <- (Ann.match -> LambdaF vs exps env ns)
     where
     Lambda vs exps env ns = Ann.annotate $ LambdaF vs exps env ns
 
-pattern LambdaRec :: ValueConC t => Ident -> LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Ident -> Annotated t ValueF
-pattern LambdaRec self vs exps env ns <- (Ann.match -> LambdaRecF self vs exps env ns)
-    where
-    LambdaRec self vs exps env ns = Ann.annotate $ LambdaRecF self vs exps env ns
-
 pattern VEnv :: ValueConC t => Env (Annotated t ValueF) -> Annotated t ValueF
 pattern VEnv e <- (Ann.match -> VEnvF e)
   where
@@ -455,24 +427,28 @@ data NamespaceBinding
   | There Ident Ident
 
 type Namespace = Map Ident NamespaceBinding
+
 type Namespaces = Map Ident (Doc.Docd Namespace)
 
 -- | Bindings, either from the env or from the primops.
 data Bindings prims = Bindings
-    { bindingsEnv            :: Env Value
-    , bindingsNamespaces     :: Namespaces
+    { bindingsEnv              :: Env Value
+    , bindingsNamespaces       :: Namespaces
     , bindingsCurrentNamespace :: Ident
-    , bindingsPrimFns        :: prims
-    , bindingsRefs           :: IntMap Value
-    , bindingsNextRef        :: Int
-    , bindingsHandles        :: IntMap Handle.Handle
-    , bindingsNextHandle     :: Int
-    , bindingsProcHandles    :: IntMap ProcessHandle
-    , bindingsNextProcHandle :: Int
+    , bindingsPrimFns          :: prims
+    , bindingsRefs             :: IntMap Value
+    , bindingsNextRef          :: Int
+    , bindingsHandles          :: IntMap Handle.Handle
+    , bindingsNextHandle       :: Int
+    , bindingsProcHandles      :: IntMap ProcessHandle
+    , bindingsNextProcHandle   :: Int
     } deriving (Functor, Generic)
 
 emptyBindings :: Env Value -> Bindings (PrimFns m)
-emptyBindings e = Bindings e mempty (Ident "toplevel") mempty mempty 0 mempty 0 mempty 0
+emptyBindings e = Bindings e (Map.singleton top topNs) top mempty mempty 0 mempty 0 mempty 0
+  where
+    top = Ident "toplevel"
+    topNs = Doc.Docd (Just "The toplevel namespace.") mempty
 
 -- | Extract an environment and references from a Radicle value and put
 -- them as the current bindings. Primitive functions are not changed.
@@ -560,9 +536,9 @@ withEnv modifyNs modifier action = do
 
 callExample :: Text -> Value -> Maybe Text
 callExample name value = case value of
-    Lambda args _ _ _      -> Just $ lambdaDoc args
+    Lambda args _ _ _ -> Just $ lambdaDoc args
     --LambdaRec _ args _ _ _ -> Just $ lambdaDoc args
-    _                      -> Nothing
+    _                 -> Nothing
   where
     lambdaDoc args = "(" <> T.intercalate " " (name : lambdaArgsDoc args) <> ")"
     lambdaArgsDoc args =
@@ -584,12 +560,13 @@ lookupAtomWithDoc i@(Ident name) =
 
     lookupInNamespace :: Namespaces -> Ident -> Ident -> Lang m (Doc.Docd Value)
     lookupInNamespace nss nsk j = case Map.lookup nsk nss of
-      Just (Doc.Docd _ ns) -> case Map.lookup j ns of
-        Just (Here x) -> docd x
+      Just ns -> case Map.lookup j (copoint ns) of
+        Just (Here x)    -> docd x
         Just (There a b) -> lookupInNamespace nss a b
-        Nothing -> throwErrorHere err
+        Nothing          -> throwErrorHere err
       Nothing -> throwErrorHere err
-    err = UnknownIdentifier i
+      where
+        err = UnknownIdentifier nsk i
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
@@ -607,14 +584,14 @@ lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns 
     Nothing -> throwErrorHere $ Impossible $ "Unknown primop " <> fromIdent i
     Just v  -> pure (copoint v)
 
-modifyCurrentNamespace :: Monad m => (Namespace -> Namespace) -> Lang m ()
+modifyCurrentNamespace :: Monad m => (Map Ident NamespaceBinding -> Map Ident NamespaceBinding) -> Lang m ()
 modifyCurrentNamespace f = do
     b@Bindings{ bindingsCurrentNamespace = cns
               , bindingsNamespaces = nss } <- get
     nss' <- Map.alterF f' cns nss
     put $ b { bindingsNamespaces = nss' }
   where
-    f' Nothing = throwErrorHere $ OtherError "namespace missing!" -- TODO(james): make better
+    f' Nothing   = throwErrorHere $ OtherError "namespace missing!" -- TODO(james): make better error
     f' (Just ns) = pure $ Just (f <$> ns)
 
 defineAtomInNs :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()

@@ -1,23 +1,13 @@
-{:module 'prelude/error-messages
- :doc "Functions for user facing error messages.
- Functions should either have a descriptive name or additional comment so that
- the text can be edited without knowledge of where they are used.
- To verify changes, tests can be run with `stack exec -- radicle test/all.rad`"
- :exports
- '[missing-arg too-many-args missing-arg-for-opt invalid-arg-for-opt
-   invalid-opt-for-cmd dir-already-exists git-clone-failure upstream-commit-failure
-   upstream-push-failure item-not-found whole-item-number missing-item-number
-   state-change-failure no-number-returned unknown-command unknown-commit
-   parent-commit-not-master checkout-new-branch-failure checkout-master-failure
-   applying-patch-failure applying-accepted-patch-failure push-patch-failure
-   missing-key-file rad-ipfs-name-publish-failure rad-ipfs-key-gen-failure
-   process-exit-error
-   ]}
+(ns prelude/error-messages "Functions for user facing error messages.
+  Functions should either have a descriptive name or additional comment so that
+  the text can be edited without knowledge of where they are used.
+  To verify changes, tests can be run with `stack exec -- radicle test/all.rad`")
 
-(import prelude/basic :unqualified)
-(import prelude/bool :unqualified)
-(import prelude/seq :unqualified)
-(import prelude/strings :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/basic [])
+(require prelude/bool [])
+(require prelude/seq [])
+(require prelude/strings [])
 
 ;; parsing
 

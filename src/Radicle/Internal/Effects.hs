@@ -329,10 +329,11 @@ replPrimFns sysArgs = fromList $ allDocs $
                    pure . String . Time.formatTime $ t
           xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)
       )
-    , ( "file-module!"
+    , ( "load-ns!"
+      -- TODO(james): update doc
       , "Given a file whose code starts with module metadata, creates the module.\
         \ That is, the file is evaluated as if the code was wrapped in `(module ...)`."
-      , oneArg "file-module!" $ \case
+      , oneArg "load-ns!" $ \case
           String filename -> do
             ef <- fileModuleS filename
             file <- case ef of
@@ -340,8 +341,7 @@ replPrimFns sysArgs = fromList $ allDocs $
                 Just f -> pure f
             t_ <- fmap ignoreShebang <$> readFileS file
             t <- hoistEither . first (toLangError . OtherError) $ t_
-            vs <- readValues filename t
-            createModule vs
+            interpretMany filename t
           v -> throwErrorHere $ TypeError "file-module!" 0 TString v
       )
     , ( "find-module-file!"

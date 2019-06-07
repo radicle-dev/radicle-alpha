@@ -1,8 +1,7 @@
-{:module 'prelude/bool
- :doc "Functions for dealing with truthiness and #f."
- :exports '[not and all and-predicate]}
+(ns prelude/bool "Functions for dealing with truthiness and #f.")
 
-(import prelude/basic :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/basic '[if])
 
 ;; not
 

@@ -1,13 +1,8 @@
-{:module 'prelude/io-utils
- :doc "IO-related utilities"
- :exports '[fzf-select! edit-in-editor! get-git-config! set-git-config!
-            get-git-commit-data! get-git-username! process-git-with-exit!
-            base-path!
-            ]}
+(ns prelude/io-utils "IO-related utilities")
 
-(import prelude/basic :unqualified)
-(import prelude/io '[shell-with-stdout! write-file! process-with-stdout!] :unqualified)
-(import prelude/strings '[unlines] :unqualified)
+(require prelude/basic [])
+(require prelude/io '[shell-with-stdout! write-file! process-with-stdout!])
+(require prelude/strings '[unlines])
 
 (def fzf-select!
   "Select one of many strings with `fzf`.

@@ -1,9 +1,8 @@
-{:module 'prelude/lens
- :doc "Functional references."
- :exports ['make-lens 'view 'set 'id-lens '.. '... 'over '@ '@def '@nth 'view-ref 'set-ref 'over-ref]}
+(ns prelude/lens "Functional references.")
 
-(import prelude/ref :unqualified)
-(import prelude/dict '[lookup-default ]:unqualified)
+(require prelude/test-macro ['test])
+(require prelude/ref [])
+(require prelude/dict '[lookup-default])
 
 ;; Lenses ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

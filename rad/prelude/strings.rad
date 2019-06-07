@@ -1,12 +1,10 @@
-{:module 'prelude/strings
- :doc    "String manipulation functions."
- :exports '[intercalate unlines unwords split-by words lines map-string
-            reverse-string ends-with? pad-right-to] }
+(ns prelude/strings "String manipulation functions.")
 
-(import prelude/basic :unqualified)
-(import prelude/seq :unqualified)
-(import prelude/list :unqualified)
-(import prelude/patterns :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/basic [])
+(require prelude/seq [])
+(require prelude/list [])
+(require prelude/patterns [])
 
 (def intercalate
   "Intercalates a string in a list of strings"

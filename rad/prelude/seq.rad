@@ -1,11 +1,9 @@
-{:module 'prelude/seq
- :doc "Functions for manipulating sequences, that is lists and vectors."
- :exports '[empty? seq? reverse filter take-while starts-with? /prefix
-            concat]}
+(ns prelude/seq "Functions for manipulating sequences, that is lists and vectors.")
 
-(import prelude/basic :unqualified)
-(import prelude/bool :unqualified)
-(import prelude/patterns :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/basic [])
+(require prelude/bool [])
+(require prelude/patterns [])
 
 (def seq?
   "Returns `#t` if `x` is a list or a vector."
@@ -34,16 +32,16 @@
 (def reverse
   "Returns the reversed sequence `xs`."
   (fn [xs]
-    (def-rec go
+    (def go
       (fn [acc new]
         (if (empty? new)
-            acc
-            (go (cons (head new) acc) (tail new)))))
+          acc
+          (go (cons (head new) acc) (tail new)))))
     (match (type xs)
-      :list (go '() xs)
-      :vec (go [] xs)
-      't (throw 'type-mismatch (string-append "reverse: exepcted sequence as arguemtn got " (show t)))
-      )
+           :list (go '() xs)
+           :vec (go [] xs)
+           't (throw 'type-mismatch (string-append "reverse: exepcted sequence as arguemtn got " (show t)))
+           )
     ))
 
 (test "reverse"
@@ -52,13 +50,13 @@
 )
 
 
-(def-rec filter
+(def filter
   "Returns `ls` with only the elements that satisfy `pred`."
-    (fn [pred ls]
-      (cond
-        (empty? ls)      ls
-        (pred (head ls)) (cons (head ls) (filter pred (tail ls)))
-        :else            (filter pred (tail ls)))))
+  (fn [pred ls]
+    (cond
+      (empty? ls)      ls
+      (pred (head ls)) (cons (head ls) (filter pred (tail ls)))
+      :else            (filter pred (tail ls)))))
 
 (test "filter"
   [ (filter (fn [x] (< x 10)) (list 3 10 11 5))
@@ -68,7 +66,7 @@
 )
 
 
-(def-rec take-while
+(def take-while
   "Returns all elements of a sequence `ls` until one does not satisfy `pred`"
   (fn [pred ls]
     (cond

@@ -43,7 +43,6 @@ module Radicle
     -- *** LangError
     , LangError(..)
     , PatternMatchError(..)
-    , ModuleError(..)
     , LangErrorData(..)
     , throwErrorHere
     , Reference(..)

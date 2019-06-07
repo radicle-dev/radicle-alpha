@@ -1,14 +1,11 @@
-{:module 'prelude/test
- :doc "Provides eval that adds a `test` macro."
- :exports '[run-all make-suite assert-equal]}
+(ns prelude/test "Runs tests.")
 
-
-(import prelude/basic :unqualified)
-(import prelude/bool :unqualified)
-(import prelude/io :unqualified)
-(import prelude/list :unqualified)
-(import prelude/patterns :unqualified)
-(import prelude/validation :as 'validate)
+(require prelude/basic '[if head])
+(require prelude/bool '[and])
+(require prelude/io [])
+(require prelude/list [])
+(require prelude/patterns '[match-pat _])
+(require prelude/validation [] validate)
 
 (def assert-equal
   "Compares `actual` with `expected` with `eq?`. If the values are not equal an
@@ -120,18 +117,19 @@
   passed, `#f` otherwise."
   (fn [test-def index]
     (match (parse-test test-def)
-      {:name 'name :run 'run} (do
-        (def result (try 'any run))
-        (match result
-          [:ok _]       (do
-            (put-str! (string-append "ok " (show index) " - " name))
-            #t
-            )
-          [:error 'msg] (do
-            (put-str! (string-append "not ok " (show index) " - " name "\n" (show msg)))
-            #f
-            )
-          )))))
+           {:name 'name :run 'run}
+           (do
+             (def result (try 'any run))
+             (match result
+                    [:ok _]       (do
+                                    (put-str! (string-append "ok " (show index) " - " name))
+                                    #t
+                                    )
+                    [:error 'msg] (do
+                                    (put-str! (string-append "not ok " (show index) " - " name "\n" (show msg)))
+                                    #f
+                                    )
+                    )))))
 
 (def make-suite
   "Define a set of tests from a dictionary. The keys of `tests` are

@@ -3,7 +3,6 @@ module Radicle.Internal.Eval
     , baseEval
     , callFn
     , ($$)
-    , createModule
     ) where
 
 import           Protolude hiding (Constructor, Handle, TypeError, (<>))
@@ -12,7 +11,6 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import           Data.Semigroup ((<>))
 import qualified Data.Sequence as Seq
-import qualified Data.Set as Set
 import qualified GHC.Exts as GhcExts
 
 import           Radicle.Internal.Core
@@ -55,8 +53,8 @@ specialForms = Map.fromList $ first Ident <$>
     , \case
           args : b : bs -> do
             e <- gets bindingsEnv
-            ns <- gets bindingsCurrentNamespace
-            let toLambda argNames = pure (Lambda argNames (b :| bs) e ns)
+            cns <- gets bindingsCurrentNamespace
+            let toLambda argNames = pure (Lambda argNames (b :| bs) e cns)
             case args of
               Vec atoms_ -> do
                 atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn" "One of the arguments was not an atom")
@@ -66,31 +64,15 @@ specialForms = Map.fromList $ first Ident <$>
               _ -> throwErrorHere $ SpecialForm "fn" "Function parameters must be one atom or a vector of atoms"
           _ -> throwErrorHere $ SpecialForm "fn" "Function needs parameters (one atom or a vector of atoms) and a body"
       )
-  , ( "module", createModule )
   , ( "ns", \case
-        [a@(Atom i)] -> do
-          -- TODO(james): add optional arg to ns to add documentation to namespace.
-          nss <- gets bindingsNamespaces
-          let nss' = if Map.member i nss
-                     then nss
-                     else Map.insert i (Doc.Docd Nothing mempty) nss
-          _ <- modify $ \s -> s { bindingsCurrentNamespace = i
-                                , bindingsNamespaces = nss' }
-          pure a
-        _ -> throwErrorHere $ SpecialForm "ns" "The `ns` form expects a symbol."
+        [a@(Atom i)] -> ns a i Nothing
+        [a@(Atom i), String doc] -> ns a i (Just doc)
+        _ -> throwErrorHere $ SpecialForm "ns" "The `ns` form expects a symbol and optionally a docstring."
     )
   , ( "require"
     , \case
-        [Atom i, e] -> do
-          syms__ <- baseEval e
-          case syms__ of
-            Vec syms_ -> case traverse isAtom syms_ of
-              Just syms -> do
-                let binds = Map.fromList [(s, There i s) | s <- toList syms ]
-                _ <- modifyCurrentNamespace (binds <>)
-                pure (Keyword (Ident "ok"))
-              Nothing -> throwErrorHere $ OtherError "One of the items in the vector was not a symbol."
-            _ -> throwErrorHere $ OtherError "require needs a vector of symbols to import."
+        [Atom i, e] -> require i e Nothing
+        [Atom i, e, Atom q] -> require i e (Just q)
         _ -> throwErrorHere $ OtherError "require needs a namespace identifier and a vector of symbols to import."
     )
   , ("quote", \case
@@ -101,25 +83,13 @@ specialForms = Map.fromList $ first Ident <$>
         [val] -> Macro <$> baseEval val
         _ -> throwErrorHere $ SpecialForm "macro" "Takes a single argument, which should evaluate to a function (which transforms syntax)."
     )
-  , ( "def*"
+  , ( "def"
     , \case
-        [Atom name, val] -> defNs name Nothing val
+        [Atom name, val] -> def name Nothing val
         [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
-        [Atom name, String d, val] -> defNs name (Just d) val
+        [Atom name, String d, val] -> def name (Just d) val
         xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs)
     )
-  , ("def", \case
-          [Atom name, val] -> def name Nothing val
-          [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
-          [Atom name, String d, val] -> def name (Just d) val
-          xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs))
-    , ( "def-rec"
-      , \case
-          [Atom name, val] -> defRec name Nothing val
-          [_, _]           -> throwErrorHere $ OtherError "def-rec expects atom for first arg"
-          [Atom name, String d, val] -> defRec name (Just d) val
-          xs               -> throwErrorHere $ WrongNumberOfArgs "def-rec" 2 (length xs)
-      )
     , ("do", (lastDef nil <$>) . traverse baseEval)
     , ("catch", \case
           [l, form, handler] -> do
@@ -141,6 +111,25 @@ specialForms = Map.fromList $ first Ident <$>
     , ( "match", match )
   ]
   where
+    require i e q_ = do
+          syms__ <- baseEval e
+          case syms__ of
+            Vec syms_ -> case traverse isAtom syms_ of
+              Just syms -> do
+                let qualer = case q_ of
+                      Nothing -> identity
+                      Just q -> ((q <> Ident "/") <>)
+                let binds = Map.fromList [(qualer s, There i s) | s <- toList syms ]
+                _ <- modifyCurrentNamespace (binds <>)
+                pure (Keyword (Ident "ok"))
+              Nothing -> throwErrorHere $ OtherError "One of the items in the vector was not a symbol."
+            _ -> throwErrorHere $ OtherError "require needs a vector of symbols to import."
+    ns a i d_ = do
+      nss <- gets bindingsNamespaces
+      let nss' = Map.alter (Just . maybe (Doc.Docd d_ mempty) (Doc.redoc d_)) i nss
+      _ <- modify $ \s -> s { bindingsCurrentNamespace = i
+                            , bindingsNamespaces = nss' }
+      pure a
     cond = \case
       [] -> pure nil
       (c,e):ps -> do
@@ -180,66 +169,8 @@ specialForms = Map.fromList $ first Ident <$>
 
     def name doc_ val = do
       val' <- baseEval val
-      defineAtom name doc_ val'
-      pure nil
-
-    defRec name doc_ val = do
-      val' <- baseEval val
-      case val' of
-        Lambda is b e cns -> do
-          defineAtom name doc_ $ LambdaRec name is b e cns
-          pure nil
-        LambdaRec{} -> throwErrorHere $
-            OtherError "'def-rec' cannot be used to alias functions. Use 'def' instead"
-        _ -> throwErrorHere $ OtherError "'def-rec' can only be used to define functions"
-
-    defNs name doc_ val = do
-      val' <- baseEval val
       defineAtomInNs name doc_ val'
       pure nil
-
-data ModuleMeta = ModuleMeta
-  { name    :: Ident
-  , exports :: [Ident]
-  , doc     :: Text
-  }
-
--- | Given a list of forms, the first of which should be module declaration,
--- runs the rest of the forms in a new scope, and then defs the module value
--- according to the name in the declaration.
-createModule :: forall m. Monad m => [Value] -> Lang m Value
-createModule = \case
-    (m : forms) -> do
-      m' <- baseEval m >>= meta
-      -- TODO: The @transact@ in the following line is a bit of a wart, but
-      -- modules are thought of as a sequence of "top-level" s-expressions.
-      e <- withEnv identity identity $ traverse_ transact forms *> gets bindingsEnv
-      let exportsSet = Set.fromList (exports m')
-      let undefinedExports = Set.difference exportsSet (Map.keysSet (fromEnv e))
-      env <- if null undefinedExports
-               then pure . VEnv . Env $ Map.restrictKeys (fromEnv e) exportsSet
-               else throwErrorHere (ModuleError (UndefinedExports (name m') (Set.toList undefinedExports)))
-      let modu = Dict $ Map.fromList
-                  [ (Keyword (Ident "module"), Atom (name m'))
-                  , (Keyword (Ident "env"), env)
-                  , (Keyword (Ident "exports"), Vec (Seq.fromList (Atom <$> exports m')))
-                  ]
-      defineAtom (name m') (Just (doc m')) modu
-      pure modu
-    _ ->  throwErrorHere (ModuleError MissingDeclaration)
-  where
-    meta v@(Dict d) = do
-      name <- modLookup v "module" d "missing `:module` key"
-      doc  <- modLookup v "doc" d "missing `:doc` key"
-      exports <- modLookup v "exports" d "Missing `:exports` key"
-      case (name, doc, exports) of
-        (Atom n, String ds, Vec es) -> do
-          is <- traverse isAtom es ?? toLangError (ModuleError (InvalidDeclaration "`:exports` must be a vector of atoms" v))
-          pure $ ModuleMeta n (toList is) ds
-        _ -> throwErrorHere (ModuleError (InvalidDeclaration "`:module` must be an atom, `:doc` must be a string and `:exports` must be a vector" v))
-    meta v = throwErrorHere (ModuleError (InvalidDeclaration "must be dict" v))
-    modLookup v k d e = kwLookup k d ?? toLangError (ModuleError (InvalidDeclaration e v))
-
 
 -- | Call a lambda or primitive function @f@ with @arguments@. @f@ and
 -- @argumenst@ are not evaluated.
@@ -248,10 +179,6 @@ callFn f arguments = case f of
     Lambda argNames body closure ns -> do
         args <- argumentBindings argNames
         evalManyWithEnv ns (args <> closure) body
-    LambdaRec self argNames body closure ns -> do
-        args <- argumentBindings argNames
-        let selfBinding = GhcExts.fromList (Doc.noDocs [(self, f)])
-        evalManyWithEnv ns (args <> selfBinding <> closure) body
     PrimFn i -> do
         fn <- lookupPrimop i
         fn arguments

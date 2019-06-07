@@ -1,15 +1,14 @@
-{:module 'prelude/auth
- :doc "Functions for easily handling authorization on machines."
- :exports
- '[make-simple-auth add-admin]}
+(ns prelude/auth
+  "Functions for easily handling authorization on machines.")
 
-(import prelude/basic :unqualified)
-(import prelude/validation :as 'validation)
-(import prelude/set :as 'set)
-(import prelude/dict '[dict-from-seq keys] :unqualified)
-(import prelude/patterns :unqualified)
-(import prelude/ref '[modify-ref] :unqualified)
-(import prelude/lens '[over-ref @] :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/basic [])
+(require prelude/validation [] validation)
+(require prelude/set [] set)
+(require prelude/dict '[dict-from-seq keys])
+(require prelude/patterns [])
+(require prelude/ref '[modify-ref])
+(require prelude/lens '[over-ref @])
 
 (def make-simple-auth
   "Creates an authorization scheme with any number of groups of users.

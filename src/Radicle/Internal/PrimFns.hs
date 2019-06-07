@@ -641,12 +641,12 @@ purePrimFns = fromList $ allDocs $
                          fromMaybe (missingDocMsg i) d
           _ -> throwErrorHere $ OtherError "doc: expects an atom"
       )
-    , ( "match-pat"
-      , "The most basic built-in pattern-matching dispatch function."
-      , twoArg "match-pat" $ \case
-          (x@(Atom _), v) -> pure $ toRad (Just (Dict (Map.singleton x v)))
-          (pat, v) -> callFn pat [v]
-      )
+    -- , ( "match-pat"
+    --   , "The most basic built-in pattern-matching dispatch function."
+    --   , twoArg "match-pat" $ \case
+    --       (x@(Atom _), v) -> pure $ toRad (Just (Dict (Map.singleton x v)))
+    --       (pat, v) -> callFn pat [v]
+    --   )
     , ( "import"
       , "Import a module, making all the definitions of that module available\
         \ in the current scope. The first argument must be a module to import.\

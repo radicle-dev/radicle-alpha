@@ -1,16 +1,15 @@
-{:module 'prelude/cmd-parsing
- :doc "Functions for parsing commands."
- :exports
- '[parse-failure /cmd-0 /cmd-1 /cmd-2 /cmd-opts /cmd-help whole-num]}
+(ns prelude/cmd-parsing
+  "Functions for parsing commands.")
 
-(import prelude/basic :unqualified)
-(import prelude/dict :unqualified)
-(import prelude/validation :as 'validation)
-(import prelude/patterns :unqualified)
-(import prelude/lens :unqualified)
-(import prelude/seq :unqualified)
-(import prelude/strings :unqualified)
-(import prelude/error-messages :as 'error)
+(require prelude/test-macro ['test])
+(require prelude/basic [])
+(require prelude/dict [])
+(require prelude/validation [] validation)
+(require prelude/patterns [])
+(require prelude/lens [])
+(require prelude/seq [])
+(require prelude/strings [])
+(require prelude/error-messages [] error)
 
 (def parse-failure-mode (ref {:stub #f}))
 

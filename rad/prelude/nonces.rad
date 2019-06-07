@@ -1,13 +1,13 @@
-{:module 'prelude/nonces
- :doc "Functions for using nonces."
- :exports '[make-noncer]}
+(ns prelude/nonces
+  "Functions for using nonces.")
 
-(import prelude/basic :unqualified)
-(import prelude/bool :unqualified)
-(import prelude/patterns :unqualified)
-(import prelude/ref :unqualified)
-(import prelude/validation :as 'validator)
-(import prelude/set :as 'set)
+(require prelude/test-macro '[test])
+(require prelude/basic [])
+(require prelude/bool [])
+(require prelude/patterns [])
+(require prelude/ref [])
+(require prelude/validation [] validator)
+(require prelude/set [] set)
 
 (def make-noncer
   "Create a new noncer, which stores used nonces and allows validating that

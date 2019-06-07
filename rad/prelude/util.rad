@@ -1,8 +1,8 @@
-{:module 'prelude/util
- :doc "Utility functions. For the moment just a counter."
- :exports ['make-counter]}
+(ns prelude/util
+  "Utility functions. For the moment just a counter.")
 
-(import prelude/ref :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/ref [])
 
 (def make-counter
   "Creates a stateful counter. Returns a dict with two keys: the function at `:next-will-be`

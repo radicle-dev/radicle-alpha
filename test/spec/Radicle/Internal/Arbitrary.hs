@@ -15,7 +15,7 @@ import           Test.QuickCheck.Instances ()
 import           Radicle
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
-                 (isValidIdentFirst, isValidIdentRest, Ident(..))
+                 (Ident(..), isValidIdentFirst, isValidIdentRest)
 import           Radicle.Internal.PrimFns (purePrimFns)
 
 instance Arbitrary r => Arbitrary (Env r) where
@@ -73,7 +73,7 @@ valueGenerator textGen n | n == 0 = frequency $ first pred <$> freqs
                          <*> scale (`div` 4) arbitrary
                          <*> scale (`div` 4) arbitrary
                          <*> scale (`div` 4) arbitrary)
-                         
+
             ]
 
     sizedList :: Arbitrary a => Gen [a]

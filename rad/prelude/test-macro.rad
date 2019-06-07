@@ -1,9 +1,7 @@
-{:module 'prelude/test-macro
- :doc
- "Provides eval that adds a `test` macro. If an the eval encounters an
+(ns prelude/test-macro
+  "Provides eval that adds a `test` macro. If an the eval encounters an
    expression of the form `(test \"desc\" tests...)` we add it to the vector
-   stored in the `tests` ref. The tests are then run by `rad/prelude/test.rad`."
- :exports '[test tests]}
+   stored in the `tests` ref. The tests are then run by `rad/prelude/test.rad`.")
 
 (def tests
   "Reference that collects tests defined with the `test` macro, defined below."

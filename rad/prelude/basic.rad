@@ -1,7 +1,7 @@
-{:module  'prelude/basic
- :doc     "Basic function used for checking equality, determining the type of a value, etc."
- :exports '[if or some empty-seq? length maybe->>= maybe-foldlM elem? head tail
-            read read-many <= gensym]}
+(ns prelude/basic
+  "Basic function used for checking equality, determining the type of a value, etc.")
+
+(require prelude/test-macro '[test])
 
 (def if
   "Macro which is called as `(if c a b)`. If the expression `c` evaluates to true,
@@ -29,26 +29,26 @@
     (if x x y)))
 
 (test "or"
-       [ (or #t #t) ==> #t ]
-       [ (or #t #f) ==> #t ]
-       [ (or #f #t) ==> #t ]
-       [ (or #f #f) ==> #f ]
-       )
+      [ (or #t #t) ==> #t ]
+      [ (or #t #f) ==> #t ]
+      [ (or #f #t) ==> #t ]
+      [ (or #f #f) ==> #f ]
+      )
 
 ;; some
 
 (def some
-  "Checks that there is a least one truthy value in a list."
-  (fn [xs] (foldr or #f xs)))
+"Checks that there is a least one truthy value in a list."
+(fn [xs] (foldr or #f xs)))
 
 (test "some"
-       [ (some '())            ==> #f ]
-       [ (some '(#t))          ==> #t ]
-       [ (some '(#f))          ==> #f ]
-       [ (some '(#f #f #f))    ==> #f ]
-       [ (some '(#t #t #t #t)) ==> #t ]
-       [ (some '(#t #t #f #t)) ==> #t ]
-       )
+      [ (some '())            ==> #f ]
+      [ (some '(#t))          ==> #t ]
+      [ (some '(#f))          ==> #f ]
+      [ (some '(#f #f #f))    ==> #f ]
+      [ (some '(#t #t #t #t)) ==> #t ]
+      [ (some '(#t #t #f #t)) ==> #t ]
+      )
 
 (def empty-seq?
   "Returns true if `xs` is an empty sequence (either list or vector)."
@@ -58,13 +58,13 @@
 
 ;; TODO move to file for primitive tests
 (test "length"
-  [ (length (list)) ==> 0]
-  [ (length (list 2)) ==> 1]
-  [ (length []) ==> 0]
-  [ (length [1 2]) ==> 2]
-  [ (length "") ==> 0]
-  [ (length "abc") ==> 3]
-  )
+      [ (length (list)) ==> 0]
+      [ (length (list 2)) ==> 1]
+      [ (length []) ==> 0]
+      [ (length [1 2]) ==> 2]
+      [ (length "") ==> 0]
+      [ (length "abc") ==> 3]
+      )
 
 (def maybe->>=
   "Monadic bind for the maybe monad."
@@ -77,7 +77,7 @@
         :nothing)
       :nothing)))
 
-(def-rec maybe-foldlM
+(def maybe-foldlM
   "Monadic fold over the elements of a sequence `xs`, associating to the left (i.e. from
   left to right) in the maybe monad."
   (fn [f i xs]
@@ -89,33 +89,33 @@
 ;; elem?
 
 (def elem?
- "Returns true if `x` is an element of the sequence `xs`"
- (fn [x xs]
-   (some (map (fn [c] (eq? c x)) xs))))
+"Returns true if `x` is an element of the sequence `xs`"
+(fn [x xs]
+  (some (map (fn [c] (eq? c x)) xs))))
 
 (test "elem?"
- [ (elem? "f" (list "f" "g" "h")) ==> #t]
- [ (elem? "h" ["f" "g" "h"]) ==> #t]
- [ (elem? "a" (list "f" "g" "h")) ==> #f])
+[ (elem? "f" (list "f" "g" "h")) ==> #t]
+[ (elem? "h" ["f" "g" "h"]) ==> #t]
+[ (elem? "a" (list "f" "g" "h")) ==> #f])
 
 (def read
-  "Reads a radicle value from a string."
-  (fn [s]
-    (read-annotated "[read]" s)))
+"Reads a radicle value from a string."
+(fn [s]
+  (read-annotated "[read]" s)))
 
 (test "read"
-  [ (read "[:a 42 \"foo\" {:key (1 2 3)}]") ==> [:a 42 "foo" {:key (1 2 3)}] ])
+[ (read "[:a 42 \"foo\" {:key (1 2 3)}]") ==> [:a 42 "foo" {:key (1 2 3)}] ])
 
 (def read-many
-  "Reads many radicle values from a string."
-  (fn [s]
-    (read-many-annotated "[read-many]" s)))
+"Reads many radicle values from a string."
+(fn [s]
+  (read-many-annotated "[read-many]" s)))
 
 (test "read-many"
-  [ (read-many "([:one] {:two 3}) (four \"five\" 6)") ==> [([:one] {:two 3}) (four "five" 6)]])
+[ (read-many "([:one] {:two 3}) (four \"five\" 6)") ==> [([:one] {:two 3}) (four "five" 6)]])
 
 (def <=
-  "Test if `x` is less than or equal to `y`."
+"Test if `x` is less than or equal to `y`."
   (fn [x y] (or (eq? x y) (< x y))))
 
 (def gensym

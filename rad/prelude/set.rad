@@ -1,10 +1,8 @@
+(ns prelude/set "Sets, built using dicts.")
 
-{:module 'prelude/set
- :doc "Sets, built using dicts."
- :exports '[empty insert delete member? to-vec from-seq key-set subset?]}
-
-(import prelude/bool :unqualified)
-(import prelude/dict :as 'dict)
+(require prelude/test-macro ['test])
+(require prelude/bool [])
+(require prelude/dict [] dict)
 
 (def empty
   "An empty set."

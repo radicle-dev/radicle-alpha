@@ -1,6 +1,7 @@
-{:module 'prelude/machine-remote-test
- :doc "Tests for machine-remote."
- :exports []}
+(ns prelude/machine-remote-test
+  "Tests for machine-remote.")
+
+(require prelude/test-macro ['test])
 
 (test
  "lock-machine"

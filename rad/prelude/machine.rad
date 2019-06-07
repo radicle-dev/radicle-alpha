@@ -1,22 +1,17 @@
-{:module 'prelude/machine
- :doc "Functions for simulating remote machines."
- :exports '[send-prelude! new-machine!
-            send-code! send! query!
-            install-remote-machine-fake
-            send-signed-command!
-            catch-daemon!]}
+(ns prelude/machine "Functions for simulating remote machines.")
 
-(import prelude/basic :unqualified)
-(import prelude/io '[read-file-value! read-file-values!] :as 'io)
-(import prelude/ref '[modify-ref] :unqualified)
-(import prelude/lens '[make-lens .. ... view set over @ @def] :unqualified)
-(import prelude/basic :unqualified)
-(import prelude/dict :unqualified)
-(import prelude/io :unqualified)
-(import prelude/patterns :unqualified)
-(import prelude/strings :unqualified)
-(import prelude/seq :unqualified)
-(import prelude/key-management '[get-keys!] :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/basic [])
+(require prelude/io '[read-file-value! read-file-values!] io)
+(require prelude/ref '[modify-ref])
+(require prelude/lens '[make-lens .. ... view set over @ @def])
+(require prelude/basic [])
+(require prelude/dict [])
+(require prelude/io [])
+(require prelude/patterns [])
+(require prelude/strings [])
+(require prelude/seq [])
+(require prelude/key-management '[get-keys!])
 
 (def primitive-stub-ref/send! (ref daemon/send!))
 (def send!
@@ -54,7 +49,7 @@
   "An empty fake machine, which does not use the daemon"
   (pure-state))
 
-(def-rec tx-in-fake-machine
+(def tx-in-fake-machine
   "Transacts `exprs` in the `machine` and returns a dict with the `:result` and
   the resulting `:machine`."
   (fn [machine exprs]

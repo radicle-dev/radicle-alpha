@@ -1,9 +1,8 @@
-{:module  'prelude/macros
- :doc     "Basic macros."
- :exports '[defn let]}
+(ns prelude/macros "Basic macros.")
 
-(import prelude/basic :unqualified)
-(import prelude/patterns :unqualified)
+(require prelude/test-macro '[test])
+(require prelude/basic '[])
+(require prelude/patterns '[match-pat /cons /as /?])
 
 (def lamb
   (fn [args body]
@@ -41,7 +40,7 @@
       [ (foo 1) ==> 2 ]
       [ (bar 1) ==> 3 ])
 
-(def-rec expand-let
+(def expand-let
   (fn [bindings body]
     (match bindings
            (/cons (/as 'x (/? atom?)) (/cons 'y 'rest-bindings))

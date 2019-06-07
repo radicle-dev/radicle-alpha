@@ -1,8 +1,8 @@
-(import prelude/lens :unqualified)
-(import prelude/machine '[send-code!] :unqualified)
-(import prelude/time '[install-fake-clock] :unqualified)
-(import prelude/io :as 'io)
-(import prelude/key-management '[set-fake-keys! use-fake-keys! get-keys!] :unqualified)
+(require prelude/lens [])
+(require prelude/machine '[send-code!])
+(require prelude/time '[install-fake-clock])
+(require prelude/io [] io)
+(require prelude/key-management '[set-fake-keys! use-fake-keys! get-keys!])
 
 (def radicle-patch-machine-id
   "The name of this machine."

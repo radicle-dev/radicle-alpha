@@ -1,20 +1,17 @@
-{:module 'prelude/list
- :doc "Functions for creating lists. See also `prelude/seq`."
- :exports '[nil range]}
+(ns prelude/list "Functions for creating lists. See also `prelude/seq`.")
 
-
-(import prelude/basic :unqualified)
-(import prelude/bool :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/basic [])
+(require prelude/bool [])
 
 (def nil "The empty list." (list))
 
-
-(def-rec range
+(def range
   "Returns a list with all integers from `from` to `to`, inclusive."
   (fn [from to]
     (if (eq? from to)
-        (list to)
-        (cons from (range (+ 1 from) to)))))
+      (list to)
+      (cons from (range (+ 1 from) to)))))
 
 (test "range"
   [ (range 1 5) ==> (1 2 3 4 5) ]

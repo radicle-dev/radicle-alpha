@@ -1,13 +1,12 @@
-{:module 'prelude/track-newness
- :doc "Provides functions for marking items as `seen` or `read`. Per default,
- this is stored in a file in `$HOME/.config/radicle/item-newness.rad` this can
- be adjusted by setting `$XDG_CONFIG_HOME`."
- :exports '[init-newness-file! mark-read! mark-unread! get-item-newness! read-since-modified!? mark-all-read!]}
+(ns prelude/track-newness
+  "Provides functions for marking items as `seen` or `read`. Per default,
+  this is stored in a file in `$HOME/.config/radicle/item-newness.rad` this can
+  be adjusted by setting `$XDG_CONFIG_HOME`.")
 
-(import prelude/basic :unqualified)
-(import prelude/io :as 'io)
-(import prelude/io-utils :as 'io)
-(import prelude/patterns :unqualified)
+(require prelude/basic [])
+(require prelude/io [] io)
+(require prelude/io-utils [] io)
+(require prelude/patterns [])
 
 (def path!
   (fn [id]

@@ -1,24 +1,21 @@
-;; Helpers for setting up and interacting with project RSMs
-{:module  'monadic/project
- :doc     "Interact with projects and project machines"
- :exports '[get-project-url! get-meta! create-project! add-rsm!
-            first-rsm-of-type!
-           ]}
+(ns monadic/project
+  "Interact with projects and project machines")
 
-(import prelude/lens :unqualified)
-(import prelude/machine '[send-code! send-signed-command! new-machine!] :unqualified)
-(import prelude/time '[install-fake-clock] :unqualified)
-(import prelude/io :as 'io)
-(import prelude/key-management '[use-fake-keys! get-keys!] :unqualified)
+(require prelude/test-macro ['test])
+(require prelude/lens [])
+(require prelude/machine '[send-code! send-signed-command! new-machine!])
+(require prelude/time '[install-fake-clock])
+(require prelude/io [] io)
+(require prelude/key-management '[use-fake-keys! get-keys!])
 
 (def get-project-url!
   (fn []
     (def proj (get-git-config! "radicle.project-id"))
     (if (eq? proj "")
-        (do
-          (put-str! "Not in a radicle project")
-          (exit! 1))
-        proj)))
+      (do
+        (put-str! "Not in a radicle project")
+        (exit! 1))
+      proj)))
 
 (def rsm-id
   "The name of this RSM."

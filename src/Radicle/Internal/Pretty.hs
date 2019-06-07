@@ -69,7 +69,6 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
             sep [ prettyV k <+> prettyV val
                 | (k, val) <- Map.toAscList mp ]
         Lambda ids vals _ _ -> prettyLambda ids vals
-        LambdaRec _ ids vals _ _ -> prettyLambda ids vals
         VEnv _ -> angles "env"
         VState _ -> angles "state"
       where
@@ -97,7 +96,7 @@ instance PrettyV r => PrettyV (LangError r) where
 
 instance PrettyV r => PrettyV (LangErrorData r) where
     prettyV v = case v of
-        UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
+        UnknownIdentifier ns i -> "Unknown identifier:" <+> pretty i <+> "in" <+> pretty ns
         Impossible t -> "This cannot be!" <+> pretty t
         TypeError fname i t val -> vsep
           [ "Type error:" <+> pretty fname <+> "expects a value of type"
@@ -111,16 +110,6 @@ instance PrettyV r => PrettyV (LangErrorData r) where
                                  <+> "Expected:" <+> pretty x
                                  <+> "Got:" <+> pretty y
         NonHashableKey k -> "Non-hashable key in dict:" <+> prettyV k
-        ModuleError me -> case me of
-          MissingDeclaration -> "Modules must start with a metadata declaration"
-          InvalidDeclaration t decl -> vsep
-            [ "Invalid module declaration:" <+> pretty t <> ":"
-            , indent 2 $ prettyV decl
-            ]
-          UndefinedExports n is ->
-            "Module" <+> prettyV (asValue (Atom n))
-            <+> "has exports which are not defined:"
-            <+> sep (prettyV . asValue . Atom <$> is)
         OtherError t -> "Error:" <+> pretty t
         DaemonError t -> "Daemon error:" <+> pretty t
         SpecialForm f t -> "Error using special form" <+> pretty f <> ":" <+> pretty t <> "."

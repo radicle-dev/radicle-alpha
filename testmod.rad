@@ -1,10 +1,20 @@
-(load! "rad/prelude.rad")
+(load-ns! "prelude/test-macro.rad")
+(load-ns! "prelude/basic.rad")
+(load-ns! "prelude/patterns.rad")
+(load-ns! "prelude/macros.rad")
 
-(put-str! (show match-pat))
+(ns foo)
 
-(put-str!
- (show
-   (match [23 24]
-       [25 'x] :hm
-       [23 'x] x
-       _       :bad)))
+(require prelude/patterns '[match-pat])
+(require prelude/macros '[defn])
+
+(defn foo [x]
+  (match x
+         {:hello 'y} y
+         [:no 'n] n))
+
+(ns bar)
+
+(require foo '[foo] blob)
+
+(put-str! (show (blob/foo {:hello 42})))

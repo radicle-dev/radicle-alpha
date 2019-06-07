@@ -1,10 +1,8 @@
-{:module 'prelude/machine-remote
- :doc "Functions for writing remote RSMs"
- :exports '[lock-machine lock-machine-commands]}
+(ns prelude/machine-remote "Functions for writing remote RSMs")
 
-(import prelude/test-macro '[test tests] :unqualified)
-(import prelude/ref '[modify-ref] :unqualified)
-(import prelude/patterns :unqualified)
+(require prelude/test-macro '[test tests])
+(require prelude/ref '[modify-ref])
+(require prelude/patterns '[match-pat])
 
 (def lock-machine
   "Lock the arbitrary transactions of a machine using a validator."
