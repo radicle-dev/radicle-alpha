@@ -472,7 +472,10 @@ data Bindings prims = Bindings
     } deriving (Functor, Generic)
 
 emptyBindings :: Env Value -> Bindings (PrimFns m)
-emptyBindings e = Bindings e mempty (Ident "toplevel") mempty mempty 0 mempty 0 mempty 0
+emptyBindings e = Bindings e (Map.singleton top topNs) top mempty mempty 0 mempty 0 mempty 0
+  where
+    top = Ident "toplevel"
+    topNs = Doc.Docd (Just "The toplevel namespace.") mempty
 
 -- | Extract an environment and references from a Radicle value and put
 -- them as the current bindings. Primitive functions are not changed.
