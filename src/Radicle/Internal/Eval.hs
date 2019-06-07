@@ -79,6 +79,20 @@ specialForms = Map.fromList $ first Ident <$>
           pure a
         _ -> throwErrorHere $ SpecialForm "ns" "The `ns` form expects a symbol."
     )
+  , ( "require"
+    , \case
+        [Atom i, e] -> do
+          syms__ <- baseEval e
+          case syms__ of
+            Vec syms_ -> case traverse isAtom syms_ of
+              Just syms -> do
+                let binds = Map.fromList [(s, There i s) | s <- toList syms ]
+                _ <- modifyCurrentNamespace (binds <>)
+                pure (Keyword (Ident "ok"))
+              Nothing -> throwErrorHere $ OtherError "One of the items in the vector was not a symbol."
+            _ -> throwErrorHere $ OtherError "require needs a vector of symbols to import."
+        _ -> throwErrorHere $ OtherError "require needs a namespace identifier and a vector of symbols to import."
+    )
   , ("quote", \case
           [v] -> pure v
           xs  -> throwErrorHere $ WrongNumberOfArgs "quote" 1 (length xs))
@@ -150,7 +164,7 @@ specialForms = Map.fromList $ first Ident <$>
 
     bindsToEnv pat m = do
         is <- traverse isBind (Map.toList m)
-        pure $ Env (Map.fromList (second LocalBind <$> is))
+        pure $ Env (Map.fromList is)
       where
         isBind (Atom x, v) = pure (x, Doc.Docd Nothing v)
         isBind _ = throwErrorHere $ PatternMatchError (BadBindings pat)
@@ -171,7 +185,6 @@ specialForms = Map.fromList $ first Ident <$>
     --     LambdaRec{} -> throwErrorHere $
     --         OtherError "'def-rec' cannot be used to alias functions. Use 'def' instead"
     --     _ -> throwErrorHere $ OtherError "'def-rec' can only be used to define functions"
-
 data ModuleMeta = ModuleMeta
   { name    :: Ident
   , exports :: [Ident]
@@ -242,7 +255,7 @@ callFn f arguments = case f of
         else toArgs $ zip names arguments
       VarArgs name ->
         toArgs [(name, Vec $ Seq.fromList arguments)]
-      where toArgs bs = pure $ GhcExts.fromList $ [ (i, LocalBind (Doc.Docd Nothing x)) | (i, x) <- bs ]
+      where toArgs = pure . GhcExts.fromList . Doc.noDocs
 
 -- | Process special forms or call function. If @f@ is an atom that
 -- indicates a special form that special form is processed. Otherwise

@@ -33,9 +33,13 @@ pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
 pureEnv =
     addPrimFns purePrimFns $ emptyBindings e
   where
-    e = fromList [(Ident "tx", LocalBind (Doc.Docd (Just txDoc) (PrimFn $ unsafeToIdent "initial-tx")))]
-    txDoc = "The transactor function used for the machine inputs. Intially\
-            \this is set to `initial-tx`."
+    e = fromList . allDocs $
+          [ ( "tx"
+            , "The transactor function used for the machine inputs. Intially\
+                \this is set to `initial-tx`."
+            , PrimFn $ unsafeToIdent "initial-tx"
+            )
+          ]
 
 -- | The added primitives override previously defined primitives and
 -- variables with the same name.
@@ -46,9 +50,9 @@ addPrimFns primFns bindings =
              }
 
   where
-    primFnsEnv = Env $ Map.fromList $
-      [ (pfn, LocalBind (Doc.Docd d (PrimFn pfn))) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)]
-
+    primFnsEnv = Env $ Map.fromList
+      $
+      [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)]
 
 addPrimFn  :: Ident -> Text -> ([Value] -> Lang m Value) -> PrimFns m -> PrimFns m
 addPrimFn name doc run (PrimFns primFns) = PrimFns primFns'
@@ -95,15 +99,15 @@ purePrimFns = fromList $ allDocs $
     , ( "set-binding"
       , "Add a binding to a radicle env."
       , threeArg "set-binding" $ \case
-          (Atom i, v, VEnv (Env m)) -> pure $ VEnv (Env (Map.insert i (LocalBind (Doc.Docd Nothing v)) m))
+          (Atom i, v, VEnv (Env m)) -> pure $ VEnv (Env (Map.insert i (Doc.Docd Nothing v) m))
           (Atom _, _, e) -> throwErrorHere $ TypeError "set-binding" 2 TEnv e
           (a, _, _) -> throwErrorHere $ TypeError "set-binding" 0 TAtom a
       )
-    , ( "get-local-binding"
-      , "Lookup a local binding in a radicle env."
+    , ( "get-binding"
+      , "Lookup a binding in a radicle env."
       , twoArg "get-binding" $ \case
           (Atom i@(Ident t), VEnv (Env m)) -> case Map.lookup i m of
-            Just (LocalBind v) -> pure (copoint v)
+            Just v -> pure (copoint v)
             _ -> throwErrorHere $ OtherError $ "get-binding: " <> t <> " was not in the input env."
           (Atom _, v) -> throwErrorHere $ TypeError "get-binding" 1 TEnv v
           (v, _) -> throwErrorHere $ TypeError "get-binding" 0 TAtom v
