@@ -1,17 +1,51 @@
 (load! "rad/prelude.rad")
+(load! "prompts.rad")
 
-(def* msgs (ref []))
+(def* questions (ref {}))
+(def* question (ref :nothing))
+(def* voting (ref []))
 
-(defn say [u s]
-  (add-right-ref msgs [u s])
+(defn ask-question [q]
+  (write-ref question q)
+  (write-ref voting [])
   :ok)
+
+(defn vote [u v]
+  (add-right-ref voting [u v])
+  :ok)
+
+(defn get-result [vs]
+  (sum (map (fn [v] (match v ['u 'v] (if v 1 -1)))
+            vs)))
+
+(defn close-voting []
+  (let [r (get-result (read-ref voting))
+        q (read-ref question)]
+    (cond
+      (eq? r 0) "Stalemate!"
+      (> r 0) (insert-ref questions q #t)
+      (< r 0) (insert-ref questions q #f))))
 
 (def tx
   (fn [e]
     (match e
-           [:say 'u 's] (say u s)
-           [:code 'c] c
-           :default-query (read-ref msgs))))
+           :query {:questions (read-ref questions)
+                   :current (read-ref question)}
+           [:ask 'q] (ask-question q)
+           [:vote 'u 's] (vote u s)
+           :close (close-voting))))
+
+
+
+
+
+
+
+
+
+
+
+
 
 (def* questions (ref {}))
 

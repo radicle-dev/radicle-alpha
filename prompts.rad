@@ -1,0 +1,120 @@
+(import prelude/strings :unqualified)
+(import prelude/list :unqualified)
+(import prelude/machine :unqualified)
+
+(def repeat
+  "A list with `item` repeated `n` times."
+  (fn [n item]
+    (map (fn [_] item) (range 0 n))))
+
+(def slide
+  (fn [t body]
+    (def n (string-length t))
+    (def tit (string-append t "\n" (intercalate "" (repeat (- n 1) "-"))))
+    (string-append tit "\n\n" body)))
+
+(def i (ref 0))
+
+(def intro [])
+
+(def rad-lang-props
+  [(slide
+    "Deterministic"
+    "The feed is not only read it is _evaluated_.
+
+Result is the _meaning_.
+
+Everyone should get the same result.
+
+=> DETERMINISTIC")
+
+   (slide
+    "Morphable"
+    "Requirements always change
+
+The (state) machine can only responds to
+inputs.
+
+The semantics is determined by code.
+
+=> Need code in the inputs.")
+   
+   (slide
+    "code is data"
+    "Lisp is ideal here because code is
+easily manipulated just like any
+other sort of data.")
+   
+   "Not only can the semantics change,
+the semantics can specify the rules
+of how the semantics change:
+
+(def tx
+  ...
+  (if enough-votes?
+      (new-semantics!)
+      :nope))"])
+
+(def structure-on-ipld
+  [])
+
+(def transparent-machines
+  [(slide
+    "Forking"
+    "Is the big problem with feeds.
+
+Simple concensus: signed by one key.
+
+But: this means the owner can change semantics..")
+
+   (slide
+    "Monitors"
+    "P2P network of monitor nodes
+
+These are nodes which check the machine doesn't fork.
+
+If it does they distribute a fork-proof.")]
+  )
+
+(def conclusion [])
+
+(def parts
+  [["r a d i c l e
+-------------
+
+A P2P programming language
+
+  James Haydon
+  Julian Arni
+
+  www.radicle.xyz"
+    ]
+   intro
+   rad-lang-props
+   structure-on-ipld
+   transparent-machines
+   conclusion
+   ])
+
+(def prompts
+  (foldr <> [] parts))
+
+(def height 10)
+(def clear (fn [] (put-str! (unlines (repeat 50 " ")))))
+
+(def next
+  (fn []
+    (clear)
+    (def it (nth (read-ref i) prompts))
+    (def fill (unlines (repeat (- height (length (lines it))) " ")))
+    (put-str! it)
+    (put-str! "\n------\n")
+    (put-str! fill)
+    (modify-ref i \(+ 1 ?))))
+
+(def thanks!
+(fn []
+  (put-str! "Thanks!")))
+
+
+(clear)
