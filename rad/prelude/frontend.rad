@@ -1,0 +1,9 @@
+{:module 'prelude/frontend
+ :doc "Frontend"
+ :exports '[set-html get-html]}
+
+(import prelude/ref :unqualified)
+
+(def html (ref "QmS9DyTFdro7YLvix1RKoFhDKCyuWuE4WP1B4snqoc6NbG"))
+(def set-html (fn [h] (write-ref html h)))
+(def get-html (fn [] (read-ref html)))

@@ -16,6 +16,7 @@
 (import prelude/patterns :unqualified)
 (import prelude/strings :unqualified)
 (import prelude/seq :unqualified)
+(import prelude/frontend :unqualified)
 (import prelude/key-management '[get-keys!] :unqualified)
 
 (def primitive-stub-ref/send! (ref daemon/send!))
@@ -131,6 +132,7 @@
      "prelude/nonces.rad"
      "prelude/auth.rad"
      "prelude/machine-remote.rad"
+     "prelude/frontend.rad"
      "prelude/util.rad"]))
 
 (def file-to-module
@@ -141,7 +143,9 @@
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new machine."
   (<> [(file-to-module (find-module-file! "prelude/test-macro.rad"))
-       '(import prelude/test-macro '[test tests] :unqualified)]
+       '(import prelude/test-macro '[test tests] :unqualified)
+       '(import prelude/frontend :unqualified)
+       ]
       (map file-to-module pure-prelude-files)))
 
 (def send-prelude!
