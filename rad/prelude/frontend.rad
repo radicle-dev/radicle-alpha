@@ -4,6 +4,6 @@
 
 (import prelude/ref :unqualified)
 
-(def html (ref "QmVAPmbGdwFyLmUreYnMr7RGwk4xGE8HZFtUdD8r6ea8ee"))
+(def html (ref "QmWa7eSia84unLafaxaMWEr1teZY1DB3HVUTDrHn2YKh8N"))
 (def set-html (fn [h] (write-ref html h)))
 (def get-html (fn [] (read-ref html)))

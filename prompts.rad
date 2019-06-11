@@ -36,7 +36,16 @@
    (slide
      "Counterefforts:"
      "- Blockchains
-P2P (Dat, SSB, IPFS)"
+- P2P (Dat, SSB, IPFS)"
+     )
+
+   (slide
+     "P2P:"
+     "So far, mostly dumb data"
+     )
+   (slide
+     "P2P:"
+     "Treat *data as code*"
      )
    ])
 
