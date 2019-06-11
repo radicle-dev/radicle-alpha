@@ -15,7 +15,31 @@
 
 (def i (ref 0))
 
-(def intro [])
+(def intro
+  [
+   (slide
+     "The promise of the web"
+     "Just computers, but connected")
+
+   (slide
+     "The reality of the web"
+     "Not all computers are equal")
+
+   (slide
+     "Consequently:"
+     "Everything tends to centralize")
+
+   (slide
+     "Counterefforts:"
+     "- Blockchains")
+
+   (slide
+     "Counterefforts:"
+     "- Blockchains
+P2P (Dat, SSB, IPFS)"
+     )
+   ])
+
 
 (def rad-lang-props
   [(slide
@@ -38,13 +62,13 @@ inputs.
 The semantics is determined by code.
 
 => Need code in the inputs.")
-   
+
    (slide
     "code is data"
     "Lisp is ideal here because code is
 easily manipulated just like any
 other sort of data.")
-   
+
    "Not only can the semantics change,
 the semantics can specify the rules
 of how the semantics change:
@@ -75,7 +99,7 @@ But: this means the owner can change semantics..")
 These are nodes which check
   - the machine doesn't fork
   - the machine respects radicle semantics")
-   
+
    (slide
     "Fork-proofs"
     "Two /= signed heads that lead to a common prefix.
