@@ -1,4 +1,4 @@
-(import "rad/prelude.rad")
+(load! "rad/prelude.rad")
 
 (import prelude/strings :unqualified)
 (import prelude/list :unqualified)
