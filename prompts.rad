@@ -56,8 +56,8 @@
   [(slide
     "State machine"
     "
-         f
-(I, S) -----> S
+           f
+  (I,S) ------> S
 
 Running the state machine over the feed
 of inputs gives us the semantics.")
@@ -65,9 +65,9 @@ of inputs gives us the semantics.")
    (slide
     "State machine"
     "
-feed  tx
-----  ----
- 1    +
+feed   tx
+-----  --------------
+ 1     (x,y) => x + y
  2
  1
  3
@@ -82,17 +82,18 @@ feed  tx
  - Feed is the only inputs
  - New semantics are defined by code
 
-=> inputs == data == code
+=> inputs == code
 => P2P Lisp REPL")
 
    (slide
     "P2P LISP REPL"
-    "(def state (ref 0))
-(def tx (fn [i] (modify-ref state (fn [s] (+ i s)))))
+    "(def tx (fn [x y] (+ x y)))
 1
 2
-3
-...")
+...
+
+(read-ref state)
+=> 7")
    
    "(def tx
   ...
@@ -102,19 +103,21 @@ feed  tx
 
    (slide
     "Deterministic"
-    "The feed is not only read it is _evaluated_.
+    "The evaluation of the feed is the meaning.
 
-Result is the _meaning_.")
+=> Evaluation should give the same result for everyone
+=> Deterministic programming language")
 
    (slide
     "Deterministic"
     "(def x 4)
 (def y 6)
-(+ x y)
+...
 
-Everyone should get same result!")
-   
-   ])
+(+ x y)
+  => 10
+
+Everyone should get same result!")])
 
 (def structure-on-ipld
   [
