@@ -61,9 +61,10 @@ of how the semantics change:
 (def transparent-machines
   [(slide
     "Forking"
-    "Is the big problem with feeds.
+    "The big problem with feeds.
 
-Simple concensus: signed by one key.
+Simple consensus:
+  All items signed by one key.
 
 But: this means the owner can change semantics..")
 
@@ -71,9 +72,29 @@ But: this means the owner can change semantics..")
     "Monitors"
     "P2P network of monitor nodes
 
-These are nodes which check the machine doesn't fork.
+These are nodes which check
+  - the machine doesn't fork
+  - the machine respects radicle semantics")
+   
+   (slide
+    "Fork-proofs"
+    "Two /= signed heads that lead to a common prefix.
 
-If it does they distribute a fork-proof.")]
+Once a fork is detected, a fork proof
+is broadcast to all followers
+
+=> The machine is considered dead.")
+
+   "Now machine owners are locked in:
+
+The most they can do is kill their machine."
+
+   (slide
+    "Hosting solves Availability"
+    "Hosting on laptop: no writes when owner is offline.
+
+But with monitoring there is no risk
+in using a highly available host.")]
   )
 
 (def conclusion [])
