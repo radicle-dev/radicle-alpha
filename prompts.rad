@@ -1,3 +1,5 @@
+(import "rad/prelude.rad")
+
 (import prelude/strings :unqualified)
 (import prelude/list :unqualified)
 (import prelude/machine :unqualified)
