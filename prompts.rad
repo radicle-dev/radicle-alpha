@@ -61,19 +61,45 @@ Running the state machine over the feed
 of inputs gives us the semantics.")
 
    (slide
-    "Morphable state-machine?"
-    "Machines are for ever, but requirements always change..
+    "State machine"
+    "
+feed  tx
+----  ----
+ 1    +
+ 2
+ 1
+ 3
+ ...
 
- - The machine is fully determined by its inputs.
- - Semantics are defined by code.
-=> inputs = data = code
-=> it's just a P2P Lisp REPL")
+=> 7")
 
-   "Not only can the semantics change,
-the semantics can specify the rules
-of how the semantics change:
+   (slide
+    "Examples"
+    "- Code collaboration projects
+- Structured discussions
+- Decision making (voting, etc.)
+- Package manager")
 
-(def tx
+   (slide
+    "Morphable?"
+    "How can we deal with changing requirements?
+
+ - Feed is the only inputs
+ - New semantics are defined by code
+
+=> inputs == data == code
+=> P2P Lisp REPL")
+
+   (slide
+    "P2P LISP REPL"
+    "(def state (ref 0))
+(def tx (fn [i] (modify-ref state (fn [s] (+ i s)))))
+1
+2
+3
+...")
+   
+   "(def tx
   ...
   (if enough-votes?
       (new-semantics!)
