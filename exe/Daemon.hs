@@ -37,6 +37,7 @@ import           Radicle.Daemon.Logging
 import           Radicle.Daemon.MachineConfig
 import           Radicle.Daemon.MachineStore
 import           Radicle.Daemon.Monad
+import qualified Radicle.Internal.Identifier as Ident
 
 import qualified Radicle.Ipfs as Ipfs
 
@@ -244,7 +245,7 @@ frontend :: MachineId -> [Text] -> Daemon Api.HtmlText
 frontend id path = do
     m <- ensureMachineLoaded id
     bumpPolling id
-    case runIdentity $ interpret "[frontend]" "(get-html)" (machineState m) of
+    case fst <$> runIdentity $ runLang (machineState m) $ Eval.baseEval (List [Atom (Ident.Ident "get-html")]) of
         Left err -> do
             logError "Frontend load failed" [("machine-id", getMachineId id)]
             throw $ MachineError id

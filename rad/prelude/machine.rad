@@ -116,24 +116,25 @@
 (def pure-prelude-files
   "List of files which together define the pure prelude."
   (map find-module-file!
-    ["prelude/basic.rad"
-     "prelude/patterns.rad"
-     "prelude/bool.rad"
-     "prelude/seq.rad"
-     "prelude/list.rad"
-     "prelude/strings.rad"
-     "prelude/dict.rad"
-     "prelude/maybe.rad"
-     "prelude/set.rad"
-     "prelude/ref.rad"
-     "prelude/lens.rad"
-     "prelude/state-machine.rad"
-     "prelude/validation.rad"
-     "prelude/nonces.rad"
-     "prelude/auth.rad"
-     "prelude/machine-remote.rad"
-     "prelude/frontend.rad"
-     "prelude/util.rad"]))
+       ["prelude/basic.rad"
+        "prelude/patterns.rad"
+        "prelude/macros.rad"        
+        "prelude/bool.rad"
+        "prelude/seq.rad"
+        "prelude/list.rad"
+        "prelude/strings.rad"
+        "prelude/dict.rad"
+        "prelude/maybe.rad"
+        "prelude/set.rad"
+        "prelude/ref.rad"
+        "prelude/lens.rad"
+        "prelude/state-machine.rad"
+        "prelude/validation.rad"
+        "prelude/nonces.rad"
+        "prelude/auth.rad"
+        "prelude/machine-remote.rad"
+        "prelude/frontend.rad"
+        "prelude/util.rad"]))
 
 (def file-to-module
   "Make the text of a file into code for a module."
@@ -142,26 +143,28 @@
 
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new machine."
-  (<> [(file-to-module (find-module-file! "prelude/test-macro.rad"))
-       '(import prelude/test-macro '[test tests] :unqualified)
-       '(import prelude/basic :unqualified)
-       '(import prelude/macros :unqualified)
-       '(import prelude/bool :unqualified)
-       '(import prelude/seq :unqualified)
-       '(import prelude/strings :as 'string)
-       '(import prelude/dict :unqualified)
-       '(import prelude/maybe :unqualified)
-       '(import prelude/list :unqualified)
-       '(import prelude/ref :unqualified)
-       '(import prelude/validation :as 'validator)
-       '(import prelude/nonces :unqualified)
-       '(import prelude/util :unqualified)
-       '(import prelude/auth :as 'auth)
-       '(import prelude/frontend :unqualified)
-       '(import prelude/machine-remote :unqualified)
-       '(import prelude/cmd-parsing :unqualified)
-       ]
-      (map file-to-module pure-prelude-files)))
+  (<>
+   (<> [(file-to-module (find-module-file! "prelude/test-macro.rad"))
+        '(import prelude/test-macro '[test tests] :unqualified)
+        ]
+       (map file-to-module pure-prelude-files))
+   ['(import prelude/patterns :unqualified)
+    '(import prelude/basic :unqualified)
+    '(import prelude/macros :unqualified)
+    '(import prelude/bool :unqualified)
+    '(import prelude/seq :unqualified)
+    '(import prelude/strings :as 'string)
+    '(import prelude/dict :unqualified)
+    '(import prelude/maybe :unqualified)
+    '(import prelude/list :unqualified)
+    '(import prelude/ref :unqualified)
+    '(import prelude/validation :as 'validator)
+    '(import prelude/nonces :unqualified)
+    '(import prelude/util :unqualified)
+    '(import prelude/auth :as 'auth)
+    '(import prelude/frontend :unqualified)
+    '(import prelude/machine-remote :unqualified)
+    ]))
 
 (def send-prelude!
   "Send the pure prelude to a machine."

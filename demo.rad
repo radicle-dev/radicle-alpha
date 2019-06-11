@@ -1,6 +1,109 @@
 (load! "rad/prelude.rad")
 (load! "prompts.rad")
 
+(def* mid "12D3KooWFfe9HGy1gDQ8iRcZ3N4nhBXQB9jcvJuVQe22Yns5RdPp")
+
+(def s!
+  (macro
+   (fn es
+     (list daemon/send! 'mid es))))
+
+(defn s! [xs]
+  (daemon/send! mid xs))
+
+(daemon/send! mid
+              '[(def* questions (ref {}))
+                (def* question (ref :nothing))
+                (def* voting (ref []))
+
+                (defn ask-question [q]
+                  (write-ref question q)
+                  :ok)
+
+                (defn vote [u v]
+                  (add-right-ref voting [u v])
+                  :ok)
+
+                (defn result [vs]
+                  (sum (map (fn [e] (match e ['u 'v] (if v 1 -1)))
+                            vs)))
+
+                (defn close-vote []
+                  (let [vs (read-ref voting)
+                        q (read-ref question)
+                        r (result vs)]
+                    (cond
+                      (eq? r 0) "Stalemate"
+                      (> r 0) (insert-ref questions q #t)
+                      :else   (insert-ref questions q #f))))
+                ])
+
+(s!
+ [:code (defn query []
+          {:questions (show (read-ref questions))
+           :current-q (show (read-ref question))})])
+
+(daemon/send! mid
+              '[(def tx
+                  (fn [e]
+                    (match e
+                           [:ask 'q] (ask-question q)
+                           :close (close-vote)
+                           [:code 'c] c
+                           [:vote 'u 'v] (vote u v)
+                           (/cons (/= 'get-html) _) (get-html))))])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(def mid "12D3KooWGiwK6heomk2mxfZMoYbj28QDYuzgZ1euQiN9bMftP3k2")
+
 (def* questions (ref {}))
 (def* question (ref :nothing))
 (def* voting (ref []))
@@ -34,7 +137,11 @@
            [:ask 'q] (ask-question q)
            [:vote 'u 's] (vote u s)
            :close (close-voting)
-           (/cons (/eq 'get-html) _) (get-html))))
+           (/cons (/= 'get-html) _) (get-html))))
+
+
+
+
 
 
 
