@@ -98,7 +98,22 @@ Result is the _meaning_.")
 => DETERMINISTIC")   ])
 
 (def structure-on-ipld
-  [])
+  [
+  (slide
+   "IPFS Blocks"
+   "
+[ data: (+ x y) ] ===>[ data: (def x 3) ] |====> [ data: (def y 2) ]
+[ prev: ========]=|   [ prev: ==========]=|      [ prev: null      ] ")
+
+  (slide
+   "IPFS Blocks"
+   "
+   IPNS pointer
+     |
+     V
+[ data: (+ x y) ] ===>[ data: (def x 3) ] |====> [ data: (def y 2) ]
+[ prev: ========]=|   [ prev: ==========]=|      [ prev: null      ] ")
+   ])
 
 (def transparent-machines
   [(slide
