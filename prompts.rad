@@ -74,13 +74,6 @@ feed  tx
 => 7")
 
    (slide
-    "Examples"
-    "- Code collaboration projects
-- Structured discussions
-- Decision making (voting, etc.)
-- Package manager")
-
-   (slide
     "Morphable?"
     "How can we deal with changing requirements?
 
@@ -115,7 +108,9 @@ Result is the _meaning_.")
     "Deterministic"
     "(def x 4)
 (def y 6)
-(+ x y)")
+(+ x y)
+
+Everyone should get same result!")
    
    ])
 
