@@ -65,10 +65,10 @@ of inputs gives us the semantics.")
     "Machines are for ever, but requirements always change..
 
  - The machine is fully determined by its inputs.
- - Semantics is defined by code.
+ - Semantics are defined by code.
 => inputs = data = code
 => it's just a P2P Lisp REPL")
-   
+
    "Not only can the semantics change,
 the semantics can specify the rules
 of how the semantics change:
@@ -78,7 +78,7 @@ of how the semantics change:
   (if enough-votes?
       (new-semantics!)
       :nope))"
-   
+
    (slide
     "Deterministic"
     "The feed is not only read it is _evaluated_.
@@ -90,7 +90,7 @@ Result is the _meaning_.")
     "(def x 4)
 (def y 6)
 (+ x y)")
-   
+
    (slide
     "Deterministic"
     "Everyone should get the same result.
