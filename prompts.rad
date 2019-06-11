@@ -18,66 +18,55 @@
 (def intro
   [
    (slide
-     "The promise of the web"
-     "Just computers, but connected")
+    "The promise of the web"
+    "Just computers, but connected")
 
    (slide
-     "The reality of the web"
-     "Not all computers are equal")
+    "The reality of the web"
+    "Not all computers are equal")
 
    (slide
-     "Consequently:"
-     "Everything tends to centralize")
+    "Consequently:"
+    "Everything tends to centralize")
 
    (slide
-     "Counterefforts:"
-     "- Blockchains")
+    "Counterefforts:"
+    "- (PoW) Blockchains")
 
    (slide
-     "Counterefforts:"
-     "- Blockchains
+    "Counterefforts:"
+    "- (PoW) Blockchains
 - P2P (Dat, SSB, IPFS)"
-     )
+    )
 
    (slide
-     "P2P:"
-     "So far, mostly dumb data"
-     )
+    "P2P:"
+    "So far, mostly dumb data"
+    )
    (slide
-     "P2P:"
-     "Treat *data as code*"
-     )
+    "P2P:"
+    "Treat *data as code*"
+    )
    ])
 
 
 (def rad-lang-props
   [(slide
-    "Deterministic"
-    "The feed is not only read it is _evaluated_.
+    "State machine"
+    "f :: (I, S) -> S
 
-Result is the _meaning_.
-
-Everyone should get the same result.
-
-=> DETERMINISTIC")
+Running the state machine over the feed
+of inputs gives us the semantics.")
 
    (slide
-    "Morphable"
-    "Requirements always change
+    "Morphable state-machine?"
+    "Machines are for ever, but requirements always change..
 
-The (state) machine can only responds to
-inputs.
-
-The semantics is determined by code.
-
-=> Need code in the inputs.")
-
-   (slide
-    "code is data"
-    "Lisp is ideal here because code is
-easily manipulated just like any
-other sort of data.")
-
+ - The machine is fully determined by its inputs.
+ - Semantics is defined by code.
+=> inputs = data = code
+=> it's just a P2P Lisp REPL")
+   
    "Not only can the semantics change,
 the semantics can specify the rules
 of how the semantics change:
@@ -86,7 +75,25 @@ of how the semantics change:
   ...
   (if enough-votes?
       (new-semantics!)
-      :nope))"])
+      :nope))"
+   
+   (slide
+    "Deterministic"
+    "The feed is not only read it is _evaluated_.
+
+Result is the _meaning_.")
+
+   (slide
+    "Deterministic"
+    "(def x 4)
+(def y 6)
+(+ x y)")
+   
+   (slide
+    "Deterministic"
+    "Everyone should get the same result.
+
+=> DETERMINISTIC")   ])
 
 (def structure-on-ipld
   [])
@@ -142,8 +149,16 @@ A P2P programming language
   Julian Arni
 
   www.radicle.xyz"
+
+    "1. Motivation and vision.
+2. Radicle-lang properties.
+3. Architecture on IPFS.
+4. Transparent machines."
+
+    "1. Motivation and vision."
     ]
    intro
+   ["2. Radicle-lang properties."]
    rad-lang-props
    structure-on-ipld
    transparent-machines
