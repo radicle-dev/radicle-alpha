@@ -154,7 +154,11 @@ But with monitoring there is no risk
 in using a highly available host.")]
   )
 
-(def conclusion [])
+(def conclusion [
+  (slide
+    "Conclusion"
+    "")
+                 ])
 
 (def parts
   [["r a d i c l e
