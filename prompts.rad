@@ -45,7 +45,7 @@
     )
    (slide
     "P2P:"
-    "Treat *data as code*"
+    "The feed items are inputs to a state machine"
     )
    ])
 
@@ -53,7 +53,9 @@
 (def rad-lang-props
   [(slide
     "State machine"
-    "f :: (I, S) -> S
+    "
+         f
+(I, S) -----> S
 
 Running the state machine over the feed
 of inputs gives us the semantics.")
