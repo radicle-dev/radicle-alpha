@@ -171,10 +171,17 @@ But with monitoring there is no risk
 in using a highly available host.")]
   )
 
-(def conclusion [
-  (slide
-    "Conclusion"
-    "")
+(def conclusion
+  [ (slide
+     "Conclusion"
+     "")
+   
+   (slide
+    "Examples"
+    "- Code collaboration projects
+- Structured discussions
+- Decision making (voting, etc.)
+- Package manager")
                  ])
 
 (def parts
