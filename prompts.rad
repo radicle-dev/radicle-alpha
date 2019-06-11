@@ -90,12 +90,8 @@ Result is the _meaning_.")
     "(def x 4)
 (def y 6)
 (+ x y)")
-
-   (slide
-    "Deterministic"
-    "Everyone should get the same result.
-
-=> DETERMINISTIC")   ])
+   
+   ])
 
 (def structure-on-ipld
   [
@@ -181,7 +177,9 @@ A P2P programming language
    intro
    ["2. Radicle-lang properties."]
    rad-lang-props
+   ["3. IPLD structure."]
    structure-on-ipld
+   ["4. Transparent machines."]
    transparent-machines
    conclusion
    ])
