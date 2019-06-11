@@ -1,7 +1,7 @@
 {:module  'prelude/basic
  :doc     "Basic function used for checking equality, determining the type of a value, etc."
  :exports '[if or some empty-seq? length maybe->>= maybe-foldlM elem? head tail
-            read read-many <= gensym]}
+            read read-many <= gensym sum]}
 
 (def if
   "Macro which is called as `(if c a b)`. If the expression `c` evaluates to true,
@@ -135,3 +135,7 @@
 (test "gensym"
       [ (gensym) ==> G__0 ]
       [ (eq? (gensym) (gensym)) ==> #f ])
+
+(def sum
+  (fn [xs]
+    (foldr + 0 xs)))

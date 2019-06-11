@@ -1,62 +1,66 @@
 (load! "rad/prelude.rad")
 
-;; Script
-
-;; Radicle has values
-
-1
-2
-"hello"
-:a
-
-;; Function application
-
-(+ 1 2)
-
-(lookup :a {:a 100 :b 200})
-
-;; Can define things and functions
-
-(def* n 42)
-
-(defn foo [x]
-  (+ x n))
-
-;; Let's make a machine with... messages!
-
 (def* msgs (ref []))
 
-(defn add-msg [s]
-  (modify-ref msgs (fn [ms] (add-right s ms))))
+(defn say [u s]
+  (add-right-ref msgs [u s])
+  :ok)
 
 (def tx
   (fn [e]
     (match e
-           [:msg 's] (add-msg s)
-           [:upd 'code] code
-           _ (throw 'any "Nope")))))
+           [:say 'u 's] (say u s)
+           [:code 'c] c
+           :default-query (read-ref msgs))))
 
-[:msg "hello"]
+(def* questions (ref {}))
 
-[:msg "how'd you do?"]
+(def* question (ref :no-question))
 
-[:upd (+ 1 2)]
+(def* voting (ref []))
 
-;; Let's update the tx, we want to check that messages have an author.
+(defn ask-question [q]
+  (write-ref question q)
+  (write-ref voting [])
+  :ok)
+
+(defn vote [user v]
+  (add-right-ref voting [user v])
+  :ok)
+
+(defn get-result [vs]
+  (sum (map (fn [v] (match v ['u 'tf] (if tf 1 -1)))
+            vs)))
+
+(defn close-voting []
+  (let [vs (read-ref voting)
+        q (read-ref question)
+        r (get-result vs)]
+    (write-ref voting [])
+    (cond
+      (eq? r 0) "Stalemate!"
+      (> r 0) (insert-ref questions q #t)
+      :else   (insert-ref questions q #f))))
 
 (def tx
   (fn [e]
     (match e
-           [:msg {:author 'a :msg 's}] (add-msg s)
-           [:upd 'code] code
-           _ (throw 'any "Nope"))))
+           [:say 'u 's] (say u s)
+           [:ask 'q] (ask-question q)
+           [:vote 'u 'v] (vote u v)
+           :close (close-voting)
+           [:code 'c] c
+           :default-query {:decisions (read-ref voting)
+                           :chat (read-ref msgs)})))
 
-;; oh no, we can't submit it, it must be an update!
+;; oh no! people can vote more than once
 
-[:upd
-  '(def tx
-     (fn [e]
-       (match e
-              [:msg {:author 'a :msg 's}] (add-msg s)
-              [:upd 'code] code
-              _ (throw 'any "Nope"))))]
+(write-ref voting {})
+
+(defn vote [u v]
+  (insert-ref voting u v)
+  :ok)
+
+(defn get-result [vs]
+  (sum (map (fn [v] (match v ['u 'tf] (if tf 1 -1)))
+            (seq vs))))

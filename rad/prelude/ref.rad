@@ -1,8 +1,18 @@
 {:module 'prelude/ref
  :doc "Functions for dealing with reference cells."
- :exports ['modify-ref]}
+ :exports '[modify-ref insert-ref add-right-ref]}
+
+(import prelude/dict :unqualified)
 
 (def modify-ref
   "Modify `r` by applying the function `f`. Returns the new value."
   (fn [r f]
     (write-ref r (f (read-ref r)))))
+
+(def insert-ref
+  (fn [r k v]
+    (write-ref r (insert k v (read-ref r)))))
+
+(def add-right-ref
+  (fn [r x]
+    (write-ref r (add-right x (read-ref r)))))
