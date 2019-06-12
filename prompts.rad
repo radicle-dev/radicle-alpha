@@ -62,10 +62,7 @@
 Running the state machine over the feed
 of inputs gives us the semantics.")
 
-   (slide
-    "State machine"
-    "
-feed   tx
+   "feed   tx
 -----  --------------
  1     (x,y) => x + y
  2
@@ -73,7 +70,7 @@ feed   tx
  3
  ...
 
-=> 7")
+=> 7"
 
    (slide
     "Morphable?"
@@ -92,7 +89,6 @@ feed   tx
 2
 ...
 
-(read-ref state)
 => 7")
    
    "(def tx
@@ -196,9 +192,7 @@ in using a highly available host.")]
 A P2P programming language
 
   James Haydon
-  Julian Arni
-
-  www.radicle.xyz"
+  Julian Arni"
 
     "1. Motivation and vision.
 2. Radicle-lang properties.
@@ -230,7 +224,7 @@ A P2P programming language
     (def fill (unlines (repeat (- height (length (lines it))) " ")))
     (put-str! it)
     (put-str! "\n------\n")
-    (put-str! fill)
+    ;; (put-str! fill)
     (modify-ref i \(+ 1 ?))))
 
 (def thanks!

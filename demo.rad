@@ -1,57 +1,63 @@
 (load! "rad/prelude.rad")
-(load! "prompts.rad")
 
-(def* mid "12D3KooWFfe9HGy1gDQ8iRcZ3N4nhBXQB9jcvJuVQe22Yns5RdPp")
+(def* question (ref :nothing))
 
-(def s!
-  (macro
-   (fn es
-     (list daemon/send! 'mid es))))
+(def* questions (ref {}))
+
+(def* voting (ref []))
+
+[:code
+ 
+
+[:code
+ 
+
+[:code
+ 
+
+[:code
+ 
+
+[:code
+ 
+
+[:code
+ (defn ask-question [q]
+   (write-ref voting [])
+   (write-ref question q)
+   :ok)]
+
+(defn vote [u v]
+(add-right-ref voting [u v]))
+
+(defn result [vs]
+(sum (map (fn [v] (match v ['u 'v]
+                        (if v 1 -1)))
+          vs)))
+
+(defn close-vote []
+(let [r (result (read-ref voting))
+      q (read-ref question)]
+  (cond
+    (eq? r 0) "stalemate"
+    (> r 0) (insert-ref questions q #t)
+    :else   (insert-ref questions q #f))))
+
+(defn foo []
+42)
+
+(def tx
+(fn [e]
+  (match e
+         [:code 'c] c)))
+
+(def* mid
+"12D3KooWEMC5YbqtXn2wz2roPXqx5BYhV2jYDGSSqkSAZXJFPpVz")
 
 (defn s! [xs]
-  (daemon/send! mid xs))
+(daemon/send! mid xs))
 
-(daemon/send! mid
-              '[(def* questions (ref {}))
-                (def* question (ref :nothing))
-                (def* voting (ref []))
-
-                (defn ask-question [q]
-                  (write-ref question q)
-                  :ok)
-
-                (defn vote [u v]
-                  (add-right-ref voting [u v])
-                  :ok)
-
-                (defn result [vs]
-                  (sum (map (fn [e] (match e ['u 'v] (if v 1 -1)))
-                            vs)))
-
-                (defn close-vote []
-                  (let [vs (read-ref voting)
-                        q (read-ref question)
-                        r (result vs)]
-                    (cond
-                      (eq? r 0) "Stalemate"
-                      (> r 0) (insert-ref questions q #t)
-                      :else   (insert-ref questions q #f))))
-                ])
-
-(s!
- [:code (defn query []
-          {:questions (show (read-ref questions))
-           :current-q (show (read-ref question))})])
-
-(daemon/send! mid
-              '[(def tx
-                  (fn [e]
-                    (match e
-                           [:ask 'q] (ask-question q)
-                           :close (close-vote)
-                           [:code 'c] c
-                           [:vote 'u 'v] (vote u v)
-                           (/cons (/= 'get-html) _) (get-html))))])
+(s! '[(+ 1 1)])
 
 
 
@@ -109,35 +115,35 @@
 (def* voting (ref []))
 
 (defn ask-question [q]
-  (write-ref question q)
-  (write-ref voting [])
-  :ok)
+(write-ref question q)
+(write-ref voting [])
+:ok)
 
 (defn vote [u v]
-  (add-right-ref voting [u v])
-  :ok)
+(add-right-ref voting [u v])
+:ok)
 
 (defn get-result [vs]
-  (sum (map (fn [v] (match v ['u 'v] (if v 1 -1)))
-            vs)))
+(sum (map (fn [v] (match v ['u 'v] (if v 1 -1)))
+          vs)))
 
 (defn close-voting []
-  (let [r (get-result (read-ref voting))
-        q (read-ref question)]
-    (cond
-      (eq? r 0) "Stalemate!"
-      (> r 0) (insert-ref questions q #t)
-      (< r 0) (insert-ref questions q #f))))
+(let [r (get-result (read-ref voting))
+      q (read-ref question)]
+  (cond
+    (eq? r 0) "Stalemate!"
+    (> r 0) (insert-ref questions q #t)
+    (< r 0) (insert-ref questions q #f))))
 
 (def tx
-  (fn [e]
-    (match e
-           :query {:questions (read-ref questions)
-                   :current (read-ref question)}
-           [:ask 'q] (ask-question q)
-           [:vote 'u 's] (vote u s)
-           :close (close-voting)
-           (/cons (/= 'get-html) _) (get-html))))
+(fn [e]
+  (match e
+         :query {:questions (read-ref questions)
+                 :current (read-ref question)}
+         [:ask 'q] (ask-question q)
+         [:vote 'u 's] (vote u s)
+         :close (close-voting)
+         (/cons (/= 'get-html) _) (get-html))))
 
 
 
@@ -162,38 +168,38 @@
 (def* voting (ref []))
 
 (defn ask-question [q]
-  (write-ref question q)
-  (write-ref voting [])
-  :ok)
+(write-ref question q)
+(write-ref voting [])
+:ok)
 
 (defn vote [user v]
-  (add-right-ref voting [user v])
-  :ok)
+(add-right-ref voting [user v])
+:ok)
 
 (defn get-result [vs]
-  (sum (map (fn [v] (match v ['u 'tf] (if tf 1 -1)))
-            vs)))
+(sum (map (fn [v] (match v ['u 'tf] (if tf 1 -1)))
+          vs)))
 
 (defn close-voting []
-  (let [vs (read-ref voting)
-        q (read-ref question)
-        r (get-result vs)]
-    (write-ref voting [])
-    (cond
-      (eq? r 0) "Stalemate!"
-      (> r 0) (insert-ref questions q #t)
-      :else   (insert-ref questions q #f))))
+(let [vs (read-ref voting)
+      q (read-ref question)
+      r (get-result vs)]
+  (write-ref voting [])
+  (cond
+    (eq? r 0) "Stalemate!"
+    (> r 0) (insert-ref questions q #t)
+    :else   (insert-ref questions q #f))))
 
 (def tx
-  (fn [e]
-    (match e
-           [:say 'u 's] (say u s)
-           [:ask 'q] (ask-question q)
-           [:vote 'u 'v] (vote u v)
-           :close (close-voting)
-           [:code 'c] c
-           :default-query {:decisions (read-ref voting)
-                           :chat (read-ref msgs)})))
+(fn [e]
+  (match e
+         [:say 'u 's] (say u s)
+         [:ask 'q] (ask-question q)
+         [:vote 'u 'v] (vote u v)
+         :close (close-voting)
+         [:code 'c] c
+         :default-query {:decisions (read-ref voting)
+                         :chat (read-ref msgs)})))
 
 ;; oh no! people can vote more than once
 
