@@ -22,6 +22,7 @@ where
 import           Protolude hiding
                  (async, atomically, evaluate, link, race, withAsync)
 
+import           Control.Exception.Safe (MonadThrow, throw)
 import           UnliftIO hiding (timeout)
 
 import           Radicle
@@ -117,7 +118,7 @@ instance (Typeable mid, Show mid) => Exception (InitialiserError mid)
 -- the internal state is initialised with an empty machine.
 --
 runMachine
-    :: MonadUnliftIO m
+    :: (MonadUnliftIO m, MonadThrow m, Exception e)
     => Settings
     -> Backend e mid idx m
     -> TipStore e mid idx m
@@ -158,25 +159,32 @@ shutdownMachine MEnv { envEval } = uninterruptibleCancel envEval
 -- 'emptyBindings'. If evaluation returns an error, an exception is thrown.
 --
 loadMachine
-    :: MonadUnliftIO m
+    :: (MonadUnliftIO m, MonadThrow m, Exception e)
     => Backend e mid idx m
     -> mid
     -> idx
     -> ReaderOrWriter
     -> m (Maybe (Machine mid idx))
 loadMachine backend mid idx mode = do
-    -- FIXME(kim): obviously wrong. need a way to load /all/ inputs up to idx
-    inputs <- backendGet backend mid idx
-    for inputs $ \is -> do
-        (result, s) <- liftIO $ evalInputs emptyBindings is
-        case result of
-            Left  e -> throwString $ "Invalid inputs from backend: " <> show e
-            Right _ -> pure $ Machine
-                { machineId        = mid
-                , machineLastIndex = Just idx
-                , machineState     = s
-                , machineMode      = mode
-                }
+    -- TODO(kim): timeout
+    bindings <-
+        either throw pure
+            =<< backendFoldUpto backend mid idx f emptyBindings
+    pure . Just $ Machine
+        { machineId        = mid
+        , machineLastIndex = Just idx
+        , machineState     = bindings
+        , machineMode      = mode
+        }
+  where
+    f _ inputs bindings =
+        let
+            (result, newBindings) =
+                runIdentity . runLang bindings $ traverse eval inputs
+         in
+            case result of
+                Left  e -> panic $ "Invalid inputs from backend: " <> show e
+                Right _ -> newBindings
 
 -- | Update the 'Machine' with new 'Inputs'.
 --

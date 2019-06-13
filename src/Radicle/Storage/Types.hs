@@ -57,16 +57,28 @@ data Expressions = Expressions
 -- | A storage backend.
 data Backend e mid idx m = Backend
     { backendPut :: mid -> Inputs -> m (Either e (PutResponse idx m))
-    -- ^ Write input expressions to the 'Machine' identified by 'mid'.
+    -- ^ Write input expressions to the 'Machine' identified by @mid@.
     --
     -- The 'Inputs' are guaranteed to be valid.
     --
     , backendGet :: mid -> idx -> m (Maybe [Value])
-    -- ^ Get the input expressions of 'Machine' 'mid' at 'idx'.
+    -- ^ Get the input expressions of 'Machine' @mid@ at @idx@.
     --
     -- Return 'Nothing' if the given 'idx' could not be loaded. Throw an
     -- exception in 'm' if this is due to a transient error (such as I/O).
     --
+    , backendFoldUpto
+        :: forall a.
+           mid
+        -> idx
+        -> (idx -> [Value] -> a -> a)
+        -> a
+        -> m (Either e a)
+    -- ^ Fold a function over the history of 'Machine' @mid@, from initial up to
+    -- and including index @idx@.
+    --
+    -- An error is returned if either @mid@ is unknown, @idx@ is unknown, or any
+    -- of the inputs at an intermediate index can't be loaded.
     }
 
 hoistBackend
@@ -74,9 +86,15 @@ hoistBackend
     => (forall a. m a -> n a)
     -> Backend e mid idx m
     -> Backend e mid idx n
-hoistBackend f b = b
-    { backendPut = \mid inputs -> f (second (hoistPutResponse f) <$> backendPut b mid inputs)
-    , backendGet = \mid idx    -> f $ backendGet b mid idx
+hoistBackend f b = Backend
+    { backendPut = \mid inputs ->
+        f $ second (hoistPutResponse f) <$> backendPut b mid inputs
+
+    , backendGet = \mid idx ->
+        f $ backendGet b mid idx
+
+    , backendFoldUpto = \mid idx g a ->
+        f $ backendFoldUpto b mid idx g a
     }
 
 mapBackendError
@@ -85,7 +103,9 @@ mapBackendError
     -> Backend e  mid idx m
     -> Backend e' mid idx m
 mapBackendError f b = b
-    { backendPut = \mid inputs -> first f <$> backendPut b mid inputs
+    { backendPut       = \mid inputs  -> first f <$> backendPut b mid inputs
+    , backendFoldUpto  = \mid idx g a ->
+        first f <$> backendFoldUpto b mid idx g a
     }
 
 -- | Response to 'backendPut'.

@@ -57,6 +57,8 @@ data Machines e mid idx m = Machines
 withMachines
     :: ( MachineId     mid
        , MonadUnliftIO m
+       , MonadThrow    m
+       , Exception     e
        )
     => Settings
     -> Backend  e mid idx m
@@ -107,6 +109,7 @@ addMachine
     :: ( MachineId     mid
        , MonadUnliftIO m
        , MonadThrow    m
+       , Exception     e
        )
     => Machines e mid idx m
     -> mid
