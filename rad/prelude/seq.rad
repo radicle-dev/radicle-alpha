@@ -1,9 +1,9 @@
 (ns prelude/seq "Functions for manipulating sequences, that is lists and vectors.")
 
 (require prelude/test-macro ['test])
-(require prelude/basic [])
+(require prelude/basic '[head tail if or])
 (require prelude/bool [])
-(require prelude/patterns [])
+(require prelude/patterns '[match-pat _])
 
 (def seq?
   "Returns `#t` if `x` is a list or a vector."

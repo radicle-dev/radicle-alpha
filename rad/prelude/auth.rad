@@ -2,11 +2,12 @@
   "Functions for easily handling authorization on machines.")
 
 (require prelude/test-macro ['test])
-(require prelude/basic [])
-(require prelude/validation [] validation)
-(require prelude/set [] set)
+(require prelude/basic '[if])
+(require prelude/macros '[let])
+(require prelude/validation '[member pred] validation)
+(require prelude/set '[empty insert delete] set)
 (require prelude/dict '[dict-from-seq keys])
-(require prelude/patterns [])
+(require prelude/patterns '[match-pat])
 (require prelude/ref '[modify-ref])
 (require prelude/lens '[over-ref @])
 
@@ -25,63 +26,59 @@
   a way for *initializing* the authentication mechanism. Prior to
   initialization, `(auth [:allowed <group> <person>])` always succeeds.
   After `(auth [:initialize])` is called, it returns whatever
-  `(auth [:is-in <group> <person>])` returns.
-"
+  `(auth [:is-in <group> <person>])` returns."
   (fn [set-names]
-    (def groups (ref (dict-from-seq (map (fn [k] [k set/empty]) set-names))))
-    (def initialized? (ref #f))
-    (def insert-in
-      (fn [group pub-key]
-        (over-ref groups (@ group) (fn [x] (set/insert pub-key x)))))
-    (def remove-from
-      (fn [group pub-key]
-        (over-ref groups (@ group) (fn [x] (set/delete pub-key x)))))
-    (def create-group
-      (fn [group]
-        (modify-ref groups (fn [x] (insert group set/empty x)))))
-    (def is-in
-      (fn [group pub-key]
-        (def the-group (lookup group (read-ref groups)))
-        ((validation/member the-group) pub-key)))
-    (fn [command]
-      (match command
-        [:add-to 'group 'pub-key]      (do
-                                         ((validation/member (keys (read-ref groups))) group)
-                                         (insert-in group pub-key))
-        [:remove-from 'group 'pub-key] (do
-                                         ((validation/member (keys (read-ref groups))) group)
-                                         (remove-from group pub-key))
-        [:create-group 'group]         (create-group group)
-        [:is-in 'group 'pub-key]       (is-in group pub-key)
-        [:initialize]                  (write-ref initialized? #t)
-        [:allowed 'group]              (validation/pred "allowed"
-                                         (fn [msg]
-                                           (if (read-ref initialized?)
-                                               (is-in group (lookup :author msg))
-                                               msg)))
-        'x                             (throw 'invalid-command x)))))
+    (let [groups (ref (dict-from-seq (map (fn [k] [k set/empty]) set-names)))
+          initialized? (ref #f)
+          insert-in (fn [group pub-key]
+                      (over-ref groups (@ group) (fn [x] (set/insert pub-key x))))
+          remove-from (fn [group pub-key]
+                        (over-ref groups (@ group) (fn [x] (set/delete pub-key x))))
+          create-group (fn [group]
+                         (modify-ref groups (fn [x] (insert group set/empty x))))
+          is-in (fn [group pub-key]
+                  (let [the-group (lookup group (read-ref groups))]
+                    ((validation/member the-group) pub-key)))]
+      (fn [command]
+        (match command
+               [:add-to 'group 'pub-key]      (do
+                                                ((validation/member (keys (read-ref groups))) group)
+                                                (insert-in group pub-key))
+               [:remove-from 'group 'pub-key] (do
+                                                ((validation/member (keys (read-ref groups))) group)
+                                                (remove-from group pub-key))
+               [:create-group 'group]         (create-group group)
+               [:is-in 'group 'pub-key]       (is-in group pub-key)
+               [:initialize]                  (write-ref initialized? #t)
+               [:allowed 'group]              (validation/pred "allowed"
+                                                               (fn [msg]
+                                                                 (if (read-ref initialized?)
+                                                                   (is-in group (lookup :author msg))
+                                                                   msg)))
+               'x                             (throw 'invalid-command x))))))
 
-(test "make-simple-auth"
-  [:setup (do
-    (def auth (make-simple-auth [:admin]))
-    (auth [:create-group :regular])
-    (auth [:add-to :admin "alice"])
-    (auth [:add-to :regular "bob"])
-    (auth [:add-to :regular "carol"])
-    (auth [:remove-from :regular "carol"])
-  )]
+(test
+ "make-simple-auth"
+ [:setup (do
+           (def auth (make-simple-auth [:admin]))
+           (auth [:create-group :regular])
+           (auth [:add-to :admin "alice"])
+           (auth [:add-to :regular "bob"])
+           (auth [:add-to :regular "carol"])
+           (auth [:remove-from :regular "carol"])
+           )]
 
-  [ (auth [:is-in :admin "alice"]) ==> "alice" ]
-  [ (catch 'validation-failure (auth [:is-in :admin "bob"]) (fn [_] :ok))
-     ==> :ok ]
-  [ (catch 'validation-failure (auth [:is-in :regular "carol"]) (fn [_] :ok))
-     ==> :ok ]
-  [ ((auth [:allowed :admin]) "bob") ==> "bob" ]
-  [ (do
-      (auth [:initialize])
-      (catch 'validation-failure ((auth [:allowed :admin]) {:author "bob"}) (fn [_] :ok)))
-     ==> :ok ]
-)
+ [ (auth [:is-in :admin "alice"]) ==> "alice" ]
+ [ (catch 'validation-failure (auth [:is-in :admin "bob"]) (fn [_] :ok))
+  ==> :ok ]
+ [ (catch 'validation-failure (auth [:is-in :regular "carol"]) (fn [_] :ok))
+  ==> :ok ]
+ [ ((auth [:allowed :admin]) "bob") ==> "bob" ]
+ [ (do
+     (auth [:initialize])
+     (catch 'validation-failure ((auth [:allowed :admin]) {:author "bob"}) (fn [_] :ok)))
+  ==> :ok ]
+ )
 
 (def add-admin
   "Add an admin. If the auth is initialized, only an admin is allowed to do so.
@@ -93,8 +90,8 @@
   NOTE: The author is assumed to be already verified!"
   (fn [auth]
     (fn [pub-key-msg]
-      (def pub-key (lookup :key pub-key-msg))
-      (def author-key (lookup :author pub-key-msg))
-      ((auth [:allowed :admin]) author-key)
-      (auth [:add-to :admin pub-key])
-      (auth [:initialize]))))
+      (let [pub-key (lookup :key pub-key-msg)
+            author-key (lookup :author pub-key-msg)]
+        ((auth [:allowed :admin]) author-key)
+        (auth [:add-to :admin pub-key])
+        (auth [:initialize])))))

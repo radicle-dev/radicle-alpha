@@ -1,8 +1,9 @@
-(ns prelude/set "Sets, built using dicts.")
+(ns prelude/set
+  "Sets, built using dicts.")
 
 (require prelude/test-macro ['test])
-(require prelude/bool [])
-(require prelude/dict [] dict)
+(require prelude/bool '[all])
+(require prelude/dict '[keys] dict)
 
 (def empty
   "An empty set."
@@ -28,7 +29,7 @@
 
 (def from-seq
   "Create a set from a sequence."
-  (fn [xs] (foldr insert {} xs)))
+  (fn [xs] (foldr (fn [x s] (insert x #t s)) {} xs)))
 
 (test "from-seq"
   [ (from-seq [1 3]) ==> {1 #t 3 #t} ]

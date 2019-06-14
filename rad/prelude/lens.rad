@@ -1,7 +1,7 @@
 (ns prelude/lens "Functional references.")
 
 (require prelude/test-macro ['test])
-(require prelude/ref [])
+(require prelude/ref '[modify-ref])
 (require prelude/dict '[lookup-default])
 
 ;; Lenses ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

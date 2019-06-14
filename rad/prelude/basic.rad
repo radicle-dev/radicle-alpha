@@ -38,8 +38,8 @@
 ;; some
 
 (def some
-"Checks that there is a least one truthy value in a list."
-(fn [xs] (foldr or #f xs)))
+  "Checks that there is a least one truthy value in a list."
+  (fn [xs] (foldr or #f xs)))
 
 (test "some"
       [ (some '())            ==> #f ]
@@ -89,33 +89,33 @@
 ;; elem?
 
 (def elem?
-"Returns true if `x` is an element of the sequence `xs`"
-(fn [x xs]
-  (some (map (fn [c] (eq? c x)) xs))))
+  "Returns true if `x` is an element of the sequence `xs`"
+  (fn [x xs]
+    (some (map (fn [c] (eq? c x)) xs))))
 
 (test "elem?"
-[ (elem? "f" (list "f" "g" "h")) ==> #t]
-[ (elem? "h" ["f" "g" "h"]) ==> #t]
-[ (elem? "a" (list "f" "g" "h")) ==> #f])
+      [ (elem? "f" (list "f" "g" "h")) ==> #t]
+      [ (elem? "h" ["f" "g" "h"]) ==> #t]
+      [ (elem? "a" (list "f" "g" "h")) ==> #f])
 
 (def read
-"Reads a radicle value from a string."
-(fn [s]
-  (read-annotated "[read]" s)))
+  "Reads a radicle value from a string."
+  (fn [s]
+    (read-annotated "[read]" s)))
 
 (test "read"
-[ (read "[:a 42 \"foo\" {:key (1 2 3)}]") ==> [:a 42 "foo" {:key (1 2 3)}] ])
+      [ (read "[:a 42 \"foo\" {:key (1 2 3)}]") ==> [:a 42 "foo" {:key (1 2 3)}] ])
 
 (def read-many
-"Reads many radicle values from a string."
-(fn [s]
-  (read-many-annotated "[read-many]" s)))
+  "Reads many radicle values from a string."
+  (fn [s]
+    (read-many-annotated "[read-many]" s)))
 
 (test "read-many"
-[ (read-many "([:one] {:two 3}) (four \"five\" 6)") ==> [([:one] {:two 3}) (four "five" 6)]])
+      [ (read-many "([:one] {:two 3}) (four \"five\" 6)") ==> [([:one] {:two 3}) (four "five" 6)]])
 
 (def <=
-"Test if `x` is less than or equal to `y`."
+  "Test if `x` is less than or equal to `y`."
   (fn [x y] (or (eq? x y) (< x y))))
 
 (def gensym

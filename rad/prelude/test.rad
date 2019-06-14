@@ -150,7 +150,7 @@
   (fn [tests]
     (put-str! (string-append "1.." (show (length tests))))
     (foldl-with-index
-      (fn [ok t i] (and ok (run-test t (+ 1 i))))
-      #t
-      tests)
-  ))
+     (fn [ok t i] (and ok (run-test t (+ 1 i))))
+     #t
+     tests)
+    ))

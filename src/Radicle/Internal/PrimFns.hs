@@ -31,15 +31,12 @@ import qualified Radicle.Internal.UUID as UUID
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
 pureEnv =
-    addPrimFns purePrimFns $ emptyBindings e
+    addPrimFns purePrimFns $ emptyBindings mempty tl
   where
-    e = fromList . allDocs $
-          [ ( "tx"
-            , "The transactor function used for the machine inputs. Intially\
-                \this is set to `initial-tx`."
-            , PrimFn $ unsafeToIdent "initial-tx"
-            )
-          ]
+    tl :: Namespace
+    tl = Map.singleton (Ident "tx") (Here (Doc.Docd txd (PrimFn $ unsafeToIdent "initial-tx")))
+    txd = Just "The transactor function used for the machine inputs. Intially\
+               \this is set to `initial-tx`."
 
 -- | The added primitives override previously defined primitives and
 -- variables with the same name.
@@ -155,6 +152,12 @@ purePrimFns = fromList $ allDocs $
           setBindings x
           pure ok
       )
+    , ("trace!"
+      , "Prints a string."
+      , oneArg "trace!" $ \case
+        (String x) -> trace x $ pure nil
+        v -> throwErrorHere $ TypeError "put-str!" 0 TString v
+    )
     , ("list"
       , "Turns the arguments into a list."
       , pure . List)

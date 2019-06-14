@@ -418,6 +418,8 @@ instance GhcExts.IsList (PrimFns m) where
 data State = State
   { stateEnv  :: Env Value
   , stateRefs :: IntMap Value
+  , stateCurrentNamespace :: Ident
+  , stateNamespaces :: Namespaces
   } deriving (Eq, Ord, Read, Show, Generic)
 
 instance Serialise State
@@ -425,6 +427,9 @@ instance Serialise State
 data NamespaceBinding
   = Here (Doc.Docd Value)
   | There Ident Ident
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise NamespaceBinding
 
 type Namespace = Map Ident NamespaceBinding
 
@@ -444,11 +449,11 @@ data Bindings prims = Bindings
     , bindingsNextProcHandle   :: Int
     } deriving (Functor, Generic)
 
-emptyBindings :: Env Value -> Bindings (PrimFns m)
-emptyBindings e = Bindings e (Map.singleton top topNs) top mempty mempty 0 mempty 0 mempty 0
+emptyBindings :: Env Value -> Namespace -> Bindings (PrimFns m)
+emptyBindings e tl = Bindings e (Map.singleton top topNs) top mempty mempty 0 mempty 0 mempty 0
   where
     top = Ident "toplevel"
-    topNs = Doc.Docd (Just "The toplevel namespace.") mempty
+    topNs = Doc.Docd (Just "The toplevel namespace.") tl
 
 -- | Extract an environment and references from a Radicle value and put
 -- them as the current bindings. Primitive functions are not changed.
@@ -474,9 +479,11 @@ setBindings value = do
 
 bindingsFromRadicle :: Value -> Either Text (Bindings (PrimFns m))
 bindingsFromRadicle x = case x of
-    VState s -> pure $ (emptyBindings (stateEnv s))
+    VState s -> pure $ (emptyBindings (stateEnv s) mempty)
                 { bindingsRefs = stateRefs s
                 , bindingsNextRef = length (stateRefs s)
+                , bindingsCurrentNamespace = stateCurrentNamespace s
+                , bindingsNamespaces = stateNamespaces s
                 }
     _ -> throwError "Expecting state"
 
@@ -486,7 +493,12 @@ bindingsFromRadicle x = case x of
 --    * `gets bindingsToRadicle >>= setBindings == pure ()`
 --    * `setBindings x >> gets bindingsToRadicle == setBindings x >> pure x`
 bindingsToRadicle :: Bindings a -> Value
-bindingsToRadicle x = VState State{ stateEnv = bindingsEnv x, stateRefs = bindingsRefs x }
+bindingsToRadicle Bindings{..} =
+  VState State{ stateEnv = bindingsEnv
+              , stateRefs = bindingsRefs
+              , stateCurrentNamespace = bindingsCurrentNamespace
+              , stateNamespaces = bindingsNamespaces
+              }
 
 -- | The environment in which expressions are evaluated.
 newtype LangT r m a = LangT
@@ -548,25 +560,27 @@ callExample name value = case value of
         VarArgs _ ->
           pure "arg1 ..."
 
+docd :: Text -> Doc.Docd Value -> Doc.Docd Value
+docd name x@(Doc.Docd d_ v) = maybe x doc $ callExample name v
+  where
+    doc t = Doc.Docd (Just (t <> maybe "" ("\n\n" <>) d_)) v
+
+lookupInNamespace :: Monad m => Namespaces -> Ident -> Ident -> Lang m (Doc.Docd Value)
+lookupInNamespace nss nsk j@(Ident name) = case Map.lookup nsk nss of
+    Just ns -> case Map.lookup j (copoint ns) of
+      Just (Here x)    -> pure $ docd name x
+      Just (There a b) -> lookupInNamespace nss a b
+      Nothing          -> throwErrorHere err
+    Nothing -> throwErrorHere err
+  where
+    err = UnknownIdentifier nsk j
+
 -- TODO(james): improve error messages.
 lookupAtomWithDoc :: forall m. Monad m => Ident -> Lang m (Doc.Docd Value)
 lookupAtomWithDoc i@(Ident name) =
   get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
-    Just x -> docd x
+    Just x -> pure $ docd name x
     Nothing -> lookupInNamespace (bindingsNamespaces e) (bindingsCurrentNamespace e) i
-  where
-    doc d_ v t = Doc.Docd (Just (t <> maybe "" ("\n\n" <>) d_)) v
-    docd x@(Doc.Docd d_ v) = pure (maybe x (doc d_ v) $ callExample name v)
-
-    lookupInNamespace :: Namespaces -> Ident -> Ident -> Lang m (Doc.Docd Value)
-    lookupInNamespace nss nsk j = case Map.lookup nsk nss of
-      Just ns -> case Map.lookup j (copoint ns) of
-        Just (Here x)    -> docd x
-        Just (There a b) -> lookupInNamespace nss a b
-        Nothing          -> throwErrorHere err
-      Nothing -> throwErrorHere err
-      where
-        err = UnknownIdentifier nsk i
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value

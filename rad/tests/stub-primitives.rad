@@ -1,3 +1,5 @@
+(ns tests/primitive-stub-ref)
+
 ;; This script stubs some primitives for code evaluated afterwards.
 ;;
 ;; This code is used by `rad/tests/run.rad` to test code that relies on
@@ -10,16 +12,16 @@
 ;; See `prelude/chain/install-remote-chain-fake` for how to use primitve stubs.
 
 ;; now!
-(def primitive-stub-ref/now! (ref now!))
+(def primitive-stub-ref-now! (ref now!))
 (def now!
   (fn [] ((read-ref primitive-stub-ref/now!))))
 
 ;; read-file!
-(def primitive-stub-ref/read-file! (ref read-file!))
+(def primitive-stub-ref-read-file! (ref read-file!))
 (def read-file!
   (fn [path] ((read-ref primitive-stub-ref/read-file!) path)))
 
 ;; find-module-file!
-(def primitive-stub-ref/find-module-file! (ref find-module-file!))
+(def primitive-stub-ref-find-module-file! (ref find-module-file!))
 (def find-module-file!
   (fn [path] ((read-ref primitive-stub-ref/find-module-file!) path)))

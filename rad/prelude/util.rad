@@ -2,19 +2,20 @@
   "Utility functions. For the moment just a counter.")
 
 (require prelude/test-macro ['test])
-(require prelude/ref [])
+(require prelude/ref '[modify-ref])
+(require prelude/macros '[let])
 
 (def make-counter
   "Creates a stateful counter. Returns a dict with two keys: the function at `:next-will-be`
   will return the next number (without incrementing it), while the function at `:next`
   increments the number and returns it."
   (fn []
-    (def i (ref -1))
-    (fn [command]
-      (cond
-        (eq? command :current) (+ 1 (read-ref i))
-        (eq? command :next)    (modify-ref i (fn [x] (+ x 1)))
-        :else                  (throw 'invalid-counter-command "Counters only accept `:current` and `:next` commands.")))))
+    (let [i (ref -1)]
+      (fn [command]
+        (cond
+          (eq? command :current) (+ 1 (read-ref i))
+          (eq? command :next)    (modify-ref i (fn [x] (+ x 1)))
+          :else                  (throw 'invalid-counter-command "Counters only accept `:current` and `:next` commands."))))))
 
 (test "make-counter"
   [:setup

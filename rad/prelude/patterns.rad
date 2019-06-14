@@ -3,7 +3,8 @@
   defined. These are the most essential.")
 
 (require prelude/test-macro '[test])
-(require prelude/basic '[if or maybe->>= maybe-foldlM some])
+(require prelude/basic '[if or maybe->>= maybe-foldlM some empty-seq?])
+(require prelude/macros '[let])
 
 (def exclusive-dict-merge
   "Merges two dicts while checking for key conflicts. Returns
@@ -12,13 +13,13 @@
   values, one from each input dict."
   (fn [m n]
     (foldr (fn [kv acc]
-             (def k (nth 0 kv))
-             (def v (nth 1 kv))
-             (def merge (lookup :merge acc))
-             (if (member? k merge)
-               {:merge     (delete k merge)
-                :conflicts (insert k [(lookup k merge) v] (lookup :conflicts acc))}
-               (insert :merge (insert k v merge) acc)))
+             (let [k (nth 0 kv)
+                   v (nth 1 kv)
+                   merge (lookup :merge acc)]
+               (if (member? k merge)
+                 {:merge     (delete k merge)
+                  :conflicts (insert k [(lookup k merge) v] (lookup :conflicts acc))}
+                 (insert :merge (insert k v merge) acc))))
            {:merge m
             :conflicts {}}
            (seq n))))
@@ -27,19 +28,19 @@
   "The bindings merge strategy for non-linear patterns. Use this function to merge
   bindings returned by sub-patterns if you want your pattern to be non-linear."
   (fn [m n]
-    (def excl-merge (exclusive-dict-merge m n))
-    (def cs (lookup :conflicts excl-merge))
-    (def merge (lookup :merge excl-merge))
-    (if (eq? cs {})
-      [:just merge]
-      (maybe-foldlM (fn [acc kv]
-                      (def v (nth 1 kv))
-                      (def v0 (nth 0 v))
-                      (if (eq? v0 (nth 1 v))
-                        [:just (insert (nth 0 kv) v0 acc)]
-                        :nothing))
-                    merge
-                    (seq cs)))))
+    (let [excl-merge (exclusive-dict-merge m n)
+          cs (lookup :conflicts excl-merge)
+          merge (lookup :merge excl-merge)]
+      (if (eq? cs {})
+        [:just merge]
+        (maybe-foldlM (fn [acc kv]
+                        (let [v (nth 1 kv)
+                              v0 (nth 0 v)]
+                          (if (eq? v0 (nth 1 v))
+                            [:just (insert (nth 0 kv) v0 acc)]
+                            :nothing)))
+                      merge
+                      (seq cs))))))
 
 (def _
   "The wildcard pattern."
@@ -65,14 +66,12 @@
       (if (dict? d)
         (maybe-foldlM
          (fn [acc kv]
-           ((fn [k pat] ;; This is a `let`.
-              (if (member? k d)
-                (maybe->>= (match-pat pat (lookup k d))
-                           (fn [bs] (non-linear-merge acc bs)))
-                :nothing))
-            (nth 0 kv) ;; k
-            (nth 1 kv) ;; pat
-            ))
+           (let [k (nth 0 kv)
+                 pat (nth 1 kv)]
+             (if (member? k d)
+               (maybe->>= (match-pat pat (lookup k d))
+                          (fn [bs] (non-linear-merge acc bs)))
+               :nothing)))
          {}
          (seq keys-pat))
         :nothing))))

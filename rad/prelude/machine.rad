@@ -2,13 +2,14 @@
 
 (require prelude/test-macro ['test])
 (require prelude/basic [])
+(require prelude/macros '[let])
 (require prelude/io '[read-file-value! read-file-values!] io)
 (require prelude/ref '[modify-ref])
 (require prelude/lens '[make-lens .. ... view set over @ @def])
 (require prelude/basic [])
-(require prelude/dict [])
+(require prelude/dict '[modify-map])
 (require prelude/io [])
-(require prelude/patterns [])
+(require prelude/patterns '[match-pat /cons])
 (require prelude/strings [])
 (require prelude/seq [])
 (require prelude/key-management '[get-keys!])
@@ -55,94 +56,99 @@
   (fn [machine exprs]
     (match exprs
            [] {:machine machine :result []}
-           (/cons 'e 'es) (do (def x (eval (list 'tx (list 'quote e)) machine))
-                              (def y (eval (nth 0 x) (nth 1 x)))
-                              (def new-state (nth 1 y))
-                              (def result (nth 0 y))
-                              (modify-map :result
-                                          (fn [i] (cons result i))
-                                          (tx-in-fake-machine new-state es))))))
+           (/cons 'e 'es)
+           (let [x (eval (list 'do
+                               (list 'ns 'toplevel)
+                               (list 'tx (list 'quote e)))
+                         machine)
+                 y (eval (nth 0 x) (nth 1 x))
+                 new-state (nth 1 y)
+                 result (nth 0 y)]
+             (modify-map :result
+                         (fn [i] (cons result i))
+                         (tx-in-fake-machine new-state es))))))
 
 (test "tx-in-fake-machine"
-  [:setup
-    (do (def res1 (tx-in-fake-machine new-fake-machine '[(def x 3)]))
-        (def res (tx-in-fake-machine (lookup :machine res1) '[(+ x 2)])))
-  ]
-  [ (view (@ :result) res) ==> [5] ]
-)
+      [:setup
+       (def res1 (tx-in-fake-machine new-fake-machine '[(def x 3)]))
+       (def res (tx-in-fake-machine (lookup :machine res1) '[(+ x 2)]))
+       ]
+      [ (view (@ :result) res) ==> [5] ]
+      )
 
 (def install-remote-machine-fake
   "Install test doubles for the `send!`, `query!`, and `new-machine! primitives
   that use a mutable dictionary to store RSMs. Requires
   `rad/test/stub-primitives` to be loaded"
   (fn []
-      (def remote-machines (ref {}))
-
+    (let [remote-machines (ref {})]
+      
       (write-ref primitive-stub-ref/send!
-        (fn [name exprs]
-          (def m (lookup name (read-ref remote-machines)))
-          (def res (tx-in-fake-machine m exprs))
-          (modify-ref remote-machines (fn [rms] (insert name (lookup :machine res) rms)))
-          (lookup :result res)))
-
+                 (fn [name exprs]
+                   (let [m (lookup name (read-ref remote-machines))
+                         res (tx-in-fake-machine m exprs)]
+                     (modify-ref remote-machines (fn [rms] (insert name (lookup :machine res) rms)))
+                     (lookup :result res))))
+      
       (write-ref primitive-stub-ref/query!
-        (fn [name expr]
-          (def machine (lookup name (read-ref remote-machines)))
-          (first (lookup :result (tx-in-fake-machine machine [expr])))))
+                 (fn [name expr]
+                   (let [machine (lookup name (read-ref remote-machines))]
+                     (first (lookup :result (tx-in-fake-machine machine [expr]))))))
 
       (write-ref primitive-stub-ref/new-machine!
-        (fn []
-          (def name (uuid!))
-          (modify-ref remote-machines (fn [rm] (insert name new-fake-machine rm)))
-          name))
-))
-
-(test "install-remote-machine-fake"
-  [:setup
-    (do (install-remote-machine-fake)
-        (def machine (new-machine!))
-        (def send-result (send! machine '[(def foo 5) foo]))
-  )]
-  [ send-result ==> [() 5] ]
-  [ (query! machine '(+ 1 foo)) ==> 6 ]
-)
+                 (fn []
+                   (let [name (uuid!)]
+                     (modify-ref remote-machines (fn [rm] (insert name new-fake-machine rm)))
+                     name))))
+    ))
 
 (def pure-prelude-files
   "List of files which together define the pure prelude."
-  (map find-module-file!
-    ["prelude/basic.rad"
-     "prelude/patterns.rad"
-     "prelude/bool.rad"
-     "prelude/seq.rad"
-     "prelude/list.rad"
-     "prelude/strings.rad"
-     "prelude/dict.rad"
-     "prelude/maybe.rad"
-     "prelude/set.rad"
-     "prelude/ref.rad"
-     "prelude/lens.rad"
-     "prelude/state-machine.rad"
-     "prelude/validation.rad"
-     "prelude/nonces.rad"
-     "prelude/auth.rad"
-     "prelude/machine-remote.rad"
-     "prelude/util.rad"]))
+  (map (fn [f]
+         (find-module-file! (string-append "prelude/" f ".rad")))
+       ["test-macro"
+        "basic"
+        "macros"
+        "patterns"
+        "bool"
+        "seq"
+        "list"
+        "strings"
+        "dict"
+        "maybe"
+        "set"
+        "ref"
+        "lens"
+        "state-machine"
+        "validation"
+        "nonces"
+        "auth"
+        "machine-remote"
+        "util"]))
 
-(def file-to-module
+(def file-to-ns
   "Make the text of a file into code for a module."
-  (fn [file]
-    (cons 'module (vec-to-list (io/read-file-values! file)))))
+  (fn [file] (io/read-file-values! file)))
 
 (def pure-prelude-code
   "Code for the pure prelude. Useful as the first inputs to a new machine."
-  (<> [(file-to-module (find-module-file! "prelude/test-macro.rad"))
-       '(import prelude/test-macro '[test tests] :unqualified)]
-      (map file-to-module pure-prelude-files)))
+  (map file-to-ns pure-prelude-files))
 
 (def send-prelude!
   "Send the pure prelude to a machine."
   (fn [machine-id]
     (send! machine-id pure-prelude-code)))
+
+(test "install-remote-machine-fake"
+      [:setup
+       (do (install-remote-machine-fake)
+           (def machine (new-machine!))
+           (send-prelude! machine)
+           (def send-result (send! machine '[(def foo 5) foo]))
+           )]
+      [ send-result ==> [() 5] ]
+      [ (query! machine '(+ 1 foo)) ==> 6 ]
+      )
 
 (def send-code!
   "Send code from a file to a remote machine."
@@ -154,16 +160,15 @@
   dict by adding `:author` and `:signature` fields, so that it is valid
   according to `validator/signed`, while also adding a `:nonce`."
   (fn [e machine-id]
-    (def nonce (uuid!))
-    (def e_ (<> e {:machine-id machine-id
-                   :nonce    nonce}))
-    (def ks (get-keys!))
-    (def sig
-      (gen-signature! (lookup :private-key ks)
-                      (show-unformatted e_)))
-    (<> e_
-        {:author    (lookup :public-key ks)
-         :signature sig})))
+    (let [nonce (uuid!)
+          e_ (<> e {:machine-id machine-id
+                    :nonce      nonce})
+          ks (get-keys!)
+          sig (gen-signature! (lookup :private-key ks)
+                              (show-unformatted e_))]
+      (<> e_
+          {:author    (lookup :public-key ks)
+           :signature sig}))))
 
 (def send-signed-command!
   "Send a command signed by the keys in `my-keys.rad`."

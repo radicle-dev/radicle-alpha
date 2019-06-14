@@ -2,7 +2,11 @@
   "Tests for machine-remote.")
 
 (require prelude/test-macro ['test])
-
+(require prelude/macros '[let])
+(require prelude/machine
+         '[install-remote-machine-fake new-machine!
+           send-prelude! send! query!  send-signed-command!]
+         machine)
 (test
  "lock-machine"
  [:setup
@@ -11,10 +15,10 @@
   (machine/send-prelude! id)
   (machine/send!
    id
-   '[(import prelude/basic :unqualified)
-     (import prelude/patterns :unqualified)
-     (import prelude/ref :unqualified)
-     (import prelude/machine-remote '[lock-machine] :unqualified)
+   '[(require prelude/basic '[if])
+     (require prelude/patterns '[match-pat _])
+     (require prelude/ref '[modify-ref])
+     (require prelude/machine-remote '[lock-machine])
      (def counter (ref 0))
      (def inc (ref (fn [] (modify-ref counter (fn [x] (+ x 1))))))
      (def get (fn [] (read-ref counter)))

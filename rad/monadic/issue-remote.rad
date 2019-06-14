@@ -1,18 +1,23 @@
 ;; Issue machine
 ;; Meant to be sent to a machine with send-code!
 
-(import prelude/basic :unqualified)
-(import prelude/bool :unqualified)
-(import prelude/dict :unqualified)
-(import prelude/set :as 'set)
-(import prelude/ref :unqualified)
-(import prelude/validation :as 'validator)
-(import prelude/patterns :unqualified)
-(import prelude/util :unqualified)
-(import prelude/lens :unqualified)
-(import prelude/nonces :unqualified)
-(import prelude/auth '[make-simple-auth add-admin] :unqualified)
-(import prelude/machine-remote '[lock-machine-commands] :unqualified)
+(ns monadic/issue-remote)
+
+(require prelude/basic '[if])
+(require prelude/macros '[let])
+(require prelude/dict '[keys delete-many])
+(require prelude/ref '[over-ref])
+(require prelude/validation
+         '[= and keys timestamp pred signed optional-keys
+           string-of-max-length every member or
+           contains-only integral]
+         validator)
+(require prelude/patterns '[match-pat])
+(require prelude/util '[make-counter])
+(require prelude/lens '[@ set-ref over-ref view-ref .. ... @nth])
+(require prelude/nonces '[make-noncer])
+(require prelude/auth '[make-simple-auth add-admin])
+(require prelude/machine-remote '[lock-machine-commands])
 
 (def machine-id
   "The name of this machine."
@@ -158,15 +163,15 @@
                               :issue-number 'n}
                              (< i (length (view-ref issues (.. (@ n) (@ :comments))))))))
     (validator/or
-      [(validator/pred
-        "edit author == original author"
-        (fn [c]
-          (match c
-                 {:issue-number 'n
-                  :comment-index 'i
-                  :author 'a}
-                 (eq? (view-ref issues (... [(@ n) (@ :comments) (@nth i) (@ :author)]))
-                      a))))
+     [(validator/pred
+       "edit author == original author"
+       (fn [c]
+         (match c
+                {:issue-number 'n
+                 :comment-index 'i
+                 :author 'a}
+                (eq? (view-ref issues (... [(@ n) (@ :comments) (@nth i) (@ :author)]))
+                     a))))
       (auth [:allowed :admin])])]))
 
 (def strip-input
@@ -185,20 +190,19 @@
 
 (def add-issue
   (fn [i]
-    (def fixed
-      (insert :comments
-              (map fix-modified-at (lookup :comments i))
-              (fix-modified-at i)))
-    (validator/issue-input fixed)
-    (def n (issue-counter :next))
-    (def i_
-      (strip-input
-       (<> fixed
-           {:number   n
-            :comments (map strip-input (lookup :comments fixed))})))
-    (set-issues (@ n) i_)
-    (noncer [:use (lookup :nonce i)])
-    n))
+    (let [fixed (insert :comments
+                        (map fix-modified-at (lookup :comments i))
+                        (fix-modified-at i))
+          _check (validator/issue-input fixed)
+          n (issue-counter :next)
+          i_ (strip-input
+              (<> fixed
+                  {:number   n
+                   :comments (map strip-input (lookup :comments fixed))}))
+          ]
+      (set-issues (@ n) i_)
+      (noncer [:use (lookup :nonce i)])
+      n)))
 
 (def create-issue
   "Create an issue from a dict, checking that it is valid and storing it in `issues`."
@@ -216,10 +220,10 @@
   "Add a comment to an issue."
   (fn [c]
     (validator/comment-input c)
-    (def c_ (strip-input c))
-    (over-issues
-     (.. (@ (lookup :issue-number c)) (@ :comments))
-     (fn [cs] (add-right c_ cs)))
+    (let [c_ (strip-input c)]
+      (over-issues
+       (.. (@ (lookup :issue-number c)) (@ :comments))
+       (fn [cs] (add-right c_ cs))))
     (noncer [:use (lookup :nonce c)])))
 
 (def merge-new
@@ -231,18 +235,18 @@
   "Modify some of the attributes of an issue."
   (fn [i]
     (validator/issue-edit-input i)
-    (def i_ (delete :author (strip-input i)))
-    (over-issues (@ (lookup :issue-number i)) (merge-new i_))))
+    (let [i_ (delete :author (strip-input i))]
+      (over-issues (@ (lookup :issue-number i)) (merge-new i_)))))
 
 (def edit-comment
   "Modify a comment of an issue."
   (fn [c]
     (match c
-      {:issue-number 'n
-       :comment-index 'i}
-      (do (validator/comment-edit-input c)
-          (def c_ (strip-input c))
-          (over-issues (... [(@ n) (@ :comments) (@nth i)]) (merge-new c_))))))
+           {:issue-number 'n
+            :comment-index 'i}
+           (do (validator/comment-edit-input c)
+               (let [c_ (strip-input c)]
+                 (over-issues (... [(@ n) (@ :comments) (@nth i)]) (merge-new c_)))))))
 
 
 ;; HTML frontend
@@ -275,6 +279,8 @@
     'edit-comment edit-comment
     'list-issues  list-issues
     'add-admin    (add-admin auth)}))
+
+(ns toplevel)
 
 (def tx
   (lock-machine-commands (auth [:allowed :admin])

@@ -1,12 +1,13 @@
 (ns monadic/project
   "Interact with projects and project machines")
 
+(require prelude/basic '[if])
 (require prelude/test-macro ['test])
-(require prelude/lens [])
+(require prelude/macros '[let])
 (require prelude/machine '[send-code! send-signed-command! new-machine!])
+(require prelude/machine '[install-remote-machine-fake send-prelude! send-signed-command! query!] machine)
 (require prelude/time '[install-fake-clock])
-(require prelude/io [] io)
-(require prelude/key-management '[use-fake-keys! get-keys!])
+(require prelude/key-management '[use-fake-keys! get-keys! set-fake-keys!])
 
 (def get-project-url!
   (fn []
@@ -34,13 +35,13 @@
 (def create-project!
   "Create a remote project RSM with the given url."
   (fn [meta]
-    (def owner-keys (lookup :public-key (get-keys!)))
-    (def id (new-machine!))
-    (machine/send-prelude! id)
-    (send-code! id (find-module-file! "monadic/project-remote.rad"))
-    (set-meta! id meta)
-    (machine/send-signed-command! id rsm-id 'add-admin {:key owner-keys})
-    id))
+    (let [owner-keys (lookup :public-key (get-keys!))
+          id (new-machine!)]
+      (machine/send-prelude! id)
+      (send-code! id (find-module-file! "monadic/project-remote.rad"))
+      (set-meta! id meta)
+      (machine/send-signed-command! id rsm-id 'add-admin {:key owner-keys})
+      id)))
 
 (def add-rsm!
   "Add a new RSM to the project."
@@ -74,8 +75,8 @@
   (fn [rsm-type]
     (lookup :id (first-rsm-of-type! (get-project-url!) rsm-type))))
 
-(test "The monadic project machine works."
-
+(test
+ "The monadic project machine works."
  [:setup
   (do (machine/install-remote-machine-fake)
       (def owner-keys (gen-key-pair! (default-ecc-curve)))
@@ -88,19 +89,19 @@
       (add-repo-rsm! machine "c"))
   ]
 
-  [ (get-meta! machine) ==> { :name "test" :description "test project" }]
-  [ (lookup :id (first-rsm-of-type! machine :rad-issue)) ==> "a" ]
-  [ (lookup :id (first-rsm-of-type! machine :rad-patch)) ==> "b" ]
-  [ (lookup :id (first-rsm-of-type! machine :rad-repo)) ==> "c" ]
-  ;; authorization
-  [ (do
-       (set-fake-keys! non-owner-keys)
-       (def originally (length (list-rsms! machine)))
-       (def res (catch 'validation-failure
-              (do (add-patch-rsm! machine "d")
-                  :valid)
-              ;; check that the machine has in fact not been added
-              (fn [_] :not-valid)))
-       [res (eq? originally (length (list-rsms! machine)))]) ==> [:not-valid #t]
+ [ (get-meta! machine) ==> { :name "test" :description "test project" }]
+ [ (lookup :id (first-rsm-of-type! machine :rad-issue)) ==> "a" ]
+ [ (lookup :id (first-rsm-of-type! machine :rad-patch)) ==> "b" ]
+ [ (lookup :id (first-rsm-of-type! machine :rad-repo)) ==> "c" ]
+ ;; authorization
+ [ (do
+     (set-fake-keys! non-owner-keys)
+     (def originally (length (list-rsms! machine)))
+     (def res (catch 'validation-failure
+                  (do (add-patch-rsm! machine "d")
+                      :valid)
+                ;; check that the machine has in fact not been added
+                (fn [_] :not-valid)))
+     [res (eq? originally (length (list-rsms! machine)))]) ==> [:not-valid #t]
   ]
-)
+ )

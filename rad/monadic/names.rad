@@ -1,8 +1,15 @@
+(ns monadic/names)
+
+(require prelude/test-macro '[test])
+(require prelude/machine
+         '[install-remote-machine-fake new-machine! send-prelude! send-code!]
+         machine)
+
 (def create-name-machine!
   (fn []
     (def id (machine/new-machine!))
     (machine/send-prelude! id)
-    (send-code! id (find-module-file! "monadic/names-remote.rad"))
+    (machine/send-code! id (find-module-file! "monadic/names-remote.rad"))
     id))
 
 (def lookup-key
@@ -24,14 +31,14 @@
      [(list 'add-name name key)])))
 
 (test
-  "The monadic name machine works."
-  [:setup
-    (do (machine/install-remote-machine-fake)
-        (def machine (create-name-machine!))
-        (add-name! machine "alice" "a")
-        (add-name! machine "bob" "b"))
-        ]
-  [ (lookup-key machine "a") ==> "alice" ]
-  [ (lookup-key machine "b") ==> "bob" ]
-  [ (lookup-key machine "c") ==> :nothing ]
-)
+ "The monadic name machine works."
+ [:setup
+  (do (machine/install-remote-machine-fake)
+      (def machine (create-name-machine!))
+      (add-name! machine "alice" "a")
+      (add-name! machine "bob" "b"))
+  ]
+ [ (lookup-key machine "a") ==> "alice" ]
+ [ (lookup-key machine "b") ==> "bob" ]
+ [ (lookup-key machine "c") ==> :nothing ]
+ )

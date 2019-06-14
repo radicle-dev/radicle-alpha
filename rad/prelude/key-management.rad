@@ -1,13 +1,15 @@
-(ns prelude/key-management "Providing functions for creating and reading key pairs for signing send
+(ns prelude/key-management
+  "Providing functions for creating and reading key pairs for signing send
   commands. Per default, key pairs are stored in `$HOME/.config/radicle/my-keys.rad`
   this can be adjusted by setting `$XDG_CONFIG_HOME`.")
 
-(require prelude/basic [])
-(require prelude/io [] io)
+(require prelude/patterns '[match-pat])
+(require prelude/basic '[if])
+(require prelude/io '[read-file-value!] io)
 (require prelude/io-utils [] io)
 (require prelude/strings [] string)
-(require prelude/lens [])
-(require prelude/error-messages [] error)
+(require prelude/lens '[set-ref @])
+(require prelude/error-messages '[missing-key-file] error)
 
 (def key-pair-mode (ref {:use-fake-key #f}))
 
@@ -34,7 +36,7 @@
     (if (lookup :use-fake-key (read-ref key-pair-mode))
       (lookup :fake-key (read-ref key-pair-mode))
       (catch 'any
-        (io/read-file-value! (key-path))
+          (io/read-file-value! (key-path))
         (fn [x] :nothing)))))
 
 (def get-keys!
@@ -51,6 +53,6 @@
   full absolute path of the created file."
   (fn []
     (io/shell! (string-append "mkdir -p " (io/base-path!)) "")
-    (def kp (gen-key-pair! (default-ecc-curve)))
-    (io/write-file! (key-path) (show kp))
-    (key-path)))
+    (let [kp (gen-key-pair! (default-ecc-curve))]
+      (io/write-file! (key-path) (show kp))
+      (key-path))))

@@ -1,8 +1,8 @@
 (ns prelude/dict "Functions for manipualting dicts.")
 
 (require prelude/test-macro ['test])
-(require prelude/basic [])
-(require prelude/patterns [])
+(require prelude/basic '[if])
+(require prelude/patterns '[match-pat _])
 
 (def dict-from-seq
   "Creates a dictionary from a list of key-value pairs."

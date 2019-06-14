@@ -1,19 +1,27 @@
+(ns monadic/project)
+
 ;; Project RSM
 ;; Meant to be sent to a machine with send-code!
 
-(import prelude/basic :unqualified)
-(import prelude/bool :unqualified)
-(import prelude/dict :unqualified)
-(import prelude/set :as 'set)
-(import prelude/ref :unqualified)
-(import prelude/validation :as 'validator)
-(import prelude/patterns :unqualified)
-(import prelude/util :unqualified)
-(import prelude/lens :unqualified)
-(import prelude/nonces :unqualified)
-(import prelude/set :as 'set)
-(import prelude/machine-remote '[lock-machine-commands] :unqualified)
-(import prelude/auth '[make-simple-auth add-admin] :unqualified)
+;; TODO(james): likely some of these are unneeded deps. Just copy-pasted those
+;; of issue-remote.
+
+(require prelude/basic '[if])
+(require prelude/macros '[let])
+(require prelude/dict '[keys delete-many])
+(require prelude/ref '[over-ref modify-ref])
+(require prelude/validation
+         '[= and keys timestamp pred signed optional-keys
+           string-of-max-length every member or
+           contains-only integral has-type]
+         validator)
+(require prelude/set '[empty insert to-vec] set)
+(require prelude/patterns '[match-pat])
+(require prelude/util '[make-counter])
+(require prelude/lens '[@ set-ref over-ref view-ref .. ... @nth])
+(require prelude/nonces '[make-noncer])
+(require prelude/auth '[make-simple-auth add-admin])
+(require prelude/machine-remote '[lock-machine-commands])
 
 (def rsms
   "A url-based dict of RSMs."
@@ -33,8 +41,8 @@
 
 (def validator/rsm
   (validator/keys
-    {:type (validator/type :keyword)
-     :id (validator/string-of-max-length 80)}))
+   {:type (validator/has-type :keyword)
+    :id (validator/string-of-max-length 80)}))
 
 (def validator/meta
   (validator/keys
@@ -80,6 +88,8 @@
     'get-meta  get-meta
     'list-rsms list-rsms
     'add-admin (add-admin auth)}))
+
+(ns toplevel)
 
 (def tx
   (lock-machine-commands (auth [:allowed :admin])

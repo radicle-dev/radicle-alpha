@@ -2,11 +2,16 @@
   "Functions for interacting with issue machine")
 
 (require prelude/test-macro ['test])
+(require prelude/macros '[let])
 (require prelude/lens [])
-(require prelude/machine '[send-code! send-signed-command!])
+(require prelude/machine
+         '[send-code! send-signed-command! install-remote-machine-fake
+           new-machine! send-prelude! send-code! query!]
+         machine)
 (require prelude/time '[install-fake-clock])
 (require prelude/io [] io)
-(require prelude/key-management '[use-fake-keys! get-keys!])
+(require prelude/key-management
+         '[use-fake-keys! get-keys! set-fake-keys! read-keys!])
 
 (def radicle-issue-machine-id
   "The name of this machine."
@@ -15,33 +20,33 @@
 (def create-issue-machine!
   "Create a remote issue machine with the given url."
   (fn []
-    (def owner-keys (lookup :public-key (get-keys!)))
-    (def id (machine/new-machine!))
-    (machine/send-prelude! id)
-    (send-code! id (find-module-file! "monadic/issue-remote.rad"))
-    (machine/send-signed-command! id radicle-issue-machine-id 'add-admin {:key owner-keys})
-    id))
+    (let [owner (lookup :public-key (get-keys!))
+          id (machine/new-machine!)]
+      (machine/send-prelude! id)
+      (machine/send-code! id (find-module-file! "monadic/issue-remote.rad"))
+      (machine/send-signed-command! id radicle-issue-machine-id 'add-admin {:key owner})
+      id)))
 
 (def simple-issue
   "Create an open issue with no comments or labels."
   (fn [i]
-    (def t (now!))
-    (<> {:labels      []
-         :state       :open
-         :comments    []
-         :created-at  t
-         :modified-at t}
-        i)))
+    (let [t (now!)]
+      (<> {:labels      []
+           :state       :open
+           :comments    []
+           :created-at  t
+           :modified-at t}
+          i))))
 
 (def simple-comment
   "Create a comment for an issue."
   (fn [issue-number bod author-name]
-    (def t (now!))
-    {:body         bod
-     :git-username  author-name
-     :issue-number issue-number
-     :created-at   t
-     :modified-at  t}))
+    (let [t (now!)]
+      {:body         bod
+       :git-username  author-name
+       :issue-number issue-number
+       :created-at   t
+       :modified-at  t})))
 
 (def create-issue!
   "Create a new remote issue with the keys in `my-keys.rad`."
@@ -98,24 +103,21 @@
   file use the `radicle-github-issues` executable. Will add a note to all
   `:body`s that this is an imported entity."
   (fn [machine]
-    (def note-imported
-      (fn [x]
-        (insert
-         :body
-         (string-append
-          (lookup :body x)
-          "\n\n*Imported from GitHub.* Original author: `"
-          (lookup :github-username x)
-          "`.")
-         x)))
-    (def note-comments
-      (fn [i] (over (@ :comments) (fn [cs] (map note-imported cs)) i)))
-    (def issues (read-file-value! "githubissues.rad"))
-    (def imported
-      (map
-       (fn [i] (insert :modified-at (lookup :created-at i) (note-imported (note-comments i))))
-       issues))
-    (map (fn [i] (create-issue! machine i)) imported)))
+    (let [note-imported (fn [x]
+                          (insert
+                           :body
+                           (string-append
+                            (lookup :body x)
+                            "\n\n*Imported from GitHub.* Original author: `"
+                            (lookup :github-username x)
+                            "`.")
+                           x))
+          note-comments (fn [i] (over (@ :comments) (fn [cs] (map note-imported cs)) i))
+          issues (read-file-value! "githubissues.rad")
+          imported (map
+                    (fn [i] (insert :modified-at (lookup :created-at i) (note-imported (note-comments i))))
+                    issues)]
+      (map (fn [i] (create-issue! machine i)) imported))))
 
 (def short
   "Short render of an issue."
@@ -151,7 +153,7 @@
       (simple-add-comment! machine 0 "new" "name0")
       (def is (list-issues machine))
       (set-fake-keys! owner-keys))
- ]
+  ]
  [ (length (seq is)) ==> 4 ]
  [ (view (.. (@ 0) (@ :title)) is) ==> "title0" ]
  [ (view (.. (@ 1) (@ :title)) is) ==> "title1" ]
@@ -163,66 +165,66 @@
  ;; authorization
  ;; owner can edit comments
  [ (do
-      (set-fake-keys! owner-keys)
-      (catch 'validation-failure
-             (do (simple-edit-comment! machine 0 0 {:body "edit"})
-                 :valid)
-             (fn [_] :not-valid))) ==> :valid
- ]
+     (set-fake-keys! owner-keys)
+     (catch 'validation-failure
+         (do (simple-edit-comment! machine 0 0 {:body "edit"})
+             :valid)
+       (fn [_] :not-valid))) ==> :valid
+  ]
  ;; author can edit comments
  [ (do
-      (set-fake-keys! non-owner-keys)
-      (catch 'validation-failure
-             (do (simple-edit-comment! machine 0 1 {:body "edit"})
-                 :valid)
-             (fn [_] :not-valid))) ==> :valid
- ]
+     (set-fake-keys! non-owner-keys)
+     (catch 'validation-failure
+         (do (simple-edit-comment! machine 0 1 {:body "edit"})
+             :valid)
+       (fn [_] :not-valid))) ==> :valid
+  ]
  ;; non-owner/non-author cannot edit comments
  [ (do
-      (set-fake-keys! non-owner-keys)
-      (catch 'validation-failure
-             (do (simple-edit-comment! machine 0 0 {:body "edit"})
-                 :valid)
-             (fn [_] :not-valid))) ==> :not-valid
- ]
+     (set-fake-keys! non-owner-keys)
+     (catch 'validation-failure
+         (do (simple-edit-comment! machine 0 0 {:body "edit"})
+             :valid)
+       (fn [_] :not-valid))) ==> :not-valid
+  ]
  ;; owner can edit issues
  [ (do
-      (set-fake-keys! owner-keys)
-      (catch 'validation-failure
-             (do (simple-edit-issue! machine 2 {:state :closed})
-                 :valid)
-             (fn [_] :not-valid))) ==> :valid
- ]
+     (set-fake-keys! owner-keys)
+     (catch 'validation-failure
+         (do (simple-edit-issue! machine 2 {:state :closed})
+             :valid)
+       (fn [_] :not-valid))) ==> :valid
+  ]
  ;; author can edit comments
  [ (do
-      (set-fake-keys! non-owner-keys)
-      (catch 'validation-failure
-             (do (simple-edit-comment! machine 0 1 {:body "edit"})
-                 :valid)
-             (fn [_] :not-valid))) ==> :valid
- ]
+     (set-fake-keys! non-owner-keys)
+     (catch 'validation-failure
+         (do (simple-edit-comment! machine 0 1 {:body "edit"})
+             :valid)
+       (fn [_] :not-valid))) ==> :valid
+  ]
  ;; author can edit issues
  [ (do
-      (set-fake-keys! non-owner-keys)
-      (catch 'validation-failure
-             (do (simple-edit-issue! machine 2 {:state :closed})
-                 :valid)
-             (fn [_] :not-valid))) ==> :valid
- ]
+     (set-fake-keys! non-owner-keys)
+     (catch 'validation-failure
+         (do (simple-edit-issue! machine 2 {:state :closed})
+             :valid)
+       (fn [_] :not-valid))) ==> :valid
+  ]
  ;; non-owner/non-author cannot edit comments
  [ (do
-      (set-fake-keys! non-owner-keys)
-      (catch 'validation-failure
-             (do (simple-edit-comment! machine 0 0 {:body "edit"})
-                 :valid)
-             (fn [_] :not-valid))) ==> :not-valid
- ]
+     (set-fake-keys! non-owner-keys)
+     (catch 'validation-failure
+         (do (simple-edit-comment! machine 0 0 {:body "edit"})
+             :valid)
+       (fn [_] :not-valid))) ==> :not-valid
+  ]
  ;; non-owner/non-author cannot edit issues
  [ (do
-      (set-fake-keys! non-owner-keys)
-      (catch 'validation-failure
-             (do (simple-edit-issue! machine 0 {:state :closed})
-                 :valid)
-             (fn [_] :not-valid))) ==> :not-valid
- ]
-)
+     (set-fake-keys! non-owner-keys)
+     (catch 'validation-failure
+         (do (simple-edit-issue! machine 0 {:state :closed})
+             :valid)
+       (fn [_] :not-valid))) ==> :not-valid
+  ]
+ )

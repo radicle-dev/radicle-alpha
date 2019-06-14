@@ -3,7 +3,7 @@
   this is stored in a file in `$HOME/.config/radicle/item-newness.rad` this can
   be adjusted by setting `$XDG_CONFIG_HOME`.")
 
-(require prelude/basic [])
+(require prelude/basic '[if])
 (require prelude/io [] io)
 (require prelude/io-utils [] io)
 (require prelude/patterns [])

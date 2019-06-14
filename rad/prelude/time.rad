@@ -1,19 +1,17 @@
-{:module 'prelude/time
- :doc "Time-related functions."
- :exports '[install-fake-clock
-           ]}
+(ns prelude/time
+  "Time-related functions.")
+
+(require prelude/macros '[let])
+(require tests/primitive-stub-ref '[primitive-stub-ref-now!])
 
 (def install-fake-clock
   "Install a fake, monotonic implementation for the `now!` primitive.
   Every call to `now!` advances the clock by one second.
   This requires the `prelude/test/primitive-stub` script to be loaded."
   (fn []
-    (def current-time (ref 0))
-    (def now!
-      (fn []
-        (def t (read-ref current-time))
-        (write-ref current-time (+ 1 t))
-        (from-unix-epoch t)
-        ))
-    (write-ref primitive-stub-ref/now! now!)
-    ))
+    (let [current-time (ref 0)
+          now! (fn []
+                 (let [t (read-ref current-time)]
+                   (write-ref current-time (+ 1 t))
+                   (from-unix-epoch t)))]
+      (write-ref primitive-stub-ref-now! now!))))

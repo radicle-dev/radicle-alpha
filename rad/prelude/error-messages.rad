@@ -4,10 +4,10 @@
   To verify changes, tests can be run with `stack exec -- radicle test/all.rad`")
 
 (require prelude/test-macro ['test])
-(require prelude/basic [])
-(require prelude/bool [])
-(require prelude/seq [])
-(require prelude/strings [])
+(require prelude/basic '[if])
+(require prelude/bool '[all not])
+(require prelude/seq '[starts-with?])
+(require prelude/strings '[intercalate unlines])
 
 ;; parsing
 

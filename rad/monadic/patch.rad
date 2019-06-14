@@ -1,7 +1,5 @@
-(require prelude/lens [])
 (require prelude/machine '[send-code!])
 (require prelude/time '[install-fake-clock])
-(require prelude/io [] io)
 (require prelude/key-management '[set-fake-keys! use-fake-keys! get-keys!])
 
 (def radicle-patch-machine-id
@@ -11,12 +9,12 @@
 (def create-patch-machine!
   "Create a remote patch machine. Returns the machine id"
   (fn []
-    (def owner-keys (lookup :public-key (get-keys!)))
-    (def id (machine/new-machine!))
-    (machine/send-prelude! id)
-    (send-code! id (find-module-file! "monadic/patch-remote.rad"))
-    (machine/send-signed-command! id radicle-patch-machine-id 'add-admin {:key owner-keys})
-    id))
+    (let [owner-keys (lookup :public-key (get-keys!))
+          id (machine/new-machine!)]
+      (machine/send-prelude! id)
+      (send-code! id (find-module-file! "monadic/patch-remote.rad"))
+      (machine/send-signed-command! id radicle-patch-machine-id 'add-admin {:key owner-keys})
+      id)))
 
 (def simple-patch
   "Create an open patch with no comments or labels."
@@ -89,16 +87,16 @@
       (simple-add-comment! machine 1 "comment1" "name1")
       (simple-edit-patch! machine 0 {:state :accepted})
       (def patches (list-patches machine)))]
-   [ (length (seq patches)) ==> 2 ]
-   [ (view (.. (@ 0) (@ :title)) patches) ==> "title0" ]
-   [ (view (.. (@ 1) (@ :title)) patches) ==> "title1" ]
-   [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment0" ]
-   [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment1" ]
-   [ (view (.. (@ 0) (@ :state)) patches) ==> :accepted ]
-   ;; authorization
-   [ (do
-        (set-fake-keys! non-owner-keys)
-        (catch 'validation-failure
-               (simple-edit-patch! machine 1 {:state :accepted})
-               (fn [_] :ok))) ==> :ok ]
-)
+ [ (length (seq patches)) ==> 2 ]
+ [ (view (.. (@ 0) (@ :title)) patches) ==> "title0" ]
+ [ (view (.. (@ 1) (@ :title)) patches) ==> "title1" ]
+ [ (view (... [(@ 0) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment0" ]
+ [ (view (... [(@ 1) (@ :comments) (@nth 0) (@ :body)]) patches) ==> "comment1" ]
+ [ (view (.. (@ 0) (@ :state)) patches) ==> :accepted ]
+ ;; authorization
+ [ (do
+     (set-fake-keys! non-owner-keys)
+     (catch 'validation-failure
+         (simple-edit-patch! machine 1 {:state :accepted})
+       (fn [_] :ok))) ==> :ok ]
+ )

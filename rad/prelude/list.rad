@@ -1,7 +1,7 @@
 (ns prelude/list "Functions for creating lists. See also `prelude/seq`.")
 
 (require prelude/test-macro ['test])
-(require prelude/basic [])
+(require prelude/basic '[if])
 (require prelude/bool [])
 
 (def nil "The empty list." (list))

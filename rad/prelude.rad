@@ -1,13 +1,7 @@
 (load-ns! "prelude/test-macro.rad")
-;;(import prelude/test-macro '[test tests] :unqualified)
-
 (load-ns! "prelude/basic.rad")
-(load-ns! "prelude/patterns.rad")
-;; Adds the special function `match-pat` to the global scope. This is
-;; required for the extended `match` to work in the modules loaded
-;; after.
-;;(import prelude/patterns :unqualified)
 (load-ns! "prelude/macros.rad")
+(load-ns! "prelude/patterns.rad")
 (load-ns! "prelude/bool.rad")
 (load-ns! "prelude/seq.rad")
 (load-ns! "prelude/list.rad")
@@ -34,23 +28,3 @@
 (load-ns! "prelude/test.rad")
 (load-ns! "prelude/cmd-parsing.rad")
 (load-ns! "prelude/track-newness.rad")
-
-;; (import prelude/basic :unqualified)
-;; (import prelude/macros :unqualified)
-;; (import prelude/bool :unqualified)
-;; (import prelude/seq :unqualified)
-;; (import prelude/strings :as 'string)
-;; (import prelude/dict :unqualified)
-;; (import prelude/io :unqualified)
-;; (import prelude/maybe :unqualified)
-;; (import prelude/list :unqualified)
-;; (import prelude/ref :unqualified)
-;; (import prelude/io-utils :unqualified)
-;; (import prelude/validation :as 'validator)
-;; (import prelude/nonces :unqualified)
-;; (import prelude/util :unqualified)
-;; (import prelude/auth :as 'auth)
-;; (import prelude/machine :as 'machine)
-;; (import prelude/machine-remote :unqualified)
-;; (import prelude/cmd-parsing :unqualified)
-;; (import prelude/track-newness :as 'newness)

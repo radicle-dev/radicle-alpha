@@ -1,15 +1,23 @@
-(import prelude/basic :unqualified)
-(import prelude/bool :unqualified)
-(import prelude/dict :unqualified)
-(import prelude/set :as 'set)
-(import prelude/ref :unqualified)
-(import prelude/nonces :unqualified)
-(import prelude/validation :as 'validator)
-(import prelude/patterns :unqualified)
-(import prelude/util :unqualified)
-(import prelude/lens :unqualified)
-(import prelude/auth '[make-simple-auth add-admin] :unqualified)
-(import prelude/machine-remote '[lock-machine-commands] :unqualified)
+(ns monadic/patch-remote)
+
+;; TODO(james): likely some of these are unneeded deps. Just copy-pasted those
+;; of issue-remote.
+
+(require prelude/basic '[if])
+(require prelude/macros '[let])
+(require prelude/dict '[keys delete-many lookup-default])
+(require prelude/ref '[over-ref])
+(require prelude/validation
+         '[= and keys timestamp pred signed optional-keys
+           string-of-max-length every member or
+           contains-only integral has-type]
+         validator)
+(require prelude/patterns '[match-pat _])
+(require prelude/util '[make-counter])
+(require prelude/lens '[@ set-ref over-ref view-ref .. ... @nth])
+(require prelude/nonces '[make-noncer])
+(require prelude/auth '[make-simple-auth add-admin])
+(require prelude/machine-remote '[lock-machine-commands])
 
 (def machine-id
   "The name of this machine."
@@ -85,7 +93,7 @@
 (def patch-keys
   {:title       (validator/string-of-max-length 100)
    :description (validator/string-of-max-length 4000)
-   :patch       (validator/type :string)
+   :patch       (validator/has-type :string)
    :state       (validator/member [:pending :retracted :accepted :rejected])
    :comments    (validator/every validator/full-comment)})
 
@@ -183,6 +191,8 @@
     'edit-patch     edit-patch
     'add-comment    add-comment
     'add-admin      (add-admin auth)}))
+
+(ns toplevel)
 
 (def tx
   (lock-machine-commands (auth [:allowed :admin])

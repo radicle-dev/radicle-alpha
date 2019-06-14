@@ -4,10 +4,10 @@
    used for checking data before accepting it onto a chain.")
 
 (require prelude/test-macro ['test])
-(require prelude/basic [])
-(require prelude/dict [])
+(require prelude/basic '[if])
+(require prelude/dict '[delete-many])
 (require prelude/dict '[keys] dict)
-(require prelude/set [] set)
+(require prelude/set '[subset? key-set from-seq] set)
 
 (def always-valid
   "A validator that is always valid."
@@ -54,7 +54,7 @@
             ((nth 0 vs) x)
           (fn [y] ((or (drop 1 vs)) x)))))))
 
-(def type
+(def has-type
   "Checks that a value has a type. Expects a keyword describing the type, as
   returned by the `type` function."
   (fn [t]
@@ -218,14 +218,14 @@
 (def uuid
   "Validates UUIDs."
   (and
-   [(type :string)
+   [(has-type :string)
     (pred "valid UUID" uuid?)]))
 
 (test "uuid"
-       [ (uuid "3c038e2f-0f0c-4d49-8f10-6a44e75fbf40") ==> "3c038e2f-0f0c-4d49-8f10-6a44e75fbf40"]
-       [ (catch 'validation-failure
-             (uuid "nope")
-           (fn [_] :not-uuid)) ==> :not-uuid ])
+      [ (uuid "3c038e2f-0f0c-4d49-8f10-6a44e75fbf40") ==> "3c038e2f-0f0c-4d49-8f10-6a44e75fbf40"]
+      [ (catch 'validation-failure
+            (uuid "nope")
+          (fn [_] :not-uuid)) ==> :not-uuid ])
 
 (def signed
   "Checks that a value is a dict with `:signature` and `:author` keys, and that
@@ -264,20 +264,20 @@
 (def timestamp
   "A validator which checks if a string is an ISO 8601 formatted Coordinated
   Universal Time (UTC) timestamp."
-  (and [(type :string)
+  (and [(has-type :string)
         (pred "valid timestamp" timestamp?)]))
 
 (test "timestamp"
-       [ (timestamp "2018-12-12T14:10:21Z") ==> "2018-12-12T14:10:21Z"]
-       [ (catch 'validation-failure
-             (timestamp "12-12-2018T14:10:21Z")
-           (fn [_] :ok)) ==> :ok ])
+      [ (timestamp "2018-12-12T14:10:21Z") ==> "2018-12-12T14:10:21Z"]
+      [ (catch 'validation-failure
+            (timestamp "12-12-2018T14:10:21Z")
+          (fn [_] :ok)) ==> :ok ])
 
 (def string-of-max-length
   "A validator which checks that it's argument is a string and less than the
   specified length."
   (fn [max-len]
     (and
-     [(type :string)
+     [(has-type :string)
       (pred (string-append "< " (show max-len) " chars in length")
             (fn [s] (< (length s) max-len)))])))

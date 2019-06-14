@@ -1,11 +1,4 @@
-(import prelude/basic :unqualified)
-(import prelude/bool :unqualified)
-(import prelude/dict :unqualified)
-(import prelude/ref :unqualified)
-(import prelude/validation :as 'validator)
-(import prelude/patterns :unqualified)
-(import prelude/util :unqualified)
-(import prelude/lens :unqualified)
+(ns monadic/names-remote)
 
 (def names (ref []))
 
