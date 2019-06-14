@@ -283,8 +283,7 @@ runTask settings backend tips machineRef task = runExceptT $ do
                             m { machineState     = newState
                               , machineLastIndex = Just idx
                               }
-                        void $ async confirm
-                        pure . Right $ Expressions
+                        confirm $> Right Expressions
                             { expressions = outs
                             , nonce       = nonce
                             }

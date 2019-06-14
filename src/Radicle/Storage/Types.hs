@@ -116,6 +116,10 @@ mapBackendError f b = b
 --
 -- IFF the continuation is called, the 'Backend' MAY publish the new tip.
 --
+-- Calling the continuation MUST not block. Where publishing is an expensive
+-- operation, the 'Backend' is responsible for implementing a threading model
+-- allowing for asynchronous publishing.
+--
 data PutResponse idx m = PutResponse idx (Maybe Nonce) (m ())
 
 hoistPutResponse
