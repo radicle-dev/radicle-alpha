@@ -152,11 +152,11 @@ shutdownMachine MEnv { envEval } = uninterruptibleCancel envEval
 
 -- | Load the 'Machine' @mid@ at index @idx@ from the 'Backend'.
 --
--- Returns 'Nothing' is the machine is not known by the 'Backend', otherwise
+-- Returns 'Nothing' if the machine is not known by the 'Backend', otherwise
 -- 'Just' the 'Machine'. Exceptions thrown by the 'Backend' are rethrown.
 --
 -- The 'Inputs' returned by the 'Backend' are evaluated against the
--- 'emptyBindings'. If evaluation returns an error, an exception is thrown.
+-- 'emptyBindings'. 'panic's if evaluation returns an error.
 --
 loadMachine
     :: (MonadUnliftIO m, MonadThrow m, Exception e)
