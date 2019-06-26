@@ -1,4 +1,11 @@
-(require prelude/machine '[send-code!])
+(ns monadic/patch)
+
+(require prelude/test-macro '[test])
+(require prelude/macros '[let])
+(require prelude/machine
+         '[send-code! new-machine! send-prelude! send-signed-command! query!
+           install-remote-machine-fake]
+         machine)
 (require prelude/time '[install-fake-clock])
 (require prelude/key-management '[set-fake-keys! use-fake-keys! get-keys!])
 
@@ -12,7 +19,7 @@
     (let [owner-keys (lookup :public-key (get-keys!))
           id (machine/new-machine!)]
       (machine/send-prelude! id)
-      (send-code! id (find-module-file! "monadic/patch-remote.rad"))
+      (machine/send-code! id (find-module-file! "monadic/patch-remote.rad"))
       (machine/send-signed-command! id radicle-patch-machine-id 'add-admin {:key owner-keys})
       id)))
 

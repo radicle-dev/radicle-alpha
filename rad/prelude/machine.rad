@@ -14,18 +14,18 @@
 (require prelude/seq [])
 (require prelude/key-management '[get-keys!])
 
-(def primitive-stub-ref/send! (ref daemon/send!))
+(defp primitive-stub-ref/send! (ref daemon/send!))
 (def send!
   "Update a machine with the vector of `inputs` to evaluate. Returns a vector
   with the evaluation results."
   (fn [machine-id inputs] ((read-ref primitive-stub-ref/send!) machine-id inputs)))
 
-(def primitive-stub-ref/query! (ref daemon/query!))
+(defp primitive-stub-ref/query! (ref daemon/query!))
 (def query!
   "Send an expression to be evaluated on a machine. Does not alter the machine."
   (fn [machine-id expr] ((read-ref primitive-stub-ref/query!) machine-id expr)))
 
-(def primitive-stub-ref/new-machine! (ref daemon/new-machine!))
+(defp primitive-stub-ref/new-machine! (ref daemon/new-machine!))
 (def new-machine!
   "Creates a new machine. Returns the machine name."
   (fn [] ((read-ref primitive-stub-ref/new-machine!))))
@@ -50,23 +50,32 @@
   "An empty fake machine, which does not use the daemon"
   (pure-state))
 
+(defp fold-in-fake-machine
+  (fn [f]
+    (fn [machine exprs]
+      (match exprs
+             [] {:machine machine :result []}
+             (/cons 'e 'es)
+             (let [x (f e machine)
+                   new-state (nth 1 x)
+                   result (nth 0 x)]
+               (modify-map :result
+                           (fn [i] (cons result i))
+                           ((fold-in-fake-machine f) new-state es)))))))
+
+(def eval-in-fake-machine
+  "Evaluates `exprs` in the `machine` and returns a dict with the `:result` and
+  the resulting `:machine`."
+  (fold-in-fake-machine eval))
+
 (def tx-in-fake-machine
   "Transacts `exprs` in the `machine` and returns a dict with the `:result` and
   the resulting `:machine`."
-  (fn [machine exprs]
-    (match exprs
-           [] {:machine machine :result []}
-           (/cons 'e 'es)
-           (let [x (eval (list 'do
-                               (list 'ns 'toplevel)
-                               (list 'tx (list 'quote e)))
-                         machine)
-                 y (eval (nth 0 x) (nth 1 x))
-                 new-state (nth 1 y)
-                 result (nth 0 y)]
-             (modify-map :result
-                         (fn [i] (cons result i))
-                         (tx-in-fake-machine new-state es))))))
+  (fold-in-fake-machine
+   (fn [e machine]
+     (let [x (eval (list (list 'ns-lookup 'toplevel 'tx) (list 'quote e))
+                   machine)]
+       (eval (nth 0 x) (nth 1 x))))))
 
 (test "tx-in-fake-machine"
       [:setup
@@ -93,7 +102,7 @@
       (write-ref primitive-stub-ref/query!
                  (fn [name expr]
                    (let [machine (lookup name (read-ref remote-machines))]
-                     (first (lookup :result (tx-in-fake-machine machine [expr]))))))
+                     (first (lookup :result (eval-in-fake-machine machine [expr]))))))
 
       (write-ref primitive-stub-ref/new-machine!
                  (fn []

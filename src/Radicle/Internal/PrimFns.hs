@@ -9,7 +9,6 @@ import           Data.List (zip3)
 import qualified Data.Map as Map
 import           Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import           GHC.Exts (IsList(..), sortWith)
 import           Text.Megaparsec (errorBundlePretty)
@@ -34,7 +33,7 @@ pureEnv =
     addPrimFns purePrimFns $ emptyBindings mempty tl
   where
     tl :: Namespace
-    tl = Map.singleton (Ident "tx") (Here (Doc.Docd txd (PrimFn $ unsafeToIdent "initial-tx")))
+    tl = Map.singleton (Ident "tx") (Here Public (Doc.Docd txd (PrimFn $ unsafeToIdent "initial-tx")))
     txd = Just "The transactor function used for the machine inputs. Intially\
                \this is set to `initial-tx`."
 
@@ -152,12 +151,6 @@ purePrimFns = fromList $ allDocs $
           setBindings x
           pure ok
       )
-    , ("trace!"
-      , "Prints a string."
-      , oneArg "trace!" $ \case
-        (String x) -> trace x $ pure nil
-        v -> throwErrorHere $ TypeError "put-str!" 0 TString v
-    )
     , ("list"
       , "Turns the arguments into a list."
       , pure . List)
@@ -644,30 +637,6 @@ purePrimFns = fromList $ allDocs $
                          fromMaybe (missingDocMsg i) d
           _ -> throwErrorHere $ OtherError "doc: expects an atom"
       )
-    -- , ( "match-pat"
-    --   , "The most basic built-in pattern-matching dispatch function."
-    --   , twoArg "match-pat" $ \case
-    --       (x@(Atom _), v) -> pure $ toRad (Just (Dict (Map.singleton x v)))
-    --       (pat, v) -> callFn pat [v]
-    --   )
-    , ( "import"
-      , "Import a module, making all the definitions of that module available\
-        \ in the current scope. The first argument must be a module to import.\
-        \ Two optional arguments affect how and which symbols are imported.\
-        \ `(import m :as 'foo)` will import all the symbols of `m` with the prefix\
-        \ `foo/`. `(import m '[f g])` will only import `f` and `g` from `m`.\
-        \ `(import m '[f g] :as 'foo')` will import `f` and `g` from `m` as `foo/f`\
-        \ and `foo/g`. To import definitions with no qualification at all, use\
-        \ `(import m :unqualified)`."
-      , \case
-          [v]                                           -> import' v Nothing FullyQualified
-          [v, Vec these]                                -> import' v (Just these) FullyQualified
-          [v, Keyword (Ident "as"), Atom q]             -> import' v Nothing (Qualified q)
-          [v, Vec these, Keyword (Ident "as"), Atom q]  -> import' v (Just these) (Qualified q)
-          [v, Keyword (Ident "unqualified")]            -> import' v Nothing Unqualified
-          [v, Vec these, Keyword (Ident "unqualified")] -> import' v (Just these) Unqualified
-          _ -> throwErrorHere $ OtherError "import: expects a module, an optional list of symbols to import, and an optional qualifier."
-      )
     , ( "timestamp?"
       , "Returns true if the input is an ISO 8601 formatted Coordinated\
         \Universal Time (UTC) timestamp string. If the input isn't a string, an\
@@ -728,34 +697,6 @@ purePrimFns = fromList $ allDocs $
           (Number _, v) -> throwErrorHere $ TypeError name 1 TNumber v
           (v, _) -> throwErrorHere $ TypeError name 0 TNumber v
       )
-
-    import' (Dict d) v_ qual = do
-      v <- kwLookup "env" d ?? toLangError (OtherError "Modules should have an `:env` key")
-      n <- kwLookup "module" d ?? toLangError (OtherError "Modules should have an `:module` key")
-      case (n,v) of
-        (Atom name, VEnv e) -> do
-          let allMod = fromEnv e
-          toImport <- case v_ of
-                Just vs -> do
-                  is <- (Set.fromList . Protolude.toList <$> traverse isAtom vs) ?? toLangError (OtherError "import: must be given a vector of symbols to import")
-                  let missing = is Set.\\ Map.keysSet allMod
-                  if Set.null missing
-                    then pure $ Map.restrictKeys allMod is
-                    else throwErrorHere
-                      $ OtherError
-                      $ "import: cannot import undefined symbols: "
-                        <> T.intercalate ", " (fromIdent <$> Set.toAscList missing)
-                Nothing -> pure allMod
-          let qualifier = case qual of
-                Qualified q    -> ((q <> Ident "/") <>)
-                Unqualified    -> identity
-                FullyQualified -> ((name <> Ident "/") <>)
-          let qualified = Env $ Map.mapKeysMonotonic qualifier toImport
-          s <- get
-          put $ s { bindingsEnv = qualified <> bindingsEnv s }
-          pure ok
-        _ -> throwErrorHere (OtherError "The `:module` key of a module should be an `:atom`, and the `:env` key should be an `:env`.")
-    import' _ _ _ = throwErrorHere (OtherError "Modules must be dicts")
 
 data ImportQual = Unqualified | FullyQualified | Qualified Ident
 

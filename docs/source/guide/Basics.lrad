@@ -11,6 +11,22 @@ This chapter introduces `radicle` as a language. In each section we present
 a core datatype of the language, and show some basic operations that can be
 performed on them.
 
+## Namespaces
+
+All code lives in some namespace. Let's make one just for this tutorial.
+
+```radicle
+(ns basics-tutorial)
+```
+
+Namespaces can require symbols from other namespaces. We'll take all the
+definitions we need for this tutorial now:
+
+```radicle
+(require prelude/basic '[or if])
+(require prelude/bool '[and])
+```
+
 ## Comments
 
 The string `;;` starts a comment. This comments all the text until the next
@@ -126,16 +142,16 @@ You can prepend an element to a list with `cons`:
 (cons 0 (list 1)) ;; ==> (0 1)
 ```
 
-Retrieve the head of a list with `head`:
+Retrieve the first item of a list with `first`:
 
 ```radicle
-(head (list 0 1 2 3)) ;; ==> 0
+(first (list 0 1 2 3)) ;; ==> 0
 ```
 
-The rest of it with `tail`:
+The rest of it with `rest`:
 
 ```radicle
-(tail (list 0 1 2 3)) ;; ==> (1 2 3)
+(rest (list 0 1 2 3)) ;; ==> (1 2 3)
 ```
 
 Or a specific index with `nth`:
@@ -263,11 +279,10 @@ But most likely you want to `def`ine a new variable:
 (f 41) ;; ==> 42
 ```
 
-Functions are not by default recursive. If you want to define a recursive
-function, use the `def-rec` form:
+Functions can be recursive:
 
 ```radicle
-(def-rec range
+(def range
  (fn [from to]
   (if (<= to from)
     (list)

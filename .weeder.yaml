@@ -9,6 +9,7 @@
         - name: Radicle.Tests
         - identifier:
           - assertReplInteraction
+          - toplevel
           - atom
           - int
           - kw

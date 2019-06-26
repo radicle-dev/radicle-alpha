@@ -2,7 +2,11 @@
 
 (load! (find-module-file! "prelude.rad"))
 
-(import prelude/key-management :as 'key-mgmt)
+(ns rad-key)
+
+(require prelude/patterns '[match-pat _ /cons])
+(require prelude/key-management '[create-keys! read-keys!] key-mgmt)
+(require prelude/cmd-parsing '[/cmd-0 /cmd-help])
 
 (def help
   "rad key - Radicle Key Management CLI
@@ -22,9 +26,7 @@
 
 (def make-keys
   (fn []
-    (def key-path (key-mgmt/create-keys!))
-    (put-str! (string-append "Successfully created " key-path))
-    ))
+    (put-str! (string-append "Successfully created " (key-mgmt/create-keys!)))))
 
 (def safe-make-keys
   (fn []

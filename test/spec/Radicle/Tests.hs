@@ -30,7 +30,7 @@ import           Radicle.TH
 test_eval :: [TestTree]
 test_eval =
     [ testCase "Fails for undefined atoms" $
-        [s|blah|] `failsWith` UnknownIdentifier [ident|blah|]
+        [s|blah|] `failsWith` UnknownIdentifier toplevel [ident|blah|]
 
     , testCase "Keywords eval to themselves" $
         [s|:blah|] `succeedsWith` Keyword [ident|blah|]
@@ -225,15 +225,6 @@ test_eval =
     , testCase "lambdas with a vector of arguments work" $ do
         let prog = [s|((fn x (first x)) #t)|]
         prog `succeedsWith` Boolean True
-
-    , testCase "lambda does not have access to future definitions (hyper static)" $ do
-        let prog = [s|
-              (def y "a")
-              (def lam (fn [] y))
-              (def y "b")
-              (lam)
-              |]
-        prog `succeedsWith` String "a"
 
     , testCase "lambdas allow local definitions" $ do
         let prog = [s|
@@ -438,11 +429,12 @@ test_eval =
         let prog = [s|
             (def make-counter
               (fn []
-                (def current (ref 0))
-                (fn []
-                  (def temp (read-ref current))
-                  (write-ref current (+ temp 1))
-                  temp)))
+                ((fn [current]
+                   (fn []
+                     (write-ref current (+ (read-ref current) 1))
+                     (- (read-ref current) 1)))
+                 (ref 0))
+                 ))
             (def c1 (make-counter))
             (c1)
             (c1)
@@ -496,9 +488,9 @@ test_eval =
         runPureCode "(to-json {#t #f})" @?= Right (String "{\"true\":false}")
         noStack (runPureCode "(to-json {[1] 2})") @?= Left (OtherError "Could not convert to JSON: Cannot convert values of type Vec to a JSON key")
 
-    , testCase "def-rec can define recursive functions" $ do
+    , testCase "def can define recursive functions" $ do
         let prog = [s|
-            (def-rec triangular
+            (def triangular
               (fn [n]
                 (cond
                   (eq? n 0) 0
@@ -506,10 +498,10 @@ test_eval =
             (triangular 10)
             |]
         runPureCode prog @?= Right (int 55)
-    , testCase "def-rec shadows previous definition" $ do
+    , testCase "def shadows previous definition" $ do
         let prog = [s|
             (def decrement #f)
-            (def-rec decrement
+            (def decrement
               (fn [n]
                 (cond
                   (eq? n 0) 0
@@ -518,8 +510,8 @@ test_eval =
             |]
         runPureCode prog @?= Right (int 0)
 
-    , testCase "def-rec errors when defining a non-function" $
-        failsWith "(def-rec x 42)" (OtherError "'def-rec' can only be used to define functions")
+    -- , testCase "def errors when defining a non-function" $
+    --     failsWith "(def-rec x 42)" (OtherError "'def-rec' can only be used to define functions")
 
     , testCase "stack traces work" $ do
         let prog = [s|
@@ -528,7 +520,7 @@ test_eval =
             (outer)
             |]
         case runPureCode prog of
-            Left (LangError stack (UnknownIdentifier (Identifier "notdefined"))) ->
+            Left (LangError stack (UnknownIdentifier _ (Identifier "notdefined"))) ->
                 assertEqual "correct line numbers" [3,2,1,1] (stackTraceLines stack)
             r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
 
@@ -539,47 +531,45 @@ test_eval =
             (callit inner)
             |]
         case runPureCode prog of
-            Left (LangError stack (UnknownIdentifier (Identifier "notdefined"))) ->
+            Left (LangError stack (UnknownIdentifier _ (Identifier "notdefined"))) ->
                 assertEqual "correct line numbers" [3,1,2,2] (stackTraceLines stack)
             r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
 
-    , testCase "Modules work" $ do
-        let prog = [s|(module
-                        {:module 'foo :doc "" :exports '[z]}
-                        (def x 1)
-                        (def y 2)
-                        (def z (+ x y)))
-                      (import foo)
-                      (import foo :as 'bar)
-                      (import foo ['z] :as 'baz)
-                      (import foo :unqualified)
-                      (list foo/z bar/z baz/z z)|]
-        prog `succeedsWith` List (replicate 4 (Number 3))
+    , testCase "Namespaces work" $ do
+        let prog = [s|(ns foo "")
+                      (def x 1)
+                      (def y 2)
+                      (def z (+ x y))
 
-    , testCase "Modules don't leak non-exported defs" $ do
-        let prog = [s|(module
-                        {:module 'foo :doc "" :exports '[z]}
-                        (def x 1)
-                        (def y 2)
-                        (def z (+ x y)))
-                      (import foo :unqualified)
+                      (ns bar)
+                      (require foo '[z])
+                      (require foo '[z] bar)
+                      (require foo '[z] baz)
+                      (list z bar/z baz/z)|]
+        prog `succeedsWith` List (replicate 3 (Number 3))
+
+    , testCase "Namespaces don't leak private defs" $ do
+        let prog = [s|(ns foo "")
+                      (defp x 1)
+                      (def y 2)
+                      (def z (+ x y))
+
+                      (ns bar)
+                      (require foo '[x])
                       x|]
-        prog `failsWith` UnknownIdentifier [ident|x|]
+        prog `failsWith` UnknownIdentifier [ident|foo|] [ident|x|]
 
-    , testCase "Modules complain if exports are undefined" $ do
-        let prog = [s|(module {:module 'foo :doc "" :exports '[x y]} (def x 0))|]
-        prog `failsWith` ModuleError (UndefinedExports [ident|foo|] [[ident|y|]])
+    -- , testCase "Importing complains if symbols are not exported" $ do
+    --     let prog = [s|(ns foo "")
 
-    , testCase "Importing complains if symbols are not exported" $ do
-        let prog = [s|(module
-                        {:module 'foo :doc "" :exports '[x]}
-                        (def x 1) ;; x: defined and exported
-                        (def y 2) ;; y: defined but not exported
-                                  ;; z: neither defined nor exported
-                      )
-                      (import foo '[y x z]) ;; failed imports appear sorted in error message
-                      |]
-        prog `failsWith` OtherError "import: cannot import undefined symbols: y, z"
+    --                   (def x 1) ;; x: defined and exported
+    --                   (def y 2) ;; y: defined but not exported
+    --                             ;; z: neither defined nor exported
+
+    --                   (ns bar)
+    --                   (require foo '[y x z]) ;; failed imports appear sorted in error message
+    --                   |]
+    --     prog `failsWith` OtherError "import: cannot import undefined symbols: y, z"
     ]
   where
     failsWith src err    = noStack (runPureCode src) @?= Left err
@@ -789,45 +779,45 @@ test_repl_primops =
         let ws = defaultWorldState { worldStateStdin = stdin' }
         in fst <$> runCodeWithWorld ws prog
 
-test_repl :: [TestTree]
-test_repl =
-    [ testCase "evaluates correctly" $ do
-        let input = [ "((fn [x] x) #t)" ]
-            output = [ "#t" ]
-        assertReplInteraction input output
+-- test_repl :: [TestTree]
+-- test_repl =
+--     [ testCase "evaluates correctly" $ do
+--         let input = [ "((fn [x] x) #t)" ]
+--             output = [ "#t" ]
+--         assertReplInteraction input output
 
-    , testCase "handles env modifications" $ do
-        let input = [ "(def id (fn [x] x))"
-                    , "(id #t)"
-                    ]
-            output = [ "()"
-                     , "#t"
-                     ]
-        assertReplInteraction input output
+--     , testCase "handles env modifications" $ do
+--         let input = [ "(def id (fn [x] x))"
+--                     , "(id #t)"
+--                     ]
+--             output = [ "()"
+--                      , "#t"
+--                      ]
+--         assertReplInteraction input output
 
-    , testCase "(def eval eval) doesn't change things" $ do
-        let input = [ "(def eval eval)"
-                    , "(def id (fn [x] x))"
-                    , "(id #t)"
-                    ]
-            output = [ "()"
-                     , "()"
-                     , "#t"
-                     ]
-        assertReplInteraction input output
+--     , testCase "(def eval eval) doesn't change things" $ do
+--         let input = [ "(def eval eval)"
+--                     , "(def id (fn [x] x))"
+--                     , "(id #t)"
+--                     ]
+--             output = [ "()"
+--                      , "()"
+--                      , "#t"
+--                      ]
+--         assertReplInteraction input output
 
-    , testCase "exceptions are non-fatal" $ do
-        let input = [ "(throw 'something \"something happened\")"
-                    , "#t"
-                    ]
-        assertReplInteraction input ["#t"]
+--     , testCase "exceptions are non-fatal" $ do
+--         let input = [ "(throw 'something \"something happened\")"
+--                     , "#t"
+--                     ]
+--         assertReplInteraction input ["#t"]
 
-    , testCase "load! a non-existent file is a non-fatal exception" $ do
-        let input = [ "(load! \"not-a-thing.rad\")"
-                    , "#t"
-                    ]
-        assertReplInteraction input ["#t"]
-    ]
+--     , testCase "load! a non-existent file is a non-fatal exception" $ do
+--         let input = [ "(load! \"not-a-thing.rad\")"
+--                     , "#t"
+--                     ]
+--         assertReplInteraction input ["#t"]
+--     ]
 
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
@@ -925,6 +915,9 @@ int = Number . fromIntegral
 
 vec :: [Value] -> Value
 vec = Vec . fromList
+
+toplevel :: Ident
+toplevel = [ident|toplevel|]
 
 -- | Like 'parse', but uses "(test)" as the source name and the default set of
 -- primops.

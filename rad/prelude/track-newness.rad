@@ -3,10 +3,10 @@
   this is stored in a file in `$HOME/.config/radicle/item-newness.rad` this can
   be adjusted by setting `$XDG_CONFIG_HOME`.")
 
-(require prelude/basic '[if])
-(require prelude/io [] io)
-(require prelude/io-utils [] io)
-(require prelude/patterns [])
+(require prelude/basic '[if <=])
+(require prelude/io '[shell! init-file-dict! write-file-key! read-file-key! delete-file-key!] io)
+(require prelude/io-utils '[base-path!] io)
+(require prelude/patterns '[match-pat /just])
 
 (def path!
   (fn [id]

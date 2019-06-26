@@ -7,10 +7,10 @@ module Radicle.Internal.Eval
 
 import           Protolude hiding (Constructor, Handle, TypeError, (<>))
 
+import           Data.Copointed (copoint)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import           Data.Semigroup ((<>))
-import           Data.Copointed (copoint)
 import qualified Data.Sequence as Seq
 import qualified GHC.Exts as GhcExts
 
@@ -44,7 +44,7 @@ baseEval val = logValPos val $ case val of
 transact :: Monad m => Value -> Lang m Value
 transact expr = do
     nss <- gets bindingsNamespaces
-    tx' <- lookupInNamespace nss (Ident "toplevel") (Ident "tx")
+    tx' <- lookupInNamespace True nss (Ident "toplevel") (Ident "tx")
     let tx = copoint tx'
     logValPos tx $ do
         expr' <- callFn tx [expr]
@@ -72,6 +72,14 @@ specialForms = Map.fromList $ first Ident <$>
         [a@(Atom i), String doc] -> ns a i (Just doc)
         _ -> throwErrorHere $ SpecialForm "ns" "The `ns` form expects a symbol and optionally a docstring."
     )
+  , ( "ns-lookup"
+    , \case
+         [Atom i, Atom j] -> do
+           nss <- gets bindingsNamespaces
+           Doc.Docd _ x <- lookupInNamespace True nss i j
+           pure x
+         _ -> throwErrorHere $ SpecialForm "ns-lookup" "The `ns-lookup` form expects two symbols."
+    )
   , ( "require"
     , \case
         [Atom i, e] -> require i e Nothing
@@ -87,11 +95,10 @@ specialForms = Map.fromList $ first Ident <$>
         _ -> throwErrorHere $ SpecialForm "macro" "Takes a single argument, which should evaluate to a function (which transforms syntax)."
     )
   , ( "def"
-    , \case
-        [Atom name, val] -> def name Nothing val
-        [_, _]           -> throwErrorHere $ OtherError "def expects atom for first arg"
-        [Atom name, String d, val] -> def name (Just d) val
-        xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs)
+    , defPrim Public
+    )
+  , ( "defp"
+    , defPrim Private
     )
     , ("do", (lastDef nil <$>) . traverse baseEval)
     , ("catch", \case
@@ -121,7 +128,7 @@ specialForms = Map.fromList $ first Ident <$>
               Just syms -> do
                 let qualer = case q_ of
                       Nothing -> identity
-                      Just q -> ((q <> Ident "/") <>)
+                      Just q  -> ((q <> Ident "/") <>)
                 let binds = Map.fromList [(qualer s, There i s) | s <- toList syms ]
                 _ <- modifyCurrentNamespace (binds <>)
                 pure (Keyword (Ident "ok"))
@@ -170,9 +177,15 @@ specialForms = Map.fromList $ first Ident <$>
 
     addBinds e = modify (\s -> s { bindingsEnv = e <> bindingsEnv s })
 
-    def name doc_ val = do
+    defPrim vis = \case
+        [Atom name, val] -> def name vis Nothing val
+        [_, _] -> throwErrorHere $ OtherError "def expects atom for first arg"
+        [Atom name, String d, val] -> def name vis (Just d) val
+        xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs)
+
+    def name vis doc_ val = do
       val' <- baseEval val
-      defineAtomInNs name doc_ val'
+      defineAtomInNs name vis doc_ val'
       pure nil
 
 -- | Call a lambda or primitive function @f@ with @arguments@. @f@ and

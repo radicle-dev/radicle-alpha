@@ -1,25 +1,42 @@
 #!/usr/bin/env radicle
 
 (load! (find-module-file! "prelude.rad"))
-(file-module! "prelude/io-utils.rad")
-(file-module! "prelude/error-messages.rad")
-(file-module! "monadic/issue.rad")
+(load-ns! "prelude/io-utils.rad")
+(load-ns! "prelude/error-messages.rad")
+(load-ns! "monadic/issue.rad")
 (load! (find-module-file! "monadic/patch.rad"))
-(file-module! "monadic/project.rad")
+(load-ns! "monadic/project.rad")
 
-(import prelude/strings '[unlines] :unqualified)
-(import prelude/error-messages :as 'error)
-(import prelude/validation :as 'validation)
-(import prelude/cmd-parsing :unqualified)
-(import prelude/io :as 'io)
-(import prelude/io-utils
-  '[set-git-config! get-git-config! process-git-with-exit!]
-  :unqualified)
+(ns rad-project)
 
-(import monadic/issue '[create-issue-machine!] :unqualified)
-(import monadic/project
-  '[get-project-url! get-meta! create-project! add-rsm! first-rsm-of-type!]
-  :unqualified)
+(require prelude/basic '[if])
+(require prelude/bool '[not])
+(require prelude/patterns '[match-pat /cons _])
+(require prelude/seq '[concat starts-with?])
+(require prelude/machine '[catch-daemon!] machine)
+(require prelude/strings '[unlines])
+(require prelude/error-messages
+         '[upstream-commit-failure
+           upstream-push-failure
+           rad-ipfs-key-gen-failure
+           rad-ipfs-name-publish-failure
+           dir-already-exists
+           git-clone-failure]
+         error)
+(require prelude/validation [] validation)
+(require prelude/cmd-parsing '[/cmd-0 /cmd-1 /cmd-help])
+(require prelude/io '[shell-with-stdout! prompt! process!
+                      process-with-stdout-stderr-exitcode!
+                      process-with-stdout!])
+(require prelude/io '[process-with-stdout-strict!] io)
+(require prelude/key-management '[get-keys!])
+(require prelude/io-utils
+         '[set-git-config! get-git-config! process-git-with-exit!])
+
+(require monadic/issue '[create-issue-machine!])
+(require monadic/patch '[create-patch-machine!])
+(require monadic/project
+         '[get-project-url! get-meta! create-project! add-rsm! first-rsm-of-type!])
 
 (def help
   "rad project - Radicle project CLI
@@ -49,21 +66,21 @@
     (def keyname (uuid!))
     (def key
       (match
-        (process-with-stdout-stderr-exitcode!
-          "rad" ["ipfs" "key" "gen" "--type=ed25519" keyname] "")
-        ['stdout _ :ok] (unlines stdout)
-        ['stdout 'stderr _]
-          (do
-            (put-str! (error/rad-ipfs-key-gen-failure (unlines stderr)))
-            (exit! 1))))
+       (process-with-stdout-stderr-exitcode!
+        "rad" ["ipfs" "key" "gen" "--type=ed25519" keyname] "")
+       ['stdout _ :ok] (unlines stdout)
+       ['stdout 'stderr _]
+       (do
+         (put-str! (error/rad-ipfs-key-gen-failure (unlines stderr)))
+         (exit! 1))))
     (match
-      (process-with-stdout-stderr-exitcode!
-        "rad" ["ipfs" "name" "publish" "--key" key orig-cid] "")
-      ['stdout _ :ok] :ok
-      ['stdout 'stderr _]
-        (do
-          (put-str! (error/rad-ipfs-name-publish-failure (unlines stderr)))
-          (exit! 1)))
+     (process-with-stdout-stderr-exitcode!
+      "rad" ["ipfs" "name" "publish" "--key" key orig-cid] "")
+     ['stdout _ :ok] :ok
+     ['stdout 'stderr _]
+     (do
+       (put-str! (error/rad-ipfs-name-publish-failure (unlines stderr)))
+       (exit! 1)))
     (def remote (string-append "ipfs://ipns/" key))
     remote))
 
@@ -118,16 +135,16 @@
           "1. New peer-to-peer repository (git-ipfs **EXPERIMENTAL**)"
           "2. Add your own remote (e.g.: github / gitlab / ...)"]
          (match current-remote
-               "" []
-               'url ["3. Remote origin of existing current git repository:"
-                     (string-append "   " url)])
+                "" []
+                'url ["3. Remote origin of existing current git repository:"
+                      (string-append "   " url)])
          ])))
     (match (prompt! (string-append question "\n"))
            "1" (init-git-ipfs-repo cid-of-empty-repo)
            "2" (do
                  (def remote-url (prompt! "Please input the remote git repo URL: "))
                  (io/process-with-stdout-strict!
-                   "git" ["remote" "add" "origin" remote-url] "")
+                  "git" ["remote" "add" "origin" remote-url] "")
                  remote-url)
            "3" (if (eq? current-remote "")
                  (do (put-str! "No current remote origin set; please select 1 or 2.")
@@ -140,14 +157,14 @@
   "Creates a commit to set the upstream to master, if master does not exist yet."
   (fn []
     (match (process-with-stdout! "git" ["show-ref" "refs/heads/master"] "")
-      []  (do
-            (process-git-with-exit!
-              ["commit" "--allow-empty" "--message" "Radicle Setup"]
-              (error/upstream-commit-failure))
-            (process-git-with-exit!
-              ["push" "-u" "origin" "master"]
-              (error/upstream-push-failure)))
-      _   :ok)))
+           []  (do
+                 (process-git-with-exit!
+                  ["commit" "--allow-empty" "--message" "Radicle Setup"]
+                  (error/upstream-commit-failure))
+                 (process-git-with-exit!
+                  ["push" "-u" "origin" "master"]
+                  (error/upstream-push-failure)))
+           _   :ok)))
 
 (def detect-git!
   "Detect if the directory is already a git repository."

@@ -5,6 +5,7 @@
 
 (require prelude/test-macro ['test])
 (require prelude/basic '[if])
+(require prelude/macros '[let])
 (require prelude/bool '[all not])
 (require prelude/seq '[starts-with?])
 (require prelude/strings '[intercalate unlines])
@@ -27,7 +28,7 @@
 (test "too-many-args"
   [(too-many-args "foobar") ==> "Too many arguments for command \"foobar\""])
 
-(def valid-args-help
+(defp valid-args-help
   (fn [args]
     (string-append "Valid arguments: " (intercalate ", " args))))
 
@@ -64,17 +65,17 @@
 
 ;; unexported helpers for app errors
 
-(def a-or-an
+(defp a-or-an
   (fn [word]
     (if (all (map (fn [x] (not (starts-with? word x))) ["a" "e" "i" "o" "u"]))
       "a"
       "an")))
 
-(def uppercase-item
+(defp uppercase-item
   (fn [item]
     (lookup item {:issue "Issue" :patch  "Patch"})))
 
-(def lowercase-item
+(defp lowercase-item
   (fn [item]
     (lookup item {:issue "issue" :patch  "patch"})))
 
@@ -235,10 +236,10 @@ This may be because you have no internet connection, you are not authorized to p
 (def missing-item-number
   "Any command on a specific patch/issue aborts if the `item-number` is not provided."
   (fn [item action]
-    (def item-name (lowercase-item item))
-    (string-append
-      "To " action " " (a-or-an item-name) " " item-name
-      ", please provide the " item-name " number.")))
+    (let [item-name (lowercase-item item)]
+      (string-append
+       "To " action " " (a-or-an item-name) " " item-name
+       ", please provide the " item-name " number."))))
 
 (test "missing-item-number"
   [(missing-item-number :patch "change the state of") ==> "To change the state of a patch, please provide the patch number."]
@@ -315,11 +316,10 @@ Do `rad key create` to create your own key pair and rerun your command."])
   "Printed when the a sub process exits with a non-zero exit code.
   Includes the stderr output in the message."
   (fn [command args exit-code stderr]
-    (def command-line (intercalate " " (cons command args)))
-    (def message (string-append "error: Command \"" command-line "\" exited with status code " (show exit-code)))
-    (def stderr-output (map (fn [l] (string-append "  stderr: " l)) stderr))
-    (unlines (cons message stderr-output))
-    ))
+    (let [command-line (intercalate " " (cons command args))
+          message (string-append "error: Command \"" command-line "\" exited with status code " (show exit-code))
+          stderr-output (map (fn [l] (string-append "  stderr: " l)) stderr)]
+      (unlines (cons message stderr-output)))))
 
 (test "process-exit-error"
   [(process-exit-error "foo" ["arg1" "arg2"] 5 ["fail1" "fail2"]) ==>

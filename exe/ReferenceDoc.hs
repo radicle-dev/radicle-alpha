@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 -- | This executable generates the radicle reference docs. This is a markdown
 -- document which contains documentation for all the primitive functions and all
 -- the functions defined in the prelude modules.
@@ -17,7 +15,6 @@ import qualified Radicle.Daemon.HttpApi as Daemon
 import           Radicle.Internal.Core
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
-import           Radicle.TH
 import           Text.Pandoc
 
 data Content = Content
@@ -37,65 +34,53 @@ main = do
     res_ <- interpret
                "reference-doc"
                (   "(do"
-                <> "(file-module! \"prelude/test-macro.rad\") (import prelude/test-macro '[test tests] :unqualified)"
-                <> foldMap (\m -> "(file-module! \"" <> m <> ".rad\")") (modules content)
-                <> "(get-current-state))")
+                <> "(load-ns! \"prelude/test-macro.rad\")"
+                <> foldMap (\m -> "(load-ns! \"" <> m <> ".rad\")") (modules content)
+                <> "(get-current-state))"
+               )
                bindings
     let res = res_ `lPanic` "Error running the prelude."
-    let env = bindingsEnv $ bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
-    let rst = runPure (writeRST Default.def $ Pandoc nullMeta (doc content env)) `lPanic` "Couldn't generate RST"
+    let bnds = bindingsFromRadicle res `lPanic` "Couldn't convert radicle state."
+    let nss = bindingsNamespaces bnds
+    let rst = runPure (writeRST Default.def $ Pandoc nullMeta (doc content nss)) `lPanic` "Couldn't generate RST"
     writeFile "docs/source/reference.rst" rst
     writeFile "docs/source/daemon-api.yaml" (toS (encode Daemon.swagger))
   where
 
-    doc :: Content -> Env Value -> [Block]
-    doc content env =
+    doc :: Content -> Namespaces -> [Block]
+    doc content nss =
       [ Header 1 nullAttr (parseInlineMarkdown "Radicle Reference")
       , Para $ parseInlineMarkdown (intro content)
       ] ++ docForPrimFns content ++
       [ Header 2 nullAttr (parseInlineMarkdown "Prelude modules")
       , Para $ parseInlineMarkdown $ preludeModulesDoc content
-      ] ++ foldMap (moduleDoc env) (modules content)
+      ] ++ foldMap (nsDoc nss) (modules content)
 
-moduleDoc :: Env Value -> Text -> [Block]
-moduleDoc (Env env) name =
-    case Map.lookup (Ident name) env of
-        Nothing -> panic $ "Couldn’t find module " <> name
-        Just (Doc.Docd Nothing _) -> panic $ "Module " <> name <> " is not documented"
-        Just (Doc.Docd (Just docString) (Dict module')) ->
-            header docString <> concatMap (exportsDoc name (getModuleEnv module')) (getExports module')
-        _ -> panic $ "Module " <> name <> " was not a dict."
+nsDoc :: Namespaces -> Text -> [Block]
+nsDoc nss name =
+    case Map.lookup (Ident name) nss of
+        Nothing -> panic $ "Couldn’t find namespace " <> name
+        Just (Doc.Docd Nothing _) -> panic $ "Namespace " <> name <> " is not documented"
+        Just (Doc.Docd (Just docString) ns) ->
+             header docString
+          <> concatMap (exportsDoc name ns) (getExports ns)
   where
     header :: Text -> [Block]
     header docString =
         [ Header 2 nullAttr [ Code nullAttr (toS name) ]
         , Para (parseInlineMarkdown docString) ]
 
-    getExports :: Map Value Value -> Seq Text
-    getExports module' =
-        case lkp [kword|exports|] module' of
-            (Vec exports) -> flip map exports $ \case Atom (Ident n) -> n
-                                                      _ -> panic $ "Export in module " <> name <> " is not an atom"
-            _ -> panic $ "Exports of module " <> name <> " are not a vector"
+    getExports :: Namespace -> [Text]
+    getExports ns = [ k | (Ident k, Here Public _) <- Map.toList ns ]
 
-    getModuleEnv :: Map Value Value -> Env Value
-    getModuleEnv module' =
-        case lkp [kword|env|] module' of
-          VEnv e -> e
-          _      -> panic "Module's `:env` was not an env."
-
-    lkp :: Value -> Map Value Value -> Value
-    lkp x m = case Map.lookup x m of
-      Just y  -> y
-      Nothing -> panic $ "Invalid module " <> name <> ": couldn't find key " <> show x
-
-
-exportsDoc :: Text -> Env Value -> Text -> [Block]
-exportsDoc moduleName_ env name =
-    case Map.lookup (Ident name) (fromEnv env) of
-        Nothing -> panic $ "Unknown export " <> name <> "in module " <> moduleName_
-        Just (Doc.Docd Nothing _) -> panic $ "Missing documentation for " <> name <> " in " <> moduleName_
-        Just (Doc.Docd (Just docString) value) -> valueDoc name docString value
+exportsDoc :: Text -> Namespace -> Text -> [Block]
+exportsDoc nsName ns name =
+    case Map.lookup (Ident name) ns of
+        Nothing -> panic $ "Unknown export " <> name <> "in namespace " <> nsName
+        Just (Here _ (Doc.Docd Nothing _)) -> panic $ "Missing documentation for " <> name <> " in " <> nsName
+        Just (Here Public (Doc.Docd (Just docString) value)) -> valueDoc name docString value
+        Just (Here Private _) -> panic $ "Def was not public: " <> name <> "in namespace " <> nsName
+        Just (There _ _) -> panic $ "Export was to be found in another namespace " <> name <> "in namespace " <> nsName
 
 lPanic :: Show a => Either a p -> Text -> p
 lPanic (Left e)  m = panic $ m <> ": " <> show e

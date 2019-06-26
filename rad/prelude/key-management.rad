@@ -5,13 +5,13 @@
 
 (require prelude/patterns '[match-pat])
 (require prelude/basic '[if])
-(require prelude/io '[read-file-value!] io)
-(require prelude/io-utils [] io)
-(require prelude/strings [] string)
+(require prelude/macros '[let])
+(require prelude/io '[read-file-value! shell! write-file!] io)
+(require prelude/io-utils '[base-path!] io)
 (require prelude/lens '[set-ref @])
 (require prelude/error-messages '[missing-key-file] error)
 
-(def key-pair-mode (ref {:use-fake-key #f}))
+(defp key-pair-mode (ref {:use-fake-key #f}))
 
 (def set-fake-keys!
   "Bypass reading the keys from `my-keys.rad`, using instead the provided keys.
@@ -25,7 +25,7 @@
   This is intended for testing."
   (fn [] (set-fake-keys! (gen-key-pair! (default-ecc-curve)))))
 
-(def key-path
+(defp key-path
   (fn []
     (string-append (io/base-path!) "/my-keys.rad")))
 

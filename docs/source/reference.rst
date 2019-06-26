@@ -117,11 +117,6 @@ Returns the current value of a ref.
 Given a reference ``r`` and a value ``v``, updates the value stored in
 ``r`` to be ``v`` and returns ``v``.
 
-``match-pat``
-~~~~~~~~~~~~~
-
-The most basic built-in pattern-matching dispatch function.
-
 ``cons``
 ~~~~~~~~
 
@@ -367,13 +362,6 @@ Checks if the argument is a list.
 
 Checks if the argument is a dict.
 
-``file-module!``
-~~~~~~~~~~~~~~~~
-
-Given a file whose code starts with module metadata, creates the module.
-That is, the file is evaluated as if the code was wrapped in
-``(module ...)``.
-
 ``find-module-file!``
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -381,18 +369,6 @@ Find a file according to radicle search path rules. These are: 1) If
 RADPATH is set, first search there; 2) If RADPATH is not set, search in
 the distribution directory 3) If the file is still not found, search in
 the current directory.
-
-``import``
-~~~~~~~~~~
-
-Import a module, making all the definitions of that module available in
-the current scope. The first argument must be a module to import. Two
-optional arguments affect how and which symbols are imported.
-``(import m :as 'foo)`` will import all the symbols of ``m`` with the
-prefix ``foo/``. ``(import m '[f g])`` will only import ``f`` and ``g``
-from ``m``. ``(import m '[f g] :as 'foo')`` will import ``f`` and ``g``
-from ``m`` as ``foo/f`` and ``foo/g``. To import definitions with no
-qualification at all, use ``(import m :unqualified)``.
 
 ``pure-state``
 ~~~~~~~~~~~~~~
@@ -538,6 +514,13 @@ Reads a single line of input and returns it as a string.
 Evaluates the contents of a file. Each seperate radicle expression is
 transacted according to the current definition of ``tx``.
 
+``load-ns!``
+~~~~~~~~~~~~
+
+Given a file whose code starts with module metadata, creates the module.
+That is, the file is evaluated as if the code was wrapped in
+``(module ...)``.
+
 ``cd!``
 ~~~~~~~
 
@@ -636,32 +619,32 @@ these modules expose.
 Basic function used for checking equality, determining the type of a
 value, etc.
 
-``if``
-~~~~~~
-
-Macro which is called as ``(if c a b)``. If the expression ``c``
-evaluates to true, then the value of the whole expression is the
-evaluation of ``a``, otherwise it is the evaluation of ``b``.
-
-``(or x y)``
+``(<= x y)``
 ~~~~~~~~~~~~
 
-Returns ``x`` if ``x`` is not ``#f``, otherwise returns ``y``
+Test if ``x`` is less than or equal to ``y``.
 
-``(some xs)``
-~~~~~~~~~~~~~
+``(elem? x xs)``
+~~~~~~~~~~~~~~~~
 
-Checks that there is a least one truthy value in a list.
+Returns true if ``x`` is an element of the sequence ``xs``
 
 ``(empty-seq? xs)``
 ~~~~~~~~~~~~~~~~~~~
 
 Returns true if ``xs`` is an empty sequence (either list or vector).
 
-``length``
-~~~~~~~~~~
+``head``
+~~~~~~~~
 
-Returns the length of a vector, list, or string.
+Backwards compatible alias for ``first``.
+
+``if``
+~~~~~~
+
+Macro which is called as ``(if c a b)``. If the expression ``c``
+evaluates to true, then the value of the whole expression is the
+evaluation of ``a``, otherwise it is the evaluation of ``b``.
 
 ``(maybe->>= v f)``
 ~~~~~~~~~~~~~~~~~~~
@@ -674,20 +657,10 @@ Monadic bind for the maybe monad.
 Monadic fold over the elements of a sequence ``xs``, associating to the
 left (i.e. from left to right) in the maybe monad.
 
-``(elem? x xs)``
-~~~~~~~~~~~~~~~~
+``(or x y)``
+~~~~~~~~~~~~
 
-Returns true if ``x`` is an element of the sequence ``xs``
-
-``head``
-~~~~~~~~
-
-Backwards compatible alias for ``first``.
-
-``tail``
-~~~~~~~~
-
-Backwards compatible alias for ``rest``.
+Returns ``x`` if ``x`` is not ``#f``, otherwise returns ``y``
 
 ``(read s)``
 ~~~~~~~~~~~~
@@ -699,21 +672,15 @@ Reads a radicle value from a string.
 
 Reads many radicle values from a string.
 
-``(<= x y)``
-~~~~~~~~~~~~
+``(some xs)``
+~~~~~~~~~~~~~
 
-Test if ``x`` is less than or equal to ``y``.
+Checks that there is a least one truthy value in a list.
 
-``(gensym)``
-~~~~~~~~~~~~
+``tail``
+~~~~~~~~
 
-Returns a new symbol with a pseudo-unique name. The returned symbols are
-``G__#``, where # is a number.
-
-This is used for generating names for "fresh" variables in
-macro-expanded code. Technically it is possible to still get a clash,
-but this won't happen as long as human code-writers never use symbols of
-the form ``G__#``.
+Backwards compatible alias for ``rest``.
 
 ``prelude/patterns``
 --------------------
@@ -721,31 +688,16 @@ the form ``G__#``.
 Pattern matching is first-class in radicle so new patterns can easily be
 defined. These are the most essential.
 
-``(match-pat pat v)``
-~~~~~~~~~~~~~~~~~~~~~
+``(/= x)``
+~~~~~~~~~~
 
-The pattern matching dispatch function. This function defines how
-patterns are treated in ``match`` expressions. Atoms are treated as
-bindings. Numbers, keywords and strings are constant patterns. Dicts of
-patterns match dicts whose values at those keys match those patterns.
-Vectors of patterns match vectors of the same length, pairing the
-patterns and elements by index.
-
-``(_ v)``
-~~~~~~~~~
-
-The wildcard pattern.
+Matches values for equality.
 
 ``(/? p)``
 ~~~~~~~~~~
 
 Predicate pattern. Takes a predicate function as argument. Values match
 against this pattern if the predicate returns a truthy value.
-
-``(/= x)``
-~~~~~~~~~~
-
-Matches values for equality.
 
 ``(/as var pat)``
 ~~~~~~~~~~~~~~~~~
@@ -759,11 +711,6 @@ bound to the matched value.
 
 A pattern for sequences with a head and a tail.
 
-``(/nil v)``
-~~~~~~~~~~~~
-
-Empty-sequence pattern. Matches ``[]`` and ``(list)``
-
 ``(/just pat)``
 ~~~~~~~~~~~~~~~
 
@@ -774,67 +721,70 @@ Pattern which matches ``[:just x]``.
 
 Matches values that are members of a structure.
 
+``(/nil v)``
+~~~~~~~~~~~~
+
+Empty-sequence pattern. Matches ``[]`` and ``(list)``
+
+``(_ v)``
+~~~~~~~~~
+
+The wildcard pattern.
+
+``(exclusive-dict-merge m n)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Merges two dicts while checking for key conflicts. Returns
+``{:merge m :conflicts c}`` where ``m`` is the merged dict for all
+non-conflicting keys and ``c`` is a dict with all the conflicting keys,
+mapping to pairs of values, one from each input dict.
+
+``(match-pat pat v)``
+~~~~~~~~~~~~~~~~~~~~~
+
+The pattern matching dispatch function. This function defines how
+patterns are treated in ``match`` expressions. Atoms are treated as
+bindings. Numbers, keywords and strings are constant patterns. Dicts of
+patterns match dicts whose values at those keys match those patterns.
+Vectors of patterns match vectors of the same length, pairing the
+patterns and elements by index.
+
+``(non-linear-merge m n)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The bindings merge strategy for non-linear patterns. Use this function
+to merge bindings returned by sub-patterns if you want your pattern to
+be non-linear.
+
 ``prelude/bool``
 ----------------
 
 Functions for dealing with truthiness and #f.
-
-``(not x)``
-~~~~~~~~~~~
-
-True if ``x`` is ``#f``, false otherwise.
-
-``(and x y)``
-~~~~~~~~~~~~~
-
-Returns ``y`` if ``x`` is not ``#f``, otherwise returns ``x``
 
 ``(all xs)``
 ~~~~~~~~~~~~
 
 Checks that all the items of a list are truthy.
 
+``(and x y)``
+~~~~~~~~~~~~~
+
+Returns ``y`` if ``x`` is not ``#f``, otherwise returns ``x``
+
 ``(and-predicate f g)``
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 Pointwise conjunction of predicates.
 
+``(not x)``
+~~~~~~~~~~~
+
+True if ``x`` is ``#f``, false otherwise.
+
 ``prelude/seq``
 ---------------
 
 Functions for manipulating sequences, that is lists and vectors.
-
-``(empty? seq)``
-~~~~~~~~~~~~~~~~
-
-True if ``seq`` is empty, false otherwise.
-
-``(seq? x)``
-~~~~~~~~~~~~
-
-Returns ``#t`` if ``x`` is a list or a vector.
-
-``(reverse xs)``
-~~~~~~~~~~~~~~~~
-
-Returns the reversed sequence ``xs``.
-
-``(filter pred ls)``
-~~~~~~~~~~~~~~~~~~~~
-
-Returns ``ls`` with only the elements that satisfy ``pred``.
-
-``(take-while pred ls)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Returns all elements of a sequence ``ls`` until one does not satisfy
-``pred``
-
-``(starts-with? s prefix)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``. Also
-works for strings
 
 ``(/prefix prefix rest-pat)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -846,6 +796,38 @@ sequence to ``rest-pat``. Also works for strings.
 ~~~~~~~~~~~~~~~
 
 Concatenate a sequence of sequences.
+
+``(empty? seq)``
+~~~~~~~~~~~~~~~~
+
+True if ``seq`` is empty, false otherwise.
+
+``(filter pred ls)``
+~~~~~~~~~~~~~~~~~~~~
+
+Returns ``ls`` with only the elements that satisfy ``pred``.
+
+``(reverse xs)``
+~~~~~~~~~~~~~~~~
+
+Returns the reversed sequence ``xs``.
+
+``(seq? x)``
+~~~~~~~~~~~~
+
+Returns ``#t`` if ``x`` is a list or a vector.
+
+``(starts-with? s prefix)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns ``#t`` if ``prefix`` is a prefix of the sequence ``s``. Also
+works for strings
+
+``(take-while pred ls)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns all elements of a sequence ``ls`` until one does not satisfy
+``pred``
 
 ``prelude/list``
 ----------------
@@ -867,31 +849,21 @@ Returns a list with all integers from ``from`` to ``to``, inclusive.
 
 String manipulation functions.
 
+``(ends-with? str substr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+True if ``str`` ends with ``substr``
+
 ``(intercalate sep strs)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Intercalates a string in a list of strings
 
-``(unlines x)``
-~~~~~~~~~~~~~~~
+``(is-space-char? x)``
+~~~~~~~~~~~~~~~~~~~~~~
 
-Concatenate a list of strings, with newlines in between.
-
-``(unwords x)``
-~~~~~~~~~~~~~~~
-
-Concatenate a list of strings, with spaces in between.
-
-``(split-by splitter? xs)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Splits a string ``xs`` into a list of strings whenever the function
-``splitter?`` returns true for a character.
-
-``(words xs)``
-~~~~~~~~~~~~~~
-
-Splits a string ``xs`` into a list of strings by whitespace characters.
+Returns true if the character ``x`` is a space character
+``space-chars``.
 
 ``(lines xs)``
 ~~~~~~~~~~~~~~
@@ -905,21 +877,42 @@ Returns a string consisting of the results of applying ``f`` to each
 character of ``xs``. Throws a type error if ``f`` returns something
 other than a string
 
-``(reverse-string str)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Reverses ``str``. E.g.: ``(reverse-string "abc")`` == ``"cba"``.
-
-``(ends-with? str substr)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-True if ``str`` ends with ``substr``
-
 ``(pad-right-to l word)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Appends the ``word`` with whitespace to get to length ``l``. If ``word``
 is longer than ``l``, the whole word is returned without padding.
+
+``(reverse-string str)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Reverses ``str``. E.g.: ``(reverse-string "abc")`` == ``"cba"``.
+
+``space-chars``
+~~~~~~~~~~~~~~~
+
+A list of all white space character.
+
+``(split-by splitter? xs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Splits a string ``xs`` into a list of strings whenever the function
+``splitter?`` returns true for a character.
+
+``(unlines x)``
+~~~~~~~~~~~~~~~
+
+Concatenate a list of strings, with newlines in between.
+
+``(unwords x)``
+~~~~~~~~~~~~~~~
+
+Concatenate a list of strings, with spaces in between.
+
+``(words xs)``
+~~~~~~~~~~~~~~
+
+Splits a string ``xs`` into a list of strings by whitespace characters.
 
 ``prelude/error-messages``
 --------------------------
@@ -929,33 +922,28 @@ descriptive name or additional comment so that the text can be edited
 without knowledge of where they are used. To verify changes, tests can
 be run with ``stack exec -- radicle test/all.rad``
 
-``(missing-arg arg cmd)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
+``(applying-accepted-patch-failure)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Used for command line parsing when an argument to a command is missing.
+``rad patch accept`` aborts if applying the patch to master fails.
+Conflicts have to be resolved manually as well as pushing the commit.
 
-``(too-many-args cmd)``
-~~~~~~~~~~~~~~~~~~~~~~~
+``(applying-patch-failure)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Used for command line parsing when there are too many arguments passed
-to a command.
+``rad patch checkout`` aborts if applying the patch to the patch branch
+fails. Conflicts have to be resolved manually.
 
-``(missing-arg-for-opt opt valid-args)``
+``(checkout-master-failure)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch accept`` aborts if checking out the master branch fails.
+
+``(checkout-new-branch-failure branch)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Used for command line parsing when an option requires an argument.
-
-``(invalid-arg-for-opt arg opt valid-args)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Used for command line parsing when the argument for an option is
-invalid.
-
-``(invalid-opt-for-cmd opt cmd)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Used for command line parsing when the option for a given command is
-unkown
+``rad patch checkout`` aborts if creating and switching to the patch
+branch fails.
 
 ``(dir-already-exists dir-name)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -969,6 +957,100 @@ with the name of the project ``dir-name`` in the current directory.
 ``rad project checkout`` is aborted, if cloning the repo ``name`` form
 ``origin`` failed.
 
+``(invalid-arg-for-opt arg opt valid-args)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Used for command line parsing when the argument for an option is
+invalid.
+
+``(invalid-opt-for-cmd opt cmd)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Used for command line parsing when the option for a given command is
+unkown
+
+``(item-not-found item item-number)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Any command on a specific patch/issue aborts if it does not exist.
+
+``(missing-arg arg cmd)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Used for command line parsing when an argument to a command is missing.
+
+``(missing-arg-for-opt opt valid-args)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Used for command line parsing when an option requires an argument.
+
+``(missing-item-number item action)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Any command on a specific patch/issue aborts if the ``item-number`` is
+not provided.
+
+``(missing-key-file)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Any request to the machine is aborted, when the key file can't be found.
+
+``(no-number-returned item)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On creating a patch/issue, when the creation was successful, but no
+patch/issue number was returned.
+
+``(parent-commit-not-master commit)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch propose`` aborts if the provided commit is unknown.
+
+``(process-exit-error command args exit-code stderr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Printed when the a sub process exits with a non-zero exit code. Includes
+the stderr output in the message.
+
+``(push-patch-failure)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch accept`` aborts if pushing the patch failed.
+
+``(rad-ipfs-key-gen-failure stderr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Printed when the ``rad ipfs key gen`` command in ``init-git-ipfs-repo``
+in ``rad-project`` fails. Takes stderr of the command as an argument.
+
+``(rad-ipfs-name-publish-failure stderr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Printed when the ``rad ipfs name publish`` command in
+``init-git-ipfs-repo`` in ``rad-project`` fails. Takes stderr of the
+command as an argument.
+
+``(state-change-failure item state)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On changing the state of a patch/issue if the daemon returned an error.
+
+``(too-many-args cmd)``
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Used for command line parsing when there are too many arguments passed
+to a command.
+
+``(unknown-command cmd)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An unknown command for an app. E.g. ``rad issue foobar``
+
+``(unknown-commit commit)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rad patch propose`` aborts if the provided commit is unknown.
+
 ``(upstream-commit-failure)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -981,137 +1063,38 @@ preparation to setting the upstream master branch.
 ``rad project init`` is aborted when pushing the empty commit failed
 while setting the upstream master branch.
 
-``(item-not-found item item-number)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Any command on a specific patch/issue aborts if it does not exist.
-
 ``(whole-item-number item)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Any command on a specific patch/issue aborts if the provided
 ``item-number`` is not a whole number.
 
-``(missing-item-number item action)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Any command on a specific patch/issue aborts if the ``item-number`` is
-not provided.
-
-``(state-change-failure item state)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-On changing the state of a patch/issue if the daemon returned an error.
-
-``(no-number-returned item)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-On creating a patch/issue, when the creation was successful, but no
-patch/issue number was returned.
-
-``(unknown-command cmd)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-An unknown command for an app. E.g. ``rad issue foobar``
-
-``(unknown-commit commit)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``rad patch propose`` aborts if the provided commit is unknown.
-
-``(parent-commit-not-master commit)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``rad patch propose`` aborts if the provided commit is unknown.
-
-``(checkout-new-branch-failure branch)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``rad patch checkout`` aborts if creating and switching to the patch
-branch fails.
-
-``(checkout-master-failure)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``rad patch accept`` aborts if checking out the master branch fails.
-
-``(applying-patch-failure)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``rad patch checkout`` aborts if applying the patch to the patch branch
-fails. Conflicts have to be resolved manually.
-
-``(applying-accepted-patch-failure)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``rad patch accept`` aborts if applying the patch to master fails.
-Conflicts have to be resolved manually as well as pushing the commit.
-
-``(push-patch-failure)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-``rad patch accept`` aborts if pushing the patch failed.
-
-``(missing-key-file)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Any request to the machine is aborted, when the key file can't be found.
-
-``(rad-ipfs-name-publish-failure stderr)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Printed when the ``rad ipfs name publish`` command in
-``init-git-ipfs-repo`` in ``rad-project`` fails. Takes stderr of the
-command as an argument.
-
-``(rad-ipfs-key-gen-failure stderr)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Printed when the ``rad ipfs key gen`` command in ``init-git-ipfs-repo``
-in ``rad-project`` fails. Takes stderr of the command as an argument.
-
-``(process-exit-error command args exit-code stderr)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Printed when the a sub process exits with a non-zero exit code. Includes
-the stderr output in the message.
-
 ``prelude/dict``
 ----------------
 
 Functions for manipualting dicts.
+
+``(delete-many ks d)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Delete several keys ``ks`` from a dict ``d``.
 
 ``(dict-from-seq xs)``
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Creates a dictionary from a list of key-value pairs.
 
+``(group-by f xs)``
+~~~~~~~~~~~~~~~~~~~
+
+Partitions the values of a sequence ``xs`` according to the images under
+``f``. The partitions are returned in a dict keyed by the return value
+of ``f``.
+
 ``(keys d)``
 ~~~~~~~~~~~~
 
 Given a dict ``d``, returns a vector of its keys.
-
-``(values d)``
-~~~~~~~~~~~~~~
-
-Given a dict ``d``, returns a vector of its values.
-
-``(rekey old-key new-key d)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Change the key from ``old-key`` to ``new-key`` in a dict ``d``. If
-``new-key`` already exists, it is overwritten.
-
-``(modify-map k f d)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Given a key ``k``, a function ``f`` and a dict ``d``, applies the
-function to the value associated to that key.
-
-``(delete-many ks d)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Delete several keys ``ks`` from a dict ``d``.
 
 ``(lookup-default key default dict)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1124,6 +1107,18 @@ Like ``lookup`` but returns ``default`` if the key is not in the map.
 Like ``lookup`` but returns ``[:just x]`` if the key is not in the map
 and ``:nothing`` otherwise.
 
+``(modify-map k f d)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Given a key ``k``, a function ``f`` and a dict ``d``, applies the
+function to the value associated to that key.
+
+``(rekey old-key new-key d)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Change the key from ``old-key`` to ``new-key`` in a dict ``d``. If
+``new-key`` already exists, it is overwritten.
+
 ``(safe-modify-map k f d)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1132,29 +1127,54 @@ function ``f`` will receive ``[:just v]`` if ``(eq? (lookup k d) v)``,
 otherwise it will receive ``:nothing``. It should return
 ``[:just new-v]`` to change the value, and ``:nothing`` to remove it.
 
-``(group-by f xs)``
-~~~~~~~~~~~~~~~~~~~
+``(values d)``
+~~~~~~~~~~~~~~
 
-Partitions the values of a sequence ``xs`` according to the images under
-``f``. The partitions are returned in a dict keyed by the return value
-of ``f``.
+Given a dict ``d``, returns a vector of its values.
 
 ``prelude/io``
 --------------
 
 Some basic I/O functions.
 
+``(delete-file-key! file k)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Delete a key from a file. Assumes that the file contents is a serialised
+dict.
+
+``(init-file-dict! file)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Initiate a file with an empty dict, but only if the file doesn't already
+exist.
+
+``(install-fake-filesystem! files)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Installs a fake for ``read-file!`` that simulates the presence of files
+in the ``files`` dictionary.
+
+If
+``(read-file! path) is called and``\ path\ ``is a key in``\ files\ ``then the value from``\ files\ ``is returned. Otherwise the original``\ read-file!\`
+is used.
+
+This requires the ``prelude/test/primitive-stub`` script to be loaded.
+
+``(ls!)``
+~~~~~~~~~
+
+List the contents of the current working directory
+
+``(modify-file! file f)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Modified the value stored in a file according to the function ``f``.
+
 ``(print! x)``
 ~~~~~~~~~~~~~~
 
 Print a value to the console or stdout.
-
-``(shell! command to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Executes ``command`` using the shell with ``to-write`` as input. Stdout
-and stderr are inherited. WARNING: using ``shell!`` with unsanitized
-user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
 
 ``(process! command args to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1163,38 +1183,6 @@ Executes ``command`` using ``execvp`` with ``to-write`` as input. Stdout
 and stderr are inherited. See ``man exec`` for more information on
 ``execvp``. Returns ``:ok`` if the process exited normally and
 ``[:error n]`` otherwise. Example: ``(process! "ls" ["-Glah"] "")``.
-
-``(read-line!)``
-~~~~~~~~~~~~~~~~
-
-Read a single line of input and interpret it as radicle data.
-
-``(read-file-value! file)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Read a single radicle value from a file.
-
-``(read-file-values! file)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Read many radicle values from a file.
-
-``(shell-with-stdout! command to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Like ``shell!``, but captures the stdout and returns it.
-
-``(shell-no-stdin! command to-write)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Like ``shell!``, but inherits stdin. WARNING: using ``shell!`` with
-unsanitized user input is a security hazard! Example:
-``(shell-no-stdin! "ls -Glah")``.
-
-``(write-file! filename contents)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Write ``contents`` to file ``filename``.
 
 ``(process-with-stdout! command args to-write)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1214,55 +1202,66 @@ Like ``process-with-stdout!``, but returns a vec
 Like ``process-with-stdout!``, but prints an error message and exits if
 the command fails.
 
-``(init-file-dict! file)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(prompt! prompt)``
+~~~~~~~~~~~~~~~~~~~~
 
-Initiate a file with an empty dict, but only if the file doesn't already
-exist.
+Ask for user input with a prompt.
+
+``(read-contents-handle! hdl)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read all the contents of a handle. A *vector* of strings is returned,
+one string for each line of output.
 
 ``(read-file-key! file k)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Read a file key. Assumes that the file contents is a serialised dict.
 
+``(read-file-value! file)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read a single radicle value from a file.
+
+``(read-file-values! file)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read many radicle values from a file.
+
+``(read-line!)``
+~~~~~~~~~~~~~~~~
+
+Read a single line of input and interpret it as radicle data.
+
+``(shell! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Executes ``command`` using the shell with ``to-write`` as input. Stdout
+and stderr are inherited. WARNING: using ``shell!`` with unsanitized
+user input is a security hazard! Example: ``(shell! "ls -Glah" "")``.
+
+``(shell-no-stdin! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``shell!``, but inherits stdin. WARNING: using ``shell!`` with
+unsanitized user input is a security hazard! Example:
+``(shell-no-stdin! "ls -Glah")``.
+
+``(shell-with-stdout! command to-write)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``shell!``, but captures the stdout and returns it.
+
+``(write-file! filename contents)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Write ``contents`` to file ``filename``.
+
 ``(write-file-key! file k v)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Write a key to a file. Assumes that the file contents is a serialised
 dict.
-
-``(delete-file-key! file k)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Delete a key from a file. Assumes that the file contents is a serialised
-dict.
-
-``(ls!)``
-~~~~~~~~~
-
-List the contents of the current working directory
-
-``(modify-file! file f)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Modified the value stored in a file according to the function ``f``.
-
-``(install-fake-filesystem! files)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Installs a fake for ``read-file!`` that simulates the presence of files
-in the ``files`` dictionary.
-
-If
-``(read-file! path) is called and``\ path\ ``is a key in``\ files\ ``then the value from``\ files\ ``is returned. Otherwise the original``\ read-file!\`
-is used.
-
-This requires the ``prelude/test/primitive-stub`` script to be loaded.
-
-``(prompt! prompt)``
-~~~~~~~~~~~~~~~~~~~~
-
-Ask for user input with a prompt.
 
 ``prelude/exception``
 ---------------------
@@ -1274,45 +1273,45 @@ Tests for exceptions.
 
 Sets, built using dicts.
 
-``empty``
-~~~~~~~~~
-
-An empty set.
-
-``(insert x s)``
-~~~~~~~~~~~~~~~~
-
-Insert a value into a set.
-
 ``(delete x s)``
 ~~~~~~~~~~~~~~~~
 
 Delete a value from a set.
 
-``member?``
-~~~~~~~~~~~
+``empty``
+~~~~~~~~~
 
-Query if a value is an element of a set.
-
-``(to-vec s)``
-~~~~~~~~~~~~~~
-
-Convert a set to a vector.
+An empty set.
 
 ``(from-seq xs)``
 ~~~~~~~~~~~~~~~~~
 
 Create a set from a sequence.
 
+``(insert x s)``
+~~~~~~~~~~~~~~~~
+
+Insert a value into a set.
+
 ``(key-set d)``
 ~~~~~~~~~~~~~~~
 
 The set of keys of a dict.
 
+``member?``
+~~~~~~~~~~~
+
+Query if a value is an element of a set.
+
 ``(subset? xs ys)``
 ~~~~~~~~~~~~~~~~~~~
 
 Checks if ``xs`` is a subset of ``ys``.
+
+``(to-vec s)``
+~~~~~~~~~~~~~~
+
+Convert a set to a vector.
 
 ``prelude/ref``
 ---------------
@@ -1329,26 +1328,6 @@ Modify ``r`` by applying the function ``f``. Returns the new value.
 
 Functional references.
 
-``(make-lens g s)``
-~~~~~~~~~~~~~~~~~~~
-
-Makes a lens out of a getter and a setter.
-
-``(view lens target)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-View a value through a lens.
-
-``(set lens new-view target)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Set a value though a lens.
-
-``id-lens``
-~~~~~~~~~~~
-
-The identity lens.
-
 ``(.. lens1 lens2)``
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -1358,11 +1337,6 @@ Compose two lenses.
 ~~~~~~~~~~~~~~~~
 
 Compose multiple lenses.
-
-``(over lens f target)``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Modify a value through a lens.
 
 ``(@ k)``
 ~~~~~~~~~
@@ -1380,25 +1354,63 @@ if the key does not exist in the target.
 
 Lenses into the nth element of a vector
 
-``(view-ref r lens)``
-~~~~~~~~~~~~~~~~~~~~~
+``id-lens``
+~~~~~~~~~~~
 
-Like ``view``, but for refs.
+The identity lens.
 
-``(set-ref r lens v)``
-~~~~~~~~~~~~~~~~~~~~~~
+``(make-lens g s)``
+~~~~~~~~~~~~~~~~~~~
 
-Like ``set``, but for refs.
+Makes a lens out of a getter and a setter.
+
+``(over lens f target)``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Modify a value through a lens.
 
 ``(over-ref r lens f)``
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 Like ``over``, but for refs.
 
+``(set lens new-view target)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Set a value though a lens.
+
+``(set-ref r lens v)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Like ``set``, but for refs.
+
+``(view lens target)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+View a value through a lens.
+
+``(view-ref r lens)``
+~~~~~~~~~~~~~~~~~~~~~
+
+Like ``view``, but for refs.
+
 ``prelude/io-utils``
 --------------------
 
 IO-related utilities
+
+``(base-path!)``
+~~~~~~~~~~~~~~~~
+
+Returns the base path for storage of radicle related config files. By
+default this is ``$HOME/.config/radicle``. This can be adjusted by
+setting ``$XDG_CONFIG_HOME``.
+
+``(edit-in-editor! orig)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Open ``$EDITOR`` on a file prepopulated with ``orig``. Returns the
+contents of the edited file when the editor exits.
 
 ``(fzf-select! xs)``
 ~~~~~~~~~~~~~~~~~~~~
@@ -1407,26 +1419,20 @@ Select one of many strings with ``fzf``. Requires that ``fzf`` be on the
 path. Returns ``[:just x]`` where ``x`` is the selected string, or
 ``:nothing`` if nothing was selected.
 
-``(edit-in-editor! orig)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(fzf-select-with-preview! xs prev-fn)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Open ``$EDITOR`` on a file prepopulated with ``orig``. Returns the
-contents of the edited file when the editor exits.
-
-``(get-git-config! key)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Get the value associated with a key in git config.
-
-``(set-git-config! key value)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Set the value associated with a key in git config.
+Like ``fzf-select!``, but includes a preview defined by ``prev-fn``.
 
 ``(get-git-commit-data! format commit)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Get data from a ``commit`` via ``show`` specified by ``format``
+
+``(get-git-config! key)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Get the value associated with a key in git config.
 
 ``(get-git-username!)``
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -1439,12 +1445,10 @@ Get the user name stored in git config.
 Processes a git command ``args``. If it fails, the message ``msg`` is
 shown and the process exits, otherwise ``:ok`` is passed.
 
-``(base-path!)``
-~~~~~~~~~~~~~~~~
+``(set-git-config! key value)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Returns the base path for storage of radicle related config files. By
-default this is ``$HOME/.config/radicle``. This can be adjusted by
-setting ``$XDG_CONFIG_HOME``.
+Set the value associated with a key in git config.
 
 ``prelude/key-management``
 --------------------------
@@ -1454,11 +1458,11 @@ commands. Per default, key pairs are stored in
 ``$HOME/.config/radicle/my-keys.rad`` this can be adjusted by setting
 ``$XDG_CONFIG_HOME``.
 
-``(read-keys!)``
-~~~~~~~~~~~~~~~~
+``(create-keys!)``
+~~~~~~~~~~~~~~~~~~
 
-Reads the keys stored in ``my-keys.rad`` or returns ``:nothing`` if the
-file doesn't exist.
+Creates a new key pair and stores it in ``my-keys.rad``. Returns the
+full absolute path of the created file.
 
 ``(get-keys!)``
 ~~~~~~~~~~~~~~~
@@ -1466,11 +1470,11 @@ file doesn't exist.
 Like ``read-keys`` but prints an error message and exits the process if
 no key file was found.
 
-``(create-keys!)``
-~~~~~~~~~~~~~~~~~~
+``(read-keys!)``
+~~~~~~~~~~~~~~~~
 
-Creates a new key pair and stores it in ``my-keys.rad``. Returns the
-full absolute path of the created file.
+Reads the keys stored in ``my-keys.rad`` or returns ``:nothing`` if the
+file doesn't exist.
 
 ``(set-fake-keys! keys)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1489,32 +1493,37 @@ ones. This is intended for testing.
 
 Functions for simulating remote machines.
 
-``(send-prelude! machine-id)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``@env``
+~~~~~~~~
 
-Send the pure prelude to a machine.
+A lens for env part of a machine state.
 
-``(new-machine!)``
-~~~~~~~~~~~~~~~~~~
+``(@var i)``
+~~~~~~~~~~~~
 
-Creates a new machine. Returns the machine name.
+A lens for variables in machine states.
 
-``(send-code! machine-id filename)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(catch-daemon! f)``
+~~~~~~~~~~~~~~~~~~~~~
 
-Send code from a file to a remote machine.
+Catches all ``radicle-daemon`` related errors and just prints them out
+to the user.
 
-``(send! machine-id inputs)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(env-var i)``
+~~~~~~~~~~~~~~~
 
-Update a machine with the vector of ``inputs`` to evaluate. Returns a
-vector with the evaluation results.
+A lens for variables in envs.
 
-``(query! machine-id expr)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``(eval-in-fake-machine machine exprs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Send an expression to be evaluated on a machine. Does not alter the
-machine.
+Evaluates ``exprs`` in the ``machine`` and returns a dict with the
+``:result`` and the resulting ``:machine``.
+
+``(file-to-ns file)``
+~~~~~~~~~~~~~~~~~~~~~
+
+Make the text of a file into code for a module.
 
 ``(install-remote-machine-fake)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1523,22 +1532,66 @@ Install test doubles for the ``send!``, ``query!``, and
 ``new-machine! primitives that use a mutable dictionary to store RSMs. Requires``\ rad/test/stub-primitives\`
 to be loaded
 
+``new-fake-machine``
+~~~~~~~~~~~~~~~~~~~~
+
+An empty fake machine, which does not use the daemon
+
+``(new-machine!)``
+~~~~~~~~~~~~~~~~~~
+
+Creates a new machine. Returns the machine name.
+
+``pure-prelude-code``
+~~~~~~~~~~~~~~~~~~~~~
+
+Code for the pure prelude. Useful as the first inputs to a new machine.
+
+``pure-prelude-files``
+~~~~~~~~~~~~~~~~~~~~~~
+
+List of files which together define the pure prelude.
+
+``(query! machine-id expr)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send an expression to be evaluated on a machine. Does not alter the
+machine.
+
+``(send! machine-id inputs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Update a machine with the vector of ``inputs`` to evaluate. Returns a
+vector with the evaluation results.
+
+``(send-code! machine-id filename)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send code from a file to a remote machine.
+
+``(send-prelude! machine-id)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Send the pure prelude to a machine.
+
 ``(send-signed-command! machine machine-id cmd payload)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Send a command signed by the keys in ``my-keys.rad``.
 
-``(catch-daemon! f)``
-~~~~~~~~~~~~~~~~~~~~~
+``(sign-entity! e machine-id)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Catches all ``radicle-daemon`` related errors and just prints them out
-to the user.
+Assumes a key pair is stored at ``my-keys.rad``. Using that key pair,
+will sign a dict by adding ``:author`` and ``:signature`` fields, so
+that it is valid according to ``validator/signed``, while also adding a
+``:nonce``.
 
-``prelude/state-machine``
--------------------------
+``(tx-in-fake-machine machine exprs)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-An eval for running a state-machine with an updatable transition
-function.
+Transacts ``exprs`` in the ``machine`` and returns a dict with the
+``:result`` and the resulting ``:machine``.
 
 ``prelude/validation``
 ----------------------
@@ -1552,47 +1605,16 @@ can be used for checking data before accepting it onto a chain.
 
 Given ``x``, returns a validator that checks for equality with ``x``.
 
-``(member xs)``
-~~~~~~~~~~~~~~~
+``(always-valid x)``
+~~~~~~~~~~~~~~~~~~~~
 
-Given a structure, returns a validator which checks for membership in
-the structure.
+A validator that is always valid.
 
 ``(and vs)``
 ~~~~~~~~~~~~
 
 Given a sequence of validators ``vs``, returns a new validator which,
 given a value, checks if it conforms to all the validators in ``vs``.
-
-``(or vs)``
-~~~~~~~~~~~
-
-Given a vector of validators ``vs``, returns a new validator which,
-given a value, checks if it conforms to at least one of the ``vs``.
-
-``(type t)``
-~~~~~~~~~~~~
-
-Checks that a value has a type. Expects a keyword describing the type,
-as returned by the ``type`` function.
-
-``(pred name p)``
-~~~~~~~~~~~~~~~~~
-
-Given a description and a predicate, returns a validator that checks if
-the predicate is true.
-
-``(integral n)``
-~~~~~~~~~~~~~~~~
-
-Validator for whole numbers.
-
-``(optional-key k v)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Given a key ``k`` and a validator ``v``, returns a validator which
-checks that the value associated to ``k`` in a dict conforms to ``v``.
-If the key is absent, the validator passes.
 
 ``(contains k)``
 ~~~~~~~~~~~~~~~~
@@ -1612,17 +1634,27 @@ structure contains all of them.
 Validator which checks that a dict only contains a subset of a vector of
 keys.
 
+``(every v)``
+~~~~~~~~~~~~~
+
+Given a validator, creates a new validator which checks that all the
+items in a sequence conform to it.
+
+``(has-type t)``
+~~~~~~~~~~~~~~~~
+
+Checks that a value has a type. Expects a keyword describing the type,
+as returned by the ``type`` function.
+
+``(integral n)``
+~~~~~~~~~~~~~~~~
+
+Validator for whole numbers.
+
 ``(key k v)``
 ~~~~~~~~~~~~~
 
 Combines existence and validity of a key in a dict.
-
-``(optional-keys ks)``
-~~~~~~~~~~~~~~~~~~~~~~
-
-Given a dict associating keys to validators, returns a validator which
-checks that the values associated to those keys in a dict conform to the
-corresponding validators.
 
 ``(keys d)``
 ~~~~~~~~~~~~
@@ -1631,16 +1663,37 @@ Given a dict ``d``, returns a validator which checks that a dict
 contains all the keys that ``d`` does, and that the associated values a
 valid according to the associated validators.
 
-``(every v)``
-~~~~~~~~~~~~~
+``(member xs)``
+~~~~~~~~~~~~~~~
 
-Given a validator, creates a new validator which checks that all the
-items in a sequence conform to it.
+Given a structure, returns a validator which checks for membership in
+the structure.
 
-``(uuid x)``
-~~~~~~~~~~~~
+``(optional-key k v)``
+~~~~~~~~~~~~~~~~~~~~~~
 
-Validates UUIDs.
+Given a key ``k`` and a validator ``v``, returns a validator which
+checks that the value associated to ``k`` in a dict conforms to ``v``.
+If the key is absent, the validator passes.
+
+``(optional-keys ks)``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Given a dict associating keys to validators, returns a validator which
+checks that the values associated to those keys in a dict conform to the
+corresponding validators.
+
+``(or vs)``
+~~~~~~~~~~~
+
+Given a vector of validators ``vs``, returns a new validator which,
+given a value, checks if it conforms to at least one of the ``vs``.
+
+``(pred name p)``
+~~~~~~~~~~~~~~~~~
+
+Given a description and a predicate, returns a validator that checks if
+the predicate is true.
 
 ``(signed x)``
 ~~~~~~~~~~~~~~
@@ -1650,22 +1703,22 @@ and that the signature is valid for the rest of the dict for that
 author. The rest of the dict is turned into a string according to
 ``show``.
 
-``(timestamp x)``
-~~~~~~~~~~~~~~~~~
-
-A validator which checks if a string is an ISO 8601 formatted
-Coordinated Universal Time (UTC) timestamp.
-
 ``(string-of-max-length max-len)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A validator which checks that it's argument is a string and less than
 the specified length.
 
-``(always-valid x)``
-~~~~~~~~~~~~~~~~~~~~
+``(timestamp x)``
+~~~~~~~~~~~~~~~~~
 
-A validator that is always valid.
+A validator which checks if a string is an ISO 8601 formatted
+Coordinated Universal Time (UTC) timestamp.
+
+``(uuid x)``
+~~~~~~~~~~~~
+
+Validates UUIDs.
 
 ``prelude/util``
 ----------------

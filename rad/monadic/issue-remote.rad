@@ -277,10 +277,12 @@
     'edit-issue   edit-issue
     'add-comment  add-comment
     'edit-comment edit-comment
-    'list-issues  list-issues
     'add-admin    (add-admin auth)}))
 
 (ns toplevel)
+
+(require prelude/machine-remote '[lock-machine-commands])
+(require monadic/issue-remote '[auth commands list-issues])
 
 (def tx
   (lock-machine-commands (auth [:allowed :admin])

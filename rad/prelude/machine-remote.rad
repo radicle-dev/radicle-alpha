@@ -1,6 +1,7 @@
 (ns prelude/machine-remote "Functions for writing remote RSMs")
 
 (require prelude/test-macro '[test tests])
+(require prelude/macros '[let])
 (require prelude/ref '[modify-ref])
 (require prelude/patterns '[match-pat /cons /= /nil _])
 
@@ -20,7 +21,7 @@
   (fn [validator commands-ref]
     (lock-machine validator
                   (fn [expr]
-                    (def command (first expr))
-                    (def args    (rest expr))
-                    (def do-this (lookup command (read-ref commands-ref)))
-                    (apply do-this args)))))
+                    (let [command (first expr)
+                          args    (rest expr)
+                          do-this (lookup command (read-ref commands-ref))]
+                      (apply do-this args))))))

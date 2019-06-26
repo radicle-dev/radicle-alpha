@@ -3,11 +3,13 @@
 
 (require prelude/basic '[if])
 (require prelude/test-macro ['test])
+(require prelude/seq '[filter])
 (require prelude/macros '[let])
 (require prelude/machine '[send-code! send-signed-command! new-machine!])
 (require prelude/machine '[install-remote-machine-fake send-prelude! send-signed-command! query!] machine)
 (require prelude/time '[install-fake-clock])
 (require prelude/key-management '[use-fake-keys! get-keys! set-fake-keys!])
+(require prelude/io-utils '[get-git-config!])
 
 (def get-project-url!
   (fn []

@@ -11,22 +11,19 @@
 
 (load! (find-module-file! "prelude.rad"))
 
-(import prelude/test '[assert-equal] :unqualified)
-
 (def counter/prelude
   '[
     (def counter (ref 0))
     (def increment
       "Increments the counter by one and returns the new counter."
       (fn []
-        (def x (read-ref counter))
-        (write-ref counter (+ x 1))))
+        (write-ref counter (+ (read-ref counter) 1))))
     (def get-value
       "Return the current value of the counter"
       (fn []
         (read-ref counter)))
-  ]
-)
+    ]
+  )
 
 (def counter/init-machine!
   "Send the counter application prelude to a machine"

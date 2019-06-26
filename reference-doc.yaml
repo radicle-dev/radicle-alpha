@@ -36,8 +36,6 @@ primFns:
 - ref
 - read-ref
 - write-ref
-# Pattern matching
-- match-pat
 # Sequences
 - cons
 - first
@@ -83,9 +81,7 @@ primFns:
 - list?
 - dict?
 # Modules
-- file-module!
 - find-module-file!
-- import
 # State and Environment
 - pure-state
 - get-current-state
@@ -116,6 +112,7 @@ primFns:
 - put-str!
 - get-line!
 - load!
+- load-ns!
 - cd!
 - stdin!
 - stdout!
@@ -152,6 +149,5 @@ modules:
 - prelude/io-utils
 - prelude/key-management
 - prelude/machine
-- prelude/state-machine
 - prelude/validation
 - prelude/util

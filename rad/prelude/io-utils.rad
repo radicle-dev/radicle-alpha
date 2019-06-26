@@ -1,7 +1,11 @@
 (ns prelude/io-utils "IO-related utilities")
 
-(require prelude/basic [])
-(require prelude/io '[shell-with-stdout! write-file! process-with-stdout!])
+(require prelude/basic '[if])
+(require prelude/patterns '[match-pat _])
+(require prelude/io
+         '[shell-no-stdin! shell-with-stdout! write-file!
+           process-with-stdout! process!
+           process-with-stdout-stderr-exitcode!])
 (require prelude/strings '[unlines])
 
 (def fzf-select!

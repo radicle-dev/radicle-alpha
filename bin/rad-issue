@@ -5,16 +5,30 @@
 (load! (find-module-file! "monadic/project.rad"))
 (load! (find-module-file! "prelude/io-utils.rad"))
 
-(file-module! "prelude/error-messages.rad")
-(file-module! "monadic/items.rad")
+(load-ns! "prelude/error-messages.rad")
+(load-ns! "monadic/items.rad")
 
-(import prelude/error-messages :as 'error)
-(import monadic/items :as 'items)
+(ns rad-issue)
 
-(import prelude/validation :as 'validation)
-(import prelude/machine :as 'machine)
+(require prelude/patterns '[match-pat])
+(require prelude/error-messages [] error)
+(require monadic/items '[verify-item-number pretty-item-view enrich-item list-items] items)
 
-(def machine-name (fn [] (get-rsm-of-type! :rad-issue)))
+(require prelude/macros '[let])
+(require prelude/basic '[read])
+(require prelude/strings '[intercalate] string)
+(require prelude/dict '[values])
+(require prelude/validation [] validation)
+(require prelude/machine '[catch-daemon!] machine)
+(require prelude/cmd-parsing '[/cmd-opts /cmd-0 /cmd-1 /cmd-2 whole-num])
+(require monadic/project '[get-rsm-of-type!])
+(require prelude/io-utils '[edit-in-editor! get-git-username!])
+(require monadic/issue '[list-issues create-issue! simple-issue])
+(require prelude/track-newness '[mark-read! mark-unread!] newness)
+
+(def machine-name
+  (fn []
+    (get-rsm-of-type! :rad-issue)))
 
 (def valid-states ["open" "closed"])
 
@@ -68,9 +82,9 @@
 (def show-issue!
   "Shows a single ISSUE `n`"
   (fn [n machine]
-    (def issue (items/verify-item-number n (list-issues machine) :issue))
-    (put-str! (items/pretty-item-view (items/enrich-item machine issue)))
-    (newness/mark-read! machine n)))
+    (let [issue (items/verify-item-number n (list-issues machine) :issue)]
+      (put-str! (items/pretty-item-view (items/enrich-item machine issue)))
+      (newness/mark-read! machine n))))
 
 (def close-issue
   (fn [n machine]
@@ -98,26 +112,26 @@
     (simple-add-comment! machine n added-comment (get-git-username!))
     (string-append "Sent comment: " added-comment)))
 
-(def list
+(def show-list
   (fn [machine options]
-    (def issues (values (list-issues machine)))
-    (items/list-items machine options issues :issue add-comment-from-editor!)))
+    (let [issues (values (list-issues machine))]
+      (items/list-items machine options issues :issue add-comment-from-editor!))))
 
 (def new-issue
   (fn [machine]
-    (def template
-";; Issue template. An empty or invalid value will abort.
+    (let [template
+          ";; Issue template. An empty or invalid value will abort.
 {:title      \"Pick a title\"
  :body       \"Pick a body\"
  :labels     []
 }
-")
-    (def i (read (edit-in-editor! template)))
-    (def author {:git-username (get-git-username!)})
-    (match (create-issue!  machine (simple-issue (<> i author)))
-           ['n] (do (put-str! (string-append "Created issue #" (show n) " in " machine))
-                    (newness/mark-read! machine n))
-           _    (put-str! (error/no-number-returned :issue)))))
+"
+          i (read (edit-in-editor! template))
+          author {:git-username (get-git-username!)}]
+      (match (create-issue!  machine (simple-issue (<> i author)))
+             ['n] (do (put-str! (string-append "Created issue #" (show n) " in " machine))
+                      (newness/mark-read! machine n))
+             _    (put-str! (error/no-number-returned :issue))))))
 
 (def cmd-options
   [
@@ -144,7 +158,7 @@
 (machine/catch-daemon!
  (fn []
    (match args
-          (/list-cmd 'options) (list (machine-name) options)
+          (/list-cmd 'options) (do (put-str! "listing..") (show-list (machine-name) options))
           (/cmd-0 "new" help) (new-issue (machine-name))
           (/cmd-1 "close" 'n help)            (whole-issue-num "close" n (fn [n] (close-issue n (machine-name))))
           (/cmd-1 "show" 'n help)             (whole-issue-num "show" n (fn [n] (show-issue! n (machine-name))))

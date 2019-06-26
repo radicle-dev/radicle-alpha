@@ -46,7 +46,7 @@
   "The wildcard pattern."
   (fn [v] [:just {}]))
 
-(def /vec
+(defp /vec
   (fn [pats]
     (fn [v]
       (if (or (vector? v) (list? v))
@@ -60,7 +60,7 @@
           :nothing)
         :nothing))))
 
-(def /dict
+(defp /dict
   (fn [keys-pat]
     (fn [d]
       (if (dict? d)

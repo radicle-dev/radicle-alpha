@@ -2,8 +2,9 @@
   "Functions for parsing commands.")
 
 (require prelude/test-macro ['test])
-(require prelude/basic '[if elem?])
-(require prelude/dict [])
+(require prelude/basic '[if elem? read])
+(require prelude/macros '[let])
+(require prelude/dict '[dict-from-seq lookup-maybe safe-modify-map])
 (require prelude/validation '[has-type] validation)
 (require prelude/patterns '[match-pat /cons _ /nil])
 (require prelude/lens '[set-ref @])
@@ -11,7 +12,10 @@
 (require prelude/strings [])
 (require prelude/error-messages
          '[too-many-args missing-item-number
-           missing-arg-for-opt]
+           missing-arg-for-opt
+           missing-arg
+           invalid-opt-for-cmd
+           invalid-arg-for-opt]
          error)
 
 (def parse-failure-mode (ref {:stub #f}))
@@ -212,13 +216,13 @@
   the integer is passed to handler function. If not, an error is show to the
   user."
   (fn [help item action num-str f]
-    (def bad (fn [] (parse-failure (error/missing-item-number item action) help)))
-    (def n (catch 'any (read num-str) (fn [_] (bad))))
-    (if (number? n)
-      (if (integral? n)
-        (f n)
-        (parse-failure (error/whole-item-number :issue) help))
-      (parse-failure (error/missing-item-number item action) help))))
+    (let [bad (fn [] (parse-failure (error/missing-item-number item action) help))
+          n (catch 'any (read num-str) (fn [_] (bad)))]
+      (if (number? n)
+        (if (integral? n)
+          (f n)
+          (parse-failure (error/whole-item-number :issue) help))
+        (bad)))))
 
 (test
  "whole-num"

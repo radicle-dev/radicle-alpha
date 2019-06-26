@@ -4,7 +4,7 @@
 (require prelude/basic '[if])
 (require prelude/patterns '[match-pat _])
 (require prelude/strings [] strings)
-(require prelude/dict [])
+(require prelude/dict '[lookup-maybe])
 (require prelude/error-messages [] error)
 
 (def read-line!

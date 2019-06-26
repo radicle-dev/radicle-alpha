@@ -416,16 +416,21 @@ instance GhcExts.IsList (PrimFns m) where
     toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . getPrimFns $ e]
 
 data State = State
-  { stateEnv  :: Env Value
-  , stateRefs :: IntMap Value
+  { stateEnv              :: Env Value
+  , stateRefs             :: IntMap Value
   , stateCurrentNamespace :: Ident
-  , stateNamespaces :: Namespaces
+  , stateNamespaces       :: Namespaces
   } deriving (Eq, Ord, Read, Show, Generic)
 
 instance Serialise State
 
+data Visibility = Public | Private
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise Visibility
+
 data NamespaceBinding
-  = Here (Doc.Docd Value)
+  = Here Visibility (Doc.Docd Value)
   | There Ident Ident
   deriving (Eq, Ord, Read, Show, Generic)
 
@@ -565,22 +570,21 @@ docd name x@(Doc.Docd d_ v) = maybe x doc $ callExample name v
   where
     doc t = Doc.Docd (Just (t <> maybe "" ("\n\n" <>) d_)) v
 
-lookupInNamespace :: Monad m => Namespaces -> Ident -> Ident -> Lang m (Doc.Docd Value)
-lookupInNamespace nss nsk j@(Ident name) = case Map.lookup nsk nss of
+lookupInNamespace :: Monad m => Bool -> Namespaces -> Ident -> Ident -> Lang m (Doc.Docd Value)
+lookupInNamespace inCurrent nss nsk j@(Ident name) = case Map.lookup nsk nss of
     Just ns -> case Map.lookup j (copoint ns) of
-      Just (Here x)    -> pure $ docd name x
-      Just (There a b) -> lookupInNamespace nss a b
-      Nothing          -> throwErrorHere err
-    Nothing -> throwErrorHere err
-  where
-    err = UnknownIdentifier nsk j
+      Just (Here vis x)
+        | inCurrent || vis == Public -> pure $ docd name x
+      Just (Here _ _)                -> throwErrorHere $ OtherError $ "Tried to lookup up a private variable: " <> show nsk <> " / "  <> name
+      Just (There a b)               -> lookupInNamespace False nss a b
+      Nothing                        -> throwErrorHere (UnknownIdentifier nsk j)
+    Nothing -> throwErrorHere $ OtherError $ "Unknown namespace: " <> show nsk
 
--- TODO(james): improve error messages.
 lookupAtomWithDoc :: forall m. Monad m => Ident -> Lang m (Doc.Docd Value)
 lookupAtomWithDoc i@(Ident name) =
   get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
     Just x -> pure $ docd name x
-    Nothing -> lookupInNamespace (bindingsNamespaces e) (bindingsCurrentNamespace e) i
+    Nothing -> lookupInNamespace True (bindingsNamespaces e) (bindingsCurrentNamespace e) i
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
@@ -608,8 +612,8 @@ modifyCurrentNamespace f = do
     f' Nothing   = throwErrorHere $ OtherError "namespace missing!" -- TODO(james): make better error
     f' (Just ns) = pure $ Just (f <$> ns)
 
-defineAtomInNs :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
-defineAtomInNs i d v = modifyCurrentNamespace (Map.insert i (Here (Doc.Docd d v)))
+defineAtomInNs :: Monad m => Ident -> Visibility -> Maybe Text -> Value -> Lang m ()
+defineAtomInNs i vis d v = modifyCurrentNamespace (Map.insert i (Here vis (Doc.Docd d v)))
 
 defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
 defineAtom i d v = modify addBinding

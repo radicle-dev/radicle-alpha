@@ -5,13 +5,46 @@
 (load! (find-module-file! "prelude/io-utils.rad"))
 (load! (find-module-file! "monadic/project.rad"))
 
-(file-module! "prelude/error-messages.rad")
-(file-module! "monadic/items.rad")
+(load-ns! "prelude/error-messages.rad")
+(load-ns! "monadic/items.rad")
 
-(import prelude/error-messages :as 'error)
-(import monadic/items :as 'items)
+(ns rad-patch)
 
-(import prelude/validation :as 'validation)
+(require prelude/basic '[if])
+(require prelude/error-messages '[checkout-new-branch-failure
+                                  applying-patch-failure
+                                  checkout-master-failure
+                                  applying-accepted-patch-failure
+                                  push-patch-failure
+                                  state-change-failure]
+         error)
+(require monadic/items
+         '[verify-item-number
+           pretty-item-view enrich-item
+           pretty-state list-items]
+         items)
+
+(require prelude/dict '[values])
+(require prelude/patterns '[match-pat _])
+(require prelude/machine '[catch-daemon!] machine)
+(require prelude/cmd-parsing '[/cmd-0 /cmd-1 /cmd-2 /cmd-help /cmd-opts whole-num])
+(require prelude/validation [] validation)
+(require prelude/strings '[intercalate unlines] string)
+(require monadic/project '[get-rsm-of-type!])
+(require prelude/io '[process-with-stdout-stderr-exitcode!
+                      process-with-stdout!
+                      shell-with-stdout!
+                      write-file!])
+(require prelude/io-utils '[get-git-commit-data!
+                            process-git-with-exit!
+                            get-git-username!])
+(require monadic/patch '[simple-create-patch!
+                         simple-add-comment!
+                         simple-edit-patch!
+                         list-patches])
+(require prelude/track-newness '[mark-all-read!
+                                 mark-read!
+                                 mark-unread!] newness)
 
 (def machine-name (fn [] (get-rsm-of-type! :rad-patch)))
 
@@ -115,36 +148,36 @@
 (def apply-patch!
   "Given a patch, apply it to the current branch"
   (fn [patch msg]
-    (def file (unlines (shell-with-stdout! "mktemp" "")))
-    (put-str! file)
-    (write-file! file patch)
-    (process-git-with-exit! ["am" file] msg)))
+    (let [file (string/unlines (shell-with-stdout! "mktemp" ""))]
+      (put-str! file)
+      (write-file! file patch)
+      (process-git-with-exit! ["am" file] msg))))
 
 (def checkout-patch!
   "Creates a new branch patch/<PATCH-ID> based on the PATCH, and switches to it."
   (fn [machine patch-no]
-    (def patch (items/verify-item-number patch-no (list-patches machine) :patch))
-    (def patch-branch (string-append "patch/" (show patch-no)))
-    (process-git-with-exit!
-      ["checkout" "-b" patch-branch]
-      (error/checkout-new-branch-failure patch-branch))
-    (apply-patch!
-      (lookup :patch patch)
-      (error/applying-patch-failure))))
+    (let [patch (items/verify-item-number patch-no (list-patches machine) :patch)
+          patch-branch (string-append "patch/" (show patch-no))]
+      (process-git-with-exit!
+       ["checkout" "-b" patch-branch]
+       (error/checkout-new-branch-failure patch-branch))
+      (apply-patch!
+       (lookup :patch patch)
+       (error/applying-patch-failure)))))
 
 (def push-patch!
   "Merges the PATCH to master, and pushes the changes."
   (fn [machine patch-no]
-    (def patch (items/verify-item-number patch-no (list-patches machine) :patch))
-    (process-git-with-exit!
-      ["checkout" "master"]
-      (error/checkout-master-failure))
-    (apply-patch!
-      (lookup :patch patch)
-      (error/applying-accepted-patch-failure))
-    (process-git-with-exit!
-      ["push"]
-      (error/push-patch-failure))))
+    (let [patch (items/verify-item-number patch-no (list-patches machine) :patch)]
+      (process-git-with-exit!
+       ["checkout" "master"]
+       (error/checkout-master-failure))
+      (apply-patch!
+       (lookup :patch patch)
+       (error/applying-accepted-patch-failure))
+      (process-git-with-exit!
+       ["push"]
+       (error/push-patch-failure)))))
 
 
 (def verify-patch
@@ -161,53 +194,53 @@
   (fn [machine commit]
     (verify-commit commit)
     (verify-patch commit)
-    (def patch (get-patch! commit))
-    (def author-name (get-author-name! commit))
-    (def short-hash (get-short-hash! commit))
-    (def title (get-title! commit))
-    (def description (get-description! commit))
-    (def patch {:short-hash    short-hash
-               :title         title
-               :description   description
-               :author-name   author-name
-               :patch         patch})
-    (match (simple-create-patch! machine patch)
-           ['n] (do (put-str! (string-append "Proposing patch #" (show n)
-                                             " to " machine))
-                    (newness/mark-read! machine n))
-           _    (put-str! (error/no-number-returned :patch)))))
+    (let [patch (get-patch! commit)
+          author-name (get-author-name! commit)
+          short-hash (get-short-hash! commit)
+          title (get-title! commit)
+          description (get-description! commit)
+          patch {:short-hash    short-hash
+                 :title         title
+                 :description   description
+                 :author-name   author-name
+                 :patch         patch}]
+      (match (simple-create-patch! machine patch)
+             ['n] (do (put-str! (string-append "Proposing patch #" (show n)
+                                               " to " machine))
+                      (newness/mark-read! machine n))
+             _    (put-str! (error/no-number-returned :patch))))))
 
 ;; showing patches
 
 (def show-patch!
   "Shows a single PATCH `n`"
   (fn [machine n]
-    (def patch (items/verify-item-number n (list-patches machine) :patch))
-    (put-str! (items/pretty-item-view (items/enrich-item machine patch)))
-    (newness/mark-read! machine n)))
+    (let [patch (items/verify-item-number n (list-patches machine) :patch)]
+      (put-str! (items/pretty-item-view (items/enrich-item machine patch)))
+      (newness/mark-read! machine n))))
 
 (def edit-patch-state!
   "Edit the state of a PATCH. If the new state is `:accepted` the PATCH is then
   also merged to master and the changes pushed."
   (fn [machine n new-state]
-    (def edit-state-with-feedback!
-      (fn [message]
-        (catch 'daemon-error
-            (do (simple-edit-patch! machine n {:state new-state})
-                (newness/mark-read! machine n))
-          (fn [x]
-            (put-str!
-             (error/state-change-failure :patch (items/pretty-state new-state)))
-            (exit! 1)))
-        (put-str! message)))
-    (items/verify-item-number n (list-patches machine) :patch)
-    (if (eq? new-state :accepted)
-      (match (push-patch! machine n)
-             :ok (edit-state-with-feedback!
-                  (string-append "Patch #" (show n) " has been " (items/pretty-state new-state) " and merged."))
-             _   (exit! 1))
-      (edit-state-with-feedback!
-       (string-append "Patch #" (show n) " has been " (items/pretty-state new-state))))))
+    (let [edit-state-with-feedback!
+          (fn [message]
+            (catch 'daemon-error
+                (do (simple-edit-patch! machine n {:state new-state})
+                    (newness/mark-read! machine n))
+              (fn [x]
+                (put-str!
+                 (error/state-change-failure :patch (items/pretty-state new-state)))
+                (exit! 1)))
+            (put-str! message))          ]
+      (items/verify-item-number n (list-patches machine) :patch)
+      (if (eq? new-state :accepted)
+        (match (push-patch! machine n)
+               :ok (edit-state-with-feedback!
+                    (string-append "Patch #" (show n) " has been " (items/pretty-state new-state) " and merged."))
+               _   (exit! 1))
+        (edit-state-with-feedback!
+         (string-append "Patch #" (show n) " has been " (items/pretty-state new-state)))))))
 
 (def create-comment!
   "Add a new `comment` to PATCH."
@@ -223,10 +256,10 @@
     (simple-add-comment! machine n added-comment (get-git-username!))
     (string-append "Sent comment: " added-comment)))
 
-(def list
+(def show-list
   (fn [machine options]
-    (def patches (values (list-patches machine)))
-    (items/list-items machine options patches :patch add-comment-from-editor!)))
+    (let [patches (values (list-patches machine))]
+      (items/list-items machine options patches :patch add-comment-from-editor!))))
 
 (def mark-all-read!
   (fn [machine]
@@ -253,7 +286,7 @@
 (machine/catch-daemon!
  (fn []
    (match args
-          (/list-cmd 'options) (list (machine-name) options)
+          (/list-cmd 'options) (show-list (machine-name) options)
           (/cmd-1 "propose" 'commit help) (new-patch! (machine-name) commit)
           (/cmd-1 "checkout" 'n help)  (whole-patch-num "checkout" n (fn [n] (checkout-patch! (machine-name) n)))
           (/cmd-1 "show" 'n help)      (whole-patch-num "show" n (fn [n] (show-patch! (machine-name) n)))

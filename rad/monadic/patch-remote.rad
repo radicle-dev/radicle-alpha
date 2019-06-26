@@ -1,8 +1,5 @@
 (ns monadic/patch-remote)
 
-;; TODO(james): likely some of these are unneeded deps. Just copy-pasted those
-;; of issue-remote.
-
 (require prelude/basic '[if])
 (require prelude/macros '[let])
 (require prelude/dict '[keys delete-many lookup-default])
@@ -187,12 +184,14 @@
   "The set of allowed machine commands."
   (ref
    {'create-patch   create-patch
-    'list-patches   list-patches
     'edit-patch     edit-patch
     'add-comment    add-comment
     'add-admin      (add-admin auth)}))
 
 (ns toplevel)
+
+(require prelude/machine-remote '[lock-machine-commands])
+(require monadic/patch-remote '[auth commands list-patches])
 
 (def tx
   (lock-machine-commands (auth [:allowed :admin])

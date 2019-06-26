@@ -1,10 +1,17 @@
-{:module  'monadic/items
- :doc     "Functions for interacting with dicts of items in machines"
- :exports
- '[summary pretty-item-view list-items pretty-state enrich-item
-   verify-item-number]}
+(ns monadic/items
+  "Functions for interacting with dicts of items in machines")
 
-(import prelude/error-messages :as 'error)
+(require prelude/basic '[if read elem? empty-seq?])
+(require prelude/macros '[let])
+(require prelude/bool '[and-predicate])
+(require prelude/patterns '[match-pat])
+(require prelude/strings '[intercalate unwords unlines pad-right-to] string)
+(require prelude/dict '[lookup-maybe lookup-default dict-from-seq group-by])
+(require prelude/seq '[filter reverse])
+(require prelude/machine '[catch-daemon!] machine)
+(require prelude/error-messages '[item-not-found] error)
+(require prelude/cmd-parsing '[/cmd-opts])
+(require prelude/track-newness '[read-since-modified!?] newness)
 
 (def summary
   "Given a list of `items`, each a dict with a `:state` key, displays a summary of
@@ -38,8 +45,8 @@
 
 (def wrap-cell
   (fn [phrase cell-key]
-    (def c-length (lookup cell-key cells))
-    (string-append (take c-length (string/pad-right-to c-length phrase)) " ")))
+    (let [c-length (lookup cell-key cells)]
+      (string-append (take c-length (string/pad-right-to c-length phrase)) " "))))
 
 (def pretty-table-header
   (fn []
@@ -84,60 +91,60 @@
         (wrap-cell (pretty-modified-at i) :modified-at)))))
 
 (def pretty-comment
- (fn [c]
-   (match c
-     '{:created-at c-a
-       :body b
-       :username un}
-     (string-append "### " un " [" c-a "]\n\n" b "\n"))))
+  (fn [c]
+    (match c
+           '{:created-at c-a
+             :body b
+             :username un}
+           (string-append "### " un " [" c-a "]\n\n" b "\n"))))
 
 (def pretty-item-view
   "Markdown view of an item."
   (fn [i]
-    (def pretty-comments
-      (fn [comments]
-        (string/unlines (map pretty-comment comments))))
-    (match i
-      '{:number n
-        :title tit
-        :body b
-        :state state
-        :labels ls
-        :comments cs
-        :username un
-        :created-at c-a}
-      (string-replace
-       "\r"
-       ""
-       (string-append
-        (pretty-headline i) "\n\n"
-        "**State:** " (pretty-state state) "\n"
-        "**Labels:** " (show ls) "\n\n"
-        b "\n\n"
-        "Comments\n"
-        "--------\n\n"
-        (pretty-comments cs)))
-      '{:patch p
-        :created-at c-a
-        :comments cs}
-      (string-append
-        (pretty-headline i) "\n\n"
-        p "\n\n"
-        "Comments\n"
-        "--------\n\n"
-        (pretty-comments cs)))))
+    (let [pretty-comments
+          (fn [comments]
+            (string/unlines (map pretty-comment comments)))]
+      (match i
+             '{:number n
+               :title tit
+               :body b
+               :state state
+               :labels ls
+               :comments cs
+               :username un
+               :created-at c-a}
+             (string-replace
+              "\r"
+              ""
+              (string-append
+               (pretty-headline i) "\n\n"
+               "**State:** " (pretty-state state) "\n"
+               "**Labels:** " (show ls) "\n\n"
+               b "\n\n"
+               "Comments\n"
+               "--------\n\n"
+               (pretty-comments cs)))
+             '{:patch p
+               :created-at c-a
+               :comments cs}
+             (string-append
+              (pretty-headline i) "\n\n"
+              p "\n\n"
+              "Comments\n"
+              "--------\n\n"
+              (pretty-comments cs))))))
 
 (def items-name
   (fn [item-flag]
     (match item-flag
-      :issue  "issues"
-      :patch  "patches")))
+           :issue  "issues"
+           :patch  "patches")))
 
 (def add-username
   (fn [d]
-    (def a-n (lookup-default :author-name "???" d))
-    (def n (lookup-default :github-username (lookup-default :git-username a-n d) d))
-    (insert :username n d)))
+    (let [a-n (lookup-default :author-name "???" d)
+          n (lookup-default :github-username (lookup-default :git-username a-n d) d)]
+      (insert :username n d))))
 
 (def add-username-item
   (fn [i]
@@ -153,75 +160,73 @@
 (def list-items
   "Lists the recent items and uses an editor to add a relevant comment."
   (fn [machine options items item-flag add-comment!]
+    (let [mk-key
+          (fn [i]
+            (if (lookup :fancy options)
+              [(pretty-headline i) i]
+              [(pretty-row i) i]))
+          
+          state-filt
+          (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
+                 []      (fn [x] #t)
+                 'args   (fn [x] (elem? (lookup :state x) args)))
 
-    (def mk-key
-      (fn [i]
+          newness-filt
+          (if (lookup :unread options)
+            (fn [x] (not (lookup :read? x)))
+            (fn [x] #t))
+
+          comment-divider "---"
+
+          add-comment-md
+          (fn [x]
+            (string-append
+             "\n" comment-divider "\n"
+             "---Add comment above the line.\n\n"
+             x))
+
+          filtered-items
+          (map mk-key
+               (filter (and-predicate state-filt newness-filt)
+                       (map (fn [i] (enrich-item machine i))
+                            (reverse items))))
+
+          no-filtered-items
+          (fn []
+            (if (empty-seq? items)
+              (put-str! (string-append "No " (items-name item-flag) "!"))
+              (do
+                (if (lookup :unread options)
+                  (put-str! (string-append "No unread " (items-name item-flag) "!"))
+                  (put-str! (string-append "No items of state " (string/intercalate ", " (lookup :state options))  "!")))
+                (put-str! (summary (items-name item-flag) items)))))
+
+          items-dict (dict-from-seq filtered-items)]
+      
+      (if (empty-seq? filtered-items)
+        (no-filtered-items)
         (if (lookup :fancy options)
-          [(pretty-headline i) i]
-          [(pretty-row i) i])))
-
-    (def state-filt
-      (match (map (fn [opt] (read (string-append ":" opt))) (lookup :state options))
-        []      (fn [x] #t)
-        'args   (fn [x] (elem? (lookup :state x) args))))
-
-    (def newness-filt
-      (if (lookup :unread options)
-        (fn [x] (not (lookup :read? x)))
-        (fn [x] #t)))
-
-    (def comment-divider "---")
-
-    (def add-comment-md
-      (fn [x]
-        (string-append
-         "\n" comment-divider "\n"
-         "---Add comment above the line.\n\n"
-         x)))
-
-    (def filtered-items
-      (map mk-key
-           (filter (and-predicate state-filt newness-filt)
-                   (map (fn [i] (enrich-item machine i))
-                        (reverse items)))))
-
-    (def no-filtered-items
-      (fn []
-        (if (empty-seq? items)
-          (put-str! (string-append "No " (items-name item-flag) "!"))
-          (do
-            (if (lookup :unread options)
-              (put-str! (string-append "No unread " (items-name item-flag) "!"))
-              (put-str! (string-append "No items of state " (string/intercalate ", " (lookup :state options))  "!")))
-            (put-str! (summary (items-name item-flag) items))))))
-
-    (def items-dict (dict-from-seq filtered-items))
-    (if (empty-seq? filtered-items)
-      (no-filtered-items)
-      (if (lookup :fancy options)
-        (match (fzf-select-with-preview!
-                 (map first filtered-items)
-                 (fn [s] (pretty-item-view (lookup s items-dict))))
-               (/just 's)
-               (do (def selected (lookup s items-dict))
-                   (def item-number (match selected {:number 'n} n))
-                   (def pretty-item
-                     (add-comment-md
-                      (pretty-item-view selected)))
-                   (def edited-item (edit-in-editor! pretty-item))
-                   (def added-comment
-                     (string/unlines
-                      (take-while (fn [x] (not (eq? x comment-divider)))
-                                  (string/lines edited-item))))
+          (match (fzf-select-with-preview!
+                  (map first filtered-items)
+                  (fn [s] (pretty-item-view (lookup s items-dict))))
+                 (/just 's)
+                 (let [selected (lookup s items-dict)
+                       item-number (match selected {:number 'n} n)
+                       pretty-item (add-comment-md
+                                    (pretty-item-view selected))
+                       edited-item (edit-in-editor! pretty-item)
+                       added-comment (string/unlines
+                                      (take-while (fn [x] (not (eq? x comment-divider)))
+                                                  (string/lines edited-item)))]
                    (put-str!
                     (if (eq? added-comment "")
                       "Item was not updated."
                       (add-comment! machine item-number added-comment))))
-               _ (put-str! "No selection made."))
-        (do
-          (put-str! (pretty-table-header))
-          (map (fn [d] (put-str! (first d))) filtered-items)
-          (put-str! (summary (items-name item-flag) items)))))))
+                 _ (put-str! "No selection made."))
+          (do
+            (put-str! (pretty-table-header))
+            (map (fn [d] (put-str! (first d))) filtered-items)
+            (put-str! (summary (items-name item-flag) items))))))))
 
 (def verify-item-number
   "Verifies that the item corresponding to `item-number` is part of the given
