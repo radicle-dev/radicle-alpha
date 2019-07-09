@@ -557,7 +557,7 @@ test_eval =
                       (ns bar)
                       (require foo '[x])
                       x|]
-        prog `failsWith` UnknownIdentifier [ident|foo|] [ident|x|]
+        prog `failsWith` CantAccessPrivateDef [ident|foo|] [ident|x|]
 
     -- , testCase "Importing complains if symbols are not exported" $ do
     --     let prog = [s|(ns foo "")

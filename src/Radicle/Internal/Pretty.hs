@@ -97,6 +97,12 @@ instance PrettyV r => PrettyV (LangError r) where
 instance PrettyV r => PrettyV (LangErrorData r) where
     prettyV v = case v of
         UnknownIdentifier ns i -> "Unknown identifier:" <+> pretty i <+> "in" <+> pretty ns
+        UnknownNamespace ns -> "Unknown namespace:" <+> pretty ns
+        CantAccessPrivateDef ns x -> vsep
+          [ "Can't access a private namespace definition from outside that namespace: "
+          , indent 2 $ "namespace:" <+> pretty ns
+          , indent 2 $ "definition:" <+> pretty x
+          ]
         Impossible t -> "This cannot be!" <+> pretty t
         TypeError fname i t val -> vsep
           [ "Type error:" <+> pretty fname <+> "expects a value of type"

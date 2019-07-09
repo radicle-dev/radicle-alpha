@@ -52,6 +52,8 @@ instance Serialise PatternMatchError
 -- | An error thrown during parsing or evaluating expressions in the language.
 data LangErrorData r =
       UnknownIdentifier Ident Ident
+    | UnknownNamespace Ident
+    | CantAccessPrivateDef Ident Ident
     | Impossible Text
     -- | The special form that was misused, and information on the misuse.
     | SpecialForm Text Text
@@ -100,6 +102,16 @@ errorDataToValue e = case e of
         ( "unknown-identifier"
         , [("identifier", makeA i)
           ,("namespace", makeA nsk)]
+        )
+    UnknownNamespace nsk -> makeVal
+        ( "unknown-namespace"
+        , [ ( "namespace", makeA nsk ) ]
+        )
+    CantAccessPrivateDef nsk x -> makeVal
+        ( "cant-access-private-def"
+        , [ ( "namespace", makeA nsk )
+          , ( "identifier", makeA x )
+          ]
         )
     -- "Now more than ever seems it rich to die"
     Impossible _ -> throwErrorHere e
@@ -575,10 +587,10 @@ lookupInNamespace inCurrent nss nsk j@(Ident name) = case Map.lookup nsk nss of
     Just ns -> case Map.lookup j (copoint ns) of
       Just (Here vis x)
         | inCurrent || vis == Public -> pure $ docd name x
-      Just (Here _ _)                -> throwErrorHere $ OtherError $ "Tried to lookup up a private variable: " <> show nsk <> " / "  <> name
+      Just (Here _ _)                -> throwErrorHere (CantAccessPrivateDef nsk j)
       Just (There a b)               -> lookupInNamespace False nss a b
       Nothing                        -> throwErrorHere (UnknownIdentifier nsk j)
-    Nothing -> throwErrorHere $ OtherError $ "Unknown namespace: " <> show nsk
+    Nothing -> throwErrorHere (UnknownNamespace nsk)
 
 lookupAtomWithDoc :: forall m. Monad m => Ident -> Lang m (Doc.Docd Value)
 lookupAtomWithDoc i@(Ident name) =

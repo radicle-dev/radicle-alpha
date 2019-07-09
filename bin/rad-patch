@@ -11,6 +11,7 @@
 (ns rad-patch)
 
 (require prelude/basic '[if])
+(require prelude/macros '[let])
 (require prelude/error-messages '[checkout-new-branch-failure
                                   applying-patch-failure
                                   checkout-master-failure
