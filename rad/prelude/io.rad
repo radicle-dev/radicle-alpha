@@ -271,12 +271,12 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
           (original-read-file! path))
         ))
     (write-ref primitive-stub-ref/read-file! read-file)
-    (def original-find-module-file! (read-ref primitive-stub-ref/find-module-file!))
-    (def find-module-file
+    (def original-find-rad-file! (read-ref primitive-stub-ref/find-rad-file!))
+    (def find-rad-file
       (fn [path]
         (if (member? path files)
           path
-          (original-find-module-file! path))
+          (original-find-rad-file! path))
         ))
-    (write-ref primitive-stub-ref/find-module-file! find-module-file)
+    (write-ref primitive-stub-ref/find-rad-file! find-rad-file)
     ))

@@ -510,9 +510,6 @@ test_eval =
             |]
         runPureCode prog @?= Right (int 0)
 
-    -- , testCase "def errors when defining a non-function" $
-    --     failsWith "(def-rec x 42)" (OtherError "'def-rec' can only be used to define functions")
-
     , testCase "stack traces work" $ do
         let prog = [s|
             (def inner (fn [] (notdefined)))
@@ -558,18 +555,6 @@ test_eval =
                       (require foo '[x])
                       x|]
         prog `failsWith` CantAccessPrivateDef [ident|foo|] [ident|x|]
-
-    -- , testCase "Importing complains if symbols are not exported" $ do
-    --     let prog = [s|(ns foo "")
-
-    --                   (def x 1) ;; x: defined and exported
-    --                   (def y 2) ;; y: defined but not exported
-    --                             ;; z: neither defined nor exported
-
-    --                   (ns bar)
-    --                   (require foo '[y x z]) ;; failed imports appear sorted in error message
-    --                   |]
-    --     prog `failsWith` OtherError "import: cannot import undefined symbols: y, z"
     ]
   where
     failsWith src err    = noStack (runPureCode src) @?= Left err
@@ -935,7 +920,7 @@ prettyEither (Right v) = renderPrettyDef v
 -- that the last two lines of the actual output equal @[a, b]@.
 assertReplInteraction :: [Text] -> [Text] -> IO ()
 assertReplInteraction input expected = do
-    (result, output) <- runCodeWithInput input "(load! (find-module-file! \"repl.rad\"))"
+    (result, output) <- runCodeWithInput input "(load-ns! \"repl.rad\")"
     case result of
         Left err -> assertFailure $ "Error thrown in Repl: " <> toS (renderPrettyDef err)
         Right _  -> pure ()

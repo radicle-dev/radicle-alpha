@@ -362,8 +362,8 @@ Checks if the argument is a list.
 
 Checks if the argument is a dict.
 
-``find-module-file!``
-~~~~~~~~~~~~~~~~~~~~~
+``find-rad-file!``
+~~~~~~~~~~~~~~~~~~
 
 Find a file according to radicle search path rules. These are: 1) If
 RADPATH is set, first search there; 2) If RADPATH is not set, search in
@@ -517,9 +517,7 @@ transacted according to the current definition of ``tx``.
 ``load-ns!``
 ~~~~~~~~~~~~
 
-Given a file whose code starts with module metadata, creates the module.
-That is, the file is evaluated as if the code was wrapped in
-``(module ...)``.
+Evaluates code in a file, that is found using ``find-rad-file!``.
 
 ``cd!``
 ~~~~~~~

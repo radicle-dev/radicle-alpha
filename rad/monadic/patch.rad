@@ -19,7 +19,7 @@
     (let [owner-keys (lookup :public-key (get-keys!))
           id (machine/new-machine!)]
       (machine/send-prelude! id)
-      (machine/send-code! id (find-module-file! "monadic/patch-remote.rad"))
+      (machine/send-code! id (find-rad-file! "monadic/patch-remote.rad"))
       (machine/send-signed-command! id radicle-patch-machine-id 'add-admin {:key owner-keys})
       id)))
 

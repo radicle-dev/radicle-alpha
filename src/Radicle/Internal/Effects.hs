@@ -330,9 +330,7 @@ replPrimFns sysArgs = fromList $ allDocs $
           xs -> throwErrorHere $ WrongNumberOfArgs "exit!" 0 (length xs)
       )
     , ( "load-ns!"
-      -- TODO(james): update doc
-      , "Given a file whose code starts with module metadata, creates the module.\
-        \ That is, the file is evaluated as if the code was wrapped in `(module ...)`."
+      , "Evaluates code in a file, that is found using `find-rad-file!`."
       , oneArg "load-ns!" $ \case
           String filename -> do
             ef <- fileModuleS filename
@@ -344,18 +342,18 @@ replPrimFns sysArgs = fromList $ allDocs $
             interpretMany filename t
           v -> throwErrorHere $ TypeError "file-module!" 0 TString v
       )
-    , ( "find-module-file!"
+    , ( "find-rad-file!"
       , "Find a file according to radicle search path rules. These are: \
         \ 1) If RADPATH is set, first search there; \
         \ 2) If RADPATH is not set, search in the distribution directory \
         \ 3) If the file is still not found, search in the current directory."
-      , oneArg "find-module-file!" $ \case
+      , oneArg "find-rad-file!" $ \case
           String filename -> do
             t_ <- fileModuleS filename
             case t_ of
                 Nothing -> throwError . toLangError . OtherError $ "File not found in RADPATH: " <> filename
                 Just t  -> pure $ String t
-          v -> throwErrorHere $ TypeError "find-module-file!" 0 TString v
+          v -> throwErrorHere $ TypeError "find-rad-file!" 0 TString v
       )
     , ( "cd!"
       , "Change the current working directory."

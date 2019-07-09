@@ -9,7 +9,7 @@
 ;;     (counter/get-value "my-machine-id") ;; => 1
 ;;
 
-(load! (find-module-file! "prelude.rad"))
+(load-ns! "prelude.rad")
 
 (def counter/prelude
   '[

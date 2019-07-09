@@ -40,7 +40,7 @@
     (let [owner-keys (lookup :public-key (get-keys!))
           id (new-machine!)]
       (machine/send-prelude! id)
-      (send-code! id (find-module-file! "monadic/project-remote.rad"))
+      (send-code! id (find-rad-file! "monadic/project-remote.rad"))
       (set-meta! id meta)
       (machine/send-signed-command! id rsm-id 'add-admin {:key owner-keys})
       id)))

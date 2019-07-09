@@ -21,7 +21,7 @@
 (def read-file!
   (fn [path] ((read-ref primitive-stub-ref/read-file!) path)))
 
-;; find-module-file!
-(def primitive-stub-ref-find-module-file! (ref find-module-file!))
-(def find-module-file!
-  (fn [path] ((read-ref primitive-stub-ref/find-module-file!) path)))
+;; find-rad-file!
+(def primitive-stub-ref-find-rad-file! (ref find-rad-file!))
+(def find-rad-file!
+  (fn [path] ((read-ref primitive-stub-ref/find-rad-file!) path)))

@@ -11,7 +11,7 @@ exec doc -- docs/source/guide/Issues.lrad`.
 
 First we load the prelude:
 
-    (load! (find-module-file! "prelude.rad"))
+    (load-ns! "prelude.rad")
     
     (ns issues-tutorial)
     

@@ -3,12 +3,12 @@
 ;; Run all tests defined in the prelude and print their results with
 ;; TAP. Exit with status code 1 if any of the tests fail.
 
-(load! (find-module-file! "tests/stub-primitives.rad"))
-(load! (find-module-file! "prelude.rad"))
-(load! (find-module-file! "prelude/machine-remote-test.rad"))
-(load! (find-module-file! "monadic/patch.rad"))
-(load! (find-module-file! "monadic/issue.rad"))
-(load! (find-module-file! "monadic/project.rad"))
+(load-ns! "tests/stub-primitives.rad")
+(load-ns! "prelude.rad")
+(load-ns! "prelude/machine-remote-test.rad")
+(load-ns! "monadic/patch.rad")
+(load-ns! "monadic/issue.rad")
+(load-ns! "monadic/project.rad")
 
 (require prelude/test-macro ['tests])
 (require prelude/test ['run-all])

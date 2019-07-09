@@ -114,7 +114,7 @@
 (def pure-prelude-files
   "List of files which together define the pure prelude."
   (map (fn [f]
-         (find-module-file! (string-append "prelude/" f ".rad")))
+         (find-rad-file! (string-append "prelude/" f ".rad")))
        ["test-macro"
         "basic"
         "macros"

@@ -1,6 +1,6 @@
 #!/usr/bin/env radicle
 
-(load! (find-module-file! "prelude.rad"))
+(load-ns! "prelude.rad")
 (import prelude/machine '[send! new-machine!] :unqualified)
 
 (def machine-code

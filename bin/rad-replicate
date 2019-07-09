@@ -1,7 +1,7 @@
 #!/usr/bin/env radicle
 
-(load! (find-module-file! "prelude.rad"))
-(load! (find-module-file! "monadic/project.rad"))
+(load-ns! "prelude.rad")
+(load-ns! "monadic/project.rad")
 
 (import prelude/strings '[ends-with?] :unqualified)
 (import prelude/http :as 'http)

@@ -81,7 +81,7 @@ primFns:
 - list?
 - dict?
 # Modules
-- find-module-file!
+- find-rad-file!
 # State and Environment
 - pure-state
 - get-current-state

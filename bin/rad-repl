@@ -1,5 +1,5 @@
 #!/usr/bin/env radicle
-(load! (find-module-file! "prelude.rad"))
+(load-ns! "prelude.rad")
 
 (ns repl)
 
