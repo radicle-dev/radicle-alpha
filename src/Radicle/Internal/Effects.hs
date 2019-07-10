@@ -56,12 +56,13 @@ instance UUID.MonadUUID m => UUID.MonadUUID (LangT (Bindings (PrimFns m)) m) whe
 
 script :: Text -> Text -> Bindings (PrimFns IO) -> IO ExitCode
 script fileName code bindings = do
-    r <- fmap fst <$> runLang bindings $ void $ interpretMany fileName $ ignoreShebang code
+    r <- fmap fst <$> runLang bindings $ interpretMany fileName $ ignoreShebang code
     case r of
         Left (LangError _ (Exit n)) -> pure (exitCode n)
         Left e -> do putPrettyAnsi e
                      pure $ ExitFailure 1
-        Right () -> pure ExitSuccess
+        Right x -> do putPrettyAnsi x
+                      pure ExitSuccess
 
 -- TODO: restore error preCode?
 repl :: Maybe FilePath -> Text -> Bindings (PrimFns (InputT IO)) -> IO ()
