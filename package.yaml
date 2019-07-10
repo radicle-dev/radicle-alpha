@@ -89,8 +89,6 @@ tests:
     - async
     - containers
     - cryptonite
-    - directory
-    - filemanip
     - interpolate
     - megaparsec
     - process
