@@ -33,7 +33,7 @@ rad daemon-radicle
 ```
 
 [stack]: https://docs.haskellstack.org/en/stable/install_and_upgrade/
-[ipfs]: https://docs.ipfs.io/introduction/install/
+[ipfs]: https://docs.ipfs.io/guides/guides/install/
 [git-remote-ipfs]: https://github.com/oscoin/ipfs/tree/master/git-remote-ipfs#install
 
 ### Debian/Ubuntu
