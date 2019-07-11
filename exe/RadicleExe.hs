@@ -8,32 +8,20 @@ import           Options.Applicative
 import           System.Directory (doesFileExist)
 
 import           Radicle
-import           Radicle.Internal.Effects (exitCode)
-import           Radicle.Internal.Pretty (putPrettyAnsi)
 
 main :: IO ()
 main = do
     opts' <- execParser allOpts
+    bindings <- createImpureBindings (toS <$> scriptArgs opts')
     code <-
         if sourceFile opts' == "-"
         then do
             src <- decodeUtf8With lenientDecode <$> BS.getContents
-            let prog = interpretMany "[stdin]" src
-            bindings <- createImpureBindings (toS <$> scriptArgs opts')
-            (result, _state) <- runLang bindings prog
-            case result of
-                Left (LangError _ (Exit n)) -> pure (exitCode n)
-                Left e -> do putPrettyAnsi e
-                             pure $ ExitFailure 1
-                Right v -> do putPrettyAnsi v
-                              pure ExitSuccess
+            script "[stdin]" src bindings
         else do
-            src <- ignoreShebang <$> readSource (sourceFile opts')
-            hist <- case histFile opts' of
-                Nothing -> getHistoryFile
-                Just h  -> pure h
-            bindings <- createImpureBindings (toS <$> scriptArgs opts')
-            repl (Just hist) (toS $ sourceFile opts') src bindings
+            let srcFile = sourceFile opts'
+            src <- readSource srcFile
+            script (toS srcFile) src bindings
     exitWith code
   where
     allOpts = info (opts <**> helper)
@@ -51,18 +39,12 @@ readSource file = do
     else die $ "Could not find file: " <> toS file
 
 radDesc :: String
-radDesc
-    = "Interprets a radicle program.\n"
-   <> "\n"
-   <> "This program can also be used as a REPL by providing a file "
-   <> "that defines a REPL. An example is the rad/repl.rad file included "
-   <> "in the distribution."
+radDesc = "Interprets a radicle program."
 
 -- * CLI Opts
 
 data Opts = Opts
     { sourceFile :: FilePath
-    , histFile   :: Maybe FilePath
     , scriptArgs :: [String]
     }
 
@@ -72,15 +54,4 @@ opts = Opts
         ( metavar "FILE"
        <> help "File to interpret. Use - to read the code from stdin."
         )
-    <*> optional (strOption
-        ( long "histfile"
-       <> short 'H'
-       <> metavar "FILE"
-       <> help
-           ( "File used to store the REPL history."
-          <> "Defaults to $DIR/radicle/config.rad "
-          <> "where $DIR is $XDG_DATA_HOME (%APPDATA% on Windows "
-          <> "if that is set, or else ~/.local/share."
-           )
-       ))
     <*> many (strArgument mempty)

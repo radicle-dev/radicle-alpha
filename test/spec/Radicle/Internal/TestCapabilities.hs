@@ -3,7 +3,6 @@
 module Radicle.Internal.TestCapabilities (
       runCodeWithWorld
     , runPureCode
-    , runCodeWithInput
     , runCodeWithFiles
 
     , WorldState(..)
@@ -16,8 +15,6 @@ import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Time as Time
-import           System.Directory (getCurrentDirectory)
-import qualified System.FilePath.Find as FP
 
 import           Radicle
 import           Radicle.Internal.Crypto
@@ -47,22 +44,7 @@ defaultWorldState =
     , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
     }
 
-worldStateWithSource :: IO WorldState
-worldStateWithSource = do
-    sources <- sourceFiles
-    pure $ defaultWorldState { worldStateFiles = sources }
-
 type TestLang = Lang (StateT WorldState IO)
-
--- | Run Radicle code in a REPL environment, with all library files
--- readable, and with the provided stdin lines.
---
--- The second item is the stdout.
-runCodeWithInput :: [Text] -> Text -> IO (Either (LangError Value) Value, [Text])
-runCodeWithInput input code = do
-    ws' <- worldStateWithSource
-    let ws = ws' { worldStateStdin = input }
-    runCodeWithWorld ws code
 
 -- | Run Radicle code in a REPL environment with the given files
 -- readable.
@@ -83,18 +65,6 @@ runCodeWithWorld ws code = do
     bindings <- createImpureBindings []
     (result, ws') <- runStateT (fst <$> runLang bindings prog) ws
     pure $ (result, worldStateStdout ws')
-
--- | Loads the content for all radicle sources in the "./rad" folder.
--- Returns a map from files names to contents.
-sourceFiles :: IO (Map Text Text)
-sourceFiles = do
-    dir <- getCurrentDirectory
-    absPaths <- FP.find FP.always (FP.extension FP.==? ".rad") dir
-    filesWithContent <- forM absPaths $ \absPath -> do
-        contents <- readFile absPath
-        let path = drop (length dir + 5) absPath
-        pure (toS path, contents)
-    pure $ Map.fromList filesWithContent
 
 instance {-# OVERLAPPING #-} Stdin TestLang where
     getLineS = do

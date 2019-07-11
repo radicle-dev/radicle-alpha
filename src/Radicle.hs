@@ -67,6 +67,7 @@ module Radicle
     -- * Parsing
     , parse
     , parseValues
+    , parseREPL
 
     -- * Pretty-printing
     , renderPretty
@@ -78,6 +79,9 @@ module Radicle
 
     -- * Repl
     , repl
+
+    -- * Script
+    , script
 
     -- * PrimFns
     , PrimFns(..)
