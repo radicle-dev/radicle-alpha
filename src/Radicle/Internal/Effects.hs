@@ -12,7 +12,9 @@ import           System.Console.Haskeline
                  , InputT
                  , completeWord
                  , defaultSettings
+                 , getInputLine
                  , historyFile
+                 , outputStrLn
                  , runInputT
                  , setComplete
                  , simpleCompletion
@@ -25,6 +27,7 @@ import           Radicle.Internal.Eval
 import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Number (isInt)
+import           Radicle.Internal.Parse
 import           Radicle.Internal.Pretty
 import           Radicle.Internal.PrimFns
 import           Radicle.Internal.Time as Time
@@ -51,18 +54,37 @@ instance UUID.MonadUUID (InputT IO) where
 instance UUID.MonadUUID m => UUID.MonadUUID (LangT (Bindings (PrimFns m)) m) where
     uuid = lift UUID.uuid
 
-repl :: Maybe FilePath -> Text -> Text -> Bindings (PrimFns (InputT IO)) -> IO ExitCode
-repl histFile preFileName preCode bindings = do
-    let settings = setComplete completion
-                 $ defaultSettings { historyFile = histFile }
-    r <- runInputT settings
-        $ fmap fst $ runLang bindings
-        $ void $ interpretMany preFileName preCode
+script :: Text -> Text -> Bindings (PrimFns IO) -> IO ExitCode
+script fileName code bindings = do
+    r <- fmap fst <$> runLang bindings $ interpretMany fileName $ ignoreShebang code
     case r of
         Left (LangError _ (Exit n)) -> pure (exitCode n)
         Left e -> do putPrettyAnsi e
                      pure $ ExitFailure 1
-        Right () -> pure ExitSuccess
+        Right x -> do putPrettyAnsi x
+                      pure ExitSuccess
+
+-- TODO: restore error preCode?
+repl :: Maybe FilePath -> Text -> Bindings (PrimFns (InputT IO)) -> IO ()
+repl histFile _ bindings = do
+    let settings = setComplete completion
+                 $ defaultSettings { historyFile = histFile }
+    runInputT settings $ loop bindings
+  where
+    loop :: Bindings (PrimFns (InputT IO)) -> InputT IO ()
+    loop st = do
+        ln <- fmap toS <$> getInputLine "rad> "
+        case ln of
+            Nothing -> loop st
+            Just ln'  -> do
+                parsed <- parseREPL (fmap toS <$> getInputLine "...  ") ln'
+                case parsed of
+                    Left e -> outputStrLn e >> loop st
+                    Right v -> do
+                        (res, newSt) <- runLang st (transact v)
+                        case res of
+                            Left e'  -> putPrettyAnsi e' >> loop st
+                            Right v' -> putPrettyAnsi v' >> loop newSt
 
 exitCode :: Int -> ExitCode
 exitCode 0 = ExitSuccess

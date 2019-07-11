@@ -764,46 +764,6 @@ test_repl_primops =
         let ws = defaultWorldState { worldStateStdin = stdin' }
         in fst <$> runCodeWithWorld ws prog
 
--- test_repl :: [TestTree]
--- test_repl =
---     [ testCase "evaluates correctly" $ do
---         let input = [ "((fn [x] x) #t)" ]
---             output = [ "#t" ]
---         assertReplInteraction input output
-
---     , testCase "handles env modifications" $ do
---         let input = [ "(def id (fn [x] x))"
---                     , "(id #t)"
---                     ]
---             output = [ "()"
---                      , "#t"
---                      ]
---         assertReplInteraction input output
-
---     , testCase "(def eval eval) doesn't change things" $ do
---         let input = [ "(def eval eval)"
---                     , "(def id (fn [x] x))"
---                     , "(id #t)"
---                     ]
---             output = [ "()"
---                      , "()"
---                      , "#t"
---                      ]
---         assertReplInteraction input output
-
---     , testCase "exceptions are non-fatal" $ do
---         let input = [ "(throw 'something \"something happened\")"
---                     , "#t"
---                     ]
---         assertReplInteraction input ["#t"]
-
---     , testCase "load! a non-existent file is a non-fatal exception" $ do
---         let input = [ "(load! \"not-a-thing.rad\")"
---                     , "#t"
---                     ]
---         assertReplInteraction input ["#t"]
---     ]
-
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
     [ testGroup "()"
@@ -912,18 +872,3 @@ parseTest t = parse "(test)" t
 prettyEither :: Either (LangError Value) Value -> T.Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e
 prettyEither (Right v) = renderPrettyDef v
-
--- | Run a REPL with the given input lines and expected output.
---
--- We only assert the expected output against the end of the actual
--- output. This means that if @expected@ is @[a, b]@ then we only assert
--- that the last two lines of the actual output equal @[a, b]@.
-assertReplInteraction :: [Text] -> [Text] -> IO ()
-assertReplInteraction input expected = do
-    (result, output) <- runCodeWithInput input "(load-ns! \"repl.rad\")"
-    case result of
-        Left err -> assertFailure $ "Error thrown in Repl: " <> toS (renderPrettyDef err)
-        Right _  -> pure ()
-    -- In addition to the output of the lines tested, tests get
-    -- printed, so we take only the last few output lines.
-    reverse (take (length expected) output) @?= expected

@@ -1,0 +1,37 @@
+(def create-name-machine!
+  (fn []
+    (def id (machine/new-machine!))
+    (machine/send-prelude! id)
+    (send-code! id (find-module-file! "monadic/names-remote.rad"))
+    id))
+
+(def lookup-key
+  (fn [machine key]
+    (def names (machine/query! machine '(list-names)))
+    (match (filter (fn [v] (eq? (nth 1 v) key)) names)
+      [['name _]]  name
+      _            :nothing)))
+
+(def list-names
+  (fn [machine-name]
+    (def machine (machine/load-machine! machine-name))
+    (lookup :result (machine/eval-in-machine '(list-names) machine))))
+
+(def add-name!
+  (fn [name-machine-url name key]
+    (machine/send!
+     name-machine-url
+     [(list 'add-name name key)])))
+
+(test
+  "The monadic name machine works."
+  [:setup
+    (do (machine/install-remote-machine-fake)
+        (def machine (create-name-machine!))
+        (add-name! machine "alice" "a")
+        (add-name! machine "bob" "b"))
+        ]
+  [ (lookup-key machine "a") ==> "alice" ]
+  [ (lookup-key machine "b") ==> "bob" ]
+  [ (lookup-key machine "c") ==> :nothing ]
+)
