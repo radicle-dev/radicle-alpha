@@ -3,7 +3,6 @@ module Radicle.Internal.PrimFns where
 import           Protolude hiding (TypeError)
 
 import qualified Data.Aeson as Aeson
-import           Data.Copointed (Copointed(..))
 import qualified Data.IntMap as IntMap
 import           Data.List (zip3)
 import qualified Data.Map as Map
@@ -86,35 +85,6 @@ purePrimFns = fromList $ allDocs $
           [] -> pure $ bindingsToRadicle (pureEnv :: Bindings (PrimFns m))
           xs -> throwErrorHere $ WrongNumberOfArgs "pure-state" 0 (length xs)
       )
-    , ( "state->env"
-      , "Extract the environment from a radicle state."
-      , oneArg "state->env" $ \case
-          VState s -> pure (VEnv (stateEnv s))
-          v -> throwErrorHere $ TypeError "state->env" 0 TState v
-      )
-    , ( "set-binding"
-      , "Add a binding to a radicle env."
-      , threeArg "set-binding" $ \case
-          (Atom i, v, VEnv (Env m)) -> pure $ VEnv (Env (Map.insert i (Doc.Docd Nothing v) m))
-          (Atom _, _, e) -> throwErrorHere $ TypeError "set-binding" 2 TEnv e
-          (a, _, _) -> throwErrorHere $ TypeError "set-binding" 0 TAtom a
-      )
-    , ( "get-binding"
-      , "Lookup a binding in a radicle env."
-      , twoArg "get-binding" $ \case
-          (Atom i@(Ident t), VEnv (Env m)) -> case Map.lookup i m of
-            Just v -> pure (copoint v)
-            _ -> throwErrorHere $ OtherError $ "get-binding: " <> t <> " was not in the input env."
-          (Atom _, v) -> throwErrorHere $ TypeError "get-binding" 1 TEnv v
-          (v, _) -> throwErrorHere $ TypeError "get-binding" 0 TAtom v
-      )
-    , ( "set-env"
-      , "Sets the environment of a radicle state to a new value. Returns the updated state."
-      , twoArg "set-env" $ \case
-          (VEnv e, VState s) -> pure $ VState $ s { stateEnv = e }
-          (VEnv _, v) -> throwErrorHere $ TypeError "set-env" 1 TState v
-          (v, _) -> throwErrorHere $ TypeError "set-env" 0 TEnv v
-      )
     , ( "apply"
       , "Calls the first argument (a function) using as arguments the\
         \ elements of the the second argument (a list)."
@@ -145,12 +115,6 @@ purePrimFns = fromList $ allDocs $
       , \case
           [] -> gets bindingsToRadicle
           xs -> throwErrorHere $ WrongNumberOfArgs "get-current-state" 0 (length xs))
-    , ( "set-current-state"
-      , "Replaces the radicle state with the one provided."
-      , oneArg "set-current-state" $ \x -> do
-          setBindings x
-          pure ok
-      )
     , ("list"
       , "Turns the arguments into a list."
       , pure . List)
@@ -677,10 +641,6 @@ purePrimFns = fromList $ allDocs $
 
     tt = Boolean True
     ff = Boolean False
-
-    ok = kw "ok"
-
-    kw = Keyword . Ident
 
     pair :: (Value, Value) -> Value
     pair (x,y) = Vec (x :<| y :<| Empty)

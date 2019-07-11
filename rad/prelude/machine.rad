@@ -30,22 +30,6 @@
   "Creates a new machine. Returns the machine name."
   (fn [] ((read-ref primitive-stub-ref/new-machine!))))
 
-(def env-var
-  "A lens for variables in envs."
-  (fn [i]
-    (make-lens (fn [e] (get-binding i e))
-               (fn [v e] (set-binding i v e)))))
-
-(def @env
-  "A lens for env part of a machine state."
-  (make-lens state->env set-env))
-
-(def @var
-  "A lens for variables in machine states."
-  (fn [i]
-    (.. @env (env-var i))))
-
-
 (def new-fake-machine
   "An empty fake machine, which does not use the daemon"
   (pure-state))
