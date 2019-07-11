@@ -26,4 +26,5 @@ And then, inside the shell:
 
 ``` sh
 stack build --system-ghc
+stack install --system-ghc :rad :radicle
 ```
