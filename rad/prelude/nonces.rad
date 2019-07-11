@@ -34,26 +34,26 @@
              [:use 'nonce] (use-nonce nonce)
              _ (throw 'match-failure "expecting [:use <nonce>] or :validate")))))
 
-;; (test "make-noncer"
-;;   [:setup
-;;     (do
-;;       (def noncer (make-noncer))
-;;       (def n1 (uuid!))
-;;       (def n2 (uuid!))
-;;       (noncer [:use n1]))
-;;   ]
+(test "make-noncer"
+      [:setup
+       (do
+         (def noncer (make-noncer))
+         (def n1 (uuid!))
+         (def n2 (uuid!))
+         (noncer [:use n1]))
+       ]
 
-;;   [ (catch
-;;       'validation-failure
-;;       ((noncer :validator) n1)
-;;       (fn [x] x)) ==> {:info "Did not satisfy predicate." :name "Nonce already used"}
-;;   ]
+      [ (catch
+            'validation-failure
+            ((noncer :validator) n1)
+          (fn [x] x)) ==> {:info "Did not satisfy predicate." :name "Nonce already used"}
+       ]
 
-;;   [ (eq? ((noncer :validator) n2) n2) ==> #t ]
+      [ (eq? ((noncer :validator) n2) n2) ==> #t ]
 
-;;   [ (catch
-;;       'validation-failure
-;;       ((noncer :validator) "not a UUID")
-;;       (fn [x] x)) ==> {:info "Did not satisfy predicate." :name "valid UUID"}
-;;   ]
-;; )
+      [ (catch
+            'validation-failure
+            ((noncer :validator) "not a UUID")
+          (fn [x] x)) ==> {:info "Did not satisfy predicate." :name "valid UUID"}
+       ]
+      )
