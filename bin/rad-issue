@@ -158,7 +158,7 @@
 (machine/catch-daemon!
  (fn []
    (match args
-          (/list-cmd 'options) (do (put-str! "listing..") (show-list (machine-name) options))
+          (/list-cmd 'options) (show-list (machine-name) options)
           (/cmd-0 "new" help) (new-issue (machine-name))
           (/cmd-1 "close" 'n help)            (whole-issue-num "close" n (fn [n] (close-issue n (machine-name))))
           (/cmd-1 "show" 'n help)             (whole-issue-num "show" n (fn [n] (show-issue! n (machine-name))))

@@ -81,8 +81,7 @@
      (do
        (put-str! (error/rad-ipfs-name-publish-failure (unlines stderr)))
        (exit! 1)))
-    (def remote (string-append "ipfs://ipns/" key))
-    remote))
+    (string-append "ipfs://ipns/" key)))
 
 (def ipfs-api-url
   "IPFS API url to use."
