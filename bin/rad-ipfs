@@ -14,7 +14,7 @@ elif [ -f "$vendored_ipfs" ]; then
   ipfs=$vendored_ipfs
 else
   echo "ERROR: Command not found: ipfs" 1>&2
-  echo "To install IPFS follow the instructions here: https://docs.ipfs.io/introduction/install/" 1>&2
+  echo "To install IPFS follow the instructions here: https://docs.ipfs.io/guides/guides/install/" 1>&2
   exit 1
 fi
 
