@@ -680,17 +680,6 @@ Checks that there is a least one truthy value in a list.
 
 Backwards compatible alias for ``rest``.
 
-``(gensym)``
-~~~~~~~~~~~~
-
-Returns a new symbol with a pseudo-unique name. The returned symbols are
-``G__#``, where # is a number.
-
-This is used for generating names for "fresh" variables in
-macro-expanded code. Technically it is possible to still get a clash,
-but this won't happen as long as human code-writers never use symbols of
-the form ``G__#``.
-
 ``prelude/patterns``
 --------------------
 
@@ -707,11 +696,6 @@ Matches values for equality.
 
 Predicate pattern. Takes a predicate function as argument. Values match
 against this pattern if the predicate returns a truthy value.
-
-``(/= x)``
-~~~~~~~~~~
-
-Matches values for equality.
 
 ``(/as var pat)``
 ~~~~~~~~~~~~~~~~~
