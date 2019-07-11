@@ -25,5 +25,5 @@ the flag `--arg pkgs "import <nixos-unstable> {}`)
 And then, inside the shell:
 
 ``` sh
-stack build --system-ghc --nix-packages zlib
+stack build --system-ghc
 ```
