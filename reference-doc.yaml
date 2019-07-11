@@ -85,11 +85,6 @@ primFns:
 # State and Environment
 - pure-state
 - get-current-state
-- set-current-state
-- get-binding
-- set-binding
-- set-env
-- state->env
 # Time
 - timestamp?
 - unix-epoch

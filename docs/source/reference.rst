@@ -381,32 +381,6 @@ chain before it has processed any inputs.
 
 Returns the current radicle state.
 
-``set-current-state``
-~~~~~~~~~~~~~~~~~~~~~
-
-Replaces the radicle state with the one provided.
-
-``get-binding``
-~~~~~~~~~~~~~~~
-
-Lookup a binding in a radicle env.
-
-``set-binding``
-~~~~~~~~~~~~~~~
-
-Add a binding to a radicle env.
-
-``set-env``
-~~~~~~~~~~~
-
-Sets the environment of a radicle state to a new value. Returns the
-updated state.
-
-``state->env``
-~~~~~~~~~~~~~~
-
-Extract the environment from a radicle state.
-
 ``timestamp?``
 ~~~~~~~~~~~~~~
 
@@ -1491,26 +1465,11 @@ ones. This is intended for testing.
 
 Functions for simulating remote machines.
 
-``@env``
-~~~~~~~~
-
-A lens for env part of a machine state.
-
-``(@var i)``
-~~~~~~~~~~~~
-
-A lens for variables in machine states.
-
 ``(catch-daemon! f)``
 ~~~~~~~~~~~~~~~~~~~~~
 
 Catches all ``radicle-daemon`` related errors and just prints them out
 to the user.
-
-``(env-var i)``
-~~~~~~~~~~~~~~~
-
-A lens for variables in envs.
 
 ``(eval-in-fake-machine machine exprs)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
