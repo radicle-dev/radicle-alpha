@@ -25,6 +25,6 @@ the flag `--arg pkgs "import <nixos-unstable> {}`)
 And then, inside the shell:
 
 ``` sh
-stack build --system-ghc
-stack install --system-ghc :rad :radicle
+stack --nix build
+stack --nix install :rad :radicle
 ```
