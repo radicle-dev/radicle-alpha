@@ -658,8 +658,6 @@ purePrimFns = fromList $ allDocs $
           (v, _) -> throwErrorHere $ TypeError name 0 TNumber v
       )
 
-data ImportQual = Unqualified | FullyQualified | Qualified Ident
-
 -- * Helpers
 
 noArg :: Monad m => Text -> Lang m Value -> [Value] -> Lang m Value

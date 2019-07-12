@@ -28,7 +28,7 @@ import qualified Text.Megaparsec.Error as Par
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
 import qualified Radicle.Internal.Doc as Doc
-import           Radicle.Internal.Identifier (Ident(..))
+import           Radicle.Internal.Identifier (Ident(..), fromIdent)
 import qualified Radicle.Internal.Identifier as Identifier
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Orphans ()
@@ -117,7 +117,7 @@ errorDataToValue e = case e of
     Impossible _ -> throwErrorHere e
     TypeError fname pos ty v -> makeVal
         ( "type-error"
-        , [ ("function", makeA $ Ident fname)
+        , [ ("function", makeA $ Ident Nothing fname)
           , ("position", Number (fromIntegral pos))
           , ("expected-type", typeToValue ty)
           , ("actual-type", typeToValue (valType v))
@@ -129,11 +129,11 @@ errorDataToValue e = case e of
       , [("value", v)])
     SpecialForm form info -> makeVal
       ( "special-form-error"
-      , [ ("special-form", makeA $ Ident form)
+      , [ ("special-form", makeA $ Ident Nothing form)
         , ("info", String info)])
     WrongNumberOfArgs i expected actual -> makeVal
         ( "wrong-number-of-args"
-        , [ ("function", makeA $ Ident i)
+        , [ ("function", makeA $ Ident Nothing i)
           , ("expected", Number $ fromIntegral
               expected)
           , ("actual", Number $ fromIntegral actual)]
@@ -154,7 +154,7 @@ errorDataToValue e = case e of
     Exit code -> makeVal ("exit", [("code", toRad code)])
   where
     makeA = Atom
-    makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Keyword . Ident) . GhcExts.fromList $ v)
+    makeVal (t,v) = pure (Ident Nothing t, Dict $ Map.mapKeys (Keyword . Ident Nothing) . GhcExts.fromList $ v)
 
 newtype Reference = Reference { getReference :: Int }
     deriving (Show, Read, Ord, Eq, Generic, Serialise)
@@ -469,7 +469,7 @@ data Bindings prims = Bindings
 emptyBindings :: Env Value -> Namespace -> Bindings (PrimFns m)
 emptyBindings e tl = Bindings e (Map.singleton top topNs) top mempty mempty 0 mempty 0 mempty 0
   where
-    top = Ident "toplevel"
+    top = Ident Nothing "toplevel"
     topNs = Doc.Docd (Just "The toplevel namespace.") tl
 
 -- | Extract an environment and references from a Radicle value and put

@@ -26,7 +26,7 @@ isValidIdentRest :: Char -> Bool
 isValidIdentRest x = isAlphaNum x || x `elem` extendedChar
 
 extendedChar :: Prelude.String
-extendedChar = ['!', '$', '%', '&', '*', '+', '-', '.', '/', ':', '<' , '=', '>'
+extendedChar = ['!', '$', '%', '&', '*', '+', '-', '.', '/', '<' , '=', '>'
   , '?', '@', '^', '_', '~']
 
 replacements :: Map Char Prelude.String
@@ -76,15 +76,23 @@ kebabCons = T.intercalate "-" . fmap (toS . lowerFirst) . go .keywordWord
 --
 -- Not all `Text`s are valid identifiers, so use 'Ident' at your own risk.
 -- `mkIdent` is the safe version.
-newtype Ident = Ident { fromIdent :: Text }
-    deriving (Eq, Show, Read, Ord, Generic, Data, Serialise, Semigroup)
+data Ident = Ident (Maybe Text) Text
+    deriving (Eq, Show, Read, Ord, Generic, Data)
 
-pattern Identifier :: Text -> Ident
-pattern Identifier t <- Ident t
+instance Serialise Ident
+--instance Semigroup Ident
 
--- | Convert a text to an identifier.
---
--- Unsafe! Only use this if you know the string at compile-time and know it's a
--- valid identifier. Otherwise, use 'mkIdent'.
-unsafeToIdent :: Text -> Ident
-unsafeToIdent = Ident
+pattern Identifier :: Maybe Text -> Text -> Ident
+pattern Identifier q t <- Ident q t
+
+fromIdent :: Ident -> Text
+fromIdent = \case
+  Ident Nothing x -> x
+  Ident (Just q) x -> q <> ":" <> x
+
+-- -- | Convert a text to an identifier.
+-- --
+-- -- Unsafe! Only use this if you know the string at compile-time and know it's a
+-- -- valid identifier. Otherwise, use 'mkIdent'.
+-- unsafeToIdent :: Text -> Ident
+-- unsafeToIdent = Ident
