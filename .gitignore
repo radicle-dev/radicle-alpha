@@ -23,3 +23,4 @@ rad/my-keys.rad
 dist-newstyle
 .ghc.environment*
 cabal.project.local
+tags

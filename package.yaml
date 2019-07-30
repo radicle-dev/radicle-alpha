@@ -52,6 +52,7 @@ library:
   - http-types
   - http-media
   - ipld-cid
+  - list-t
   - megaparsec
   - mmorph
   - mtl
@@ -69,10 +70,14 @@ library:
   - servant
   - servant-client
   - servant-swagger
+  - stm
+  - stm-containers >= 1
   - swagger2
   - template-haskell
   - text
   - time
+  - transformers
+  - unix
   - unliftio-core
   - unliftio
   - unordered-containers
