@@ -39,7 +39,9 @@ instance Pretty ProcHdl where
     pretty _ = angles "prochandle"
 
 instance Pretty Ident where
-    pretty (Ident i) = pretty i
+    pretty (Naked i) = pretty i
+    pretty (Namespaced n i) = pretty n <> "//" <> pretty i
+    pretty (Qualified q i) = pretty q <> "/" <> pretty i
 
 instance PrettyV Type where
     prettyV = prettyV . typeToValue

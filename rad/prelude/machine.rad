@@ -57,7 +57,7 @@
   the resulting `:machine`."
   (fold-in-fake-machine
    (fn [e machine]
-     (let [x (eval (list (list 'ns-lookup 'toplevel 'tx) (list 'quote e))
+     (let [x (eval (list 'toplevel//tx (list 'quote e))
                    machine)]
        (eval (nth 0 x) (nth 1 x))))))
 

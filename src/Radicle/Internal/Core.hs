@@ -252,7 +252,7 @@ data ValueF r =
     --
     -- The value of an application of a lambda is always the last value in the
     -- body. The only reason to have multiple values is for effects.
-    | LambdaF LambdaArgs (NonEmpty r) (Env r) Ident
+    | LambdaF LambdaArgs (NonEmpty r) (Env r) Text
     | MacroF r
     | VEnvF (Env r)
     | VStateF State
@@ -381,7 +381,7 @@ pattern Macro f <- (Ann.match -> MacroF f)
     where
     Macro f = Ann.annotate $ MacroF f
 
-pattern Lambda :: ValueConC t => LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Ident -> Annotated t ValueF
+pattern Lambda :: ValueConC t => LambdaArgs -> NonEmpty (Annotated t ValueF) -> Env (Annotated t ValueF) -> Text -> Annotated t ValueF
 pattern Lambda vs exps env ns <- (Ann.match -> LambdaF vs exps env ns)
     where
     Lambda vs exps env ns = Ann.annotate $ LambdaF vs exps env ns

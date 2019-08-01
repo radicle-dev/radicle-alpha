@@ -44,14 +44,14 @@ baseEval val = logValPos val $ case val of
 transact :: Monad m => Value -> Lang m Value
 transact expr = do
     nss <- gets bindingsNamespaces
-    tx' <- lookupInNamespace True nss (Ident "toplevel") (Ident "tx")
+    tx' <- lookupInNamespace True nss "toplevel" "tx"
     let tx = copoint tx'
     logValPos tx $ do
         expr' <- callFn tx [expr]
         baseEval expr'
 
 specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)
-specialForms = Map.fromList $ first Ident <$>
+specialForms = Map.fromList $ first Naked <$>
   [ ( "fn"
     , \case
           args : b : bs -> do
@@ -68,22 +68,14 @@ specialForms = Map.fromList $ first Ident <$>
           _ -> throwErrorHere $ SpecialForm "fn" "Function needs parameters (one atom or a vector of atoms) and a body"
       )
   , ( "ns", \case
-        [a@(Atom i)] -> ns a i Nothing
-        [a@(Atom i), String doc] -> ns a i (Just doc)
-        _ -> throwErrorHere $ SpecialForm "ns" "The `ns` form expects a symbol and optionally a docstring."
-    )
-  , ( "ns-lookup"
-    , \case
-         [Atom i, Atom j] -> do
-           nss <- gets bindingsNamespaces
-           Doc.Docd _ x <- lookupInNamespace True nss i j
-           pure x
-         _ -> throwErrorHere $ SpecialForm "ns-lookup" "The `ns-lookup` form expects two symbols."
+        [a@(Atom (Naked i))] -> ns a i Nothing
+        [a@(Atom (Naked i)), String doc] -> ns a i (Just doc)
+        _ -> throwErrorHere $ SpecialForm "ns" "The `ns` form expects a (naked) symbol and optionally a docstring."
     )
   , ( "require"
     , \case
-        [Atom i, e] -> require i e Nothing
-        [Atom i, e, Atom q] -> require i e (Just q)
+        [Atom (Naked i), e] -> require i e Nothing
+        [Atom (Naked i), e, Atom (Naked q)] -> require i e (Just q)
         _ -> throwErrorHere $ OtherError "require needs a namespace identifier and a vector of symbols to import."
     )
   , ("quote", \case
@@ -109,7 +101,7 @@ specialForms = Map.fromList $ first Ident <$>
                   -- TODO reify stack
                   Atom label -> baseEval form `catchError` \err@(LangError _stack e) -> do
                      (thrownLabel, thrownValue) <- errorDataToValue e
-                     if thrownLabel == label || label == Ident "any"
+                     if thrownLabel == label || label == Naked "any"
                          then do
                             put s
                             handlerclo <- baseEval handler
@@ -122,18 +114,19 @@ specialForms = Map.fromList $ first Ident <$>
   ]
   where
     require i e q_ = do
-          syms__ <- baseEval e
-          case syms__ of
-            Vec syms_ -> case traverse isAtom syms_ of
-              Just syms -> do
-                let qualer = case q_ of
-                      Nothing -> identity
-                      Just q  -> ((q <> Ident "/") <>)
-                let binds = Map.fromList [(qualer s, There i s) | s <- toList syms ]
-                _ <- modifyCurrentNamespace (binds <>)
-                pure (Keyword (Ident "ok"))
-              Nothing -> throwErrorHere $ OtherError "One of the items in the vector was not a symbol."
-            _ -> throwErrorHere $ OtherError "require needs a vector of symbols to import."
+      syms__ <- baseEval e
+      case syms__ of
+        Vec syms_ -> case traverse isNaked syms_ of
+          Just syms -> do
+            let binds = Map.fromList [(qualer s, There i s) | s <- toList syms ]
+            _ <- modifyCurrentNamespace (binds <>)
+            pure (Keyword (Naked "ok"))
+          Nothing -> throwErrorHere $ OtherError "One of the items in the vector was not a naked symbol."
+        _ -> throwErrorHere $ OtherError "require needs a vector of symbols to import."
+      where
+        isNaked (Atom (Naked x))= Just x
+        isNaked _ = Nothing
+        qualer = maybe Naked Qualified q_
     ns a i d_ = do
       nss <- gets bindingsNamespaces
       let nss' = Map.alter (Just . maybe (Doc.Docd d_ mempty) (Doc.redoc d_)) i nss
@@ -178,9 +171,9 @@ specialForms = Map.fromList $ first Ident <$>
     addBinds e = modify (\s -> s { bindingsEnv = e <> bindingsEnv s })
 
     defPrim vis = \case
-        [Atom name, val] -> def name vis Nothing val
-        [_, _] -> throwErrorHere $ OtherError "def expects atom for first arg"
-        [Atom name, String d, val] -> def name vis (Just d) val
+        [Atom (Naked name), val] -> def name vis Nothing val
+        [_, _] -> throwErrorHere $ OtherError "def expects a naked symbols for the first arg"
+        [Atom (Naked name), String d, val] -> def name vis (Just d) val
         xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs)
 
     def name vis doc_ val = do
