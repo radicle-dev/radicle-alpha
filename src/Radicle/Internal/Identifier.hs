@@ -7,7 +7,6 @@ import           Protolude
 
 import           Codec.Serialise (Serialise)
 import           Data.Char (isAlphaNum, isLetter, isUpper, toLower)
-import           Data.Data (Data)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
@@ -72,27 +71,33 @@ kebabCons = T.intercalate "-" . fmap (toS . lowerFirst) . go .keywordWord
     -- Makes a string safe to use in a keyword.
     keywordWord = concat . fmap keywordChar
 
--- | An identifier in the language.
+data Unnamespaced
+  = Naked Text
+  | Qualified Text Text
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise Unnamespaced
+
+showUnnamespaced :: Unnamespaced -> Text
+showUnnamespaced = \case
+  Naked x -> x
+  Qualified q x -> q <> "/" <> x
+
+-- | An symbol in the language.
 --
 -- Not all `Text`s are valid identifiers, so use 'Ident' at your own risk.
 -- `mkIdent` is the safe version.
 data Ident
-  = Naked Text
-  | Namespaced Text Text
-  | Qualified Text Text
-  deriving (Eq, Show, Read, Ord, Generic, Data)
+  = Unnamespaced Unnamespaced
+  | Namespaced Text Unnamespaced
+  deriving (Eq, Show, Read, Ord, Generic)
 
 instance Serialise Ident
---instance Semigroup Ident
 
--- pattern Identifier :: Maybe Text -> Text -> Ident
--- pattern Identifier q t <- Ident q t
-
-fromIdent :: Ident -> Text
-fromIdent = \case
-  Naked x -> x
-  Namespaced n x -> n <> "//" <> x
-  Qualified q x -> q <> "/" <> x
+showIdent :: Ident -> Text
+showIdent = \case
+  Unnamespaced x -> showUnnamespaced x
+  Namespaced n x -> n <> "//" <> showUnnamespaced x
 
 -- -- | Convert a text to an identifier.
 -- --

@@ -28,7 +28,7 @@ import qualified Text.Megaparsec.Error as Par
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
 import qualified Radicle.Internal.Doc as Doc
-import           Radicle.Internal.Identifier (Ident(..), fromIdent)
+import           Radicle.Internal.Identifier (Ident(..))
 import qualified Radicle.Internal.Identifier as Identifier
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Orphans ()
@@ -53,7 +53,7 @@ instance Serialise PatternMatchError
 data LangErrorData r =
       UnknownIdentifier Ident
     | UnknownNamespace Text
-    | CantAccessPrivateDef Text Text
+    | CantAccessPrivateDef Text NamespaceKey
     | Impossible Text
     -- | The special form that was misused, and information on the misuse.
     | SpecialForm Text Text
@@ -109,7 +109,7 @@ errorDataToValue e = case e of
     CantAccessPrivateDef nsk x -> makeVal
         ( "cant-access-private-def"
         , [ ( "namespace", makeA nsk )
-          , ( "identifier", makeA x )
+          , ( "symbol", Atom (nsKeyToIdent x) )
           ]
         )
     -- "Now more than ever seems it rich to die"
@@ -442,12 +442,12 @@ instance Serialise Visibility
 
 data NamespaceBinding
   = Here Visibility (Doc.Docd Value)
-  | There Text Text
+  | There Text NamespaceKey
   deriving (Eq, Ord, Read, Show, Generic)
 
 instance Serialise NamespaceBinding
 
-type Namespace = Map Text NamespaceBinding
+type Namespace = Map NamespaceKey NamespaceBinding
 
 type Namespaces = Map Text (Doc.Docd Namespace)
 
@@ -562,12 +562,14 @@ withEnv modifyNs modifier action = do
 
 -- * Functions
 
-callExample :: Text -> Value -> Maybe Text
+callExample :: NamespaceKey -> Value -> Maybe Text
 callExample name value = case value of
     Lambda args _ _ _ -> Just $ lambdaDoc args
     _                 -> Nothing
   where
-    lambdaDoc args = "(" <> T.intercalate " " (name : lambdaArgsDoc args) <> ")"
+    lambdaDoc args = "(" <> T.intercalate " " (showNsKey name : lambdaArgsDoc args) <> ")"
+    showNsKey (NakedNK k) = k
+    showNsKey (QualifiedNK q k) = q <> "/" <> k
     lambdaArgsDoc args =
       case args of
         PosArgs argNames ->
@@ -575,20 +577,26 @@ callExample name value = case value of
         VarArgs _ ->
           pure "arg1 ..."
 
-docd :: Text -> Doc.Docd Value -> Doc.Docd Value
+docd :: NamespaceKey -> Doc.Docd Value -> Doc.Docd Value
 docd name x@(Doc.Docd d_ v) = maybe x doc $ callExample name v
   where
     doc t = Doc.Docd (Just (t <> maybe "" ("\n\n" <>) d_)) v
 
-lookupInNamespace :: Monad m => Bool -> Namespaces -> Text -> Text -> Lang m (Doc.Docd Value)
-lookupInNamespace inCurrent nss nsk name = case Map.lookup nsk nss of
+lookupInNamespace
+  :: Monad m
+  => Bool
+  -> Namespaces
+  -> Text
+  -> NamespaceKey
+  -> Lang m (Doc.Docd Value)
+lookupInNamespace inCurrent nss nsname name = case Map.lookup nsname nss of
     Just ns -> case Map.lookup name (copoint ns) of
       Just (Here vis x)
         | inCurrent || vis == Public -> pure $ docd name x
-      Just (Here _ _)                -> throwErrorHere (CantAccessPrivateDef nsk name)
+      Just (Here _ _)                -> throwErrorHere (CantAccessPrivateDef nsname name)
       Just (There a b)               -> lookupInNamespace False nss a b
-      Nothing                        -> throwErrorHere (UnknownIdentifier (Namespaced nsk name))
-    Nothing -> throwErrorHere (UnknownNamespace nsk)
+      Nothing                        -> throwErrorHere (UnknownIdentifier (Namespaced nsname name))
+    Nothing -> throwErrorHere (UnknownNamespace nsname)
 
 lookupAtomWithDoc :: forall m. Monad m => Ident -> Lang m (Doc.Docd Value)
 lookupAtomWithDoc = \case
