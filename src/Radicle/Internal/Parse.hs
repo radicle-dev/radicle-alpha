@@ -97,19 +97,33 @@ numLiteralP = tag =<< NumberF <$> signed pos
     signed p = M.option identity ((identity <$ char '+') <|> (negate <$ char '-')) <*> p
 
 identP :: Parser Ident
-identP = lexeme $ do
-    l <- satisfy isValidIdentFirst
-    r <- many (satisfy isValidIdentRest)
-    pure . Ident $ fromString (l:r)
-
+identP = lexeme $ choice [ divSym, namespacedOrQualified, naked ]
+  where
+    divSym = char '/' >> pure (Naked "/")
+    naked1 = do
+      l <- satisfy isValidIdentFirst
+      r <- many (satisfy isValidIdentRest)
+      pure . fromString $ l:r
+    naked2 = do
+      r <- many (satisfy isValidIdentRest)
+      pure . fromString $ r
+    naked = Naked <$> naked1
+    namespacedOrQualified = do
+        q <- naked1
+        rest q "//" Namespaced <|> rest q "/" Qualified
+      where
+        rest q sep cons = do
+          _ <- string sep
+          cons q <$> naked2
+                
 atomP :: VParser
 atomP = tag . AtomF =<< identP
 
 keywordP :: VParser
 keywordP = do
   _ <- char ':'
-  kw <- many (satisfy isValidIdentRest)
-  tag . KeywordF . Ident . fromString $ kw
+  i <- identP
+  tag . KeywordF $ i
 
 listP :: VParser
 listP = parensP (tag =<< (ListF <$> valueP `sepBy` spaceConsumer))
@@ -130,7 +144,7 @@ dictP = bracesP (tag =<< (DictF . Map.fromList <$> evenItems))
 quoteP :: VParser
 quoteP = do
     val <- char '\'' >> valueP
-    q <- tag $ AtomF (unsafeToIdent "quote")
+    q <- tag $ AtomF (Naked "quote")
     pure $ List [q, val]
 
 data QMark = QMPlain | QMDigit Int
@@ -147,7 +161,7 @@ shortLam = do
         case qMarks expr of
           Nothing -> fail "Invalid ?-atoms in short-lambda: a '?' may only be followed by a single non-zero digit."
           Just qs -> case validQMarks (Set.toList qs) of
-            Just args -> tag . ListF $ [Atom (Ident "fn"), Vec (Seq.fromList args), expr]
+            Just args -> tag . ListF $ [Atom (Naked "fn"), Vec (Seq.fromList args), expr]
             Nothing -> fail "Invalid ?-atoms in short-lambda: plain `?` and numbered `?` cannot be used at the same time."
   where
     -- | A short-lambda should either use no ?-atoms at all, only plain ?-atoms,
@@ -164,7 +178,7 @@ shortLam = do
     -- @?@ followed by digits that are /not/ ?-atoms, then returns Nothing.
     qMarks :: Value -> Maybe (Set QMark)
     qMarks = \case
-      Atom (Ident t) -> case T.uncons t of
+      Atom (Naked t) -> case T.uncons t of
         Just ('?', rest) | T.all Char.isDigit rest ->
           case T.uncons rest of
             Just (d, rest') | d /= '0' && T.null rest' -> Just (Set.singleton (QMDigit (Char.digitToInt d)))
@@ -178,8 +192,8 @@ shortLam = do
 
     coll xs = Set.unions <$> traverse qMarks xs
 
-    qMarkAtom QMPlain     = Atom (Ident "?")
-    qMarkAtom (QMDigit i) = Atom (Ident ("?" <> show i))
+    qMarkAtom QMPlain     = Atom (Naked "?")
+    qMarkAtom (QMDigit i) = Atom (Naked ("?" <> show i))
 
     numbered = \case
       QMPlain -> Nothing

@@ -26,7 +26,7 @@ isValidIdentRest :: Char -> Bool
 isValidIdentRest x = isAlphaNum x || x `elem` extendedChar
 
 extendedChar :: Prelude.String
-extendedChar = ['!', '$', '%', '&', '*', '+', '-', '.', '/', '<' , '=', '>'
+extendedChar = ['!', '$', '%', '&', '*', '+', '-', '.', ':', '<' , '=', '>'
   , '?', '@', '^', '_', '~']
 
 replacements :: Map Char Prelude.String
@@ -76,19 +76,23 @@ kebabCons = T.intercalate "-" . fmap (toS . lowerFirst) . go .keywordWord
 --
 -- Not all `Text`s are valid identifiers, so use 'Ident' at your own risk.
 -- `mkIdent` is the safe version.
-data Ident = Ident (Maybe Text) Text
-    deriving (Eq, Show, Read, Ord, Generic, Data)
+data Ident
+  = Naked Text
+  | Namespaced Text Text
+  | Qualified Text Text
+  deriving (Eq, Show, Read, Ord, Generic, Data)
 
 instance Serialise Ident
 --instance Semigroup Ident
 
-pattern Identifier :: Maybe Text -> Text -> Ident
-pattern Identifier q t <- Ident q t
+-- pattern Identifier :: Maybe Text -> Text -> Ident
+-- pattern Identifier q t <- Ident q t
 
 fromIdent :: Ident -> Text
 fromIdent = \case
-  Ident Nothing x -> x
-  Ident (Just q) x -> q <> ":" <> x
+  Naked x -> x
+  Namespaced n x -> n <> "//" <> x
+  Qualified q x -> q <> "/" <> x
 
 -- -- | Convert a text to an identifier.
 -- --
