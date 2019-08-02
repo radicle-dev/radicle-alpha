@@ -28,7 +28,13 @@ import qualified Text.Megaparsec.Error as Par
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
 import qualified Radicle.Internal.Doc as Doc
-import           Radicle.Internal.Identifier (Ident(..))
+import           Radicle.Internal.Identifier
+                 ( Ident(..)
+                 , pattern NakedI
+                 , Unnamespaced(..)
+                 , showIdent
+                 , showUnnamespaced
+                 )
 import qualified Radicle.Internal.Identifier as Identifier
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Orphans ()
@@ -53,7 +59,7 @@ instance Serialise PatternMatchError
 data LangErrorData r =
       UnknownIdentifier Ident
     | UnknownNamespace Text
-    | CantAccessPrivateDef Text NamespaceKey
+    | CantAccessPrivateDef Text Unnamespaced
     | Impossible Text
     -- | The special form that was misused, and information on the misuse.
     | SpecialForm Text Text
@@ -89,7 +95,7 @@ noStack (Left (LangError _ err)) = Left err
 noStack (Right v)                = Right v
 
 typeToValue :: Type.Type -> Value
-typeToValue = Keyword . Naked . Identifier.kebabCons . Type.typeString
+typeToValue = Keyword . NakedI . Identifier.kebabCons . Type.typeString
 
 -- | Convert an error to a radicle value, and the label for it. Used for
 -- catching exceptions.
@@ -109,7 +115,7 @@ errorDataToValue e = case e of
     CantAccessPrivateDef nsk x -> makeVal
         ( "cant-access-private-def"
         , [ ( "namespace", makeA nsk )
-          , ( "symbol", Atom (nsKeyToIdent x) )
+          , ( "symbol", Atom (Unnamespaced x) )
           ]
         )
     -- "Now more than ever seems it rich to die"
@@ -152,8 +158,9 @@ errorDataToValue e = case e of
     SendError se -> makeVal ( "send-error", [("info", String se)] )
     Exit code -> makeVal ("exit", [("code", toRad code)])
   where
-    makeA = Atom . Naked
-    makeVal (t,v) = pure (Naked t, Dict $ Map.mapKeys (Keyword . Naked) . GhcExts.fromList $ v)
+    makeA = Atom . NakedI
+
+    makeVal (t,v) = pure (NakedI t, Dict $ Map.mapKeys (Keyword . NakedI) . GhcExts.fromList $ v)
 
 newtype Reference = Reference { getReference :: Int }
     deriving (Show, Read, Ord, Eq, Generic, Serialise)
@@ -409,11 +416,11 @@ isAtom (Atom i) = pure i
 isAtom _        = Nothing
 
 -- | The environment, which keeps all known bindings.
-newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }
+newtype Env s = Env { fromEnv :: Map Text (Doc.Docd s) }
     deriving (Eq, Ord, Semigroup, Monoid, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
 
 instance GhcExts.IsList (Env s) where
-    type Item (Env s) = (Ident, Maybe Text, s)
+    type Item (Env s) = (Text, Maybe Text, s)
     fromList xs = Env . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
     toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . fromEnv $ e]
 
@@ -442,12 +449,12 @@ instance Serialise Visibility
 
 data NamespaceBinding
   = Here Visibility (Doc.Docd Value)
-  | There Text NamespaceKey
+  | There Text Unnamespaced
   deriving (Eq, Ord, Read, Show, Generic)
 
 instance Serialise NamespaceBinding
 
-type Namespace = Map NamespaceKey NamespaceBinding
+type Namespace = Map Unnamespaced NamespaceBinding
 
 type Namespaces = Map Text (Doc.Docd Namespace)
 
@@ -562,22 +569,20 @@ withEnv modifyNs modifier action = do
 
 -- * Functions
 
-callExample :: NamespaceKey -> Value -> Maybe Text
+callExample :: Unnamespaced -> Value -> Maybe Text
 callExample name value = case value of
     Lambda args _ _ _ -> Just $ lambdaDoc args
     _                 -> Nothing
   where
-    lambdaDoc args = "(" <> T.intercalate " " (showNsKey name : lambdaArgsDoc args) <> ")"
-    showNsKey (NakedNK k) = k
-    showNsKey (QualifiedNK q k) = q <> "/" <> k
+    lambdaDoc args = "(" <> T.intercalate " " (showUnnamespaced name : lambdaArgsDoc args) <> ")"
     lambdaArgsDoc args =
       case args of
         PosArgs argNames ->
-          map fromIdent argNames
+          map showIdent argNames
         VarArgs _ ->
           pure "arg1 ..."
 
-docd :: NamespaceKey -> Doc.Docd Value -> Doc.Docd Value
+docd :: Unnamespaced -> Doc.Docd Value -> Doc.Docd Value
 docd name x@(Doc.Docd d_ v) = maybe x doc $ callExample name v
   where
     doc t = Doc.Docd (Just (t <> maybe "" ("\n\n" <>) d_)) v
@@ -587,7 +592,7 @@ lookupInNamespace
   => Bool
   -> Namespaces
   -> Text
-  -> NamespaceKey
+  -> Unnamespaced
   -> Lang m (Doc.Docd Value)
 lookupInNamespace inCurrent nss nsname name = case Map.lookup nsname nss of
     Just ns -> case Map.lookup name (copoint ns) of
@@ -600,11 +605,12 @@ lookupInNamespace inCurrent nss nsname name = case Map.lookup nsname nss of
 
 lookupAtomWithDoc :: forall m. Monad m => Ident -> Lang m (Doc.Docd Value)
 lookupAtomWithDoc = \case
-  i@(Naked name) -> get >>= \e -> case Map.lookup i . fromEnv $ bindingsEnv e of
-    Just x -> pure $ docd name x
-    Nothing -> lookupInNamespace True (bindingsNamespaces e) (bindingsCurrentNamespace e) name
+  Unnamespaced foo -> case foo of
+    i@(Naked name) -> get >>= \e -> case Map.lookup name . fromEnv $ bindingsEnv e of
+      Just x -> pure $ docd i x
+      Nothing -> lookupInNamespace True (bindingsNamespaces e) (bindingsCurrentNamespace e) i
+    Qualified q name -> notImplemented
   Namespaced n x -> notImplemented
-  Qualified q x -> notImplemented
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
@@ -614,15 +620,15 @@ lookupAtomDoc :: Monad m => Ident -> Lang m (Maybe Text)
 lookupAtomDoc = fmap Doc.doc . lookupAtomWithDoc
 
 missingDocMsg :: Ident -> Text
-missingDocMsg i = "No documentation found for " <> fromIdent i <> "."
+missingDocMsg i = "No documentation found for " <> showIdent i <> "."
 
 -- | Lookup a primop.
 lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
 lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns e of
-    Nothing -> throwErrorHere $ Impossible $ "Unknown primop " <> fromIdent i
+    Nothing -> throwErrorHere $ Impossible $ "Unknown primop " <> showIdent i
     Just v  -> pure (copoint v)
 
-modifyCurrentNamespace :: Monad m => (Map Text NamespaceBinding -> Map Text NamespaceBinding) -> Lang m ()
+modifyCurrentNamespace :: Monad m => (Map Unnamespaced NamespaceBinding -> Map Unnamespaced NamespaceBinding) -> Lang m ()
 modifyCurrentNamespace f = do
     b@Bindings{ bindingsCurrentNamespace = cns
               , bindingsNamespaces       = nss } <- get
@@ -632,14 +638,14 @@ modifyCurrentNamespace f = do
     f' Nothing   = throwErrorHere $ OtherError "namespace missing!" -- TODO(james): make better error
     f' (Just ns) = pure $ Just (f <$> ns)
 
-defineAtomInNs :: Monad m => Text -> Visibility -> Maybe Text -> Value -> Lang m ()
+defineAtomInNs :: Monad m => Unnamespaced -> Visibility -> Maybe Text -> Value -> Lang m ()
 defineAtomInNs i vis d v = modifyCurrentNamespace (Map.insert i (Here vis (Doc.Docd d v)))
 
-defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
-defineAtom i d v = modify addBinding
-  where
-    addBinding b = b
-      { bindingsEnv = Env . Map.insert i (Doc.Docd d v) . fromEnv $ bindingsEnv b }
+-- defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
+-- defineAtom i d v = modify addBinding
+--   where
+--     addBinding b = b
+--       { bindingsEnv = Env . Map.insert i (Doc.Docd d v) . fromEnv $ bindingsEnv b }
 
 -- * From/ ToRadicle
 
@@ -657,8 +663,8 @@ instance (FromRad t a, FromRad t b) => FromRad t (a,b) where
     fromRad (Vec (x :<| y :<| Seq.Empty)) = (,) <$> fromRad x <*> fromRad y
     fromRad _ = Left "Expecting a vector of length 2"
 instance (FromRad t a) => FromRad t (Maybe a) where
-    fromRad (Vec (Keyword (Naked "just") :<| x :<| Empty)) = Just <$> fromRad x
-    fromRad (Keyword (Naked "nothing")) = pure Nothing
+    fromRad (Vec (Keyword (NakedI "just") :<| x :<| Empty)) = Just <$> fromRad x
+    fromRad (Keyword (NakedI "nothing")) = pure Nothing
     fromRad _ = Left "Expecting `:nothing` or `[:just _]`"
 instance FromRad t (Annotated t ValueF) where
   fromRad = pure
@@ -681,8 +687,8 @@ instance {-# OVERLAPPING #-} FromRad t [Char] where
         _        -> Left "Expecting string"
 instance FromRad t ExitCode where
     fromRad x = case x of
-        Keyword (Naked "ok") -> pure $ ExitSuccess
-        Vec (Keyword (Naked "error") Seq.:<| errValue Seq.:<| Seq.Empty) -> ExitFailure <$> fromRad errValue
+        Keyword (NakedI "ok") -> pure $ ExitSuccess
+        Vec (Keyword (NakedI "error") Seq.:<| errValue Seq.:<| Seq.Empty) -> ExitFailure <$> fromRad errValue
         _ -> Left "Expecting either :ok or [:error errValue]"
 instance (FromRad t a) => FromRad t [a] where
     fromRad x = case x of
@@ -697,21 +703,21 @@ instance FromRad t (Doc.Docd (Annotated t ValueF)) where
     fromRad _ = Left "Expecting a dict."
 instance FromRad t CmdSpec where
     fromRad x = case x of
-        Vec (Keyword (Naked "shell") Seq.:<| arg Seq.:<| Seq.Empty) ->
+        Vec (Keyword (NakedI "shell") Seq.:<| arg Seq.:<| Seq.Empty) ->
             ShellCommand <$> fromRad arg
-        Vec (Keyword (Naked "raw") Seq.:<| comm Seq.:<| Vec args Seq.:<| Seq.Empty) -> do
+        Vec (Keyword (NakedI "raw") Seq.:<| comm Seq.:<| Vec args Seq.:<| Seq.Empty) -> do
             args' <- traverse fromRad $ toList args
             comm' <- fromRad comm
             pure $ RawCommand comm' args'
-        Vec (Keyword (Naked s) Seq.:<| _) ->
+        Vec (Keyword (NakedI s) Seq.:<| _) ->
             throwError $ "Expecting either :raw or :shell, got: " <> s
         _ ->
             throwError "Expecting vector"
 instance FromRad t StdStream where
     fromRad x = case x of
-        Keyword (Naked "inherit") -> pure Inherit
-        Keyword (Naked "create-pipe") -> pure CreatePipe
-        Keyword (Naked "no-stream") -> pure NoStream
+        Keyword (NakedI "inherit") -> pure Inherit
+        Keyword (NakedI "create-pipe") -> pure CreatePipe
+        Keyword (NakedI "no-stream") -> pure NoStream
         _ -> throwError $ "Expecting :inherit, :create-pipe, or :no-stream"
 instance FromRad t CreateProcess where
     fromRad x = case x of
@@ -756,8 +762,8 @@ instance (ToRad t a, ToRad t b, ToRad t c) => ToRad t (a,b,c) where
 instance (ToRad t a, ToRad t b, ToRad t c, ToRad t d) => ToRad t (a,b,c,d) where
     toRad (a,b,c,d) = Vec $ toRad a :<| toRad b :<| toRad c :<| toRad d :<| Empty
 instance (ToRad t a) => ToRad t (Maybe a) where
-    toRad Nothing  = Keyword (Naked "nothing")
-    toRad (Just x) = Vec $ Keyword (Naked "just") :<| toRad x :<| Empty
+    toRad Nothing  = Keyword (NakedI "nothing")
+    toRad (Just x) = Vec $ Keyword (NakedI "just") :<| toRad x :<| Empty
 instance ToRad t Int where
     toRad = Number . fromIntegral
 instance ToRad t Integer where
@@ -770,8 +776,8 @@ instance {-# OVERLAPPING #-} ToRad t [Char] where
     toRad = String . toS
 instance ToRad t ExitCode where
     toRad x = case x of
-        ExitSuccess -> Keyword (Naked "ok")
-        ExitFailure c -> Vec $ Seq.fromList [Keyword (Naked "error"), toRad c]
+        ExitSuccess -> Keyword (NakedI "ok")
+        ExitFailure c -> Vec $ Seq.fromList [Keyword (NakedI "error"), toRad c]
 instance ToRad t (Ann.Annotated t ValueF) where
     toRad = identity
 instance (ToRad t a) => ToRad t [a] where
@@ -779,24 +785,24 @@ instance (ToRad t a) => ToRad t [a] where
 instance (ToRad t a) => ToRad t (Map.Map Text a) where
     toRad xs = Dict $ Map.mapKeys String $ toRad <$> xs
 instance ToRad t (Doc.Docd (Annotated t ValueF)) where
-    toRad (Doc.Docd d_ v) = Dict $ Map.fromList $ ( Keyword (Naked "val"), v) : case d_ of
-      Just d  -> [ (Keyword (Naked "doc"), toRad d) ]
+    toRad (Doc.Docd d_ v) = Dict $ Map.fromList $ ( Keyword (NakedI "val"), v) : case d_ of
+      Just d  -> [ (Keyword (NakedI "doc"), toRad d) ]
       Nothing -> []
 instance ToRad t StdStream where
     toRad x = case x of
-        Inherit    -> Keyword $ Naked "inherit"
-        CreatePipe -> Keyword $ Naked "create-pipe"
-        NoStream   -> Keyword $ Naked "no-stream"
+        Inherit    -> Keyword $ NakedI "inherit"
+        CreatePipe -> Keyword $ NakedI "create-pipe"
+        NoStream   -> Keyword $ NakedI "no-stream"
         _          -> panic "Cannot convert handle"
 instance ToRad t CmdSpec where
     toRad x = case x of
         ShellCommand comm ->
             let c = toRad comm
-            in Vec $ Seq.fromList [Keyword (Naked "shell"), c]
+            in Vec $ Seq.fromList [Keyword (NakedI "shell"), c]
         RawCommand f args ->
             let f' = toRad f
                 args' = toRad args
-            in Vec $ Seq.fromList [Keyword (Naked "raw"), f', args']
+            in Vec $ Seq.fromList [Keyword (NakedI "raw"), f', args']
 
 -- * Helpers
 
@@ -804,13 +810,13 @@ nil :: Value
 nil = List []
 
 quote :: Value -> Value
-quote v = List [Atom (Naked "quote"), v]
+quote v = List [Atom (NakedI "quote"), v]
 
 list :: [Value] -> Value
-list vs = List (Atom (Naked "list") : vs)
+list vs = List (Atom (NakedI "list") : vs)
 
 kwLookup :: Text -> Map Value (Annotated t ValueF) -> Maybe (Annotated t ValueF)
-kwLookup key = Map.lookup (Keyword $ Naked key)
+kwLookup key = Map.lookup (Keyword $ NakedI key)
 
 (??) :: MonadError e m => Maybe a -> e -> m a
 a ?? n = n `note` a
@@ -849,7 +855,7 @@ consArgs :: (CPA t , ToRadFields t a) => Fields -> a -> [Annotated t ValueF]
 consArgs fieldMeta fields =
   case fieldMeta of
     Selectors names ->
-      [Dict . Map.fromList $ zip (Keyword . Naked . toS <$> names) (toRadFields fields)]
+      [Dict . Map.fromList $ zip (Keyword . NakedI . toS <$> names) (toRadFields fields)]
     NoSelectors _ -> toRadFields fields
     NoFields -> []
 
@@ -866,7 +872,7 @@ radCons name args = case args of
     [] -> consKw
     _  -> Vec ( consKw :<| Seq.fromList args )
   where
-    consKw = Keyword . Naked . Identifier.kebabCons $ name
+    consKw = Keyword . NakedI . Identifier.kebabCons $ name
 
 instance ToRadG t Void where
   toRadConss _ _ = absurd
@@ -892,8 +898,8 @@ class FromRadG t a where
   fromRadConss :: [Constructor] -> Text -> [Annotated t ValueF] -> Either Text a
 
 isRadCons :: CPA t => Annotated t ValueF -> Maybe (Text, [Annotated t ValueF])
-isRadCons (Keyword (Naked name))                = pure (name, [])
-isRadCons (Vec (Keyword (Naked name) :<| args)) = pure (name, toList args)
+isRadCons (Keyword (NakedI name))                = pure (name, [])
+isRadCons (Vec (Keyword (NakedI name) :<| args)) = pure (name, toList args)
 isRadCons _                                     = Nothing
 
 gDecodeErr :: Text -> Text

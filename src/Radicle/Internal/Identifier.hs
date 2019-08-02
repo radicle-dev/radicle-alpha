@@ -99,6 +99,11 @@ showIdent = \case
   Unnamespaced x -> showUnnamespaced x
   Namespaced n x -> n <> "//" <> showUnnamespaced x
 
+pattern NakedI :: Text -> Ident
+pattern NakedI x <- Unnamespaced (Naked x)
+  where
+    NakedI = Unnamespaced . Naked
+
 -- -- | Convert a text to an identifier.
 -- --
 -- -- Unsafe! Only use this if you know the string at compile-time and know it's a

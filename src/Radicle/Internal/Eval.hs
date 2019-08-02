@@ -16,7 +16,8 @@ import qualified GHC.Exts as GhcExts
 
 import           Radicle.Internal.Core
 import qualified Radicle.Internal.Doc as Doc
-import           Radicle.Internal.Identifier (Ident(..))
+import           Radicle.Internal.Identifier
+                 (Ident(..), pattern NakedI, Unnamespaced(..))
 import           Radicle.Internal.Orphans ()
 
 -- | Basic evaluation.
@@ -44,14 +45,14 @@ baseEval val = logValPos val $ case val of
 transact :: Monad m => Value -> Lang m Value
 transact expr = do
     nss <- gets bindingsNamespaces
-    tx' <- lookupInNamespace True nss "toplevel" "tx"
+    tx' <- lookupInNamespace True nss "toplevel" (Naked "tx")
     let tx = copoint tx'
     logValPos tx $ do
         expr' <- callFn tx [expr]
         baseEval expr'
 
-specialForms :: forall m. (Monad m) => Map Ident ([Value] -> Lang m Value)
-specialForms = Map.fromList $ first Naked <$>
+specialForms :: forall m. (Monad m) => Map Text ([Value] -> Lang m Value)
+specialForms = Map.fromList $
   [ ( "fn"
     , \case
           args : b : bs -> do
@@ -68,14 +69,14 @@ specialForms = Map.fromList $ first Naked <$>
           _ -> throwErrorHere $ SpecialForm "fn" "Function needs parameters (one atom or a vector of atoms) and a body"
       )
   , ( "ns", \case
-        [a@(Atom (Naked i))] -> ns a i Nothing
-        [a@(Atom (Naked i)), String doc] -> ns a i (Just doc)
+        [a@(Atom (NakedI i))] -> ns a i Nothing
+        [a@(Atom (NakedI i)), String doc] -> ns a i (Just doc)
         _ -> throwErrorHere $ SpecialForm "ns" "The `ns` form expects a (naked) symbol and optionally a docstring."
     )
   , ( "require"
     , \case
-        [Atom (Naked i), e] -> require i e Nothing
-        [Atom (Naked i), e, Atom (Naked q)] -> require i e (Just q)
+        [Atom (NakedI i), e] -> require i e Nothing
+        [Atom (NakedI i), e, Atom (NakedI q)] -> require i e (Just q)
         _ -> throwErrorHere $ OtherError "require needs a namespace identifier and a vector of symbols to import."
     )
   , ("quote", \case
@@ -101,7 +102,7 @@ specialForms = Map.fromList $ first Naked <$>
                   -- TODO reify stack
                   Atom label -> baseEval form `catchError` \err@(LangError _stack e) -> do
                      (thrownLabel, thrownValue) <- errorDataToValue e
-                     if thrownLabel == label || label == Naked "any"
+                     if thrownLabel == label || label == NakedI "any"
                          then do
                             put s
                             handlerclo <- baseEval handler
@@ -116,17 +117,17 @@ specialForms = Map.fromList $ first Naked <$>
     require i e q_ = do
       syms__ <- baseEval e
       case syms__ of
-        Vec syms_ -> case traverse isNaked syms_ of
+        Vec syms_ -> case traverse isUnnamespaced syms_ of
           Just syms -> do
-            let binds = Map.fromList [(qualer s, There i s) | s <- toList syms ]
+            let binds = Map.fromList [(_ s, There i s) | s <- toList syms ]
             _ <- modifyCurrentNamespace (binds <>)
-            pure (Keyword (Naked "ok"))
-          Nothing -> throwErrorHere $ OtherError "One of the items in the vector was not a naked symbol."
+            pure (Keyword (NakedI "ok"))
+          Nothing -> throwErrorHere $ OtherError "One of the items in the vector was not a (unnamespaced) symbol."
         _ -> throwErrorHere $ OtherError "require needs a vector of symbols to import."
       where
-        isNaked (Atom (Naked x))= Just x
-        isNaked _ = Nothing
-        qualer = maybe Naked Qualified q_
+        isUnnamespaced (Atom (Unnamespaced x)) = Just x
+        isUnnamespaced _                       = Nothing
+        qualer = _
     ns a i d_ = do
       nss <- gets bindingsNamespaces
       let nss' = Map.alter (Just . maybe (Doc.Docd d_ mempty) (Doc.redoc d_)) i nss
@@ -145,7 +146,7 @@ specialForms = Map.fromList $ first Naked <$>
       v : cases -> do
         cs <- evenArgs "match" cases
         v' <- baseEval v
-        matchPat <- lookupAtom (Ident "match-pat")
+        matchPat <- lookupAtom (NakedI "match-pat")
         goMatches matchPat v' cs
       _ -> throwErrorHere $ PatternMatchError NoValue
 
@@ -171,9 +172,9 @@ specialForms = Map.fromList $ first Naked <$>
     addBinds e = modify (\s -> s { bindingsEnv = e <> bindingsEnv s })
 
     defPrim vis = \case
-        [Atom (Naked name), val] -> def name vis Nothing val
+        [Atom (NakedI name), val] -> def (Naked name) vis Nothing val
         [_, _] -> throwErrorHere $ OtherError "def expects a naked symbols for the first arg"
-        [Atom (Naked name), String d, val] -> def name vis (Just d) val
+        [Atom (NakedI name), String d, val] -> def (Naked name) vis (Just d) val
         xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs)
 
     def name vis doc_ val = do
