@@ -17,7 +17,12 @@ import qualified GHC.Exts as GhcExts
 import           Radicle.Internal.Core
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
-                 (Ident(..), pattern NakedI, Unnamespaced(..))
+                 ( Ident(..)
+                 , Naked(..)
+                 , pattern NakedN
+                 , pattern NakedT
+                 , Unnamespaced(..)
+                 )
 import           Radicle.Internal.Orphans ()
 
 -- | Basic evaluation.
@@ -45,14 +50,14 @@ baseEval val = logValPos val $ case val of
 transact :: Monad m => Value -> Lang m Value
 transact expr = do
     nss <- gets bindingsNamespaces
-    tx' <- lookupInNamespace True nss "toplevel" (Naked "tx")
+    tx' <- lookupInNamespace True nss (Naked "toplevel") (NakedU (Naked "tx"))
     let tx = copoint tx'
     logValPos tx $ do
         expr' <- callFn tx [expr]
         baseEval expr'
 
-specialForms :: forall m. (Monad m) => Map Text ([Value] -> Lang m Value)
-specialForms = Map.fromList $
+specialForms :: forall m. (Monad m) => Map Naked ([Value] -> Lang m Value)
+specialForms = Map.fromList $ first Naked <$>
   [ ( "fn"
     , \case
           args : b : bs -> do
@@ -61,22 +66,22 @@ specialForms = Map.fromList $
             let toLambda argNames = pure (Lambda argNames (b :| bs) e cns)
             case args of
               Vec atoms_ -> do
-                atoms <- traverse isAtom (toList atoms_) ?? toLangError (SpecialForm "fn" "One of the arguments was not an atom")
+                atoms <- traverse isNaked (toList atoms_) ?? toLangError (SpecialForm "fn" "One of the arguments was not an atom")
                 toLambda (PosArgs atoms)
-              Atom name -> do
+              Atom (Unnamespaced (NakedU name)) -> do
                 toLambda (VarArgs name)
               _ -> throwErrorHere $ SpecialForm "fn" "Function parameters must be one atom or a vector of atoms"
           _ -> throwErrorHere $ SpecialForm "fn" "Function needs parameters (one atom or a vector of atoms) and a body"
       )
   , ( "ns", \case
-        [a@(Atom (NakedI i))] -> ns a i Nothing
-        [a@(Atom (NakedI i)), String doc] -> ns a i (Just doc)
+        [a@(Atom (NakedN i))] -> ns a i Nothing
+        [a@(Atom (NakedN i)), String doc] -> ns a i (Just doc)
         _ -> throwErrorHere $ SpecialForm "ns" "The `ns` form expects a (naked) symbol and optionally a docstring."
     )
   , ( "require"
     , \case
-        [Atom (NakedI i), e] -> require i e Nothing
-        [Atom (NakedI i), e, Atom (NakedI q)] -> require i e (Just q)
+        [Atom (NakedN i), e] -> require i e Nothing
+        [Atom (NakedN i), e, Atom (Unnamespaced (NakedU q))] -> require i e (Just q)
         _ -> throwErrorHere $ OtherError "require needs a namespace identifier and a vector of symbols to import."
     )
   , ("quote", \case
@@ -102,7 +107,7 @@ specialForms = Map.fromList $
                   -- TODO reify stack
                   Atom label -> baseEval form `catchError` \err@(LangError _stack e) -> do
                      (thrownLabel, thrownValue) <- errorDataToValue e
-                     if thrownLabel == label || label == NakedI "any"
+                     if thrownLabel == label || label == NakedT "any"
                          then do
                             put s
                             handlerclo <- baseEval handler
@@ -117,17 +122,16 @@ specialForms = Map.fromList $
     require i e q_ = do
       syms__ <- baseEval e
       case syms__ of
-        Vec syms_ -> case traverse isUnnamespaced syms_ of
+        Vec syms_ -> case traverse isNaked syms_ of
           Just syms -> do
-            let binds = Map.fromList [(_ s, There i s) | s <- toList syms ]
+            let binds = Map.fromList [(qualer s, There i (NakedU s)) | s <- toList syms ]
             _ <- modifyCurrentNamespace (binds <>)
-            pure (Keyword (NakedI "ok"))
+            pure (Keyword (NakedT "ok"))
           Nothing -> throwErrorHere $ OtherError "One of the items in the vector was not a (unnamespaced) symbol."
         _ -> throwErrorHere $ OtherError "require needs a vector of symbols to import."
       where
-        isUnnamespaced (Atom (Unnamespaced x)) = Just x
-        isUnnamespaced _                       = Nothing
-        qualer = _
+        qualer :: Naked -> Unnamespaced
+        qualer = maybe NakedU (flip Qualified) q_
     ns a i d_ = do
       nss <- gets bindingsNamespaces
       let nss' = Map.alter (Just . maybe (Doc.Docd d_ mempty) (Doc.redoc d_)) i nss
@@ -146,7 +150,7 @@ specialForms = Map.fromList $
       v : cases -> do
         cs <- evenArgs "match" cases
         v' <- baseEval v
-        matchPat <- lookupAtom (NakedI "match-pat")
+        matchPat <- lookupAtom (NakedT "match-pat")
         goMatches matchPat v' cs
       _ -> throwErrorHere $ PatternMatchError NoValue
 
@@ -166,15 +170,15 @@ specialForms = Map.fromList $
         is <- traverse isBind (Map.toList m)
         pure $ Env (Map.fromList is)
       where
-        isBind (Atom x, v) = pure (x, Doc.Docd Nothing v)
+        isBind (Atom (NakedN x), v) = pure (x, Doc.Docd Nothing v)
         isBind _ = throwErrorHere $ PatternMatchError (BadBindings pat)
 
     addBinds e = modify (\s -> s { bindingsEnv = e <> bindingsEnv s })
 
     defPrim vis = \case
-        [Atom (NakedI name), val] -> def (Naked name) vis Nothing val
+        [Atom (NakedN name), val] -> def (NakedU name) vis Nothing val
         [_, _] -> throwErrorHere $ OtherError "def expects a naked symbols for the first arg"
-        [Atom (NakedI name), String d, val] -> def (Naked name) vis (Just d) val
+        [Atom (NakedN name), String d, val] -> def (NakedU name) vis (Just d) val
         xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs)
 
     def name vis doc_ val = do
@@ -194,7 +198,7 @@ callFn f arguments = case f of
         fn arguments
     _ -> throwErrorHere $ NonFunctionCalled f
   where
-    evalManyWithEnv :: Ident -> Env Value -> NonEmpty Value -> Lang m Value
+    evalManyWithEnv :: Naked -> Env Value -> NonEmpty Value -> Lang m Value
     evalManyWithEnv ns env exprs =
       NonEmpty.last <$> withEnv (const ns) (const env) (traverse baseEval exprs)
     argumentBindings :: LambdaArgs -> Lang m (Env Value)
@@ -205,7 +209,8 @@ callFn f arguments = case f of
         else toArgs $ zip names arguments
       VarArgs name ->
         toArgs [(name, Vec $ Seq.fromList arguments)]
-      where toArgs = pure . GhcExts.fromList . Doc.noDocs
+      where
+        toArgs = pure . GhcExts.fromList . Doc.noDocs
 
 -- | Process special forms or call function. If @f@ is an atom that
 -- indicates a special form that special form is processed. Otherwise
@@ -213,7 +218,7 @@ callFn f arguments = case f of
 infixr 1 $$
 ($$) :: Monad m => Value -> [Value] -> Lang m Value
 f $$ vs = case f of
-    Atom i ->
+    Atom (NakedN i) ->
       case Map.lookup i specialForms of
         Just form -> form vs
         Nothing   -> appFnOrMacro

@@ -99,19 +99,19 @@ numLiteralP = tag =<< NumberF <$> signed pos
 identP :: Parser Ident
 identP = lexeme $ divSym <|> namespaced <|> (Unnamespaced <$> unnamespaced)
   where
-    divSym = char '/' >> pure (NakedI "/")
+    divSym = char '/' >> pure (NakedT "/")
     simple1 = do
       l <- satisfy isValidIdentFirst
       r <- many (satisfy isValidIdentRest)
-      pure . fromString $ l:r
+      pure . Naked . fromString $ l:r
     simple2 = do
       r <- many (satisfy isValidIdentRest)
-      pure . fromString $ r
+      pure . Naked . fromString $ r
     namespaced = do
       n <- simple1
       _ <- string "//"
       Namespaced n <$> unnamespaced
-    unnamespaced = qualified <|> (Naked <$> simple1)
+    unnamespaced = qualified <|> (NakedU <$> simple1)
     qualified = do
       q <- simple1
       _ <- char '/'
@@ -145,7 +145,7 @@ dictP = bracesP (tag =<< (DictF . Map.fromList <$> evenItems))
 quoteP :: VParser
 quoteP = do
     val <- char '\'' >> valueP
-    q <- tag $ AtomF (NakedI "quote")
+    q <- tag $ AtomF (NakedT "quote")
     pure $ List [q, val]
 
 data QMark = QMPlain | QMDigit Int
@@ -162,7 +162,7 @@ shortLam = do
         case qMarks expr of
           Nothing -> fail "Invalid ?-atoms in short-lambda: a '?' may only be followed by a single non-zero digit."
           Just qs -> case validQMarks (Set.toList qs) of
-            Just args -> tag . ListF $ [Atom (NakedI "fn"), Vec (Seq.fromList args), expr]
+            Just args -> tag . ListF $ [Atom (NakedT "fn"), Vec (Seq.fromList args), expr]
             Nothing -> fail "Invalid ?-atoms in short-lambda: plain `?` and numbered `?` cannot be used at the same time."
   where
     -- | A short-lambda should either use no ?-atoms at all, only plain ?-atoms,
@@ -179,7 +179,7 @@ shortLam = do
     -- @?@ followed by digits that are /not/ ?-atoms, then returns Nothing.
     qMarks :: Value -> Maybe (Set QMark)
     qMarks = \case
-      Atom (NakedI t) -> case T.uncons t of
+      Atom (NakedT t) -> case T.uncons t of
         Just ('?', rest) | T.all Char.isDigit rest ->
           case T.uncons rest of
             Just (d, rest') | d /= '0' && T.null rest' -> Just (Set.singleton (QMDigit (Char.digitToInt d)))
@@ -193,8 +193,8 @@ shortLam = do
 
     coll xs = Set.unions <$> traverse qMarks xs
 
-    qMarkAtom QMPlain     = Atom (NakedI "?")
-    qMarkAtom (QMDigit i) = Atom (NakedI ("?" <> show i))
+    qMarkAtom QMPlain     = Atom (NakedT "?")
+    qMarkAtom (QMDigit i) = Atom (NakedT ("?" <> show i))
 
     numbered = \case
       QMPlain -> Nothing

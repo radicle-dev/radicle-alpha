@@ -71,17 +71,22 @@ kebabCons = T.intercalate "-" . fmap (toS . lowerFirst) . go .keywordWord
     -- Makes a string safe to use in a keyword.
     keywordWord = concat . fmap keywordChar
 
+newtype Naked = Naked { fromNaked :: Text }
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise Naked
+
 data Unnamespaced
-  = Naked Text
-  | Qualified Text Text
+  = NakedU Naked
+  | Qualified Naked Naked
   deriving (Eq, Ord, Read, Show, Generic)
 
 instance Serialise Unnamespaced
 
 showUnnamespaced :: Unnamespaced -> Text
 showUnnamespaced = \case
-  Naked x -> x
-  Qualified q x -> q <> "/" <> x
+  NakedU (Naked x) -> x
+  Qualified q x -> fromNaked q <> "/" <> fromNaked x
 
 -- | An symbol in the language.
 --
@@ -89,7 +94,7 @@ showUnnamespaced = \case
 -- `mkIdent` is the safe version.
 data Ident
   = Unnamespaced Unnamespaced
-  | Namespaced Text Unnamespaced
+  | Namespaced Naked Unnamespaced
   deriving (Eq, Show, Read, Ord, Generic)
 
 instance Serialise Ident
@@ -97,12 +102,17 @@ instance Serialise Ident
 showIdent :: Ident -> Text
 showIdent = \case
   Unnamespaced x -> showUnnamespaced x
-  Namespaced n x -> n <> "//" <> showUnnamespaced x
+  Namespaced n x -> fromNaked n <> "//" <> showUnnamespaced x
 
-pattern NakedI :: Text -> Ident
-pattern NakedI x <- Unnamespaced (Naked x)
+pattern NakedN :: Naked -> Ident
+pattern NakedN x <- Unnamespaced (NakedU x)
   where
-    NakedI = Unnamespaced . Naked
+    NakedN = Unnamespaced . NakedU
+
+pattern NakedT :: Text -> Ident
+pattern NakedT x <- Unnamespaced (NakedU (Naked x))
+  where
+    NakedT = Unnamespaced . NakedU . Naked
 
 -- -- | Convert a text to an identifier.
 -- --

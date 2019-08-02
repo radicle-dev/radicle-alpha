@@ -17,7 +17,7 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Eval
-import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
+import           Radicle.Internal.Identifier (Ident(..))
 import qualified Radicle.Internal.Json as Json
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse

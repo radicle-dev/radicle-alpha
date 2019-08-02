@@ -65,8 +65,8 @@ maybeJson :: Value -> Either Text A.Value
 maybeJson = \case
     Number n -> A.Number <$> isSci n
     String s -> pure $ A.String s
-    Keyword (Ident i) -> pure $ A.String i
-    Atom (Ident i) -> pure $ A.String i
+    Keyword i -> pure $ A.String (showIdent i)
+    Atom i -> pure $ A.String (showIdent i)
     Boolean b -> pure $ A.Bool b
     List ls -> A.toJSON <$> traverse maybeJson ls
     Vec xs -> A.toJSON <$> traverse maybeJson (toList xs)
@@ -77,12 +77,12 @@ maybeJson = \case
       pure $ A.Object (HashMap.fromList (zip ks vs))
     v -> Left $ cantConvertType v "JSON"
   where
-    jsonKey (String s)          = pure s
-    jsonKey (Keyword (Ident i)) = pure i
-    jsonKey (Atom (Ident i))    = pure i
-    jsonKey n@(Number _)        = pure (renderCompactPretty n)
-    jsonKey (Boolean b)         = pure $ if b then "true" else "false"
-    jsonKey v                   = Left $ cantConvertType v "a JSON key"
+    jsonKey (String s)   = pure s
+    jsonKey (Keyword i)  = pure (showIdent i)
+    jsonKey (Atom i)     = pure (showIdent i)
+    jsonKey n@(Number _) = pure (renderCompactPretty n)
+    jsonKey (Boolean b)  = pure $ if b then "true" else "false"
+    jsonKey v            = Left $ cantConvertType v "a JSON key"
 
     cantConvertType v toThis = "Cannot convert values of type " <> toS (Type.typeString (valType v)) <> " to " <> toThis
 
@@ -97,4 +97,4 @@ fromJson = \case
   A.Bool b -> Boolean b
   A.Array xs -> Vec $ Seq.fromList (JsonVector.toList (fromJson <$> xs))
   A.Object kvs -> Dict $ Map.fromList $ bimap String fromJson <$> HashMap.toList kvs
-  A.Null -> Keyword (Ident "nothing")
+  A.Null -> Keyword (NakedT "nothing")
