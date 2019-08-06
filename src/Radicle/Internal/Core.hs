@@ -250,7 +250,7 @@ data ValueF r =
     | BooleanF Bool
     | ListF [r]
     | VecF (Seq r)
-    | PrimFnF Ident
+    | PrimFnF Naked
     -- | Map from *pure* Values -- annotations shouldn't change lookup semantics.
     | DictF (Map.Map Value r)
     | RefF Reference
@@ -359,7 +359,7 @@ pattern Vec vs <- (Ann.match -> VecF vs)
     where
     Vec = Ann.annotate . VecF
 
-pattern PrimFn :: ValueConC t => Ident -> Annotated t ValueF
+pattern PrimFn :: ValueConC t => Naked -> Annotated t ValueF
 pattern PrimFn i <- (Ann.match -> PrimFnF i)
     where
     PrimFn = Ann.annotate . PrimFnF
@@ -430,11 +430,11 @@ instance GhcExts.IsList (Env s) where
     toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . fromEnv $ e]
 
 -- | PrimFn mappings. The parameter specifies the monad the primops run in.
-newtype PrimFns m = PrimFns { getPrimFns :: Map Ident (Doc.Docd ([Value] -> Lang m Value)) }
+newtype PrimFns m = PrimFns { getPrimFns :: Map Naked (Doc.Docd ([Value] -> Lang m Value)) }
   deriving (Semigroup, Monoid)
 
 instance GhcExts.IsList (PrimFns m) where
-    type Item (PrimFns m) = (Ident, Maybe Text, [Value] -> Lang m Value)
+    type Item (PrimFns m) = (Naked, Maybe Text, [Value] -> Lang m Value)
     fromList xs = PrimFns . Map.fromList $ [ (i, Doc.Docd d x)| (i, d, x) <- xs ]
     toList e = [ (i, d, x) | (i, Doc.Docd d x) <- GhcExts.toList . getPrimFns $ e]
 
@@ -459,7 +459,15 @@ data NamespaceBinding
 
 instance Serialise NamespaceBinding
 
-type Namespace = Map Unnamespaced NamespaceBinding
+data QualRule =
+  -- | 'All foo bar' imports all (naked) definitions of 'foo' qualified with
+  -- 'bar'.
+  All Naked Naked
+
+data Namespace = Namespace
+  { bindings :: Map Unnamespaced NamespaceBinding
+  , qualRules :: [QualRule]
+  }
 
 type Namespaces = Map Naked (Doc.Docd Namespace)
 
@@ -611,9 +619,14 @@ lookupAtomWithDoc = \case
   Unnamespaced foo -> case foo of
     i@(NakedU name) -> get >>= \e -> case Map.lookup name . fromEnv $ bindingsEnv e of
       Just x -> pure $ docd i x
-      Nothing -> lookupInNamespace True (bindingsNamespaces e) (bindingsCurrentNamespace e) i
-    Qualified q name -> notImplemented
-  Namespaced n x -> notImplemented
+      Nothing ->
+        lookupInNamespace True (bindingsNamespaces e) (bindingsCurrentNamespace e) i
+    i@(Qualified _ _) -> do
+      st <- get
+      lookupInNamespace True (bindingsNamespaces st) (bindingsCurrentNamespace st) i
+  Namespaced n x -> do
+    nss <- gets bindingsNamespaces
+    lookupInNamespace False nss n x
 
 -- | Lookup an atom in the environment
 lookupAtom :: Monad m => Ident -> Lang m Value
@@ -626,9 +639,9 @@ missingDocMsg :: Ident -> Text
 missingDocMsg i = "No documentation found for " <> showIdent i <> "."
 
 -- | Lookup a primop.
-lookupPrimop :: Monad m => Ident -> Lang m ([Value] -> Lang m Value)
+lookupPrimop :: Monad m => Naked -> Lang m ([Value] -> Lang m Value)
 lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns e of
-    Nothing -> throwErrorHere $ Impossible $ "Unknown primop " <> showIdent i
+    Nothing -> throwErrorHere $ Impossible $ "Unknown primop " <> fromNaked i
     Just v  -> pure (copoint v)
 
 modifyCurrentNamespace :: Monad m => (Map Unnamespaced NamespaceBinding -> Map Unnamespaced NamespaceBinding) -> Lang m ()

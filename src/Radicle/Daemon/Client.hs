@@ -76,9 +76,9 @@ createDaemonClientPrimFns ::(MonadIO m) => IO (PrimFns m)
 createDaemonClientPrimFns = do
     client <- newClient
     pure $ fromList
-        [ (unsafeToIdent sendName, Nothing, sendPrimFn client)
-        , (unsafeToIdent queryName, Nothing, queryPrimFn client)
-        , (unsafeToIdent newMachineName, Nothing, newMachinePrimFn client)
+        [ (Naked sendName, Nothing, sendPrimFn client)
+        , (Naked queryName, Nothing, queryPrimFn client)
+        , (Naked newMachineName, Nothing, newMachinePrimFn client)
         ]
   where
     sendName = "daemon/send!"

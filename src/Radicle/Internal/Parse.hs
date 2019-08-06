@@ -107,12 +107,12 @@ identP = lexeme $ divSym <|> namespaced <|> (Unnamespaced <$> unnamespaced)
     simple2 = do
       r <- many (satisfy isValidIdentRest)
       pure . Naked . fromString $ r
-    namespaced = do
+    namespaced = try $ do
       n <- simple1
       _ <- string "//"
       Namespaced n <$> unnamespaced
-    unnamespaced = qualified <|> (NakedU <$> simple1)
-    qualified = do
+    unnamespaced = try $ qualified <|> (NakedU <$> simple1)
+    qualified = try $ do
       q <- simple1
       _ <- char '/'
       Qualified q <$> simple2

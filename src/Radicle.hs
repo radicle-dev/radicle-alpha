@@ -48,9 +48,6 @@ module Radicle
     , Reference(..)
     , Ident
     , mkIdent
-    , unsafeToIdent
-    , fromIdent
-    , pattern Identifier
     , Env(..)
     , pureEnv
     , Lang

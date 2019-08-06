@@ -17,7 +17,7 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Eval
-import           Radicle.Internal.Identifier (Ident(..))
+import           Radicle.Internal.Identifier
 import qualified Radicle.Internal.Json as Json
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse
@@ -32,7 +32,7 @@ pureEnv =
     addPrimFns purePrimFns $ emptyBindings mempty tl
   where
     tl :: Namespace
-    tl = Map.singleton (Ident "tx") (Here Public (Doc.Docd txd (PrimFn $ unsafeToIdent "initial-tx")))
+    tl = Map.singleton (NakedU (Naked "tx")) (Here Public (Doc.Docd txd (PrimFn (Naked "initial-tx"))))
     txd = Just "The transactor function used for the machine inputs. Intially\
                \this is set to `initial-tx`."
 
@@ -49,7 +49,7 @@ addPrimFns primFns bindings =
       $
       [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)]
 
-addPrimFn  :: Ident -> Text -> ([Value] -> Lang m Value) -> PrimFns m -> PrimFns m
+addPrimFn  :: Naked -> Text -> ([Value] -> Lang m Value) -> PrimFns m -> PrimFns m
 addPrimFn name doc run (PrimFns primFns) = PrimFns primFns'
   where
     primFns' = Map.insert name (Doc.Docd (Just doc) run) primFns
@@ -693,7 +693,7 @@ readValue
 readValue sourceFile code = do
     case parse sourceFile code of
       Right v -> pure v
-      Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String e)
+      Left e  -> throwErrorHere $ ThrownError (NakedT "parse-error") (String e)
 
 readValues
     :: (MonadError (LangError Value) m)
@@ -703,7 +703,7 @@ readValues
 readValues sourceFile code = do
     case parseValues sourceFile code  of
       Right vs -> pure vs
-      Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String . toS $ errorBundlePretty e)
+      Left e  -> throwErrorHere $ ThrownError (NakedT "parse-error") (String . toS $ errorBundlePretty e)
 
-allDocs :: [(Text, Text, a)] -> [(Ident, Maybe Text, a)]
-allDocs = fmap $ \(x,y,z) -> (unsafeToIdent x, Just y, z)
+allDocs :: [(Text, Text, a)] -> [(Naked, Maybe Text, a)]
+allDocs = fmap $ \(x,y,z) -> (Naked x, Just y, z)
