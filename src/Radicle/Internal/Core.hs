@@ -459,15 +459,20 @@ data NamespaceBinding
 
 instance Serialise NamespaceBinding
 
-data QualRule =
+data ReqRule
   -- | 'All foo bar' imports all (naked) definitions of 'foo' qualified with
   -- 'bar'.
-  All Naked Naked
+  = ReqAllQual Naked Naked
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise ReqRule
 
 data Namespace = Namespace
   { bindings :: Map Unnamespaced NamespaceBinding
-  , qualRules :: [QualRule]
-  }
+  , qualRules :: [ReqRule]
+  } deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise Namespace
 
 type Namespaces = Map Naked (Doc.Docd Namespace)
 
@@ -515,7 +520,7 @@ setBindings value = do
 
 bindingsFromRadicle :: Value -> Either Text (Bindings (PrimFns m))
 bindingsFromRadicle x = case x of
-    VState s -> pure $ (emptyBindings (stateEnv s) mempty)
+    VState s -> pure $ (emptyBindings (stateEnv s) (Namespace mempty []))
                 { bindingsRefs = stateRefs s
                 , bindingsNextRef = length (stateRefs s)
                 , bindingsCurrentNamespace = stateCurrentNamespace s
@@ -606,7 +611,7 @@ lookupInNamespace
   -> Unnamespaced
   -> Lang m (Doc.Docd Value)
 lookupInNamespace inCurrent nss nsname name = case Map.lookup nsname nss of
-    Just ns -> case Map.lookup name (copoint ns) of
+    Just ns -> case Map.lookup name (bindings (copoint ns)) of
       Just (Here vis x)
         | inCurrent || vis == Public -> pure $ docd name x
       Just (Here _ _)                -> throwErrorHere (CantAccessPrivateDef nsname name)
@@ -644,7 +649,7 @@ lookupPrimop i = get >>= \e -> case Map.lookup i $ getPrimFns $ bindingsPrimFns 
     Nothing -> throwErrorHere $ Impossible $ "Unknown primop " <> fromNaked i
     Just v  -> pure (copoint v)
 
-modifyCurrentNamespace :: Monad m => (Map Unnamespaced NamespaceBinding -> Map Unnamespaced NamespaceBinding) -> Lang m ()
+modifyCurrentNamespace :: Monad m => (Namespace -> Namespace) -> Lang m ()
 modifyCurrentNamespace f = do
     b@Bindings{ bindingsCurrentNamespace = cns
               , bindingsNamespaces       = nss } <- get
@@ -655,7 +660,9 @@ modifyCurrentNamespace f = do
     f' (Just ns) = pure $ Just (f <$> ns)
 
 defineAtomInNs :: Monad m => Unnamespaced -> Visibility -> Maybe Text -> Value -> Lang m ()
-defineAtomInNs i vis d v = modifyCurrentNamespace (Map.insert i (Here vis (Doc.Docd d v)))
+defineAtomInNs i vis d v = modifyCurrentNamespace f
+ where
+   f (Namespace bs rs) = Namespace (Map.insert i (Here vis (Doc.Docd d v)) bs) rs
 
 -- defineAtom :: Monad m => Ident -> Maybe Text -> Value -> Lang m ()
 -- defineAtom i d v = modify addBinding
