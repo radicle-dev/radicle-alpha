@@ -1,4 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -ddump-splices #-}
+
 
 -- | `radicle` - A LISP for blocktrees.
 --
@@ -105,4 +108,19 @@ module Radicle
 
 import           Control.Monad.Identity (runIdentity)
 import           Data.Text.Prettyprint.Doc
+import qualified Language.Haskell.TH.Syntax as TH
+import           Protolude hiding (Type)
 import           Radicle.Internal
+
+compileTest
+    :: Monad m
+    => Text                 -- ^ Name of source file (for error reporting)
+    -> Text                 -- ^ Source code to be interpreted
+    -> m (Either (LangError Value) Value)
+compileTest sourceName expr  =
+  let bnds = do
+        $(TH.lift (case runIdentity $ interpretWithState "[comp]" preludeSrc (replBindings []) of
+        (Left e, _)  -> panic (show e)
+        (Right _, r) -> removePrims r) )
+  in interpret sourceName expr (bnds { bindingsPrimFns = bindingsPrimFns pureEnv })
+

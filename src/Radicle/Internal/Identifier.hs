@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveLift      #-}
 {-# LANGUAGE PatternSynonyms #-}
 
 module Radicle.Internal.Identifier where
@@ -10,6 +11,8 @@ import           Data.Char (isAlphaNum, isLetter, isUpper, toLower)
 import           Data.Data (Data)
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import           Instances.TH.Lift ()
+import           Language.Haskell.TH.Syntax (Lift)
 
 -- These are made top-level so construction of arbitrary instances that matches
 -- parsing is easier. Note that additionally an identifier must not be a valid
@@ -77,7 +80,7 @@ kebabCons = T.intercalate "-" . fmap (toS . lowerFirst) . go .keywordWord
 -- Not all `Text`s are valid identifiers, so use 'Ident' at your own risk.
 -- `mkIdent` is the safe version.
 newtype Ident = Ident { fromIdent :: Text }
-    deriving (Eq, Show, Read, Ord, Generic, Data, Serialise, Semigroup)
+    deriving (Eq, Show, Read, Ord, Generic, Data, Serialise, Semigroup, Lift)
 
 pattern Identifier :: Text -> Ident
 pattern Identifier t <- Ident t

@@ -72,6 +72,8 @@ library:
   - swagger2
   - template-haskell
   - text
+  - th-lift-instances
+  - th-lift
   - time
   - unliftio-core
   - unliftio

@@ -1,6 +1,7 @@
 module Radicle.Internal
     ( module X
     , createImpureBindings
+    , preludeSrc
     ) where
 
 import           Protolude
@@ -18,9 +19,14 @@ import           Radicle.Internal.Pretty as X
 import           Radicle.Internal.PrimFns as X
 import           Radicle.Internal.Type as X
 
+import           System.IO.Unsafe
+
 -- | Create all impure bindings. This is in IO so as to create a
 -- manager for the HTTP requests to the daemon.
 createImpureBindings :: (MonadIO m, ReplM m) => [Text] -> IO (Bindings (PrimFns m))
 createImpureBindings scriptArgs' = do
     daemonClientPrimFns <- createDaemonClientPrimFns
     pure $ addPrimFns (replPrimFns scriptArgs' <> daemonClientPrimFns) pureEnv
+
+preludeSrc :: Text
+preludeSrc = unsafePerformIO $ readFile "rad/prelude.rad"

@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveLift           #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Radicle.Internal.Annotation where
@@ -6,10 +8,19 @@ import           Codec.Serialise (Serialise)
 import           Data.Copointed (Copointed(..))
 import qualified Data.Text as T
 import           GHC.Stack
+import           Instances.TH.Lift ()
+import           Language.Haskell.TH.Lift
+import           Language.Haskell.TH.Syntax (Lift)
+import qualified Language.Haskell.TH.Syntax as TH
 import           Protolude hiding (SrcLoc)
 import qualified Text.Megaparsec.Pos as Par
 
 import           Radicle.Internal.Orphans ()
+
+instance Lift Par.Pos where
+    lift p = [| Par.mkPos $(TH.lift (Par.unPos p)) |]
+
+deriveLift 'Par.SourcePos
 
 newtype Annotated t f = Annotated (t (f (Annotated t f)))
     deriving (Generic)
@@ -21,6 +32,7 @@ deriving instance (Ord (t (f (Annotated t f)))) => Ord (Annotated t f)
 deriving instance (Read (t (f (Annotated t f)))) => Read (Annotated t f)
 deriving instance (Show (t (f (Annotated t f)))) => Show (Annotated t f)
 deriving instance (Serialise (t (f (Annotated t f)))) => Serialise (Annotated t f)
+deriving instance (Lift (t (f (Annotated t f)))) => Lift (Annotated t f)
 
 class Annotation t where
     -- We use the call stack to create source location annotations for interpreter-created objects
@@ -50,7 +62,7 @@ data SrcPos = SrcPos Par.SourcePos
             -- We use Text instead of CallStack because CallStack has no
             -- Read instance, and it's not worth it to make a parser.
             | InternalPos Text
-    deriving (Eq, Ord, Read, Show, Generic)
+    deriving (Eq, Ord, Read, Show, Generic, Lift)
 
 instance Serialise SrcPos
 
@@ -61,7 +73,7 @@ thisPos = InternalPos $ T.intercalate "\n" (map prettyCallSite $ getCallStack ca
         toS $ srcLocFile <> ":" <> show srcLocStartLine <> ":" <> show srcLocStartCol <> " " <> f
 
 data WithPos a = WithPos SrcPos a
-    deriving (Read, Show, Generic, Functor, Foldable, Traversable)
+    deriving (Read, Show, Generic, Functor, Foldable, Traversable, Lift)
 
 instance Serialise a => Serialise (WithPos a)
 
@@ -77,3 +89,4 @@ instance Copointed WithPos where
 
 instance Annotation WithPos where
     toAnnotation = WithPos thisPos
+

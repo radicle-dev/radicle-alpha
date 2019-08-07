@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveLift            #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Radicle.Internal.Doc where
@@ -6,9 +7,11 @@ import           Protolude hiding (Any)
 
 import           Codec.Serialise (Serialise(..))
 import           Data.Copointed (Copointed(..))
+import           Instances.TH.Lift ()
+import           Language.Haskell.TH.Syntax (Lift)
 
 data Docd a = Docd (Maybe Text) a
-  deriving (Show, Read, Functor, Foldable, Traversable, Generic)
+  deriving (Show, Read, Functor, Foldable, Traversable, Generic, Lift)
 
 instance Serialise a => Serialise (Docd a)
 

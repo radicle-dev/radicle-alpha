@@ -1,4 +1,6 @@
+{-# LANGUAGE DeriveLift      #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns    #-}
 
 -- | The core radicle datatypes and functionality.
@@ -22,9 +24,14 @@ import qualified Data.Text as T
 import           Generics.Eot
 import qualified GHC.Exts as GhcExts
 import qualified GHC.IO.Handle as Handle
+import           Instances.TH.Lift ()
+import           Language.Haskell.TH.Lift ()
 import           System.Process
 import qualified Text.Megaparsec.Error as Par
 
+
+import           Language.Haskell.TH.Syntax (Lift)
+import qualified Language.Haskell.TH.Syntax as TH
 import           Radicle.Internal.Annotation (Annotated)
 import qualified Radicle.Internal.Annotation as Ann
 import qualified Radicle.Internal.Doc as Doc
@@ -36,6 +43,11 @@ import           Radicle.Internal.Type (Type(..))
 import qualified Radicle.Internal.Type as Type
 
 
+-- TODO: Figure out how to deal with this in impure code
+instance Lift Handle.Handle where
+    lift = panic "can't lift"
+instance Lift ProcessHandle where
+    lift = panic "can't lift"
 -- * Value
 
 data LangError r = LangError [Ann.SrcPos] (LangErrorData r)
@@ -160,7 +172,7 @@ errorDataToValue e = case e of
     makeVal (t,v) = pure (Ident t, Dict $ Map.mapKeys (Keyword . Ident) . GhcExts.fromList $ v)
 
 newtype Reference = Reference { getReference :: Int }
-    deriving (Show, Read, Ord, Eq, Generic, Serialise)
+    deriving (Show, Read, Ord, Eq, Generic, Serialise, Lift)
 
 -- | Create a new ref with the supplied initial value.
 newRef :: Monad m => Value -> Lang m Value
@@ -187,7 +199,7 @@ data Hdl
     | StdIn
     | StdOut
     | StdErr
-    deriving (Show, Read, Ord, Eq, Generic)
+    deriving (Show, Read, Ord, Eq, Generic, Lift)
 
 instance Serialise Hdl
 
@@ -215,7 +227,7 @@ lookupHandle StdErr = pure stderr
 -- | As with References and Hdls, we keep a counter for each handle, and in the
 -- environment map those to actual handles.
 newtype ProcHdl = ProcHdl { getProcHandle :: Int }
-    deriving (Show, Read, Ord, Eq, Generic, Serialise)
+    deriving (Show, Read, Ord, Eq, Generic, Serialise, Lift)
 
 -- | Lookup a process handle in the bindings, failing if it does not exist.
 lookupProcHandle :: Monad m => ProcHdl -> Lang m ProcessHandle
@@ -265,14 +277,14 @@ data ValueF r =
     | LambdaRecF Ident LambdaArgs (NonEmpty r) (Env r)
     | VEnvF (Env r)
     | VStateF State
-    deriving (Eq, Ord, Read, Show, Generic, Functor)
+    deriving (Eq, Ord, Read, Show, Generic, Functor, Lift)
 
 instance Serialise r => Serialise (ValueF r)
 
 data LambdaArgs =
       PosArgs [Ident]
     | VarArgs Ident
-    deriving (Eq, Ord, Read, Show, Generic)
+    deriving (Eq, Ord, Read, Show, Generic, Lift)
 
 instance Serialise LambdaArgs
 
@@ -419,7 +431,7 @@ isAtom _        = Nothing
 
 -- | The environment, which keeps all known bindings.
 newtype Env s = Env { fromEnv :: Map Ident (Doc.Docd s) }
-    deriving (Eq, Ord, Semigroup, Monoid, Show, Read, Generic, Functor, Foldable, Traversable, Serialise)
+    deriving (Eq, Ord, Semigroup, Monoid, Show, Read, Generic, Functor, Foldable, Traversable, Serialise, Lift)
 
 instance GhcExts.IsList (Env s) where
     type Item (Env s) = (Ident, Maybe Text, s)
@@ -438,7 +450,7 @@ instance GhcExts.IsList (PrimFns m) where
 data State = State
   { stateEnv  :: Env Value
   , stateRefs :: IntMap Value
-  } deriving (Eq, Ord, Read, Show, Generic)
+  } deriving (Eq, Ord, Read, Show, Generic, Lift)
 
 instance Serialise State
 
@@ -452,10 +464,13 @@ data Bindings prims = Bindings
     , bindingsNextHandle     :: Int
     , bindingsProcHandles    :: IntMap ProcessHandle
     , bindingsNextProcHandle :: Int
-    } deriving (Functor, Generic)
+    } deriving (Functor, Generic, Lift)
 
 emptyBindings :: Bindings (PrimFns m)
 emptyBindings = Bindings mempty mempty mempty 0 mempty 0 mempty 0
+
+removePrims :: Bindings (PrimFns m) -> Bindings ()
+removePrims b = b { bindingsPrimFns = () }
 
 -- | Extract an environment and references from a Radicle value and put
 -- them as the current bindings. Primitive functions are not changed.
@@ -859,3 +874,4 @@ instance (CPA t, FromRad t a, FromRadFields t as) => FromRadFields t (a, as) whe
 
 instance FromRadFields t () where
   fromRadFields _ _ = pure ()
+
