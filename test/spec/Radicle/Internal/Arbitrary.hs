@@ -7,7 +7,6 @@ import           Protolude
 
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
-import           Data.Scientific (Scientific)
 import qualified Data.Text as T
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
@@ -15,7 +14,6 @@ import           Test.QuickCheck.Instances ()
 import           Radicle
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
-                 (Ident(..), isValidIdentFirst, isValidIdentRest)
 import           Radicle.Internal.PrimFns (purePrimFns)
 
 instance Arbitrary r => Arbitrary (Env r) where
@@ -34,21 +32,34 @@ instance Arbitrary NoDoubleSpacesValue where
 instance Arbitrary UntaggedValue where
     arbitrary = untag <$> (arbitrary :: Gen Value)
 
+-- TODO: we need to rethink which nakeds/idents are valid, since now they are
+-- structured.
+instance Arbitrary Naked where
+  arbitrary = Naked . toS <$> ((:) <$> firstL <*> rest)
+    where
+      allChars = take 100 ['!' .. maxBound]
+      firstL = elements $ filter isValidIdentFirst allChars
+      rest = sized $ \n -> do
+        k <- choose (0, n)
+        vectorOf k . elements $ filter isValidIdentRest allChars
+
+instance Arbitrary Unnamespaced where
+  arbitrary = oneof [ NakedU <$> arbitrary
+                    , Qualified <$> arbitrary <*> arbitrary
+                    ]
+
 instance Arbitrary Ident where
-    arbitrary = ((:) <$> firstL <*> rest) `suchThatMap` (mkIdent . toS)
-      where
-        allChars = take 100 ['!' .. maxBound]
-        firstL = elements $ filter isValidIdentFirst allChars
-        rest = sized $ \n -> do
-          k <- choose (0, n)
-          vectorOf k . elements $ filter isValidIdentRest allChars
+    arbitrary = oneof
+        [ Namespaced <$> arbitrary <*> arbitrary
+        , Unnamespaced <$> arbitrary
+        ]
 
 instance Arbitrary a => Arbitrary (Bindings a) where
     arbitrary = do
         refs <- arbitrary
         env <- arbitrary
         prims <- arbitrary
-        pure $ Bindings env mempty (Ident "toplevel") prims (IntMap.fromList $ zip [0..] refs)
+        pure $ Bindings env mempty (Naked "toplevel") prims (IntMap.fromList $ zip [0..] refs)
             (length refs) mempty 0 mempty 0
 
 instance Arbitrary a => Arbitrary (Doc.Docd a) where
@@ -63,7 +74,7 @@ valueGenerator textGen n | n == 0 = frequency $ first pred <$> freqs
     -- be got at after an eval, and which doesn't really correspond to
     -- anything a user can write. So we don't generate dicts directly,
     -- instead requiring they go via the primop.
-    freqs = [ (3, Atom <$> (arbitrary `suchThat` (\x -> not (isPrimop x || isNum x))))
+    freqs = [ (3, Atom <$> (arbitrary `suchThat` (not . isPrimop)))
             , (3, String <$> textGen)
             , (3, Boolean <$> arbitrary)
             , (3, Number <$> arbitrary)
@@ -73,7 +84,6 @@ valueGenerator textGen n | n == 0 = frequency $ first pred <$> freqs
                          <*> scale (`div` 4) arbitrary
                          <*> scale (`div` 4) arbitrary
                          <*> scale (`div` 4) arbitrary)
-
             ]
 
     sizedList :: Arbitrary a => Gen [a]
@@ -82,6 +92,6 @@ valueGenerator textGen n | n == 0 = frequency $ first pred <$> freqs
         scale (`div` (k + 1)) $ vectorOf k arbitrary
     prims :: PrimFns Identity
     prims = purePrimFns
-    isPrimop x = x `elem` Map.keys (getPrimFns prims)
-    isNum x = isJust (readMaybe (toS $ fromIdent x) :: Maybe Scientific)
+    isPrimop (NakedN x) = x `elem` Map.keys (getPrimFns prims)
+    isPrimop _ = False
     lambdaArgs = oneof [ PosArgs <$> sizedList, VarArgs <$> arbitrary ]
