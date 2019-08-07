@@ -62,6 +62,7 @@ data LangErrorData r =
       UnknownIdentifier Ident
     | UnknownNamespace Naked
     | CantAccessPrivateDef Naked Unnamespaced
+    | ConflictingRequiredSymbols Naked Naked [Naked]
     | Impossible Text
     -- | The special form that was misused, and information on the misuse.
     | SpecialForm Text Text
@@ -469,10 +470,14 @@ instance Serialise ReqRule
 
 data Namespace = Namespace
   { bindings :: Map Unnamespaced NamespaceBinding
-  , qualRules :: [ReqRule]
+  , qualRules :: Map Naked [Naked]
   } deriving (Eq, Ord, Read, Show, Generic)
 
 instance Serialise Namespace
+instance Semigroup Namespace where
+  Namespace x y <> Namespace x' y' = Namespace (x <> x') (y <> y')
+instance Monoid Namespace where
+  mempty = Namespace mempty mempty
 
 type Namespaces = Map Naked (Doc.Docd Namespace)
 
@@ -520,7 +525,7 @@ setBindings value = do
 
 bindingsFromRadicle :: Value -> Either Text (Bindings (PrimFns m))
 bindingsFromRadicle x = case x of
-    VState s -> pure $ (emptyBindings (stateEnv s) (Namespace mempty []))
+    VState s -> pure $ (emptyBindings (stateEnv s) mempty)
                 { bindingsRefs = stateRefs s
                 , bindingsNextRef = length (stateRefs s)
                 , bindingsCurrentNamespace = stateCurrentNamespace s
@@ -611,12 +616,26 @@ lookupInNamespace
   -> Unnamespaced
   -> Lang m (Doc.Docd Value)
 lookupInNamespace inCurrent nss nsname name = case Map.lookup nsname nss of
-    Just ns -> case Map.lookup name (bindings (copoint ns)) of
-      Just (Here vis x)
-        | inCurrent || vis == Public -> pure $ docd name x
-      Just (Here _ _)                -> throwErrorHere (CantAccessPrivateDef nsname name)
-      Just (There a b)               -> lookupInNamespace False nss a b
-      Nothing                        -> throwErrorHere (UnknownIdentifier (Namespaced nsname name))
+    Just ns' -> let ns = copoint ns' in
+      case Map.lookup name (bindings ns) of
+        Just (Here vis x)
+          | inCurrent || vis == Public -> pure $ docd name x
+        Just (Here _ _)                -> throwErrorHere (CantAccessPrivateDef nsname name)
+        Just (There a b)               -> lookupInNamespace False nss a b
+        Nothing                        ->
+          case name of
+            Qualified q x -> case Map.lookup q (qualRules ns) of
+              Just js -> do
+                justOne <- sequence [ catchError (Right <$> lookupInNamespace False nss j (NakedU x))
+                                                 (pure . Left)
+                                    | j <- js
+                                    ]
+                case rights justOne of
+                  [v] -> pure v
+                  []  -> throwErrorHere (UnknownNamespace nsname)
+                  _   -> throwErrorHere (ConflictingRequiredSymbols nsname q js)
+              _ -> throwErrorHere (UnknownNamespace nsname)
+            _ -> throwErrorHere (UnknownNamespace nsname)
     Nothing -> throwErrorHere (UnknownNamespace nsname)
 
 lookupAtomWithDoc :: forall m. Monad m => Ident -> Lang m (Doc.Docd Value)

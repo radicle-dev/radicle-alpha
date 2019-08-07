@@ -32,7 +32,8 @@ pureEnv =
     addPrimFns purePrimFns $ emptyBindings mempty tl
   where
     tl :: Namespace
-    tl = Map.singleton (NakedU (Naked "tx")) (Here Public (Doc.Docd txd (PrimFn (Naked "initial-tx"))))
+    tl = Namespace (Map.singleton (NakedU (Naked "tx")) (Here Public (Doc.Docd txd (PrimFn (Naked "initial-tx")))))
+                   mempty
     txd = Just "The transactor function used for the machine inputs. Intially\
                \this is set to `initial-tx`."
 

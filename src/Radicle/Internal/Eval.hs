@@ -81,6 +81,7 @@ specialForms = Map.fromList $ first Naked <$>
   , ( "require"
     , \case
         [Atom (NakedN i), e] -> require i e Nothing
+        [Atom (NakedN i), Keyword (NakedT "all-as"), Atom (Unnamespaced (NakedU q))] -> requireAll i q
         [Atom (NakedN i), e, Atom (Unnamespaced (NakedU q))] -> require i e (Just q)
         _ -> throwErrorHere $ OtherError "require needs a namespace identifier and a vector of symbols to import."
     )
@@ -119,19 +120,27 @@ specialForms = Map.fromList $ first Naked <$>
     , ( "match", match )
   ]
   where
+    ok = Keyword (NakedT "ok")
     require i e q_ = do
       syms__ <- baseEval e
       case syms__ of
         Vec syms_ -> case traverse isNaked syms_ of
           Just syms -> do
             let binds = Map.fromList [(qualer s, There i (NakedU s)) | s <- toList syms ]
-            _ <- modifyCurrentNamespace (binds <>)
-            pure (Keyword (NakedT "ok"))
+            -- Note that bindings introduced by the @require@ statement take
+            -- precedence over already existing bindings.
+            _ <- modifyCurrentNamespace (Namespace binds mempty <>)
+            pure ok
           Nothing -> throwErrorHere $ OtherError "One of the items in the vector was not a (unnamespaced) symbol."
         _ -> throwErrorHere $ OtherError "require needs a vector of symbols to import."
       where
         qualer :: Naked -> Unnamespaced
         qualer = maybe NakedU (flip Qualified) q_
+ 
+    requireAll i q = modifyCurrentNamespace f $> ok
+      where
+        f (Namespace bs rs) = Namespace bs (Map.alter (Just . maybe [i] (i:)) q rs)
+    
     ns a i d_ = do
       nss <- gets bindingsNamespaces
       let nss' = Map.alter (Just . maybe (Doc.Docd d_ mempty) (Doc.redoc d_)) i nss

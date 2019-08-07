@@ -109,6 +109,11 @@ instance PrettyV r => PrettyV (LangErrorData r) where
           , indent 2 $ "namespace:" <+> pretty ns
           , indent 2 $ "definition:" <+> pretty x
           ]
+        ConflictingRequiredSymbols nsname q xs -> vsep
+          [ "A Qualified require-all into namespace " <+> pretty nsname <+> "references conflicting symbols:"
+          , indent 2 $ "qualifier:" <+> pretty q
+          , indent 2 $ "namespaces:" <+> encloseSep "" "" ", " (pretty <$> xs)
+          ]
         Impossible t -> "This cannot be!" <+> pretty t
         TypeError fname i t val -> vsep
           [ "Type error:" <+> pretty fname <+> "expects a value of type"
