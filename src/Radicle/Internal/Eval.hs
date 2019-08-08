@@ -186,7 +186,7 @@ specialForms = Map.fromList $ first Naked <$>
 
     defPrim vis = \case
         [Atom (NakedN name), val] -> def (NakedU name) vis Nothing val
-        [_, _] -> throwErrorHere $ OtherError "def expects a naked symbols for the first arg"
+        [_, _] -> throwErrorHere $ OtherError "def expects a naked symbol for the first arg"
         [Atom (NakedN name), String d, val] -> def (NakedU name) vis (Just d) val
         xs -> throwErrorHere $ WrongNumberOfArgs "def" 2 (length xs)
 

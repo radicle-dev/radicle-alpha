@@ -26,14 +26,17 @@ import qualified Radicle.Internal.Time as Time
 import           Radicle.Internal.Type (Type(..))
 import qualified Radicle.Internal.UUID as UUID
 
--- | A Bindings with an Env containing only 'eval' and only pure primops.
+-- | A Bindings with an Env containing only 'tx' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
 pureEnv =
     addPrimFns purePrimFns $ emptyBindings mempty tl
   where
     tl :: Namespace
-    tl = Namespace (Map.singleton (NakedU (Naked "tx")) (Here Public (Doc.Docd txd (PrimFn (Naked "initial-tx")))))
-                   mempty
+    tl = Namespace
+           (Map.singleton
+             (NakedU (Naked "tx"))
+             (Here Public (Doc.Docd txd (PrimFn (Naked "initial-tx")))))
+           mempty
     txd = Just "The transactor function used for the machine inputs. Intially\
                \this is set to `initial-tx`."
 

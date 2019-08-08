@@ -24,16 +24,17 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary
 import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Bar(..), Baz(..), Foo)
+import           Radicle.Internal.Identifier
 import           Radicle.Internal.TestCapabilities
 import           Radicle.TH
 
 test_eval :: [TestTree]
 test_eval =
     [ testCase "Fails for undefined atoms" $
-        [s|blah|] `failsWith` UnknownIdentifier toplevel [ident|blah|]
+        [s|blah|] `failsWith` UnknownIdentifier [ident|blah|]
 
     , testCase "Keywords eval to themselves" $
-        [s|:blah|] `succeedsWith` Keyword [ident|blah|]
+        [s|:blah|] `succeedsWith` kw "blah"
 
     , testCase "Succeeds for defined atoms" $ do
         let prog = [s|
@@ -354,7 +355,7 @@ test_eval =
 
     , testCase "'def' fails when first arg is not an atom" $ do
         let prog = [s|(def "hi" "there")|]
-        prog `failsWith` OtherError "def expects atom for first arg"
+        prog `failsWith` OtherError "def expects a naked symbol for the first arg"
 
     , testCase "'catch' catches thrown exceptions" $ do
         let prog = [s|
@@ -462,7 +463,7 @@ test_eval =
         runPureCode "(show #f)" @?= Right (String "#f")
         runPureCode "(show (list 'a 1 \"foo\" (list 'b ''x 2 \"bar\")))" @?= Right (String "(a 1 \"foo\" (b (quote x) 2 \"bar\"))")
         runPureCode "(show [1 :a])" @?= Right (String "[1 :a]")
-        runPureCode "tx" @?= Right (PrimFn [ident|initial-tx|])
+        runPureCode "tx" @?= Right (PrimFn (Naked "initial-tx"))
         runPureCode "(show (dict 'a 1))" @?= Right (String "{a 1}")
         runPureCode "(show (fn [x] x))" @?= Right (String "(fn [x] x)")
 
@@ -517,7 +518,7 @@ test_eval =
             (outer)
             |]
         case runPureCode prog of
-            Left (LangError stack (UnknownIdentifier _ (Identifier "notdefined"))) ->
+            Left (LangError stack (UnknownIdentifier (NakedT "notdefined"))) ->
                 assertEqual "correct line numbers" [3,2,1,1] (stackTraceLines stack)
             r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
 
@@ -528,7 +529,7 @@ test_eval =
             (callit inner)
             |]
         case runPureCode prog of
-            Left (LangError stack (UnknownIdentifier _ (Identifier "notdefined"))) ->
+            Left (LangError stack (UnknownIdentifier (NakedT "notdefined"))) ->
                 assertEqual "correct line numbers" [3,1,2,2] (stackTraceLines stack)
             r -> assertFailure $ "Didn't fail the way we expected: " ++ show r
 
@@ -554,7 +555,7 @@ test_eval =
                       (ns bar)
                       (require foo '[x])
                       x|]
-        prog `failsWith` CantAccessPrivateDef [ident|foo|] [ident|x|]
+        prog `failsWith` CantAccessPrivateDef (Naked "foo") (NakedU (Naked "x"))
     ]
   where
     failsWith src err    = noStack (runPureCode src) @?= Left err
@@ -850,10 +851,10 @@ test_cbor =
 -- * Utils
 
 kw :: Text -> Value
-kw = Keyword . unsafeToIdent
+kw = Keyword . NakedT
 
 atom :: Text -> Value
-atom = Atom . unsafeToIdent
+atom = Atom . NakedT
 
 int :: Integer -> Value
 int = Number . fromIntegral

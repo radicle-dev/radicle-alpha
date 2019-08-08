@@ -121,6 +121,13 @@ errorDataToValue e = case e of
           , ( "symbol", Atom (Unnamespaced x) )
           ]
         )
+    ConflictingRequiredSymbols ns q nss -> makeVal
+        ( "conflicting-required-symbols"
+        , [ ( "namespace", Atom (NakedN ns) )
+          , ( "qualifier", Atom (NakedN q) )
+          , ( "namespaces", List (Atom . NakedN <$> nss) )
+          ]
+        )
     -- "Now more than ever seems it rich to die"
     Impossible _ -> throwErrorHere e
     TypeError fname pos ty v -> makeVal

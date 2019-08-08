@@ -33,7 +33,8 @@ ident :: QuasiQuoter
 ident =
   expQuot "ident" $ \s -> case mkIdent (toS s) of
     Nothing -> panic $ "Not a valid identifier: " <> toS s
-    Just _  -> [| Ident (T.pack s) |]
+    Just (NakedT _)  -> [| NakedT s |]
+    _ -> panic $ "Only naked idents for now."
 
 -- | Produces a keyword 'Value'. Checks if the template is a valid
 -- keyword at compile-time. The template must not include the leading
