@@ -660,40 +660,40 @@ Backwards compatible alias for ``rest``.
 Pattern matching is first-class in radicle so new patterns can easily be
 defined. These are the most essential.
 
-``(/= x)``
+``(^= x)``
 ~~~~~~~~~~
 
 Matches values for equality.
 
-``(/? p)``
+``(^? p)``
 ~~~~~~~~~~
 
 Predicate pattern. Takes a predicate function as argument. Values match
 against this pattern if the predicate returns a truthy value.
 
-``(/as var pat)``
+``(^as var pat)``
 ~~~~~~~~~~~~~~~~~
 
 As pattern. Takes a variable and a sub-pattern. If the subpattern
 matches then the whole pattern matches and furthermore the variable is
 bound to the matched value.
 
-``(/cons x-pat xs-pat)``
+``(^cons x-pat xs-pat)``
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 A pattern for sequences with a head and a tail.
 
-``(/just pat)``
+``(^just pat)``
 ~~~~~~~~~~~~~~~
 
 Pattern which matches ``[:just x]``.
 
-``(/member vs)``
+``(^member vs)``
 ~~~~~~~~~~~~~~~~
 
 Matches values that are members of a structure.
 
-``(/nil v)``
+``(^nil v)``
 ~~~~~~~~~~~~
 
 Empty-sequence pattern. Matches ``[]`` and ``(list)``
@@ -758,7 +758,7 @@ True if ``x`` is ``#f``, false otherwise.
 
 Functions for manipulating sequences, that is lists and vectors.
 
-``(/prefix prefix rest-pat)``
+``(^prefix prefix rest-pat)``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Matches sequences that start with ``prefix`` and bind the rest of that
@@ -804,7 +804,7 @@ Returns all elements of a sequence ``ls`` until one does not satisfy
 ``prelude/list``
 ----------------
 
-Functions for creating lists. See also ``prelude/seq``.
+Functions for creating lists. See also ``prelude.seq``.
 
 ``nil``
 ~~~~~~~

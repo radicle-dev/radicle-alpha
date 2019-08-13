@@ -58,7 +58,7 @@ main = do
 
 nsDoc :: Namespaces -> Text -> [Block]
 nsDoc nss name =
-    case Map.lookup (Naked name) nss of
+    case Map.lookup (Naked (T.map (\case {'/' -> '.'; x -> x}) name)) nss of
         Nothing -> panic $ "Couldn’t find namespace " <> name
         Just (Doc.Docd Nothing _) -> panic $ "Namespace " <> name <> " is not documented"
         Just (Doc.Docd (Just docString) ns) ->
