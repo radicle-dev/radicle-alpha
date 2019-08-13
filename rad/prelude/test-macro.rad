@@ -1,4 +1,4 @@
-(ns prelude/test-macro
+(ns prelude.test-macro
   "Provides eval that adds a `test` macro. If an the eval encounters an
    expression of the form `(test \"desc\" tests...)` we add it to the vector
    stored in the `tests` ref. The tests are then run by `rad/prelude/test.rad`.")

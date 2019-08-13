@@ -1,7 +1,7 @@
-(ns prelude/maybe "Functions for dealing with optional values.")
+(ns prelude.maybe "Functions for dealing with optional values.")
 
-(require prelude/test-macro ['test])
-(require prelude/patterns [])
+(require prelude.test-macro ['test])
+(require prelude.patterns [])
 
 (def cat-maybes
   (fn [xs]

@@ -1,13 +1,13 @@
-(ns prelude/validation
+(ns prelude.validation
   "Functions for creating or combining *validators*, which are functions
    which return the input unchanged or throw with an error message. These can be
    used for checking data before accepting it onto a chain.")
 
-(require prelude/test-macro ['test])
-(require prelude/basic '[if])
-(require prelude/dict '[delete-many])
-(require prelude/dict '[keys] dict)
-(require prelude/set '[subset? key-set from-seq] set)
+(require prelude.test-macro ['test])
+(require prelude.basic '[if])
+(require prelude.dict '[delete-many])
+(require prelude.dict '[keys] dict)
+(require prelude.set '[subset? key-set from-seq] set)
 
 (def always-valid
   "A validator that is always valid."

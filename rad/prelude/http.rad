@@ -1,7 +1,7 @@
-(ns prelude/http "Functions for making HTTP requests.")
+(ns prelude.http "Functions for making HTTP requests.")
 
-(require prelude/strings ['intercalate])
-(require prelude/io [])
+(require prelude.strings ['intercalate])
+(require prelude.io [])
 
 (def json-req!
   (fn [url extra-opts]

@@ -1,10 +1,10 @@
-(ns prelude/strings "String manipulation functions.")
+(ns prelude.strings "String manipulation functions.")
 
-(require prelude/test-macro ['test])
-(require prelude/basic '[if elem? tail])
-(require prelude/seq '[starts-with?])
-(require prelude/list '[range])
-(require prelude/patterns '[match-pat])
+(require prelude.test-macro ['test])
+(require prelude.basic '[if elem? tail])
+(require prelude.seq '[starts-with?])
+(require prelude.list '[range])
+(require prelude.patterns '[match-pat])
 
 (def intercalate
   "Intercalates a string in a list of strings"

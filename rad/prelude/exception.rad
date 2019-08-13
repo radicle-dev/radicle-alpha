@@ -1,7 +1,7 @@
-(ns prelude/exception
+(ns prelude.exception
   "Tests for exceptions.")
 
-(require prelude/test-macro '[test])
+(require prelude.test-macro '[test])
 
 (test "catch handles scope correctly"
       ;; Issue #191, catch used to accidentally use the lexical environment of

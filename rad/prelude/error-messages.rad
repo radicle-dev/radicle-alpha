@@ -1,14 +1,14 @@
-(ns prelude/error-messages "Functions for user facing error messages.
+(ns prelude.error-messages "Functions for user facing error messages.
   Functions should either have a descriptive name or additional comment so that
   the text can be edited without knowledge of where they are used.
   To verify changes, tests can be run with `stack exec -- radicle test/all.rad`")
 
-(require prelude/test-macro ['test])
-(require prelude/basic '[if])
-(require prelude/macros '[let])
-(require prelude/bool '[all not])
-(require prelude/seq '[starts-with?])
-(require prelude/strings '[intercalate unlines])
+(require prelude.test-macro ['test])
+(require prelude.basic '[if])
+(require prelude.macros '[let])
+(require prelude.bool '[all not])
+(require prelude.seq '[starts-with?])
+(require prelude.strings '[intercalate unlines])
 
 ;; parsing
 

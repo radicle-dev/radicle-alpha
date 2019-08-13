@@ -1,34 +1,34 @@
-(ns prelude/machine "Functions for simulating remote machines.")
+(ns prelude.machine "Functions for simulating remote machines.")
 
-(require prelude/test-macro ['test])
-(require prelude/basic [])
-(require prelude/macros '[let])
-(require prelude/io '[read-file-value! read-file-values!] io)
-(require prelude/ref '[modify-ref])
-(require prelude/lens '[make-lens .. ... view set over @ @def])
-(require prelude/basic [])
-(require prelude/dict '[modify-map])
-(require prelude/io [])
-(require prelude/patterns '[match-pat /cons])
-(require prelude/strings [])
-(require prelude/seq [])
-(require prelude/key-management '[get-keys!])
+(require prelude.test-macro ['test])
+(require prelude.basic [])
+(require prelude.macros '[let])
+(require prelude.io '[read-file-value! read-file-values!] io)
+(require prelude.ref '[modify-ref])
+(require prelude.lens '[make-lens .. ... view set over @ @def])
+(require prelude.basic [])
+(require prelude.dict '[modify-map])
+(require prelude.io [])
+(require prelude.patterns '[match-pat ^cons])
+(require prelude.strings [])
+(require prelude.seq [])
+(require prelude.key-management '[get-keys!])
 
-(defp primitive-stub-ref/send! (ref daemon/send!))
+(defp primitive-stub-ref.send! (ref daemon.send!))
 (def send!
   "Update a machine with the vector of `inputs` to evaluate. Returns a vector
   with the evaluation results."
-  (fn [machine-id inputs] ((read-ref primitive-stub-ref/send!) machine-id inputs)))
+  (fn [machine-id inputs] ((read-ref primitive-stub-ref.send!) machine-id inputs)))
 
-(defp primitive-stub-ref/query! (ref daemon/query!))
+(defp primitive-stub-ref.query! (ref daemon.query!))
 (def query!
   "Send an expression to be evaluated on a machine. Does not alter the machine."
-  (fn [machine-id expr] ((read-ref primitive-stub-ref/query!) machine-id expr)))
+  (fn [machine-id expr] ((read-ref primitive-stub-ref.query!) machine-id expr)))
 
-(defp primitive-stub-ref/new-machine! (ref daemon/new-machine!))
+(defp primitive-stub-ref.new-machine! (ref daemon.new-machine!))
 (def new-machine!
   "Creates a new machine. Returns the machine name."
-  (fn [] ((read-ref primitive-stub-ref/new-machine!))))
+  (fn [] ((read-ref primitive-stub-ref.new-machine!))))
 
 (def new-fake-machine
   "An empty fake machine, which does not use the daemon"
@@ -39,7 +39,7 @@
     (fn [machine exprs]
       (match exprs
              [] {:machine machine :result []}
-             (/cons 'e 'es)
+             (^cons 'e 'es)
              (let [x (f e machine)
                    new-state (nth 1 x)
                    result (nth 0 x)]
@@ -76,19 +76,19 @@
   (fn []
     (let [remote-machines (ref {})]
       
-      (write-ref primitive-stub-ref/send!
+      (write-ref primitive-stub-ref.send!
                  (fn [name exprs]
                    (let [m (lookup name (read-ref remote-machines))
                          res (tx-in-fake-machine m exprs)]
                      (modify-ref remote-machines (fn [rms] (insert name (lookup :machine res) rms)))
                      (lookup :result res))))
       
-      (write-ref primitive-stub-ref/query!
+      (write-ref primitive-stub-ref.query!
                  (fn [name expr]
                    (let [machine (lookup name (read-ref remote-machines))]
                      (first (lookup :result (eval-in-fake-machine machine [expr]))))))
 
-      (write-ref primitive-stub-ref/new-machine!
+      (write-ref primitive-stub-ref.new-machine!
                  (fn []
                    (let [name (uuid!)]
                      (modify-ref remote-machines (fn [rm] (insert name new-fake-machine rm)))

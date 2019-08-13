@@ -1,9 +1,9 @@
-(ns prelude/machine-remote-test
+(ns prelude.machine-remote-test
   "Tests for machine-remote.")
 
-(require prelude/test-macro ['test])
-(require prelude/macros '[let])
-(require prelude/machine
+(require prelude.test-macro ['test])
+(require prelude.macros '[let])
+(require prelude.machine
          '[install-remote-machine-fake new-machine!
            send-prelude! send! query!  send-signed-command!]
          machine)
@@ -16,10 +16,10 @@
   (machine/send!
    id
    '[(ns toplevel)
-     (require prelude/basic '[if])
-     (require prelude/patterns '[match-pat _])
-     (require prelude/ref '[modify-ref])
-     (require prelude/machine-remote '[lock-machine])
+     (require prelude.basic '[if])
+     (require prelude.patterns '[match-pat _])
+     (require prelude.ref '[modify-ref])
+     (require prelude.machine-remote '[lock-machine])
      (def counter (ref 0))
      (def inc (ref (fn [] (modify-ref counter (fn [x] (+ x 1))))))
      (def get (fn [] (read-ref counter)))

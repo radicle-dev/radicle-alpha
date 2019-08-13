@@ -1,9 +1,9 @@
-(ns prelude/set
+(ns prelude.set
   "Sets, built using dicts.")
 
-(require prelude/test-macro ['test])
-(require prelude/bool '[all])
-(require prelude/dict '[keys] dict)
+(require prelude.test-macro ['test])
+(require prelude.bool '[all])
+(require prelude.dict '[keys] dict)
 
 (def empty
   "An empty set."

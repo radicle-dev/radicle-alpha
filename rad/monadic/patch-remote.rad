@@ -1,20 +1,20 @@
-(ns monadic/patch-remote)
+(ns monadic.patch-remote)
 
-(require prelude/basic '[if])
-(require prelude/macros '[let])
-(require prelude/dict '[keys delete-many lookup-default])
-(require prelude/ref '[over-ref])
-(require prelude/validation
+(require prelude.basic '[if])
+(require prelude.macros '[let])
+(require prelude.dict '[keys delete-many lookup-default])
+(require prelude.ref '[over-ref])
+(require prelude.validation
          '[= and keys timestamp pred signed optional-keys
            string-of-max-length every member or
            contains-only integral has-type]
          validator)
-(require prelude/patterns '[match-pat _])
-(require prelude/util '[make-counter])
-(require prelude/lens '[@ set-ref over-ref view-ref .. ... @nth])
-(require prelude/nonces '[make-noncer])
-(require prelude/auth '[make-simple-auth add-admin])
-(require prelude/machine-remote '[lock-machine-commands])
+(require prelude.patterns '[match-pat _])
+(require prelude.util '[make-counter])
+(require prelude.lens '[@ set-ref over-ref view-ref .. ... @nth])
+(require prelude.nonces '[make-noncer])
+(require prelude.auth '[make-simple-auth add-admin])
+(require prelude.machine-remote '[lock-machine-commands])
 
 (def machine-id
   "The name of this machine."
@@ -41,7 +41,7 @@
   {:nonce      (noncer :validator)
    :machine-id   (validator/= machine-id)})
 
-(def validator/time-created
+(def validator.time-created
   (validator/and
    [(validator/keys
      {;; NOTE that timestamps are claimed by authors, are not verified, and may
@@ -53,18 +53,18 @@
                       (eq? (lookup :created-at t)
                            (lookup :modified-at t))))]))
 
-(def validator/time-modified
+(def validator.time-modified
   (validator/keys
    {:modified-at validator/timestamp}))
 
-(def validator/input
+(def validator.input
   "Checks that the input as a valid new *machine input*, that is, it has an unused
   nonce, is marked with this machine name, and is signed."
   (validator/and
    [(validator/keys input-keys)
     validator/signed]))
 
-(def validator/patch-number
+(def validator.patch-number
   "A validator for numbers which refer to existing patches."
   (validator/pred "Existing patch number" (fn [n] (member? n (read-ref patches)))))
 
@@ -72,36 +72,36 @@
   "A comment's body should be text that isn't too long."
   {:body (validator/string-of-max-length 4000)})
 
-(def validator/full-comment
+(def validator.full-comment
   (validator/keys comment-keys))
 
-(def validator/patch-reference
+(def validator.patch-reference
   "Refers to an existing issue."
-  (validator/optional-keys {:issue-number validator/patch-number}))
+  (validator/optional-keys {:issue-number validator.patch-number}))
 
-(def validator/comment-input
+(def validator.comment-input
   "A comment input should refer to an existing issue."
   (validator/and
-   [validator/input
-    validator/time-created
-    validator/full-comment
-    validator/patch-reference]))
+   [validator.input
+    validator.time-created
+    validator.full-comment
+    validator.patch-reference]))
 
 (def patch-keys
   {:title       (validator/string-of-max-length 100)
    :description (validator/string-of-max-length 4000)
    :patch       (validator/has-type :string)
    :state       (validator/member [:pending :retracted :accepted :rejected])
-   :comments    (validator/every validator/full-comment)})
+   :comments    (validator/every validator.full-comment)})
 
-(def validator/full-patch (validator/keys patch-keys))
+(def validator.full-patch (validator/keys patch-keys))
 
-(def validator/patch-input
+(def validator.patch-input
   "An patch should have all the required fields, be a signed input, etc."
   (validator/and
-   [validator/input
-    validator/time-created
-    validator/full-patch]))
+   [validator.input
+    validator.time-created
+    validator.full-patch]))
 
 (def edit-keys
   (fn [ks]
@@ -109,24 +109,24 @@
         (<> (keys input-keys)
             [:patch-number :modified-at :author :signature]))))
 
-(def validator/patch-edit-input
+(def validator.patch-edit-input
   "An input to edit a patch."
   (fn [ed]
     (def auth-validation
       (match (lookup-default :state :nothing ed)
              :nothing   validator/always-valid
              :retracted (validator/pred "edit author == original author"
-                          (fn [c]
-                            (match c
-                                   {:patch-number 'n
-                                    :author 'a}
-                                   (eq? (view-ref patches (... [(@ n) (@ :author)]))
-                                        a))))
+                                        (fn [c]
+                                          (match c
+                                                 {:patch-number 'n
+                                                  :author 'a}
+                                                 (eq? (view-ref patches (... [(@ n) (@ :author)]))
+                                                      a))))
              _          (auth [:allowed :admin])))
     ((validator/and
-      [validator/input
-       validator/time-modified
-       validator/patch-reference
+      [validator.input
+       validator.time-modified
+       validator.patch-reference
        auth-validation
        (validator/contains-only (edit-keys (keys patch-keys)))]) ed)))
 
@@ -139,7 +139,7 @@
 (def create-patch
   "Create a patch from a dict, checking that it is valid and storing it in `patches`."
   (fn [i]
-    (validator/patch-input i)
+    (validator.patch-input i)
     (def n (patch-counter :next))
     (def i_
       (strip-input
@@ -157,11 +157,11 @@
 (def add-comment
   "Add a comment to a patch."
   (fn [c]
-    (validator/comment-input c)
+    (validator.comment-input c)
     (def c_ (strip-input c))
     (over-patches
-      (.. (@ (lookup :patch-number c)) (@ :comments))
-      (fn [cs] (add-right c_ cs)))
+     (.. (@ (lookup :patch-number c)) (@ :comments))
+     (fn [cs] (add-right c_ cs)))
     (noncer [:use (lookup :nonce c)])))
 
 (def merge-new
@@ -172,7 +172,7 @@
 (def edit-patch
   "Modify some of the attributes of a patch."
   (fn [i]
-    (validator/patch-edit-input i)
+    (validator.patch-edit-input i)
     (def i_ (delete :author (strip-input i)))
     (over-patches (@ (lookup :patch-number i)) (merge-new i_))))
 
@@ -190,8 +190,8 @@
 
 (ns toplevel)
 
-(require prelude/machine-remote '[lock-machine-commands])
-(require monadic/patch-remote '[auth commands list-patches])
+(require prelude.machine-remote '[lock-machine-commands])
+(require monadic.patch-remote '[auth commands list-patches])
 
 (def tx
   (lock-machine-commands (auth [:allowed :admin])

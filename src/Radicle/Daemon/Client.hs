@@ -81,20 +81,20 @@ createDaemonClientPrimFns = do
         , (Naked newMachineName, Nothing, newMachinePrimFn client)
         ]
   where
-    sendName = "daemon/send!"
+    sendName = "daemon.send!"
     sendPrimFn httpManager =
         PrimFns.twoArg sendName $ \case
             (String id, Vec v) -> wrapServantError $ Vec . fromList <$> send httpManager (MachineId id) v
             (String _, v) -> throwErrorHere $ TypeError sendName 1 TVec v
             (v, _) -> throwErrorHere $ TypeError sendName 0 TString v
 
-    queryName = "daemon/query!"
+    queryName = "daemon.query!"
     queryPrimFn httpManager =
         PrimFns.twoArg queryName $ \case
             (String id, q) -> wrapServantError $ query httpManager (MachineId id) q
             (v, _)        -> throwErrorHere $ TypeError queryName 0 TString v
 
-    newMachineName = "daemon/new-machine!"
+    newMachineName = "daemon.new-machine!"
     newMachinePrimFn httpManager =
         PrimFns.noArg newMachineName $ do
             MachineId id <- wrapServantError $ newMachine httpManager
