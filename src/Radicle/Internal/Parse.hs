@@ -275,7 +275,7 @@ parseValues sourceName srcCode
 -- Right (Annotated (Identity (BooleanF True)))
 --
 -- >>> untag <$> parse "test" "hi" :: Either Text UntaggedValue
--- Right (Annotated (Identity (AtomF (Ident {fromIdent = "hi"}))))
+-- Right (Annotated (Identity (AtomF (Unnamespaced (NakedU (Naked {fromNaked = "hi"}))))))
 parse :: MonadError Text m
     => Text    -- ^ Name of source file (for error reporting)
     -> Text    -- ^ Source code to be parsed
