@@ -62,7 +62,7 @@ data LangErrorData r =
       UnknownIdentifier Ident
     | UnknownNamespace Naked
     | CantAccessPrivateDef Naked Unnamespaced
-    | ConflictingRequiredSymbols Naked Naked [Naked]
+    | ConflictingRequiredSymbols Naked Naked [Naked] Naked
     | Impossible Text
     -- | The special form that was misused, and information on the misuse.
     | SpecialForm Text Text
@@ -121,11 +121,12 @@ errorDataToValue e = case e of
           , ( "symbol", Atom (Unnamespaced x) )
           ]
         )
-    ConflictingRequiredSymbols ns q nss -> makeVal
+    ConflictingRequiredSymbols ns q nss x -> makeVal
         ( "conflicting-required-symbols"
         , [ ( "namespace", Atom (NakedN ns) )
           , ( "qualifier", Atom (NakedN q) )
           , ( "namespaces", List (Atom . NakedN <$> nss) )
+          , ( "symbol", Atom (NakedN x) )
           ]
         )
     -- "Now more than ever seems it rich to die"
@@ -639,10 +640,10 @@ lookupInNamespace inCurrent nss nsname name = case Map.lookup nsname nss of
                                     ]
                 case rights justOne of
                   [v] -> pure v
-                  []  -> throwErrorHere (UnknownNamespace nsname)
-                  _   -> throwErrorHere (ConflictingRequiredSymbols nsname q js)
-              _ -> throwErrorHere (UnknownNamespace nsname)
-            _ -> throwErrorHere (UnknownNamespace nsname)
+                  []  -> throwErrorHere (UnknownIdentifier (Namespaced nsname name))
+                  _   -> throwErrorHere (ConflictingRequiredSymbols nsname q js x)
+              _ -> throwErrorHere (UnknownIdentifier (Namespaced nsname name))
+            _ -> throwErrorHere (UnknownIdentifier (Namespaced nsname name))
     Nothing -> throwErrorHere (UnknownNamespace nsname)
 
 lookupAtomWithDoc :: forall m. Monad m => Ident -> Lang m (Doc.Docd Value)

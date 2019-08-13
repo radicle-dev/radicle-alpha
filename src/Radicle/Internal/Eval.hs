@@ -135,7 +135,9 @@ specialForms = Map.fromList $ first Naked <$>
         _ -> throwErrorHere $ OtherError "require needs a vector of symbols to import."
       where
         qualer :: Naked -> Unnamespaced
-        qualer = maybe NakedU (flip Qualified) q_
+        qualer = case q_ of
+          Just q -> Qualified q
+          _ -> NakedU
  
     requireAll i q = modifyCurrentNamespace f $> ok
       where
