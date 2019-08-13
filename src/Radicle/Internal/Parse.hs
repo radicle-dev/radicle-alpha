@@ -116,7 +116,7 @@ identP = lexeme $ divSym <|> namespaced <|> (Unnamespaced <$> unnamespaced)
       q <- simple1
       _ <- char '/'
       Qualified q <$> simple2
-                
+
 atomP :: VParser
 atomP = tag . AtomF =<< identP
 

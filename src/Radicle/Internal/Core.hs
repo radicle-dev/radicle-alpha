@@ -477,7 +477,7 @@ data ReqRule
 instance Serialise ReqRule
 
 data Namespace = Namespace
-  { bindings :: Map Unnamespaced NamespaceBinding
+  { bindings  :: Map Unnamespaced NamespaceBinding
   , qualRules :: Map Naked [Naked]
   } deriving (Eq, Ord, Read, Show, Generic)
 

@@ -137,12 +137,12 @@ specialForms = Map.fromList $ first Naked <$>
         qualer :: Naked -> Unnamespaced
         qualer = case q_ of
           Just q -> Qualified q
-          _ -> NakedU
- 
+          _      -> NakedU
+
     requireAll i q = modifyCurrentNamespace f $> ok
       where
         f (Namespace bs rs) = Namespace bs (Map.alter (Just . maybe [i] (i:)) q rs)
-    
+
     ns a i d_ = do
       nss <- gets bindingsNamespaces
       let nss' = Map.alter (Just . maybe (Doc.Docd d_ mempty) (Doc.redoc d_)) i nss

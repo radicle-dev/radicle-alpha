@@ -93,5 +93,5 @@ valueGenerator textGen n | n == 0 = frequency $ first pred <$> freqs
     prims :: PrimFns Identity
     prims = purePrimFns
     isPrimop (NakedN x) = x `elem` Map.keys (getPrimFns prims)
-    isPrimop _ = False
+    isPrimop _          = False
     lambdaArgs = oneof [ PosArgs <$> sizedList, VarArgs <$> arbitrary ]
