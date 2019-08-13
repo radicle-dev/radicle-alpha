@@ -15,10 +15,10 @@ First we load the prelude:
     
     (ns issues-tutorial)
     
-    (require prelude/basic '[if])
-    (require prelude/bool '[and not])
-    (require prelude/ref '[modify-ref])
-    (require prelude/io '[print!])
+    (require prelude.basic '[if])
+    (require prelude.bool '[and not])
+    (require prelude.ref '[modify-ref])
+    (require prelude.io '[print!])
 
 We'll use a ref to store the issues, as a dictionary from issue IDs to issues.
 
@@ -100,13 +100,13 @@ Note that the `tx` function must be defined in the toplevel namespace.
 
     (ns toplevel)
     
-    (require prelude/patterns '[match-pat /cons _ /= /nil])
+    (require prelude.patterns '[match-pat ^cons _ ^=])
     (require issues-tutorial '[process-command])
     
     (def tx
       (fn [expr]
         (match expr
-          (/cons (/= 'update) 'es) (cons 'do es)
+          (^cons (^= 'update) 'es) (cons 'do es)
           _                        (process-command expr))))
 
 Now we can start creating some issues. To generate some UUIDs, use the `uuid!`
@@ -157,7 +157,7 @@ to issues.
 
     (update
     
-      (require prelude/dict '[modify-map])
+      (require prelude.dict '[modify-map])
       
       (def add-comment
         (fn [issue-id comment]
