@@ -7,7 +7,7 @@
   (fn [xs]
     (foldr (fn [x_ acc]
              (match x_
-                    (/just 'x) (cons x acc)
+                    (^just 'x) (cons x acc)
                     _          acc))
            []
            xs)))

@@ -6,7 +6,7 @@
 (require prelude.basic '[if <=])
 (require prelude.io '[shell! init-file-dict! write-file-key! read-file-key! delete-file-key!] io)
 (require prelude.io-utils '[base-path!] io)
-(require prelude.patterns '[match-pat /just])
+(require prelude.patterns '[match-pat ^just])
 
 (def path!
   (fn [id]
@@ -32,7 +32,7 @@
     (init-newness-file! machine-id)
     (match (io/read-file-key! (path! machine-id) item-id)
            :nothing   :unread
-           (/just 'x) [:read x])))
+           (^just 'x) [:read x])))
 
 (def read-since-modified!?
   "Returns true if an item has not been read, or if it has been modified since it

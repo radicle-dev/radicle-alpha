@@ -209,7 +209,7 @@
           (match (fzf-select-with-preview!
                   (map first filtered-items)
                   (fn [s] (pretty-item-view (lookup s items-dict))))
-                 (/just 's)
+                 (^just 's)
                  (let [selected (lookup s items-dict)
                        item-number (match selected {:number 'n} n)
                        pretty-item (add-comment-md
