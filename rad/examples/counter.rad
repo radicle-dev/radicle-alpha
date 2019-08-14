@@ -3,15 +3,15 @@
 ;;
 ;; This file provides functions to interact with a counter machine
 ;;
-;;     (counter/init-machine! "my-machine-id") ;; => :ok
-;;     (counter/get-value "my-machine-id") ;; => 0
-;;     (counter/increment! "my-machine-id") ;; => 1
-;;     (counter/get-value "my-machine-id") ;; => 1
+;;     (counter.init-machine! "my-machine-id") ;; => :ok
+;;     (counter.get-value "my-machine-id") ;; => 0
+;;     (counter.increment! "my-machine-id") ;; => 1
+;;     (counter.get-value "my-machine-id") ;; => 1
 ;;
 
 (load-ns! "prelude.rad")
 
-(def counter/prelude
+(def counter.prelude
   '[
     (def counter (ref 0))
     (def increment
@@ -25,21 +25,21 @@
     ]
   )
 
-(def counter/init-machine!
+(def counter.init-machine!
   "Send the counter application prelude to a machine"
   (fn [machine-id]
-    (daemon/send! machine-id counter/prelude)
+    (daemon.send! machine-id counter.prelude)
     :done
-))
-
-(def counter/increment!
-  "Increment the counter of amachineand return the new counter value"
-  (fn [machine-id]
-    (first (daemon/send! machine-id '[(increment)]))
     ))
 
-(def counter/get-value
+(def counter.increment!
+  "Increment the counter of amachineand return the new counter value"
+  (fn [machine-id]
+    (first (daemon.send! machine-id '[(increment)]))
+    ))
+
+(def counter.get-value
   "Get the current counter value of a machine"
   (fn [machine-id]
-    (daemon/query! machine-id '(get-value))
+    (daemon.query! machine-id '(get-value))
     ))

@@ -12,6 +12,7 @@
           - atom
           - int
           - kw
+          - nssym
           - vec
           - parseTest
           - prettyEither

@@ -1,11 +1,11 @@
-(ns prelude/io "Some basic I/O functions.")
+(ns prelude.io "Some basic I/O functions.")
 
-(require prelude/test-macro ['test])
-(require prelude/basic '[if])
-(require prelude/patterns '[match-pat _])
-(require prelude/strings [] strings)
-(require prelude/dict '[lookup-maybe])
-(require prelude/error-messages [] error)
+(require prelude.test-macro ['test])
+(require prelude.basic '[if])
+(require prelude.patterns '[match-pat _])
+(require prelude.strings [] strings)
+(require prelude.dict '[lookup-maybe])
+(require prelude.error-messages [] error)
 
 (def read-line!
   "Read a single line of input and interpret it as radicle data."

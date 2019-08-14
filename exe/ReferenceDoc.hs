@@ -58,7 +58,7 @@ main = do
 
 nsDoc :: Namespaces -> Text -> [Block]
 nsDoc nss name =
-    case Map.lookup (Ident name) nss of
+    case Map.lookup (Naked (T.map (\case {'/' -> '.'; x -> x}) name)) nss of
         Nothing -> panic $ "Couldn’t find namespace " <> name
         Just (Doc.Docd Nothing _) -> panic $ "Namespace " <> name <> " is not documented"
         Just (Doc.Docd (Just docString) ns) ->
@@ -71,11 +71,11 @@ nsDoc nss name =
         , Para (parseInlineMarkdown docString) ]
 
     getExports :: Namespace -> [Text]
-    getExports ns = [ k | (Ident k, Here Public _) <- Map.toList ns ]
+    getExports ns = [showUnnamespaced k | (k, Here Public _) <- Map.toList (bindings ns) ]
 
 exportsDoc :: Text -> Namespace -> Text -> [Block]
 exportsDoc nsName ns name =
-    case Map.lookup (Ident name) ns of
+    case Map.lookup (NakedU (Naked name)) (bindings ns) of
         Nothing -> panic $ "Unknown export " <> name <> "in namespace " <> nsName
         Just (Here _ (Doc.Docd Nothing _)) -> panic $ "Missing documentation for " <> name <> " in " <> nsName
         Just (Here Public (Doc.Docd (Just docString) value)) -> valueDoc name docString value
@@ -91,7 +91,7 @@ valueDoc name docString value =
   [ Header 3 nullAttr [Code nullAttr (toS title) ] ]
   <> parseMarkdownBlocks docString
   where
-    title = fromMaybe name $ callExample name value
+    title = fromMaybe name $ callExample (NakedU (Naked name)) value
 
 -- | Generate documentation for primitive functions defined by 'replBindings'
 docForPrimFns :: Content -> [Block]
@@ -112,10 +112,10 @@ docForPrimFns content =
     doc primName = case Map.lookup primName primFnsMap of
         Nothing -> panic $ "Unknown primitive function " <> primName
         Just (Doc.Docd Nothing _) -> panic $ "Missing documentation for primitive function " <> primName
-        Just (Doc.Docd (Just docString) _) -> valueDoc primName docString (PrimFn $ Ident primName)
+        Just (Doc.Docd (Just docString) _) -> valueDoc primName docString (PrimFn $ Naked primName)
 
     primFnsMap :: Map Text (Doc.Docd ([Value] -> Lang IO Value))
-    primFnsMap = Map.mapKeys fromIdent $ getPrimFns $ bindingsPrimFns (replBindings [])
+    primFnsMap = Map.mapKeys fromNaked $ getPrimFns $ bindingsPrimFns (replBindings [])
 
 parseInlineMarkdown :: Text -> [Inline]
 parseInlineMarkdown t = case parseMarkdownBlocks t of

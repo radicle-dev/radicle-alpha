@@ -9,13 +9,13 @@
 
 (ns rad-project)
 
-(require prelude/basic '[if])
-(require prelude/bool '[not])
-(require prelude/patterns '[match-pat /cons _])
-(require prelude/seq '[concat starts-with?])
-(require prelude/machine '[catch-daemon!] machine)
-(require prelude/strings '[unlines])
-(require prelude/error-messages
+(require prelude.basic '[if])
+(require prelude.bool '[not])
+(require prelude.patterns '[match-pat /cons _])
+(require prelude.seq '[concat starts-with?])
+(require prelude.machine '[catch-daemon!] machine)
+(require prelude.strings '[unlines])
+(require prelude.error-messages
          '[upstream-commit-failure
            upstream-push-failure
            rad-ipfs-key-gen-failure
@@ -23,19 +23,19 @@
            dir-already-exists
            git-clone-failure]
          error)
-(require prelude/validation [] validation)
-(require prelude/cmd-parsing '[/cmd-0 /cmd-1 /cmd-help])
-(require prelude/io '[shell-with-stdout! prompt! process!
+(require prelude.validation [] validation)
+(require prelude.cmd-parsing '[^cmd-0 ^cmd-1 ^cmd-help])
+(require prelude.io '[shell-with-stdout! prompt! process!
                       process-with-stdout-stderr-exitcode!
                       process-with-stdout!])
-(require prelude/io '[process-with-stdout-strict!] io)
-(require prelude/key-management '[get-keys!])
-(require prelude/io-utils
+(require prelude.io '[process-with-stdout-strict!] io)
+(require prelude.key-management '[get-keys!])
+(require prelude.io-utils
          '[set-git-config! get-git-config! process-git-with-exit!])
 
-(require monadic/issue '[create-issue-machine!])
-(require monadic/patch '[create-patch-machine!])
-(require monadic/project
+(require monadic.issue '[create-issue-machine!])
+(require monadic.patch '[create-patch-machine!])
+(require monadic.project
          '[get-project-url! get-meta! create-project! add-rsm! first-rsm-of-type!])
 
 (def help
@@ -210,9 +210,9 @@
 (machine/catch-daemon!
  (fn []
    (match args
-          (/cmd-0 "init" help) (new-project!)
-          (/cmd-0 "show-id" help) (show-project-id)
-          (/cmd-1 "checkout" 'project-id help) (checkout! project-id)
-          (/cmd-help) (put-str! help)
+          (^cmd-0 "init" help) (new-project!)
+          (^cmd-0 "show-id" help) (show-project-id)
+          (^cmd-1 "checkout" 'project-id help) (checkout! project-id)
+          (^cmd-help) (put-str! help)
           (/cons 'cmd _) (parse-failure (error/unknown-command cmd) help)
           [] (put-str! help))))

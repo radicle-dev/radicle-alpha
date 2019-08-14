@@ -3,8 +3,8 @@
 
 (ns repl)
 
-(require prelude/io '[print!])
-(require prelude/basic '[if])
+(require prelude.io '[print!])
+(require prelude.basic '[if])
 
 (def help
   "Default help text."

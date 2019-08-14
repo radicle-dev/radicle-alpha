@@ -23,8 +23,8 @@ Namespaces can require symbols from other namespaces. We'll take all the
 definitions we need for this tutorial now:
 
 ```radicle
-(require prelude/basic '[or if])
-(require prelude/bool '[and])
+(require prelude.basic '[or if])
+(require prelude.bool '[and])
 ```
 
 ## Comments

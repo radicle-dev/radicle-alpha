@@ -1,16 +1,16 @@
-(ns prelude/machine-remote "Functions for writing remote RSMs")
+(ns prelude.machine-remote "Functions for writing remote RSMs")
 
-(require prelude/test-macro '[test tests])
-(require prelude/macros '[let])
-(require prelude/ref '[modify-ref])
-(require prelude/patterns '[match-pat /cons /= /nil _])
+(require prelude.test-macro '[test tests])
+(require prelude.macros '[let])
+(require prelude.ref '[modify-ref])
+(require prelude.patterns '[match-pat ^cons ^= ^nil _])
 
 (def lock-machine
   "Lock the arbitrary transactions of a machine using a validator."
   (fn [validator f]
     (fn [expr]
       (match expr
-             (/cons (/= 'update) (/cons 'e /nil))
+             (^cons (^= 'update) (^cons 'e ^nil))
              (do (validator e)
                  (lookup :eval e))
              _

@@ -1,11 +1,11 @@
-(ns prelude/test "Runs tests.")
+(ns prelude.test "Runs tests.")
 
-(require prelude/basic '[if head])
-(require prelude/bool '[and])
-(require prelude/io [])
-(require prelude/list [])
-(require prelude/patterns '[match-pat _])
-(require prelude/validation [] validate)
+(require prelude.basic '[if head])
+(require prelude.bool '[and])
+(require prelude.io [])
+(require prelude.list [])
+(require prelude.patterns '[match-pat _])
+(require prelude.validation [] validate)
 
 (def assert-equal
   "Compares `actual` with `expected` with `eq?`. If the values are not equal an

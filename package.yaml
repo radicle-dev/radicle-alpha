@@ -262,6 +262,7 @@ default-extensions:
 - NumericUnderscores
 - NoImplicitPrelude
 - OverloadedStrings
+- PatternSynonyms
 - RankNTypes
 - RecordWildCards
 - ScopedTypeVariables

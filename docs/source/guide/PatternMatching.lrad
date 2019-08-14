@@ -59,7 +59,7 @@ These are the patterns that come included in the prelude:
 - A dict `{k_0 p_0 ... k_n p_n}` of patterns will match against dicts `{k_0 v_0
   ... k_n v_n ...}` that have _at least_ the keys `k_0`, ..., `k_n`, and such
   that `p_i` matches `v_i`.
-- The pattern `(/just p)` will match values `[:just v]` as long as the pattern
+- The pattern `(^just p)` will match values `[:just v]` as long as the pattern
   `p` matches `v`.
 - The pattern `(/cons h t)` will match against non-empty lists whose head
   matches `h`, and whose tail matches `t`.

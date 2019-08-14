@@ -3,8 +3,8 @@
 (load-ns! "prelude.rad")
 (load-ns! "monadic/project.rad")
 
-(import prelude/strings '[ends-with?] :unqualified)
-(import prelude/http :as 'http)
+(require prelude.strings '[ends-with?])
+(require prelude.http 'http)
 
 (def default-url
   "Default replication URL"
@@ -64,7 +64,7 @@
 (machine/catch-daemon!
  (fn []
    (match args
-          (/cmd-help) (put-str! help)
+          (^cmd-help) (put-str! help)
           ['url] (replicate-all [:just url])
           [] (replicate-all :nothing)
           )))

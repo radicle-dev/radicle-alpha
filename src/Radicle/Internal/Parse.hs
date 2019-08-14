@@ -97,10 +97,25 @@ numLiteralP = tag =<< NumberF <$> signed pos
     signed p = M.option identity ((identity <$ char '+') <|> (negate <$ char '-')) <*> p
 
 identP :: Parser Ident
-identP = lexeme $ do
-    l <- satisfy isValidIdentFirst
-    r <- many (satisfy isValidIdentRest)
-    pure . Ident $ fromString (l:r)
+identP = lexeme $ divSym <|> namespaced <|> (Unnamespaced <$> unnamespaced)
+  where
+    divSym = char '/' >> pure (NakedT "/")
+    simple1 = do
+      l <- satisfy isValidIdentFirst
+      r <- many (satisfy isValidIdentRest)
+      pure . Naked . fromString $ l:r
+    simple2 = do
+      r <- many (satisfy isValidIdentRest)
+      pure . Naked . fromString $ r
+    namespaced = try $ do
+      n <- simple1
+      _ <- string "//"
+      Namespaced n <$> unnamespaced
+    unnamespaced = try $ qualified <|> (NakedU <$> simple1)
+    qualified = try $ do
+      q <- simple1
+      _ <- char '/'
+      Qualified q <$> simple2
 
 atomP :: VParser
 atomP = tag . AtomF =<< identP
@@ -108,8 +123,8 @@ atomP = tag . AtomF =<< identP
 keywordP :: VParser
 keywordP = do
   _ <- char ':'
-  kw <- many (satisfy isValidIdentRest)
-  tag . KeywordF . Ident . fromString $ kw
+  i <- identP
+  tag . KeywordF $ i
 
 listP :: VParser
 listP = parensP (tag =<< (ListF <$> valueP `sepBy` spaceConsumer))
@@ -130,7 +145,7 @@ dictP = bracesP (tag =<< (DictF . Map.fromList <$> evenItems))
 quoteP :: VParser
 quoteP = do
     val <- char '\'' >> valueP
-    q <- tag $ AtomF (unsafeToIdent "quote")
+    q <- tag $ AtomF (NakedT "quote")
     pure $ List [q, val]
 
 data QMark = QMPlain | QMDigit Int
@@ -147,7 +162,7 @@ shortLam = do
         case qMarks expr of
           Nothing -> fail "Invalid ?-atoms in short-lambda: a '?' may only be followed by a single non-zero digit."
           Just qs -> case validQMarks (Set.toList qs) of
-            Just args -> tag . ListF $ [Atom (Ident "fn"), Vec (Seq.fromList args), expr]
+            Just args -> tag . ListF $ [Atom (NakedT "fn"), Vec (Seq.fromList args), expr]
             Nothing -> fail "Invalid ?-atoms in short-lambda: plain `?` and numbered `?` cannot be used at the same time."
   where
     -- | A short-lambda should either use no ?-atoms at all, only plain ?-atoms,
@@ -164,7 +179,7 @@ shortLam = do
     -- @?@ followed by digits that are /not/ ?-atoms, then returns Nothing.
     qMarks :: Value -> Maybe (Set QMark)
     qMarks = \case
-      Atom (Ident t) -> case T.uncons t of
+      Atom (NakedT t) -> case T.uncons t of
         Just ('?', rest) | T.all Char.isDigit rest ->
           case T.uncons rest of
             Just (d, rest') | d /= '0' && T.null rest' -> Just (Set.singleton (QMDigit (Char.digitToInt d)))
@@ -178,8 +193,8 @@ shortLam = do
 
     coll xs = Set.unions <$> traverse qMarks xs
 
-    qMarkAtom QMPlain     = Atom (Ident "?")
-    qMarkAtom (QMDigit i) = Atom (Ident ("?" <> show i))
+    qMarkAtom QMPlain     = Atom (NakedT "?")
+    qMarkAtom (QMDigit i) = Atom (NakedT ("?" <> show i))
 
     numbered = \case
       QMPlain -> Nothing
@@ -260,7 +275,7 @@ parseValues sourceName srcCode
 -- Right (Annotated (Identity (BooleanF True)))
 --
 -- >>> untag <$> parse "test" "hi" :: Either Text UntaggedValue
--- Right (Annotated (Identity (AtomF (Ident {fromIdent = "hi"}))))
+-- Right (Annotated (Identity (AtomF (Unnamespaced (NakedU (Naked {fromNaked = "hi"}))))))
 parse :: MonadError Text m
     => Text    -- ^ Name of source file (for error reporting)
     -> Text    -- ^ Source code to be parsed

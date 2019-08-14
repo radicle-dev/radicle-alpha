@@ -17,7 +17,7 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Eval
-import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
+import           Radicle.Internal.Identifier
 import qualified Radicle.Internal.Json as Json
 import qualified Radicle.Internal.Number as Num
 import           Radicle.Internal.Parse
@@ -26,13 +26,17 @@ import qualified Radicle.Internal.Time as Time
 import           Radicle.Internal.Type (Type(..))
 import qualified Radicle.Internal.UUID as UUID
 
--- | A Bindings with an Env containing only 'eval' and only pure primops.
+-- | A Bindings with an Env containing only 'tx' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)
 pureEnv =
     addPrimFns purePrimFns $ emptyBindings mempty tl
   where
     tl :: Namespace
-    tl = Map.singleton (Ident "tx") (Here Public (Doc.Docd txd (PrimFn $ unsafeToIdent "initial-tx")))
+    tl = Namespace
+           (Map.singleton
+             (NakedU (Naked "tx"))
+             (Here Public (Doc.Docd txd (PrimFn (Naked "initial-tx")))))
+           mempty
     txd = Just "The transactor function used for the machine inputs. Intially\
                \this is set to `initial-tx`."
 
@@ -49,7 +53,7 @@ addPrimFns primFns bindings =
       $
       [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)]
 
-addPrimFn  :: Ident -> Text -> ([Value] -> Lang m Value) -> PrimFns m -> PrimFns m
+addPrimFn  :: Naked -> Text -> ([Value] -> Lang m Value) -> PrimFns m -> PrimFns m
 addPrimFn name doc run (PrimFns primFns) = PrimFns primFns'
   where
     primFns' = Map.insert name (Doc.Docd (Just doc) run) primFns
@@ -658,8 +662,6 @@ purePrimFns = fromList $ allDocs $
           (v, _) -> throwErrorHere $ TypeError name 0 TNumber v
       )
 
-data ImportQual = Unqualified | FullyQualified | Qualified Ident
-
 -- * Helpers
 
 noArg :: Monad m => Text -> Lang m Value -> [Value] -> Lang m Value
@@ -695,7 +697,7 @@ readValue
 readValue sourceFile code = do
     case parse sourceFile code of
       Right v -> pure v
-      Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String e)
+      Left e  -> throwErrorHere $ ThrownError (NakedT "parse-error") (String e)
 
 readValues
     :: (MonadError (LangError Value) m)
@@ -705,7 +707,7 @@ readValues
 readValues sourceFile code = do
     case parseValues sourceFile code  of
       Right vs -> pure vs
-      Left e  -> throwErrorHere $ ThrownError (Ident "parse-error") (String . toS $ errorBundlePretty e)
+      Left e  -> throwErrorHere $ ThrownError (NakedT "parse-error") (String . toS $ errorBundlePretty e)
 
-allDocs :: [(Text, Text, a)] -> [(Ident, Maybe Text, a)]
-allDocs = fmap $ \(x,y,z) -> (unsafeToIdent x, Just y, z)
+allDocs :: [(Text, Text, a)] -> [(Naked, Maybe Text, a)]
+allDocs = fmap $ \(x,y,z) -> (Naked x, Just y, z)

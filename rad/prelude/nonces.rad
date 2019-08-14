@@ -1,13 +1,13 @@
-(ns prelude/nonces
+(ns prelude.nonces
   "Functions for using nonces.")
 
-(require prelude/test-macro '[test])
-(require prelude/basic [])
-(require prelude/bool '[not])
-(require prelude/patterns '[match-pat])
-(require prelude/ref '[modify-ref])
-(require prelude/validation '[and uuid pred] validator)
-(require prelude/set '[empty insert member?] set)
+(require prelude.test-macro '[test])
+(require prelude.basic [])
+(require prelude.bool '[not])
+(require prelude.patterns '[match-pat])
+(require prelude.ref '[modify-ref])
+(require prelude.validation '[and uuid pred] validator)
+(require prelude.set '[empty insert member?] set)
 
 (def make-noncer
   "Create a new noncer, which stores used nonces and allows validating that

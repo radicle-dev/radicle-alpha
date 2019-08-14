@@ -1,10 +1,10 @@
-(ns prelude/patterns
+(ns prelude.patterns
   "Pattern matching is first-class in radicle so new patterns can easily be
   defined. These are the most essential.")
 
-(require prelude/test-macro '[test])
-(require prelude/basic '[if or maybe->>= maybe-foldlM some empty-seq?])
-(require prelude/macros '[let])
+(require prelude.test-macro '[test])
+(require prelude.basic '[if or maybe->>= maybe-foldlM some empty-seq?])
+(require prelude.macros '[let])
 
 (def exclusive-dict-merge
   "Merges two dicts while checking for key conflicts. Returns
@@ -46,7 +46,7 @@
   "The wildcard pattern."
   (fn [v] [:just {}]))
 
-(defp /vec
+(defp vec-pat
   (fn [pats]
     (fn [v]
       (if (or (vector? v) (list? v))
@@ -60,7 +60,7 @@
           :nothing)
         :nothing))))
 
-(defp /dict
+(defp dict-pat
   (fn [keys-pat]
     (fn [d]
       (if (dict? d)
@@ -89,9 +89,9 @@
       (some [(number? pat) (keyword? pat) (string? pat) (boolean? pat)])
       (if (eq? pat v) [:just {}] :nothing)
       (dict? pat)
-      ((/dict pat) v)
+      ((dict-pat pat) v)
       (or (vector? pat) (list? pat))
-      ((/vec pat) v)
+      ((vec-pat pat) v)
       :else
       (pat v))))
 
@@ -113,7 +113,7 @@
                 ['x 'y] :no) ==> :yes]
        )
 
-(def /just
+(def ^just
   "Pattern which matches `[:just x]`."
   (fn [pat]
     (fn [v]
@@ -121,10 +121,10 @@
                  (fn [x] (match-pat pat x))))))
 
 (test "Just patterns"
-       [ (match [:just 42] (/just 'x) x _ :no) ==> 42 ]
-       [ (match :nothing   (/just 'x) x _ :yes) ==> :yes ])
+      [ (match [:just 42] (^just 'x) x _ :no) ==> 42 ]
+      [ (match :nothing   (^just 'x) x _ :yes) ==> :yes ])
 
-(def /cons
+(def ^cons
   "A pattern for sequences with a head and a tail."
   (fn [x-pat xs-pat]
     (fn [v]
@@ -139,7 +139,7 @@
           :nothing)
         :nothing))))
 
-(def /nil
+(def ^nil
   "Empty-sequence pattern. Matches `[]` and `(list)`"
   (fn [v]
     (if (empty-seq? v)
@@ -147,12 +147,12 @@
       :nothing)))
 
 (test "Sequence pattern matching"
-       [ (match (list) /nil :yes _ :no) ==> :yes ]
-       [ (match (list 1 2 3) /nil :no (/cons 'x 'xs) [x xs]) ==> [1 (2 3)]]
-       [ (match [] /nil :yes _ :no) ==> :yes ]
-       [ (match [1 2 3] /nil :no (/cons 'x 'xs) [x xs]) ==> [1 [2 3]] ])
+      [ (match (list) ^nil :yes _ :no) ==> :yes ]
+      [ (match (list 1 2 3) ^nil :no (^cons 'x 'xs) [x xs]) ==> [1 (2 3)]]
+      [ (match [] ^nil :yes _ :no) ==> :yes ]
+      [ (match [1 2 3] ^nil :no (^cons 'x 'xs) [x xs]) ==> [1 [2 3]] ])
 
-(def /?
+(def ^?
   "Predicate pattern. Takes a predicate function as argument. Values match against
   this pattern if the predicate returns a truthy value."
   (fn [p]
@@ -162,81 +162,81 @@
         :nothing))))
 
 (test "Predicate patterns"
-       [ (match (list)
-                (/? (fn [l] (< 0 (length l)))) :no
-                _ :yes) ==> :yes]
-       [ (match (list 1 2)
-                (/? (fn [l] (< 0 (length l)))) :yes
-                _ :no) ==> :yes])
+      [ (match (list)
+               (^? (fn [l] (< 0 (length l)))) :no
+               _ :yes) ==> :yes]
+      [ (match (list 1 2)
+               (^? (fn [l] (< 0 (length l)))) :yes
+               _ :no) ==> :yes])
 
-(def /=
+(def ^=
   "Matches values for equality."
-  (fn [x] (/? \(eq? x ?))))
+  (fn [x] (^? \(eq? x ?))))
 
-(def /as
-  "As pattern. Takes a variable and a sub-pattern. If the subpattern matches then
+(def ^as
+"As pattern. Takes a variable and a sub-pattern. If the subpattern matches then
   the whole pattern matches and furthermore the variable is bound to the matched
   value."
-  (fn [var pat]
-    (if (atom? var)
-      (fn [v]
-        (maybe->>= (match-pat pat v)
-                   (fn [bs] [:just (insert var v bs)])))
-      (throw 'pattern-error "The first argument of `/as` should be an atom."))))
+(fn [var pat]
+  (if (atom? var)
+    (fn [v]
+      (maybe->>= (match-pat pat v)
+                 (fn [bs] [:just (insert var v bs)])))
+    (throw 'pattern-error "The first argument of `/as` should be an atom."))))
 
 (test "As-patterns work"
-       [ (match [1 2 3]
-                (/as 'xs [_ 7 _]) :no
-                (/as 'xs [_ _ 3]) xs) ==> [1 2 3]]
-       [ (match [1 2 [3 4]]
-                (/as 'xs [_ 7 _]) :no
-                [_ _ (/as 'xs [_ _])] xs) ==> [3 4]]
-       )
-
-(test "Non-linear patterns"
-  [ (match [1 1 1]
-           ['x 'x 'x] x)  ==> 1
-  ]
-  [ (match [1 1 2]
-           ['x 'x 'x] x
-           _ :no)  ==> :no
-  ]
-
-  [ (match [1 [2 3] 3]
-           [_ [_ 'x] 'x] x)  ==> 3
-  ]
-  [ (match [1 [2 3] 4]
-           [_ [_ 'x] 'x] x
-           _ :no) ==> :no
-  ]
-
-  [ (match [1 (list 3 1) 3]
-           [_ (/cons 'x _) 'x] x) ==> 3
-  ]
-  [ (match [1 (list 2 3) 4]
-           [_ (/cons 'x _) 'x] x
-           _ :no) ==> :no
-  ]
-
-  [ (match {:a 3 :b [3 2]}
-           {:a 'x :b ['x _]} x) ==> 3
-  ]
-  [ (match {:a 3 :b [2 1]}
-           {:a 'x :b ['x _]} x
-           _ :no) ==> :no
-  ]
+[ (match [1 2 3]
+         (^as 'xs [_ 7 _]) :no
+         (^as 'xs [_ _ 3]) xs) ==> [1 2 3]]
+[ (match [1 2 [3 4]]
+         (^as 'xs [_ 7 _]) :no
+         [_ _ (^as 'xs [_ _])] xs) ==> [3 4]]
 )
 
-(def /member
-  "Matches values that are members of a structure."
-  (fn [vs]
-    (fn [v]
-      (if (member? v vs)
-        [:just {}]
-        :nothing))))
+(test "Non-linear patterns"
+[ (match [1 1 1]
+         ['x 'x 'x] x)  ==> 1
+ ]
+[ (match [1 1 2]
+         ['x 'x 'x] x
+         _ :no)  ==> :no
+ ]
+
+[ (match [1 [2 3] 3]
+         [_ [_ 'x] 'x] x)  ==> 3
+ ]
+[ (match [1 [2 3] 4]
+         [_ [_ 'x] 'x] x
+         _ :no) ==> :no
+ ]
+
+[ (match [1 (list 3 1) 3]
+         [_ (/cons 'x _) 'x] x) ==> 3
+ ]
+[ (match [1 (list 2 3) 4]
+         [_ (/cons 'x _) 'x] x
+         _ :no) ==> :no
+ ]
+
+[ (match {:a 3 :b [3 2]}
+         {:a 'x :b ['x _]} x) ==> 3
+ ]
+[ (match {:a 3 :b [2 1]}
+         {:a 'x :b ['x _]} x
+         _ :no) ==> :no
+ ]
+)
+
+(def ^member
+"Matches values that are members of a structure."
+(fn [vs]
+  (fn [v]
+    (if (member? v vs)
+      [:just {}]
+      :nothing))))
 
 (test "/member"
-  [(match [1 4]
-          [1 (/member [1 3 5])] :no
-          [1 (/member [2 4 8])] :yes
-          _                     :no) ==> :yes])
+[(match [1 4]
+        [1 (^member [1 3 5])] :no
+        [1 (^member [2 4 8])] :yes
+        _                     :no) ==> :yes])

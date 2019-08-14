@@ -70,31 +70,31 @@ newMachine client = do
 getMachineIndex :: (ClientM m) => Client -> MachineId -> m HtmlText
 getMachineIndex client mid = runClient client $ Servant.client frontendEndpoint mid ["index.html"]
 
--- | Primitive function defitions for @daemon/send!@, @daemon/query!@, and
--- @daemon/new-machine!@.
+-- | Primitive function defitions for @daemon.send!@, @daemon.query!@, and
+-- @daemon.new-machine!@.
 createDaemonClientPrimFns ::(MonadIO m) => IO (PrimFns m)
 createDaemonClientPrimFns = do
     client <- newClient
     pure $ fromList
-        [ (unsafeToIdent sendName, Nothing, sendPrimFn client)
-        , (unsafeToIdent queryName, Nothing, queryPrimFn client)
-        , (unsafeToIdent newMachineName, Nothing, newMachinePrimFn client)
+        [ (Naked sendName, Nothing, sendPrimFn client)
+        , (Naked queryName, Nothing, queryPrimFn client)
+        , (Naked newMachineName, Nothing, newMachinePrimFn client)
         ]
   where
-    sendName = "daemon/send!"
+    sendName = "daemon.send!"
     sendPrimFn httpManager =
         PrimFns.twoArg sendName $ \case
             (String id, Vec v) -> wrapServantError $ Vec . fromList <$> send httpManager (MachineId id) v
             (String _, v) -> throwErrorHere $ TypeError sendName 1 TVec v
             (v, _) -> throwErrorHere $ TypeError sendName 0 TString v
 
-    queryName = "daemon/query!"
+    queryName = "daemon.query!"
     queryPrimFn httpManager =
         PrimFns.twoArg queryName $ \case
             (String id, q) -> wrapServantError $ query httpManager (MachineId id) q
             (v, _)        -> throwErrorHere $ TypeError queryName 0 TString v
 
-    newMachineName = "daemon/new-machine!"
+    newMachineName = "daemon.new-machine!"
     newMachinePrimFn httpManager =
         PrimFns.noArg newMachineName $ do
             MachineId id <- wrapServantError $ newMachine httpManager

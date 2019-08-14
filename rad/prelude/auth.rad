@@ -1,15 +1,15 @@
-(ns prelude/auth
+(ns prelude.auth
   "Functions for easily handling authorization on machines.")
 
-(require prelude/test-macro ['test])
-(require prelude/basic '[if])
-(require prelude/macros '[let])
-(require prelude/validation '[member pred] validation)
-(require prelude/set '[empty insert delete] set)
-(require prelude/dict '[dict-from-seq keys])
-(require prelude/patterns '[match-pat])
-(require prelude/ref '[modify-ref])
-(require prelude/lens '[over-ref @])
+(require prelude.test-macro ['test])
+(require prelude.basic '[if])
+(require prelude.macros '[let])
+(require prelude.validation '[member pred] validation)
+(require prelude.set '[empty insert delete] set)
+(require prelude.dict '[dict-from-seq keys])
+(require prelude.patterns '[match-pat])
+(require prelude.ref '[modify-ref])
+(require prelude.lens '[over-ref @])
 
 (def make-simple-auth
   "Creates an authorization scheme with any number of groups of users.

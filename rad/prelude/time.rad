@@ -1,8 +1,8 @@
-(ns prelude/time
+(ns prelude.time
   "Time-related functions.")
 
-(require prelude/macros '[let])
-(require tests/primitive-stub-ref '[primitive-stub-ref-now!])
+(require prelude.macros '[let])
+(require tests.primitive-stub-ref '[primitive-stub-ref-now!])
 
 (def install-fake-clock
   "Install a fake, monotonic implementation for the `now!` primitive.

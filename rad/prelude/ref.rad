@@ -1,4 +1,4 @@
-(ns prelude/ref
+(ns prelude.ref
   "Functions for dealing with reference cells.")
 
 (def modify-ref

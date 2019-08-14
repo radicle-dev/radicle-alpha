@@ -1,9 +1,9 @@
-(ns prelude/seq "Functions for manipulating sequences, that is lists and vectors.")
+(ns prelude.seq "Functions for manipulating sequences, that is lists and vectors.")
 
-(require prelude/test-macro ['test])
-(require prelude/basic '[head tail if or])
-(require prelude/bool [])
-(require prelude/patterns '[match-pat _])
+(require prelude.test-macro ['test])
+(require prelude.basic '[head tail if or])
+(require prelude.bool [])
+(require prelude.patterns '[match-pat _])
 
 (def seq?
   "Returns `#t` if `x` is a list or a vector."
@@ -99,7 +99,7 @@
   [ (starts-with? [] [1]) ==> #f ]
   )
 
-(def /prefix
+(def ^prefix
   "Matches sequences that start with `prefix` and bind the rest of that
   sequence to `rest-pat`. Also works for strings."
   (fn [prefix rest-pat]
@@ -109,39 +109,39 @@
           (match-pat rest-pat (drop (length prefix) value))
           :nothing)
         :nothing)
-  )))
+      )))
 
 (test "/prefix"
-  [ (match [0 2 3]
-      (/prefix [0 2] 'rs) rs
+      [ (match [0 2 3]
+               (^prefix [0 2] 'rs) rs
+               )
+       ==> [3] ]
+      [ (match '(1 2 3)
+               (^prefix '(1 2) 'rs) rs
+               )
+       ==> (3) ]
+      [ (match "abcd"
+               (^prefix "ab" 'rs) rs
+               )
+       ==> "cd" ]
+      ;; nested pattern
+      [ (match [1 2 3]
+               (^prefix [1 2] (/as 'rs _)) rs
+               )
+       ==> [3] ]
+      ;; fail on keyword
+      [ (match :foo
+               (^prefix [] _) #f
+               _              :fall-through
+               )
+       ==> :fall-through ]
+      ;; fail if type differs
+      [ (match '()
+               (^prefix [] _) #f
+               _              :fall-through
+               )
+       ==> :fall-through ]
       )
-    ==> [3] ]
-  [ (match '(1 2 3)
-      (/prefix '(1 2) 'rs) rs
-      )
-    ==> (3) ]
-  [ (match "abcd"
-      (/prefix "ab" 'rs) rs
-      )
-    ==> "cd" ]
-  ;; nested pattern
-  [ (match [1 2 3]
-      (/prefix [1 2] (/as 'rs _)) rs
-      )
-    ==> [3] ]
-  ;; fail on keyword
-  [ (match :foo
-      (/prefix [] _) #f
-      _              :fall-through
-      )
-    ==> :fall-through ]
-  ;; fail if type differs
-  [ (match '()
-      (/prefix [] _) #f
-      _              :fall-through
-      )
-    ==> :fall-through ]
-  )
 
 (def concat
   "Concatenate a sequence of sequences."

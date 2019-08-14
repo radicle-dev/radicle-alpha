@@ -24,7 +24,7 @@ import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
 import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Eval
-import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
+import           Radicle.Internal.Identifier
 import           Radicle.Internal.Interpret
 import           Radicle.Internal.Number (isInt)
 import           Radicle.Internal.Parse
@@ -99,7 +99,7 @@ completion = completeWord Nothing ['(', ')', ' ', '\n'] go
 
     go s = pure $ fmap simpleCompletion
          $ filter (s `isPrefixOf`)
-         $ fmap (T.unpack . fromIdent)
+         $ fmap (T.unpack . fromNaked)
          $ (Map.keys . fromEnv $ bindingsEnv bnds)
         <> Map.keys (getPrimFns $ bindingsPrimFns bnds)
 
@@ -139,7 +139,7 @@ replPrimFns sysArgs = fromList $ allDocs $
       , "Prints documentation for all documented variables in scope."
       , noArg "apropos!" $ do
             env <- gets bindingsEnv
-            let docs = [ i <> "\n" <> doc | (Ident i, Just doc, _) <- toList env ]
+            let docs = [ fromNaked i <> "\n" <> doc | (i, Just doc, _) <- toList env ]
             putStrS (T.intercalate "\n\n" docs)
             pure nil
       )
@@ -159,7 +159,7 @@ replPrimFns sysArgs = fromList $ allDocs $
         [x, v] -> do
             e <- gets bindingsEnv
             case (x, v) of
-                (Dict m, fn) -> case Map.lookup (Keyword $ unsafeToIdent "getter") m of
+                (Dict m, fn) -> case Map.lookup (Keyword $ NakedT "getter") m of
                     Nothing -> throwErrorHere
                         $ OtherError "subscribe-to!: Expected ':getter' key"
                     Just g -> loop go
@@ -202,7 +202,7 @@ replPrimFns sysArgs = fromList $ allDocs $
     , ( "open-file!"
       , "Open file in the specified mode (`:read`, `:write`, `:append`, `:read-write`)."
       , twoArg "open-file!" $ \case
-          (String file, Keyword (Ident mode)) -> do
+          (String file, Keyword (NakedT mode)) -> do
               mode' <- case mode of
                   "read" -> pure ReadMode
                   "write" -> pure WriteMode
@@ -238,8 +238,8 @@ replPrimFns sysArgs = fromList $ allDocs $
             let pkv = toRad pk
             let skv = toRad sk
             pure . Dict . Map.fromList $
-              [ (Keyword (Ident "private-key"), skv)
-              , (Keyword (Ident "public-key"), pkv)
+              [ (Keyword (NakedT "private-key"), skv)
+              , (Keyword (NakedT "public-key"), pkv)
               ]
       )
     , ( "gen-signature!"
@@ -280,7 +280,7 @@ replPrimFns sysArgs = fromList $ allDocs $
                   b' <- ifJustCreate b
                   c' <- ifJustCreate c
                   ph' <- newProcessHandle ph
-                  pure $ Dict $ Map.fromList $ first (Keyword . Ident) <$>
+                  pure $ Dict $ Map.fromList $ first (Keyword . NakedT) <$>
                     [ ("stdin", toRad a')
                     , ("stdout", toRad b')
                     , ("stderr", toRad c')
@@ -305,7 +305,7 @@ replPrimFns sysArgs = fromList $ allDocs $
           (Handle h, String msg) -> do
               h' <- lookupHandle h
               hPutStrS h' msg
-              pure $ Keyword $ Ident "ok"
+              pure $ Keyword $ NakedT "ok"
           (Handle _, v) -> throwErrorHere $ TypeError "write-handle!" 1 TString v
           (v, _) -> throwErrorHere $ TypeError "write-handle!" 0 THandle v
       )
@@ -316,7 +316,7 @@ replPrimFns sysArgs = fromList $ allDocs $
           Handle h -> do
               h' <- lookupHandle h
               hGetLineS h' >>= \case
-                  Nothing -> pure . Keyword $ Ident "eof"
+                  Nothing -> pure . Keyword $ NakedT "eof"
                   Just v -> pure $ String v
           v -> throwErrorHere $ TypeError "read-line-handle!" 0 THandle v
       )
@@ -382,7 +382,7 @@ replPrimFns sysArgs = fromList $ allDocs $
       , oneArg "cd!" $ \case
           String filename -> do
               setCurrentDirS $ toS filename
-              pure $ Keyword $ Ident "ok"
+              pure $ Keyword $ NakedT "ok"
           v -> throwErrorHere $ TypeError "cd!" 0 TString v
       )
     ]

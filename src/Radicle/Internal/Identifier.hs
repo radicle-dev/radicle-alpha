@@ -7,7 +7,6 @@ import           Protolude
 
 import           Codec.Serialise (Serialise)
 import           Data.Char (isAlphaNum, isLetter, isUpper, toLower)
-import           Data.Data (Data)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
@@ -26,7 +25,7 @@ isValidIdentRest :: Char -> Bool
 isValidIdentRest x = isAlphaNum x || x `elem` extendedChar
 
 extendedChar :: Prelude.String
-extendedChar = ['!', '$', '%', '&', '*', '+', '-', '.', '/', ':', '<' , '=', '>'
+extendedChar = ['!', '$', '%', '&', '*', '+', '-', '.', ':', '<' , '=', '>'
   , '?', '@', '^', '_', '~']
 
 replacements :: Map Char Prelude.String
@@ -72,19 +71,52 @@ kebabCons = T.intercalate "-" . fmap (toS . lowerFirst) . go .keywordWord
     -- Makes a string safe to use in a keyword.
     keywordWord = concat . fmap keywordChar
 
--- | An identifier in the language.
+newtype Naked = Naked { fromNaked :: Text }
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise Naked
+
+data Unnamespaced
+  = NakedU Naked
+  | Qualified Naked Naked
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance Serialise Unnamespaced
+
+showUnnamespaced :: Unnamespaced -> Text
+showUnnamespaced = \case
+  NakedU (Naked x) -> x
+  Qualified q x -> fromNaked q <> "/" <> fromNaked x
+
+-- | An symbol in the language.
 --
 -- Not all `Text`s are valid identifiers, so use 'Ident' at your own risk.
 -- `mkIdent` is the safe version.
-newtype Ident = Ident { fromIdent :: Text }
-    deriving (Eq, Show, Read, Ord, Generic, Data, Serialise, Semigroup)
+data Ident
+  = Unnamespaced Unnamespaced
+  | Namespaced Naked Unnamespaced
+  deriving (Eq, Show, Read, Ord, Generic)
 
-pattern Identifier :: Text -> Ident
-pattern Identifier t <- Ident t
+instance Serialise Ident
 
--- | Convert a text to an identifier.
---
--- Unsafe! Only use this if you know the string at compile-time and know it's a
--- valid identifier. Otherwise, use 'mkIdent'.
-unsafeToIdent :: Text -> Ident
-unsafeToIdent = Ident
+showIdent :: Ident -> Text
+showIdent = \case
+  Unnamespaced x -> showUnnamespaced x
+  Namespaced n x -> fromNaked n <> "//" <> showUnnamespaced x
+
+pattern NakedN :: Naked -> Ident
+pattern NakedN x <- Unnamespaced (NakedU x)
+  where
+    NakedN = Unnamespaced . NakedU
+
+pattern NakedT :: Text -> Ident
+pattern NakedT x <- Unnamespaced (NakedU (Naked x))
+  where
+    NakedT = Unnamespaced . NakedU . Naked
+
+-- -- | Convert a text to an identifier.
+-- --
+-- -- Unsafe! Only use this if you know the string at compile-time and know it's a
+-- -- valid identifier. Otherwise, use 'mkIdent'.
+-- unsafeToIdent :: Text -> Ident
+-- unsafeToIdent = Ident

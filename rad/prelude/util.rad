@@ -1,9 +1,9 @@
-(ns prelude/util
+(ns prelude.util
   "Utility functions. For the moment just a counter.")
 
-(require prelude/test-macro ['test])
-(require prelude/ref '[modify-ref])
-(require prelude/macros '[let])
+(require prelude.test-macro ['test])
+(require prelude.ref '[modify-ref])
+(require prelude.macros '[let])
 
 (def make-counter
   "Creates a stateful counter. Returns a dict with two keys: the function at `:next-will-be`

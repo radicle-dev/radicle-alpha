@@ -32,17 +32,17 @@ expQuot name e = QuasiQuoter
 ident :: QuasiQuoter
 ident =
   expQuot "ident" $ \s -> case mkIdent (toS s) of
-    Nothing -> panic $ "Not a valid identifier: " <> toS s
-    Just _  -> [| Ident (T.pack s) |]
+    Nothing         -> panic $ "Not a valid identifier: " <> toS s
+    Just (NakedT _) -> [| NakedT (T.pack s) |]
+    _               -> panic $ "Only naked idents for now."
 
--- | Produces a keyword 'Value'. Checks if the template is a valid
--- keyword at compile-time. The template must not include the leading
--- colon.
+-- | Produces a (naked) keyword 'Value'. Checks if the template is a valid
+-- keyword at compile-time. The template must not include the leading colon.
 -- @
 --     [kword|foo] :: Value
 -- @
 kword :: QuasiQuoter
 kword =
   expQuot "kword" $ \s -> case mkIdent (toS s) of
-    Nothing -> panic $ "Not a valid keyword: " <> toS s
-    Just _  -> [| Keyword (Ident (T.pack s)) |]
+     Just (NakedT _) -> [| Keyword (NakedT (T.pack s)) |]
+     _               -> panic $ "Not a valid naked keyword: " <> toS s

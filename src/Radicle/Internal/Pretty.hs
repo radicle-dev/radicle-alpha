@@ -19,7 +19,7 @@ import           Text.Megaparsec.Pos (sourcePosPretty)
 import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Core
 import           Radicle.Internal.Effects.Capabilities (Stdout(..))
-import           Radicle.Internal.Identifier (Ident(..))
+import           Radicle.Internal.Identifier
 import           Radicle.Internal.Type
 
 class PrettyV a where
@@ -38,8 +38,14 @@ instance Pretty Hdl where
 instance Pretty ProcHdl where
     pretty _ = angles "prochandle"
 
+instance Pretty Naked where
+  pretty = pretty . fromNaked
+
+instance Pretty Unnamespaced where
+  pretty = pretty . showUnnamespaced
+
 instance Pretty Ident where
-    pretty (Ident i) = pretty i
+    pretty = pretty . showIdent
 
 instance PrettyV Type where
     prettyV = prettyV . typeToValue
@@ -77,9 +83,9 @@ instance forall t. (Copointed t, Ann.Annotation t) => PrettyV (Ann.Annotated t V
         prettyLambda lArgs vals =
           let args :: Ann.Annotated t ValueF = case lArgs of
                 PosArgs ids ->
-                  Vec $ Seq.fromList (Atom <$> ids)
+                  Vec $ Seq.fromList (Atom . NakedN <$> ids)
                 VarArgs id ->
-                  Atom id
+                  Atom . NakedN $ id
           in parens $
                annotate TAtom "fn" <+>
                align (sep [ prettyV args
@@ -96,12 +102,18 @@ instance PrettyV r => PrettyV (LangError r) where
 
 instance PrettyV r => PrettyV (LangErrorData r) where
     prettyV v = case v of
-        UnknownIdentifier ns i -> "Unknown identifier:" <+> pretty i <+> "in" <+> pretty ns
+        UnknownIdentifier i -> "Unknown identifier:" <+> pretty i
         UnknownNamespace ns -> "Unknown namespace:" <+> pretty ns
         CantAccessPrivateDef ns x -> vsep
           [ "Can't access a private namespace definition from outside that namespace: "
           , indent 2 $ "namespace:" <+> pretty ns
           , indent 2 $ "definition:" <+> pretty x
+          ]
+        ConflictingRequiredSymbols nsname q xs x -> vsep
+          [ "A Qualified require-all into namespace " <+> pretty nsname <+> "references conflicting symbols:"
+          , indent 2 $ vsep [ "qualifier:" <+> pretty q
+                            , "namespaces:" <+> encloseSep "" "" ", " (pretty <$> xs)
+                            , "symbol:" <+> pretty x ]
           ]
         Impossible t -> "This cannot be!" <+> pretty t
         TypeError fname i t val -> vsep

@@ -1,4 +1,4 @@
-(ns tests/primitive-stub-ref)
+(ns tests.primitive-stub-ref)
 
 ;; This script stubs some primitives for code evaluated afterwards.
 ;;

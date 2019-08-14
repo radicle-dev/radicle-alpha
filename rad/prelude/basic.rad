@@ -1,7 +1,7 @@
-(ns prelude/basic
+(ns prelude.basic
   "Basic function used for checking equality, determining the type of a value, etc.")
 
-(require prelude/test-macro '[test])
+(require prelude.test-macro '[test])
 
 (def if
   "Macro which is called as `(if c a b)`. If the expression `c` evaluates to true,
