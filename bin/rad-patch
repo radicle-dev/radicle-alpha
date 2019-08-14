@@ -28,7 +28,7 @@
 (require prelude.dict '[values])
 (require prelude.patterns '[match-pat _])
 (require prelude.machine '[catch-daemon!] machine)
-(require prelude.cmd-parsing '[/cmd-0 /cmd-1 /cmd-2 /cmd-help /cmd-opts whole-num])
+(require prelude.cmd-parsing '[^cmd-0 ^cmd-1 ^cmd-2 ^cmd-help ^cmd-opts whole-num])
 (require prelude.validation [] validation)
 (require prelude.strings '[intercalate unlines] string)
 (require monadic.project '[get-rsm-of-type!])
@@ -276,7 +276,7 @@
 
 (def /list-cmd
   (fn [opts]
-    (/cmd-opts "list" opts cmd-options help)))
+    (^cmd-opts "list" opts cmd-options help)))
 
 (def whole-patch-num
   (fn [action num-str f]
@@ -288,17 +288,17 @@
  (fn []
    (match args
           (/list-cmd 'options) (show-list (machine-name) options)
-          (/cmd-1 "propose" 'commit help) (new-patch! (machine-name) commit)
-          (/cmd-1 "checkout" 'n help)  (whole-patch-num "checkout" n (fn [n] (checkout-patch! (machine-name) n)))
-          (/cmd-1 "show" 'n help)      (whole-patch-num "show" n (fn [n] (show-patch! (machine-name) n)))
-          (/cmd-1 "mark-read" 'n help) (whole-patch-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
-          (/cmd-1 "mark-unread" 'n help) (whole-patch-num "mark as unread" n (fn [n] (newness/mark-unread! (machine-name) n)))
-          (/cmd-1 "retract" 'n help)   (whole-patch-num "retract" n (fn [n] (edit-patch-state! (machine-name) n :retracted)))
-          (/cmd-1 "accept" 'n help)    (whole-patch-num "accept" n (fn [n] (edit-patch-state! (machine-name) n :accepted)))
-          (/cmd-1 "reject" 'n help)    (whole-patch-num "reject" n (fn [n] (edit-patch-state! (machine-name) n :rejected)))
-          (/cmd-2 "comment" 'n 'comment help) (whole-patch-num "comment on" n (fn [n] (create-comment! (machine-name) n comment)))
-          (/cmd-0 "create-machine" help) (new-patch-machine! (machine-name))
-          (/cmd-0 "all-read" help) (mark-all-read! (machine-name))
-          (/cmd-help) (put-str! help)
+          (^cmd-1 "propose" 'commit help) (new-patch! (machine-name) commit)
+          (^cmd-1 "checkout" 'n help)  (whole-patch-num "checkout" n (fn [n] (checkout-patch! (machine-name) n)))
+          (^cmd-1 "show" 'n help)      (whole-patch-num "show" n (fn [n] (show-patch! (machine-name) n)))
+          (^cmd-1 "mark-read" 'n help) (whole-patch-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
+          (^cmd-1 "mark-unread" 'n help) (whole-patch-num "mark as unread" n (fn [n] (newness/mark-unread! (machine-name) n)))
+          (^cmd-1 "retract" 'n help)   (whole-patch-num "retract" n (fn [n] (edit-patch-state! (machine-name) n :retracted)))
+          (^cmd-1 "accept" 'n help)    (whole-patch-num "accept" n (fn [n] (edit-patch-state! (machine-name) n :accepted)))
+          (^cmd-1 "reject" 'n help)    (whole-patch-num "reject" n (fn [n] (edit-patch-state! (machine-name) n :rejected)))
+          (^cmd-2 "comment" 'n 'comment help) (whole-patch-num "comment on" n (fn [n] (create-comment! (machine-name) n comment)))
+          (^cmd-0 "create-machine" help) (new-patch-machine! (machine-name))
+          (^cmd-0 "all-read" help) (mark-all-read! (machine-name))
+          (^cmd-help) (put-str! help)
           (/cons 'cmd _) (cmd-parse-failure (error/unknown-command cmd))
           [] (put-str! help))))

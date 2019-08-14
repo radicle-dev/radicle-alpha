@@ -24,7 +24,7 @@
            git-clone-failure]
          error)
 (require prelude.validation [] validation)
-(require prelude.cmd-parsing '[/cmd-0 /cmd-1 /cmd-help])
+(require prelude.cmd-parsing '[^cmd-0 ^cmd-1 ^cmd-help])
 (require prelude.io '[shell-with-stdout! prompt! process!
                       process-with-stdout-stderr-exitcode!
                       process-with-stdout!])
@@ -210,9 +210,9 @@
 (machine/catch-daemon!
  (fn []
    (match args
-          (/cmd-0 "init" help) (new-project!)
-          (/cmd-0 "show-id" help) (show-project-id)
-          (/cmd-1 "checkout" 'project-id help) (checkout! project-id)
-          (/cmd-help) (put-str! help)
+          (^cmd-0 "init" help) (new-project!)
+          (^cmd-0 "show-id" help) (show-project-id)
+          (^cmd-1 "checkout" 'project-id help) (checkout! project-id)
+          (^cmd-help) (put-str! help)
           (/cons 'cmd _) (parse-failure (error/unknown-command cmd) help)
           [] (put-str! help))))

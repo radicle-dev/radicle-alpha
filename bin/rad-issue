@@ -20,7 +20,7 @@
 (require prelude.dict '[values])
 (require prelude.validation [] validation)
 (require prelude.machine '[catch-daemon!] machine)
-(require prelude.cmd-parsing '[/cmd-opts /cmd-0 /cmd-1 /cmd-2 whole-num])
+(require prelude.cmd-parsing '[^cmd-opts ^cmd-0 ^cmd-1 ^cmd-2 whole-num])
 (require monadic.project '[get-rsm-of-type!])
 (require prelude.io-utils '[edit-in-editor! get-git-username!])
 (require monadic.issue '[list-issues create-issue! simple-issue])
@@ -142,7 +142,7 @@
 
 (def /list-cmd
   (fn [opts]
-    (/cmd-opts "list" opts cmd-options help)))
+    (^cmd-opts "list" opts cmd-options help)))
 
 (def args (get-args!))
 
@@ -159,13 +159,13 @@
  (fn []
    (match args
           (/list-cmd 'options) (show-list (machine-name) options)
-          (/cmd-0 "new" help) (new-issue (machine-name))
-          (/cmd-1 "close" 'n help)            (whole-issue-num "close" n (fn [n] (close-issue n (machine-name))))
-          (/cmd-1 "show" 'n help)             (whole-issue-num "show" n (fn [n] (show-issue! n (machine-name))))
-          (/cmd-2 "comment" 'n 'comment help) (whole-issue-num "comment on" n (fn [n] (create-comment! (machine-name) n comment)))
-          (/cmd-1 "mark-read" 'n help)        (whole-issue-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
-          (/cmd-1 "mark-unread" 'n help) (whole-issue-num "mark as unread" n (fn [n] (newness/mark-unread! (machine-name) n)))
-          (/cmd-0 "all-read" help) (mark-all-read! (machine-name))
-          (/cmd-help) (put-str! help)
+          (^cmd-0 "new" help) (new-issue (machine-name))
+          (^cmd-1 "close" 'n help)            (whole-issue-num "close" n (fn [n] (close-issue n (machine-name))))
+          (^cmd-1 "show" 'n help)             (whole-issue-num "show" n (fn [n] (show-issue! n (machine-name))))
+          (^cmd-2 "comment" 'n 'comment help) (whole-issue-num "comment on" n (fn [n] (create-comment! (machine-name) n comment)))
+          (^cmd-1 "mark-read" 'n help)        (whole-issue-num "mark as read" n (fn [n] (newness/mark-read! (machine-name) n)))
+          (^cmd-1 "mark-unread" 'n help) (whole-issue-num "mark as unread" n (fn [n] (newness/mark-unread! (machine-name) n)))
+          (^cmd-0 "all-read" help) (mark-all-read! (machine-name))
+          (^cmd-help) (put-str! help)
           (/cons 'cmd _) (cmd-parse-failure (error/unknown-command cmd))
           [] (put-str! help))))

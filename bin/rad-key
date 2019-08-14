@@ -6,7 +6,7 @@
 
 (require prelude.patterns '[match-pat _ /cons])
 (require prelude.key-management '[create-keys! read-keys!] key-mgmt)
-(require prelude.cmd-parsing '[/cmd-0 /cmd-help])
+(require prelude.cmd-parsing '[^cmd-0 ^cmd-help])
 
 (def help
   "rad key - Radicle Key Management CLI
@@ -42,7 +42,7 @@ If you are sure that you want to replace your key pair, run `rad key create --fo
 (def args (get-args!))
 (match args
   ["create" "--force"]    (make-keys)
-  (/cmd-0 "create" help)  (safe-make-keys)
-  (/cmd-help)             (put-str! help)
-  (/cons 'cmd _)          (cmd-parse-failure (string-append "Unknown command: " cmd))
+  (^cmd-0 "create" help)  (safe-make-keys)
+  (^cmd-help)             (put-str! help)
+  (^cons 'cmd _)          (cmd-parse-failure (string-append "Unknown command: " cmd))
   _                       (put-str! help))
