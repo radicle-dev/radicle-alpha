@@ -1,11 +1,11 @@
 #!/usr/bin/env radicle
 
 (load-ns! "prelude.rad")
-(load-ns! "prelude.io-utils.rad")
-(load-ns! "prelude.error-messages.rad")
-(load-ns! "monadic.issue.rad")
-(load-ns! "monadic.patch.rad")
-(load-ns! "monadic.project.rad")
+(load-ns! "prelude/io-utils.rad")
+(load-ns! "prelude/error-messages.rad")
+(load-ns! "monadic/issue.rad")
+(load-ns! "monadic/patch.rad")
+(load-ns! "monadic/project.rad")
 
 (ns rad-project)
 
