@@ -274,7 +274,7 @@
     { :key :unread :type :flag :options ["--unread"] :default #f }
   ])
 
-(def /list-cmd
+(def ^list-cmd
   (fn [opts]
     (^cmd-opts "list" opts cmd-options help)))
 
@@ -287,7 +287,7 @@
 (machine/catch-daemon!
  (fn []
    (match args
-          (/list-cmd 'options) (show-list (machine-name) options)
+          (^list-cmd 'options) (show-list (machine-name) options)
           (^cmd-1 "propose" 'commit help) (new-patch! (machine-name) commit)
           (^cmd-1 "checkout" 'n help)  (whole-patch-num "checkout" n (fn [n] (checkout-patch! (machine-name) n)))
           (^cmd-1 "show" 'n help)      (whole-patch-num "show" n (fn [n] (show-patch! (machine-name) n)))
@@ -300,5 +300,5 @@
           (^cmd-0 "create-machine" help) (new-patch-machine! (machine-name))
           (^cmd-0 "all-read" help) (mark-all-read! (machine-name))
           (^cmd-help) (put-str! help)
-          (/cons 'cmd _) (cmd-parse-failure (error/unknown-command cmd))
+          (^cons 'cmd _) (cmd-parse-failure (error/unknown-command cmd))
           [] (put-str! help))))

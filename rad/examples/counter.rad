@@ -28,18 +28,18 @@
 (def counter.init-machine!
   "Send the counter application prelude to a machine"
   (fn [machine-id]
-    (daemon/send! machine-id counter.prelude)
+    (daemon.send! machine-id counter.prelude)
     :done
-))
+    ))
 
 (def counter.increment!
   "Increment the counter of amachineand return the new counter value"
   (fn [machine-id]
-    (first (daemon/send! machine-id '[(increment)]))
+    (first (daemon.send! machine-id '[(increment)]))
     ))
 
 (def counter.get-value
   "Get the current counter value of a machine"
   (fn [machine-id]
-    (daemon/query! machine-id '(get-value))
+    (daemon.query! machine-id '(get-value))
     ))

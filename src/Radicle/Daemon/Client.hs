@@ -70,8 +70,8 @@ newMachine client = do
 getMachineIndex :: (ClientM m) => Client -> MachineId -> m HtmlText
 getMachineIndex client mid = runClient client $ Servant.client frontendEndpoint mid ["index.html"]
 
--- | Primitive function defitions for @daemon/send!@, @daemon/query!@, and
--- @daemon/new-machine!@.
+-- | Primitive function defitions for @daemon.send!@, @daemon.query!@, and
+-- @daemon.new-machine!@.
 createDaemonClientPrimFns ::(MonadIO m) => IO (PrimFns m)
 createDaemonClientPrimFns = do
     client <- newClient
