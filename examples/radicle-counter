@@ -61,19 +61,19 @@ case "$cmd" in
   init )
     radicle - <<-SCRIPT
       (load-ns! "examples/counter.rad")
-      (counter/init-machine! "${machine}")
+      (counter.init-machine! "${machine}")
 SCRIPT
     ;;
   get-value )
     radicle - <<-SCRIPT
       (load-ns! "examples/counter.rad")
-      (counter/get-value "${machine}")
+      (counter.get-value "${machine}")
 SCRIPT
     ;;
   increment )
     radicle - <<-SCRIPT
       (load-ns! "examples/counter.rad")
-      (counter/increment! "${machine}")
+      (counter.increment! "${machine}")
 SCRIPT
     ;;
   * )

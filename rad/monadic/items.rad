@@ -1,4 +1,4 @@
-(ns monadic/items
+(ns monadic.items
   "Functions for interacting with dicts of items in machines")
 
 (require prelude.basic '[if read elem? empty-seq?])
