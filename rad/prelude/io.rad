@@ -280,3 +280,6 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
         ))
     (write-ref primitive-stub-ref/find-rad-file! find-rad-file)
     ))
+
+(def req
+  (macro (fn [] '(require primitives '[find-rad-file!]))))

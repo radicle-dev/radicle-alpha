@@ -11,6 +11,8 @@
 ;;
 ;; See `prelude/chain/install-remote-chain-fake` for how to use primitve stubs.
 
+(require primitives '[ref now! read-file! find-rad-file!])
+
 ;; now!
 (def primitive-stub-ref-now! (ref now!))
 (def now!

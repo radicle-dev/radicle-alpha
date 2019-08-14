@@ -40,24 +40,27 @@ pureEnv =
     txd = Just "The transactor function used for the machine inputs. Intially\
                \this is set to `initial-tx`."
 
--- | The added primitives override previously defined primitives and
--- variables with the same name.
+-- | The added primitives override previously defined primitives.
 addPrimFns  :: PrimFns m -> Bindings (PrimFns m) -> Bindings (PrimFns m)
 addPrimFns primFns bindings =
     bindings { bindingsPrimFns = primFns <> bindingsPrimFns bindings
-             , bindingsEnv = primFnsEnv <> bindingsEnv bindings
+             , bindingsNamespaces = Map.alter f (Naked "primitives") (bindingsNamespaces bindings)
              }
 
   where
-    primFnsEnv = Env $ Map.fromList
-      $
-      [ (pfn, Doc.Docd d (PrimFn pfn)) | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)]
+    f :: Maybe (Doc.Docd Namespace) -> Maybe (Doc.Docd Namespace)
+    f Nothing = Just (Doc.Docd (Just "Primitives.") primFnsNs)
+    f (Just (Doc.Docd d ns)) = Just (Doc.Docd d (primFnsNs <> ns))
 
-addPrimFn  :: Naked -> Text -> ([Value] -> Lang m Value) -> PrimFns m -> PrimFns m
-addPrimFn name doc run (PrimFns primFns) = PrimFns primFns'
-  where
-    primFns' = Map.insert name (Doc.Docd (Just doc) run) primFns
-
+    primFnsNs :: Namespace
+    primFnsNs = Namespace
+      { bindings = Map.fromList
+        [ (NakedU pfn, Here Public (Doc.Docd d (PrimFn pfn)))
+        | (pfn, Doc.Docd d _) <- Map.toList (getPrimFns primFns)
+        ]
+      , qualRules = mempty
+      }
+      
 
 -- | The universal primops. These are available in chain evaluation.
 purePrimFns :: forall m. (Monad m) => PrimFns m

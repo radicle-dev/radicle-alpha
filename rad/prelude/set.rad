@@ -1,6 +1,7 @@
 (ns prelude.set
   "Sets, built using dicts.")
 
+(prelude.basic//req)
 (require prelude.test-macro ['test])
 (require prelude.bool '[all])
 (require prelude.dict '[keys] dict)

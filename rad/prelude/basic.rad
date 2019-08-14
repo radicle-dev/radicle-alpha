@@ -1,6 +1,7 @@
 (ns prelude.basic
   "Basic function used for checking equality, determining the type of a value, etc.")
 
+(require primitives '[first rest list])
 (require prelude.test-macro '[test])
 
 (def if
@@ -135,3 +136,8 @@
 ;; (test "gensym"
 ;;       [ (gensym) ==> G__0 ]
 ;;       [ (eq? (gensym) (gensym)) ==> #f ])
+
+(def req
+  (macro
+   (fn []
+     '(require primitives '[list member? ref map string-append]))))

@@ -1,8 +1,10 @@
 (ns prelude.machine "Functions for simulating remote machines.")
 
+(prelude.basic//req)
+(require primitives '[pure-state daemon.send! daemon.query! daemon.new-machine! eval])
 (require prelude.test-macro ['test])
-(require prelude.basic [])
 (require prelude.macros '[let])
+(prelude.io//req)
 (require prelude.io '[read-file-value! read-file-values!] io)
 (require prelude.ref '[modify-ref])
 (require prelude.lens '[make-lens .. ... view set over @ @def])

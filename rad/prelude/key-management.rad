@@ -3,8 +3,8 @@
   commands. Per default, key pairs are stored in `$HOME/.config/radicle/my-keys.rad`
   this can be adjusted by setting `$XDG_CONFIG_HOME`.")
 
+(prelude.basic//req)
 (require prelude.patterns '[match-pat])
-(require prelude.basic '[if])
 (require prelude.macros '[let])
 (require prelude.io '[read-file-value! shell! write-file!] io)
 (require prelude.io-utils '[base-path!] io)
