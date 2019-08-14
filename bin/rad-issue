@@ -10,21 +10,21 @@
 
 (ns rad-issue)
 
-(require prelude/patterns '[match-pat])
-(require prelude/error-messages [] error)
-(require monadic/items '[verify-item-number pretty-item-view enrich-item list-items] items)
+(require prelude.patterns '[match-pat])
+(require prelude.error-messages [] error)
+(require monadic.items '[verify-item-number pretty-item-view enrich-item list-items] items)
 
-(require prelude/macros '[let])
-(require prelude/basic '[read])
-(require prelude/strings '[intercalate] string)
-(require prelude/dict '[values])
-(require prelude/validation [] validation)
-(require prelude/machine '[catch-daemon!] machine)
-(require prelude/cmd-parsing '[/cmd-opts /cmd-0 /cmd-1 /cmd-2 whole-num])
-(require monadic/project '[get-rsm-of-type!])
-(require prelude/io-utils '[edit-in-editor! get-git-username!])
-(require monadic/issue '[list-issues create-issue! simple-issue])
-(require prelude/track-newness '[mark-read! mark-unread!] newness)
+(require prelude.macros '[let])
+(require prelude.basic '[read])
+(require prelude.strings '[intercalate] string)
+(require prelude.dict '[values])
+(require prelude.validation [] validation)
+(require prelude.machine '[catch-daemon!] machine)
+(require prelude.cmd-parsing '[/cmd-opts /cmd-0 /cmd-1 /cmd-2 whole-num])
+(require monadic.project '[get-rsm-of-type!])
+(require prelude.io-utils '[edit-in-editor! get-git-username!])
+(require monadic.issue '[list-issues create-issue! simple-issue])
+(require prelude.track-newness '[mark-read! mark-unread!] newness)
 
 (def machine-name
   (fn []

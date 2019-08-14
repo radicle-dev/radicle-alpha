@@ -1,21 +1,21 @@
 #!/usr/bin/env radicle
 
 (load-ns! "prelude.rad")
-(load-ns! "prelude/io-utils.rad")
-(load-ns! "prelude/error-messages.rad")
-(load-ns! "monadic/issue.rad")
-(load-ns! "monadic/patch.rad")
-(load-ns! "monadic/project.rad")
+(load-ns! "prelude.io-utils.rad")
+(load-ns! "prelude.error-messages.rad")
+(load-ns! "monadic.issue.rad")
+(load-ns! "monadic.patch.rad")
+(load-ns! "monadic.project.rad")
 
 (ns rad-project)
 
-(require prelude/basic '[if])
-(require prelude/bool '[not])
-(require prelude/patterns '[match-pat /cons _])
-(require prelude/seq '[concat starts-with?])
-(require prelude/machine '[catch-daemon!] machine)
-(require prelude/strings '[unlines])
-(require prelude/error-messages
+(require prelude.basic '[if])
+(require prelude.bool '[not])
+(require prelude.patterns '[match-pat /cons _])
+(require prelude.seq '[concat starts-with?])
+(require prelude.machine '[catch-daemon!] machine)
+(require prelude.strings '[unlines])
+(require prelude.error-messages
          '[upstream-commit-failure
            upstream-push-failure
            rad-ipfs-key-gen-failure
@@ -23,19 +23,19 @@
            dir-already-exists
            git-clone-failure]
          error)
-(require prelude/validation [] validation)
-(require prelude/cmd-parsing '[/cmd-0 /cmd-1 /cmd-help])
-(require prelude/io '[shell-with-stdout! prompt! process!
+(require prelude.validation [] validation)
+(require prelude.cmd-parsing '[/cmd-0 /cmd-1 /cmd-help])
+(require prelude.io '[shell-with-stdout! prompt! process!
                       process-with-stdout-stderr-exitcode!
                       process-with-stdout!])
-(require prelude/io '[process-with-stdout-strict!] io)
-(require prelude/key-management '[get-keys!])
-(require prelude/io-utils
+(require prelude.io '[process-with-stdout-strict!] io)
+(require prelude.key-management '[get-keys!])
+(require prelude.io-utils
          '[set-git-config! get-git-config! process-git-with-exit!])
 
-(require monadic/issue '[create-issue-machine!])
-(require monadic/patch '[create-patch-machine!])
-(require monadic/project
+(require monadic.issue '[create-issue-machine!])
+(require monadic.patch '[create-patch-machine!])
+(require monadic.project
          '[get-project-url! get-meta! create-project! add-rsm! first-rsm-of-type!])
 
 (def help

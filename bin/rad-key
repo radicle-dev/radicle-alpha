@@ -4,9 +4,9 @@
 
 (ns rad-key)
 
-(require prelude/patterns '[match-pat _ /cons])
-(require prelude/key-management '[create-keys! read-keys!] key-mgmt)
-(require prelude/cmd-parsing '[/cmd-0 /cmd-help])
+(require prelude.patterns '[match-pat _ /cons])
+(require prelude.key-management '[create-keys! read-keys!] key-mgmt)
+(require prelude.cmd-parsing '[/cmd-0 /cmd-help])
 
 (def help
   "rad key - Radicle Key Management CLI
