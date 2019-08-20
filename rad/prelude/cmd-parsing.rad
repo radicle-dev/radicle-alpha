@@ -1,8 +1,8 @@
 (ns prelude.cmd-parsing
   "Functions for parsing commands.")
 
+(prelude.basic//req)
 (require prelude.test-macro ['test])
-(require prelude.basic '[if elem? read])
 (require prelude.macros '[let])
 (require prelude.dict '[dict-from-seq lookup-maybe safe-modify-map])
 (require prelude.validation '[has-type] validation)

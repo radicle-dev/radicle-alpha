@@ -1,6 +1,9 @@
 (ns prelude.test "Runs tests.")
 
-(require prelude.basic '[if head])
+(require primitives '[eval])
+(prelude.basic//req)
+(prelude.io//req)
+(require prelude.macros '[let])
 (require prelude.bool '[and])
 (require prelude.io [])
 (require prelude.list [])
@@ -33,13 +36,13 @@
   "Like `(fold f r xs)` but evaluates `(f acc x i)` where `i` is an
   additional index argument that starts with 0."
   (fn [f r xs]
-    (head
-      (foldl
-        (fn [acc x]
-          (match acc ['r 'i] [(f r x i) (+ i 1)]))
-        [r 0]
-        xs))
-  ))
+    (first
+     (foldl
+      (fn [acc x]
+        (match acc ['r 'i] [(f r x i) (+ i 1)]))
+      [r 0]
+      xs))
+    ))
 
 (def parse-doc-test-step
   "Parse a doc test step of the form `[ actual ==> expected ]` and
@@ -49,15 +52,15 @@
   Running a doc step means evluating `actual` in the given environment
   and comparing the result with `expected` using `assert-equal`."
   (fn [step]
-    (def lhs (nth 0 step))
-    (def marker (nth 1 step))
-    (def rhs (nth 2 step))
-    (if (eq? marker '==>)
+    (let [lhs (nth 0 step)
+          marker (nth 1 step)
+          rhs (nth 2 step)]
+      (if (eq? marker '==>)
         (fn [env]
-          (def lhs-res (head (eval lhs env)))
-          (assert-equal lhs-res rhs))
-        (throw 'parse-test-step "Expected and actual not separate by ==>"))
-  ))
+          (let [lhs-res (first (eval lhs env))]
+            (assert-equal lhs-res rhs)))
+        (throw 'parse-test-step "Expected and actual not separate by ==>")))
+    ))
 
 (def extract-setup
   "Extracts the setup step from the test steps. Returns a `[setup steps]` tuple."

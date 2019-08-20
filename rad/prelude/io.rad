@@ -1,5 +1,6 @@
 (ns prelude.io "Some basic I/O functions.")
 
+(require primitives '[read-file! read-annotated read-many-annotated])
 (require prelude.test-macro ['test])
 (require prelude.basic '[if])
 (require prelude.patterns '[match-pat _])
@@ -282,4 +283,4 @@ process exited normally and `[:error n]` otherwise. Example: `(process!
     ))
 
 (def req
-  (macro (fn [] '(require primitives '[find-rad-file!]))))
+  (macro (fn [] '(require primitives '[find-rad-file! put-str! uuid!]))))

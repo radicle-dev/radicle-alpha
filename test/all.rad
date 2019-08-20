@@ -13,5 +13,5 @@
 (require prelude.test-macro ['tests])
 (require prelude.test ['run-all])
 
-(def tests-ok (run-all (read-ref tests)))
+(def tests-ok (run-all (primitives//read-ref tests)))
 (if tests-ok (exit! 0) (exit! 1))

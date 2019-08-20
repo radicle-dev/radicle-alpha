@@ -2,8 +2,9 @@
   "Pattern matching is first-class in radicle so new patterns can easily be
   defined. These are the most essential.")
 
+(prelude.basic//req)
 (require prelude.test-macro '[test])
-(require prelude.basic '[if or maybe->>= maybe-foldlM some empty-seq?])
+(require prelude.basic '[maybe->>= maybe-foldlM some empty-seq?])
 (require prelude.macros '[let])
 
 (def exclusive-dict-merge

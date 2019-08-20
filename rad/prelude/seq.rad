@@ -1,7 +1,7 @@
 (ns prelude.seq "Functions for manipulating sequences, that is lists and vectors.")
 
+(prelude.basic//req)
 (require prelude.test-macro ['test])
-(require prelude.basic '[head tail if or])
 (require prelude.bool [])
 (require prelude.patterns '[match-pat _])
 

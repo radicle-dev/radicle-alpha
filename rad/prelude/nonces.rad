@@ -1,8 +1,9 @@
 (ns prelude.nonces
   "Functions for using nonces.")
 
+(prelude.basic//req)
+(prelude.io//req)
 (require prelude.test-macro '[test])
-(require prelude.basic [])
 (require prelude.bool '[not])
 (require prelude.patterns '[match-pat])
 (require prelude.ref '[modify-ref])

@@ -4,4 +4,4 @@
 (def modify-ref
   "Modify `r` by applying the function `f`. Returns the new value."
   (fn [r f]
-    (write-ref r (f (read-ref r)))))
+    (primitives//write-ref r (f (primitives//read-ref r)))))

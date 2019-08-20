@@ -1,7 +1,7 @@
 (ns prelude.dict "Functions for manipualting dicts.")
 
+(prelude.basic//req)
 (require prelude.test-macro ['test])
-(require prelude.basic '[if])
 (require prelude.patterns '[match-pat _])
 
 (def dict-from-seq

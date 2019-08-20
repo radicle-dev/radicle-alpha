@@ -1,7 +1,7 @@
 (ns prelude.macros "Basic macros.")
 
+(prelude.basic//req)
 (require prelude.test-macro '[test])
-(require prelude.basic '[if])
 
 (def expand-let
   (fn [bindings body]

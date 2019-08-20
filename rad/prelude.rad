@@ -19,7 +19,6 @@
 (primitives//load-ns! "prelude/key-management.rad")
 (primitives//load-ns! "prelude/machine.rad")
 (primitives//load-ns! "prelude/machine-remote.rad")
-(primitives//load-ns! "prelude/state-machine.rad")
 (primitives//load-ns! "prelude/validation.rad")
 (primitives//load-ns! "prelude/nonces.rad")
 (primitives//load-ns! "prelude/util.rad")

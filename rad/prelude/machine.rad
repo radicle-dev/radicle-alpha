@@ -66,7 +66,7 @@
 (test "tx-in-fake-machine"
       [:setup
        (def res1 (tx-in-fake-machine new-fake-machine '[(def x 3)]))
-       (def res (tx-in-fake-machine (lookup :machine res1) '[(+ x 2)]))
+       (def res (tx-in-fake-machine (lookup :machine res1) '[(primitives//+ x 2)]))
        ]
       [ (view (@ :result) res) ==> [5] ]
       )
@@ -114,7 +114,6 @@
         "set"
         "ref"
         "lens"
-        "state-machine"
         "validation"
         "nonces"
         "auth"

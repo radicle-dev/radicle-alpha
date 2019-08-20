@@ -3,8 +3,9 @@
    which return the input unchanged or throw with an error message. These can be
    used for checking data before accepting it onto a chain.")
 
+(prelude.basic//req)
+(require primitives '[uuid? public-key? timestamp? verify-signature show-unformatted])
 (require prelude.test-macro ['test])
-(require prelude.basic '[if])
 (require prelude.dict '[delete-many])
 (require prelude.dict '[keys] dict)
 (require prelude.set '[subset? key-set from-seq] set)
@@ -243,23 +244,23 @@
         (show-unformatted (delete-many [:author :signature] d)))))]))
 
 (test "signed"
-  [:setup
-   (do (def keys (gen-key-pair! (default-ecc-curve)))
-       (def sk (lookup :private-key keys))
-       (def pk (lookup :public-key keys))
-       (def payload
-         {:nonce (uuid!)
-          :some "data"})
-       (def sig  (gen-signature! sk (show-unformatted payload)))
-       (def seal {:author    (lookup :public-key keys)
-                  :signature sig})
-       (def full (<> payload seal))
-       (def ok
-         (catch 'validation-failure (do (signed full) :ok) (fn [_] :not-ok)))
-       )
-   ]
-  [ ok ==> :ok ]
-)
+      [:setup
+       (do (def keys (primitives//gen-key-pair! (primitives//default-ecc-curve)))
+           (def sk (lookup :private-key keys))
+           (def pk (lookup :public-key keys))
+           (def payload
+             {:nonce (primitives//uuid!)
+              :some "data"})
+           (def sig  (primitives//gen-signature! sk (primitives//show-unformatted payload)))
+           (def seal {:author    (lookup :public-key keys)
+                      :signature sig})
+           (def full (<> payload seal))
+           (def ok
+             (catch 'validation-failure (do (signed full) :ok) (fn [_] :not-ok)))
+           )
+       ]
+      [ ok ==> :ok ]
+      )
 
 (def timestamp
   "A validator which checks if a string is an ISO 8601 formatted Coordinated

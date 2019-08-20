@@ -1,7 +1,7 @@
 (ns prelude.basic
   "Basic function used for checking equality, determining the type of a value, etc.")
 
-(require primitives '[first rest list])
+(require primitives '[first rest list foldr eq? nth vector? length drop map read-annotated])
 (require prelude.test-macro '[test])
 
 (def if
@@ -140,4 +140,5 @@
 (def req
   (macro
    (fn []
-     '(require primitives '[list member? ref map string-append]))))
+     '(do (require primitives '[list member? ref map string-append first seq show length foldl foldr atom? number? keyword? string? boolean? dict? vector? list? eq? zip nth rest vec-to-list cons lookup insert delete drop + - / > write-ref read-ref <>])
+          (require prelude.basic '[or if])))))
