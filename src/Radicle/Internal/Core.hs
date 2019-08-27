@@ -684,7 +684,7 @@ modifyCurrentNamespace f = do
     put $ b { bindingsNamespaces = nss' }
   where
     f' Nothing   = throwErrorHere $ OtherError "namespace missing!" -- TODO(james): make better error
-    f' (Just ns) = pure $ Just (f <$> ns)    
+    f' (Just ns) = pure $ Just (f <$> ns)
 
 defineAtomInNs :: Monad m => Unnamespaced -> Visibility -> Maybe Text -> Value -> Lang m ()
 defineAtomInNs i vis d v = modifyCurrentNamespace f

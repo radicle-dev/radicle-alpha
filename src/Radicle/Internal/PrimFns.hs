@@ -49,7 +49,7 @@ addPrimFns primFns bindings =
 
   where
     f :: Maybe (Doc.Docd Namespace) -> Maybe (Doc.Docd Namespace)
-    f Nothing = Just (Doc.Docd (Just "Primitives.") primFnsNs)
+    f Nothing                = Just (Doc.Docd (Just "Primitives.") primFnsNs)
     f (Just (Doc.Docd d ns)) = Just (Doc.Docd d (primFnsNs <> ns))
 
     primFnsNs :: Namespace
@@ -60,7 +60,7 @@ addPrimFns primFns bindings =
         ]
       , qualRules = mempty
       }
-      
+
 
 -- | The universal primops. These are available in chain evaluation.
 purePrimFns :: forall m. (Monad m) => PrimFns m
