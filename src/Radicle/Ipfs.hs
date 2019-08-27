@@ -224,9 +224,9 @@ data PubsubMessage = PubsubMessage
 instance FromJSON PubsubMessage where
     parseJSON = Aeson.withObject "PubsubMessage" $ \o -> do
         messageTopicIDs <- o .: "topicIDs"
-        Right messageData <- o .: "data" <&> T.encodeUtf8 <&> Multibase.decodeBase64
-        Right messageFrom <- o .: "from" <&> T.encodeUtf8 <&> Multibase.decodeBase64
-        Right messageSeqno <- o .: "seqno" <&> T.encodeUtf8 <&> Multibase.decodeBase64
+        Right messageData <- o .: "data" <&> T.encodeUtf8 <&> Multibase.decode
+        Right messageFrom <- o .: "from" <&> T.encodeUtf8 <&> Multibase.decode
+        Right messageSeqno <- o .: "seqno" <&> T.encodeUtf8 <&> Multibase.decode
         pure PubsubMessage {..}
 
 -- | Subscribe to a topic and call @messageHandler@ on every message.
