@@ -1,7 +1,7 @@
 (ns prelude.bool "Functions for dealing with truthiness and #f.")
 
+(prelude.basic//req)
 (require prelude.test-macro ['test])
-(require prelude.basic '[if])
 
 ;; not
 
