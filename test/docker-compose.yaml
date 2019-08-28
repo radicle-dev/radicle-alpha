@@ -19,7 +19,7 @@ services:
    command:
    - bash
    - -c
-   - 'sleep 10 && rad-daemon-radicle --debug'
+   - 'rad-daemon-radicle --debug'
    depends_on:
    - ipfs-test-network
   radicle-daemon2:
@@ -33,6 +33,6 @@ services:
    command:
    - bash
    - -c
-   - 'sleep 10 && rad-daemon-radicle --debug'
+   - 'rad-daemon-radicle --debug'
    depends_on:
    - ipfs-test-network
