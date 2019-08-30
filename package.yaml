@@ -4,6 +4,14 @@ author: Monadic <team@monadic.xyz>
 maintainer: Monadic <team@monadic.xyz>
 license: MIT
 git: oscoin/radicle
+category: Language, Network
+synopsis: A language for peer-to-peer programs
+description:
+  radicle is a deterministic LISP dialect, and a stack for running these
+  programs in a peer-to-peer fashion.
+  .
+  For more information, visit radicle's <https://radicle.xyz website>
+homepage: https://radicle.xyz
 extra-source-files:
 - README.md
 - ChangeLog.md
