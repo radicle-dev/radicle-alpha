@@ -24,3 +24,5 @@ createImpureBindings :: (MonadIO m, ReplM m) => [Text] -> IO (Bindings (PrimFns 
 createImpureBindings scriptArgs' = do
     daemonClientPrimFns <- createDaemonClientPrimFns
     pure $ addPrimFns (replPrimFns scriptArgs' <> daemonClientPrimFns) pureEnv
+
+-- blah blah I wanna trigger rebuild
