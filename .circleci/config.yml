@@ -53,6 +53,7 @@ jobs:
       - run:
           name: Homebrew Dependencies
           command: |
+            brew update
             brew bundle
             echo 'export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"' >> $BASH_ENV
 

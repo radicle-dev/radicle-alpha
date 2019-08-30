@@ -59,7 +59,7 @@ import           Control.Retry
 import           Data.Aeson (FromJSON, ToJSON, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
-import qualified Data.ByteString.Multibase as Multibase
+import qualified Data.ByteString.BaseN as Multibase
 import           Data.Conduit ((.|))
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Attoparsec as C
@@ -224,9 +224,9 @@ data PubsubMessage = PubsubMessage
 instance FromJSON PubsubMessage where
     parseJSON = Aeson.withObject "PubsubMessage" $ \o -> do
         messageTopicIDs <- o .: "topicIDs"
-        Right messageData <- o .: "data" <&> T.encodeUtf8 <&> Multibase.decodeBase64
-        Right messageFrom <- o .: "from" <&> T.encodeUtf8 <&> Multibase.decodeBase64
-        Right messageSeqno <- o .: "seqno" <&> T.encodeUtf8 <&> Multibase.decodeBase64
+        Just messageData <- o .: "data" <&> T.encodeUtf8 <&> Multibase.decodeBase64
+        Just messageFrom <- o .: "from" <&> T.encodeUtf8 <&> Multibase.decodeBase64
+        Just messageSeqno <- o .: "seqno" <&> T.encodeUtf8 <&> Multibase.decodeBase64
         pure PubsubMessage {..}
 
 -- | Subscribe to a topic and call @messageHandler@ on every message.
