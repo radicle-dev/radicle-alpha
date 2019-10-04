@@ -26,4 +26,3 @@ instance Ord a => Ord (Docd a) where
 
 noDocs :: [(a, c)] -> [(a, Maybe b, c)]
 noDocs = fmap $ \(x,y) -> (x, Nothing, y)
-

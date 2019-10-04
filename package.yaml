@@ -21,6 +21,7 @@ custom-setup:
 dependencies:
 - base >=4 && <5
 - protolude
+- radicle-lang
 
 ghc-options:
   - -Wall

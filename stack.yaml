@@ -37,6 +37,7 @@ resolver: snapshot.yaml
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - .
+- radicle-lang
 
 # Add extra deps as `packages` to `snapshot.yaml`.
 # extra-deps:

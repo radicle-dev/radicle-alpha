@@ -1,0 +1,76 @@
+author:              "Author name here"
+copyright:           "2019 Author name here"
+github:              "githubuser/radicle-lang"
+license:             BSD3
+maintainer:          "example@example.com"
+name:                radicle-lang
+version:             0.0.0.4
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/radicle-lang#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+data-files:
+- ../rad/**/*.rad
+
+library:
+  source-dirs: src
+  dependencies:
+    - aeson
+    - ansi-terminal
+    - bytestring
+    - containers
+    - cryptonite
+    - directory
+    - filepath
+    - generics-eot
+    - haskeline
+    - megaparsec
+    - mmorph
+    - mtl
+    - pointed
+    - prettyprinter
+    - prettyprinter-ansi-terminal
+    - process
+    - protolude
+    - serialise
+    - scientific
+    - text
+    - time
+    - uuid
+    - unliftio-core
+    - unordered-containers
+    - vector
+
+default-extensions:
+- ConstraintKinds
+- DefaultSignatures
+- DeriveDataTypeable
+- DeriveGeneric
+- DeriveTraversable
+- FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- GeneralizedNewtypeDeriving
+- LambdaCase
+- MultiParamTypeClasses
+- NoImplicitPrelude
+- OverloadedStrings
+- RankNTypes
+- RecordWildCards
+- ScopedTypeVariables
+- StandaloneDeriving
+- TupleSections
+- TypeFamilies
