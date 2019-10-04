@@ -8,6 +8,7 @@ import           Options.Applicative
 import           System.Directory (doesFileExist)
 
 import           Radicle
+import           Radicle.Internal
 
 main :: IO ()
 main = do

@@ -89,7 +89,6 @@ module Radicle
     , replPrimFns
     , addPrimFns
     , ReplM
-    , createImpureBindings
 
     -- * CLI
     , getHistoryFile
@@ -105,4 +104,15 @@ module Radicle
 
 import           Control.Monad.Identity (runIdentity)
 import           Data.Text.Prettyprint.Doc
-import           Radicle.Internal
+import           Radicle.Internal.Annotation
+import           Radicle.Internal.CLI
+import           Radicle.Internal.Core
+import           Radicle.Internal.Effects
+import           Radicle.Internal.Eval
+import           Radicle.Internal.Identifier
+import           Radicle.Internal.Interpret
+import           Radicle.Internal.Json
+import           Radicle.Internal.Parse
+import           Radicle.Internal.Pretty
+import           Radicle.Internal.PrimFns
+import           Radicle.Internal.Type

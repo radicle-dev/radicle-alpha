@@ -81,32 +81,6 @@ library:
   - vector
 
 tests:
-  spec:
-    main: Main.hs
-    source-dirs:
-    - test/spec
-    dependencies:
-    - radicle
-    - async
-    - containers
-    - cryptonite
-    - interpolate
-    - megaparsec
-    - process
-    - QuickCheck
-    - quickcheck-instances
-    - scientific
-    - serialise
-    - stm
-    - string-qq
-    - tasty
-    - tasty-hunit
-    - tasty-quickcheck
-    - text
-    - time
-    build-tools:
-    - tasty-discover
-    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
   doctest:
     main: Main.hs
     source-dirs:

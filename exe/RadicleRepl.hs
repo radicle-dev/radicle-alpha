@@ -6,6 +6,7 @@ import           Protolude hiding (TypeError, option, sourceFile)
 import           Options.Applicative
 
 import           Radicle
+import           Radicle.Internal
 
 main :: IO ()
 main = do
