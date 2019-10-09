@@ -22,6 +22,7 @@ dependencies:
 - base >=4 && <5
 - protolude
 - radicle-lang
+- radicle-repl
 
 ghc-options:
   - -Wall

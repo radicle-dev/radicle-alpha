@@ -18,6 +18,7 @@ import           Radicle.Internal
 import           Radicle.Internal.Core
 import qualified Radicle.Internal.Doc as Doc
 import           Radicle.Internal.Identifier
+import           Radicle.Repl (replBindings)
 import           Radicle.TH
 import           Text.Pandoc
 

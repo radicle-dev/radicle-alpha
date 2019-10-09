@@ -5,8 +5,8 @@ module Radicle.Internal
 import           Protolude
 import           Radicle.Daemon.Client (createDaemonClientPrimFns)
 import           Radicle.Internal.Core (Bindings, PrimFns)
-import           Radicle.Internal.Effects (ReplM, replPrimFns)
 import           Radicle.Internal.PrimFns (addPrimFns, pureEnv)
+import           Radicle.Repl (ReplM, replPrimFns)
 
 -- | Create all impure bindings. This is in IO so as to create a
 -- manager for the HTTP requests to the daemon.
