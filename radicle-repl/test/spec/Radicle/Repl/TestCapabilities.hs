@@ -2,7 +2,6 @@
 -- "Radicle.Repl.Capabilities" that may be used for testing.
 module Radicle.Repl.TestCapabilities (
       runCodeWithWorld
-    , runPureCode
     , runCodeWithFiles
 
     , WorldState(..)
@@ -53,12 +52,6 @@ runCodeWithFiles :: Map Text Text -> Text -> IO (Either (LangError Value) Value)
 runCodeWithFiles files code =
     let ws = defaultWorldState { worldStateFiles = files }
     in fst <$> runCodeWithWorld ws code
-
--- | Run radicle code in a pure environment.
-runPureCode :: Text -> Either (LangError Value) Value
-runPureCode code =
-    let prog = interpretMany "[test]" code
-    in evalState (fst <$> runLang pureEnv prog) defaultWorldState
 
 runCodeWithWorld :: WorldState -> Text -> IO (Either (LangError Value) Value, [Text])
 runCodeWithWorld ws code = do

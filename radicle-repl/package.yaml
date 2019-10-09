@@ -44,7 +44,6 @@ tests:
     source-dirs:
     - test/spec
     dependencies:
-    - async
     - containers
     - cryptonite
     - interpolate
@@ -52,12 +51,10 @@ tests:
     - process
     - protolude
     - QuickCheck
-    - quickcheck-instances
     - radicle-lang
     - radicle-repl
     - scientific
     - serialise
-    - stm
     - string-qq
     - tasty
     - tasty-hunit

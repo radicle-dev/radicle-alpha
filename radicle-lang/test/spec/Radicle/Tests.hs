@@ -1,5 +1,13 @@
 {-# LANGUAGE QuasiQuotes #-}
-module Radicle.Tests where
+module Radicle.Tests
+    ( test_eval
+    , test_parser
+    , test_binding
+    , test_pretty
+    , test_env
+    , test_from_to_radicle
+    , test_cbor
+    ) where
 
 import           Protolude hiding (toList)
 

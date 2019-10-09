@@ -29,14 +29,10 @@ library:
   source-dirs: src
   dependencies:
     - aeson
-    - ansi-terminal
     - bytestring
     - containers
     - cryptonite
-    - directory
-    - filepath
     - generics-eot
-    - haskeline
     - megaparsec
     - mmorph
     - mtl
@@ -53,7 +49,6 @@ library:
     - text
     - time
     - uuid
-    - unliftio-core
     - unordered-containers
     - vector
 
@@ -63,7 +58,6 @@ tests:
     source-dirs:
     - test/spec
     dependencies:
-    - async
     - containers
     - cryptonite
     - interpolate
@@ -75,7 +69,6 @@ tests:
     - radicle-lang
     - scientific
     - serialise
-    - stm
     - string-qq
     - tasty
     - tasty-hunit

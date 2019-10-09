@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
-module Radicle.Repl.Tests where
+module Radicle.Repl.Tests
+    ( test_repl_primops ) where
 
 import           Protolude hiding (toList)
 
