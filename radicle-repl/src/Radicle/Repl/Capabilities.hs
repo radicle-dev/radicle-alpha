@@ -2,14 +2,14 @@
 --
 -- The intent is that any set of primops may wear on their sleaves (i.e.
 -- constraints) what effects they do.
-module Radicle.Internal.Effects.Capabilities where
+module Radicle.Repl.Capabilities where
 
 import           Protolude
 
 import qualified Data.ByteString as BS
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
-import           Paths_radicle_lang
+import           Paths_radicle_repl
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
 import           System.Directory (doesFileExist, setCurrentDirectory)

@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Radicle.Internal.Effects where
+module Radicle.Repl where
 
 import           Protolude hiding (TypeError, toList)
 
@@ -22,7 +22,6 @@ import           System.Console.Haskeline
 
 import           Radicle.Internal.Core
 import           Radicle.Internal.Crypto
-import           Radicle.Internal.Effects.Capabilities
 import           Radicle.Internal.Eval
 import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
 import           Radicle.Internal.Interpret
@@ -33,6 +32,7 @@ import           Radicle.Internal.PrimFns
 import           Radicle.Internal.Time as Time
 import           Radicle.Internal.Type (Type(..))
 import qualified Radicle.Internal.UUID as UUID
+import           Radicle.Repl.Capabilities
 
 type ReplM m =
     ( Monad m, Stdout (Lang m), Stdin (Lang m)
@@ -54,14 +54,19 @@ instance UUID.MonadUUID (InputT IO) where
 instance UUID.MonadUUID m => UUID.MonadUUID (LangT (Bindings (PrimFns m)) m) where
     uuid = lift UUID.uuid
 
+putPrettyAnsi' :: (PrettyV v, Stdout m) => v -> m ()
+putPrettyAnsi' value = do
+  supportsANSI' <- bool NoANSISupport ANSISupport <$> supportsANSI
+  putPrettyAnsi putStrS supportsANSI' value
+
 script :: Text -> Text -> Bindings (PrimFns IO) -> IO ExitCode
 script fileName code bindings = do
     r <- fmap fst <$> runLang bindings $ interpretMany fileName $ ignoreShebang code
     case r of
         Left (LangError _ (Exit n)) -> pure (exitCode n)
-        Left e -> do putPrettyAnsi e
+        Left e -> do putPrettyAnsi' e
                      pure $ ExitFailure 1
-        Right x -> do putPrettyAnsi x
+        Right x -> do putPrettyAnsi' x
                       pure ExitSuccess
 
 -- TODO: restore error preCode?
@@ -83,8 +88,8 @@ repl histFile _ bindings = do
                     Right v -> do
                         (res, newSt) <- runLang st (eval v)
                         case res of
-                            Left e'  -> putPrettyAnsi e' >> loop st
-                            Right v' -> putPrettyAnsi v' >> loop newSt
+                            Left e'  -> putPrettyAnsi' e' >> loop st
+                            Right v' -> putPrettyAnsi' v' >> loop newSt
 
 exitCode :: Int -> ExitCode
 exitCode 0 = ExitSuccess
@@ -170,10 +175,10 @@ replPrimFns sysArgs = fromList $ allDocs $
                                 (\err -> case err of
                                    LangError _ (Exit _) -> pure (pure nil)
                                    LangError _ (Impossible _) -> do
-                                       putPrettyAnsi err
+                                       putPrettyAnsi' err
                                        throwError err
                                    _ -> do
-                                       putPrettyAnsi err
+                                       putPrettyAnsi' err
                                        put st
                                        pure (loop action))
                         go = do

@@ -38,6 +38,7 @@ resolver: snapshot.yaml
 packages:
 - .
 - radicle-lang
+- radicle-repl
 
 # Add extra deps as `packages` to `snapshot.yaml`.
 # extra-deps:

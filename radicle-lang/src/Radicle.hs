@@ -57,7 +57,6 @@ module Radicle
     , Lang
     , runLang
     , Bindings(..)
-    , replBindings
     -- ** To/FromRadicle
     , ToRad(..)
     , FromRad(..)
@@ -77,18 +76,10 @@ module Radicle
     , PageWidth(..)
     , Pretty
 
-    -- * Repl
-    , repl
-
-    -- * Script
-    , script
-
     -- * PrimFns
     , PrimFns(..)
     , purePrimFns
-    , replPrimFns
     , addPrimFns
-    , ReplM
 
     -- * CLI
     , getHistoryFile
@@ -98,7 +89,6 @@ module Radicle
     , ($$)
     , kwLookup
     , (??)
-    , ignoreShebang
 
     ) where
 
@@ -107,7 +97,6 @@ import           Data.Text.Prettyprint.Doc
 import           Radicle.Internal.Annotation
 import           Radicle.Internal.CLI
 import           Radicle.Internal.Core
-import           Radicle.Internal.Effects
 import           Radicle.Internal.Eval
 import           Radicle.Internal.Identifier
 import           Radicle.Internal.Interpret
