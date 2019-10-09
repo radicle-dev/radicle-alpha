@@ -81,9 +81,6 @@ module Radicle
     , purePrimFns
     , addPrimFns
 
-    -- * CLI
-    , getHistoryFile
-
     -- * Helpers
     , quote
     , ($$)
@@ -95,7 +92,6 @@ module Radicle
 import           Control.Monad.Identity (runIdentity)
 import           Data.Text.Prettyprint.Doc
 import           Radicle.Internal.Annotation
-import           Radicle.Internal.CLI
 import           Radicle.Internal.Core
 import           Radicle.Internal.Eval
 import           Radicle.Internal.Identifier

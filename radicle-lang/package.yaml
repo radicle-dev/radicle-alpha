@@ -45,8 +45,11 @@ library:
     - prettyprinter-ansi-terminal
     - process
     - protolude
+    - QuickCheck
+    - quickcheck-instances
     - serialise
     - scientific
+    - template-haskell
     - text
     - time
     - uuid

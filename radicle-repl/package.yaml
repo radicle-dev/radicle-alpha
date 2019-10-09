@@ -54,6 +54,7 @@ tests:
     - QuickCheck
     - quickcheck-instances
     - radicle-lang
+    - radicle-repl
     - scientific
     - serialise
     - stm

@@ -4,12 +4,14 @@ module Radicle.Tests where
 import           Protolude hiding (toList)
 
 import           Codec.Serialise (Serialise, deserialise, serialise)
+import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
 import           Data.Scientific (Scientific)
 import           Data.Sequence (Seq(..))
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
+import qualified Data.Time as Time
 import           GHC.Exts (fromList, toList)
 import           System.IO.Unsafe (unsafePerformIO)
 import           System.Process (CmdSpec(..), StdStream(..))
@@ -24,7 +26,6 @@ import qualified Radicle.Internal.Annotation as Ann
 import           Radicle.Internal.Arbitrary ()
 import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Foo)
-import           Radicle.Internal.TestCapabilities
 import           Radicle.TH
 
 test_eval :: [TestTree]
@@ -712,68 +713,6 @@ test_env =
         fromList (toList env') == env'
     ]
 
-test_repl_primops :: [TestTree]
-test_repl_primops =
-    [ testProperty "(read-annotated \"get-line!\" (get-line!)) returns the input line" $ \(v :: Value) ->
-        let prog = [i|(eq? (read-annotated \"get-line!\" (get-line!)) (quote #{renderPrettyDef v}))|]
-            -- We're not actually using IO
-            res = unsafePerformIO $ run [renderPrettyDef v] $ toS prog
-        in counterexample prog $ res == Right (Boolean True)
-
-    , testCase "catch catches read-line errors" $ do
-        let prog = [s|
-                 (catch 'any (read-line!) (fn [x] "caught"))
-                 |]
-            input = ["\"blah"]
-        res <- run input prog
-        res @?= Right (String "caught")
-    , testCase "read-file! can read a file" $ do
-        let prog = "(read-file! \"foobar.rad\")"
-            files = Map.singleton "foobar.rad" "foobar"
-        res <- runCodeWithFiles files prog
-        res @?= Right (String "foobar")
-    , testCase "load! can load definitions" $ do
-        let prog = [s|
-                   (load! "foo.rad")
-                   (+ foo bar)
-                   |]
-            files = Map.singleton "foo.rad" "(def foo 42) (def bar 8)"
-        res <- runCodeWithFiles files prog
-        res @?= Right (int 50)
-    , testCase "load! ignores shebangs" $ do
-        let prog = [s|
-                   (load! "foo.rad")
-                   taxi
-                   |]
-            files = Map.singleton "foo.rad" "#!/blah\n(def taxi 1797)"
-        res <- runCodeWithFiles files prog
-        res @?= Right (int 1797)
-    , testCase "generating and verifying cryptographic signatures works" $ do
-        let prog = [s|
-                   (def my-keys (gen-key-pair! (default-ecc-curve)))
-                   (def not-my-keys (gen-key-pair! (default-ecc-curve)))
-                   (def sig (gen-signature! (lookup :private-key my-keys) "hello"))
-                   (def tt (verify-signature (lookup :public-key my-keys) sig "hello"))
-                   (def ff (verify-signature (lookup :public-key not-my-keys) sig "hello"))
-                   (list tt ff)
-                   |]
-        res <- run [] prog
-        res @?= Right (List [Boolean True, Boolean False])
-    , testCase "uuid! generates a valid uuid" $ do
-        let prog = [s| (uuid? (uuid!)) |]
-        res <- run [] prog
-        res @?= Right (Boolean True)
-
-    , testCase "'exit!' throws an Exit error with the provided code" $ do
-        let prog = [s|(exit! 5)|]
-        Left (LangError _ errorData) <- run [] prog
-        errorData @?= Exit 5
-    ]
-  where
-    run stdin' prog =
-        let ws = defaultWorldState { worldStateStdin = stdin' }
-        in fst <$> runCodeWithWorld ws prog
-
 test_from_to_radicle :: [TestTree]
 test_from_to_radicle =
     [ testGroup "()"
@@ -863,3 +802,34 @@ parseTest t = parse "(test)" t
 prettyEither :: Either (LangError Value) Value -> T.Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e
 prettyEither (Right v) = renderPrettyDef v
+
+-- TODO(fintan): this is repeated :(
+data WorldState = WorldState
+    { worldStateStdin        :: [Text]
+    , worldStateStdout       :: [Text]
+    , worldStateFiles        :: Map Text Text
+    , worldStateDRG          :: CryptoRand.ChaChaDRG
+    , worldStateUUID         :: Int
+    , worldStateRemoteChains :: Map Text (Seq Value)
+    , worldStateCurrentTime  :: Time.UTCTime
+    }
+
+defaultWorldState :: WorldState
+defaultWorldState =
+    WorldState
+    { worldStateStdin = []
+    , worldStateStdout = []
+    , worldStateFiles = mempty
+    , worldStateDRG = CryptoRand.drgNewSeed (CryptoRand.seedFromInteger 4) -- chosen by fair dice roll
+    , worldStateUUID = 0
+    , worldStateRemoteChains = mempty
+    , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
+    }
+
+type TestLang = Lang (StateT WorldState IO)
+
+-- | Run radicle code in a pure environment.
+runPureCode :: Text -> Either (LangError Value) Value
+runPureCode code =
+    let prog = interpretMany "[test]" code
+    in evalState (fst <$> runLang pureEnv prog) defaultWorldState

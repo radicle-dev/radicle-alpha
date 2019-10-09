@@ -1,6 +1,6 @@
 -- | This module defines instances for the classes in
--- Radicle.Internal.Subscriber.Capabilities that may be used for testing.
-module Radicle.Internal.TestCapabilities (
+-- "Radicle.Repl.Capabilities" that may be used for testing.
+module Radicle.Repl.TestCapabilities (
       runCodeWithWorld
     , runPureCode
     , runCodeWithFiles
@@ -18,8 +18,9 @@ import qualified Data.Time as Time
 
 import           Radicle
 import           Radicle.Internal.Crypto
-import           Radicle.Internal.Effects.Capabilities
 import qualified Radicle.Internal.UUID as UUID
+import           Radicle.Repl (replPrimFns)
+import           Radicle.Repl.Capabilities
 
 
 data WorldState = WorldState
@@ -62,7 +63,7 @@ runPureCode code =
 runCodeWithWorld :: WorldState -> Text -> IO (Either (LangError Value) Value, [Text])
 runCodeWithWorld ws code = do
     let prog = interpretMany "[test]" code
-    bindings <- createImpureBindings []
+        bindings = addPrimFns (replPrimFns []) pureEnv
     (result, ws') <- runStateT (fst <$> runLang bindings prog) ws
     pure $ (result, worldStateStdout ws')
 
