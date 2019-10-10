@@ -1,4 +1,4 @@
-module Radicle.Internal.Number where
+module Radicle.Lang.Number where
 
 import           Protolude
 

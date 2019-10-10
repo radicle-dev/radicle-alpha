@@ -1,4 +1,4 @@
-module Radicle.Internal.PrimFns where
+module Radicle.Lang.PrimFns where
 
 import           Protolude hiding (TypeError)
 
@@ -14,19 +14,19 @@ import qualified Data.Text as T
 import           GHC.Exts (IsList(..), sortWith)
 import           Text.Megaparsec (errorBundlePretty)
 
-import qualified Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Core
-import           Radicle.Internal.Crypto
-import qualified Radicle.Internal.Doc as Doc
-import           Radicle.Internal.Eval
-import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
-import qualified Radicle.Internal.Json as Json
-import qualified Radicle.Internal.Number as Num
-import           Radicle.Internal.Parse
-import           Radicle.Internal.Pretty
-import qualified Radicle.Internal.Time as Time
-import           Radicle.Internal.Type (Type(..))
-import qualified Radicle.Internal.UUID as UUID
+import qualified Radicle.Lang.Annotation as Ann
+import           Radicle.Lang.Core
+import           Radicle.Lang.Crypto
+import qualified Radicle.Lang.Doc as Doc
+import           Radicle.Lang.Eval
+import           Radicle.Lang.Identifier (Ident(..), unsafeToIdent)
+import qualified Radicle.Lang.Internal.Time as Time
+import qualified Radicle.Lang.Internal.UUID as UUID
+import qualified Radicle.Lang.Json as Json
+import qualified Radicle.Lang.Number as Num
+import           Radicle.Lang.Parse
+import           Radicle.Lang.Pretty
+import           Radicle.Lang.Type (Type(..))
 
 -- | A Bindings with an Env containing only 'eval' and only pure primops.
 pureEnv :: forall m. (Monad m) => Bindings (PrimFns m)

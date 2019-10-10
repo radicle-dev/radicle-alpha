@@ -1,4 +1,4 @@
-module Radicle.Internal.Type where
+module Radicle.Lang.Type where
 
 import           Prelude (String)
 import           Protolude hiding (Type)

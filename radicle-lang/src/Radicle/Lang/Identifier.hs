@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-module Radicle.Internal.Identifier where
+module Radicle.Lang.Identifier where
 
 import qualified Prelude
 import           Protolude

@@ -1,4 +1,4 @@
-module Radicle.Internal.Eval
+module Radicle.Lang.Eval
     ( eval
     , baseEval
     , callFn
@@ -15,10 +15,10 @@ import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified GHC.Exts as GhcExts
 
-import           Radicle.Internal.Core
-import qualified Radicle.Internal.Doc as Doc
-import           Radicle.Internal.Identifier (Ident(..))
-import           Radicle.Internal.Orphans ()
+import           Radicle.Lang.Core
+import qualified Radicle.Lang.Doc as Doc
+import           Radicle.Lang.Identifier (Ident(..))
+import           Radicle.Lang.Internal.Orphans ()
 
 -- | The built-in, original, eval.
 baseEval :: Monad m => Value -> Lang m Value

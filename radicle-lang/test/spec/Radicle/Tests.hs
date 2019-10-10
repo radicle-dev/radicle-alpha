@@ -30,10 +30,10 @@ import           Test.Tasty.QuickCheck
 import qualified Text.Megaparsec.Pos as Par
 
 import           Radicle
-import qualified Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Arbitrary ()
-import           Radicle.Internal.Core (asValue, noStack)
 import           Radicle.Internal.Foo (Foo)
+import qualified Radicle.Lang.Annotation as Ann
+import           Radicle.Lang.Core (asValue, noStack)
+import           Radicle.Lang.Internal.Arbitrary ()
 import           Radicle.TH
 
 test_eval :: [TestTree]

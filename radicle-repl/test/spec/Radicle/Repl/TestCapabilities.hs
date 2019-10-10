@@ -16,8 +16,8 @@ import qualified Data.Sequence as Seq
 import qualified Data.Time as Time
 
 import           Radicle
-import           Radicle.Internal.Crypto
-import qualified Radicle.Internal.UUID as UUID
+import           Radicle.Lang.Crypto
+import qualified Radicle.Lang.Internal.UUID as UUID
 import           Radicle.Repl (replPrimFns)
 import           Radicle.Repl.Capabilities
 

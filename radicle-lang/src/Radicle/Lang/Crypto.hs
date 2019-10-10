@@ -1,7 +1,7 @@
 {-# LANGUAGE PackageImports #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Radicle.Internal.Crypto
+module Radicle.Lang.Crypto
   ( PublicKey
   , PrivateKey
   , Signature
@@ -22,8 +22,8 @@ import           Crypto.PubKey.ECC.Types
 import           "cryptonite" Crypto.Random
 import           Crypto.Random.Types (MonadRandom)
 
-import qualified Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Core
+import qualified Radicle.Lang.Annotation as Ann
+import           Radicle.Lang.Core
 
 deriving instance Generic PublicKey
 instance FromRad Ann.WithPos PublicKey

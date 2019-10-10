@@ -11,9 +11,9 @@ import qualified Data.Text as T
 import           Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH.Syntax as Syntax
 
-import           Radicle.Internal.Core
-import           Radicle.Internal.Identifier
-import           Radicle.Internal.Parse (mkIdent)
+import           Radicle.Lang.Core
+import           Radicle.Lang.Identifier
+import           Radicle.Lang.Parse (mkIdent)
 
 expQuot :: Text -> (String -> Syntax.Q Syntax.Exp) -> QuasiQuoter
 expQuot name e = QuasiQuoter

@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Radicle.Internal.Arbitrary where
+module Radicle.Lang.Internal.Arbitrary where
 
 import           Protolude
 
@@ -10,10 +10,10 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 import           Radicle
-import qualified Radicle.Internal.Doc as Doc
-import           Radicle.Internal.Identifier
+import qualified Radicle.Lang.Doc as Doc
+import           Radicle.Lang.Identifier
                  (isValidIdentFirst, isValidIdentRest)
-import           Radicle.Internal.PrimFns (purePrimFns)
+import           Radicle.Lang.PrimFns (purePrimFns)
 
 instance Arbitrary r => Arbitrary (Env r) where
     arbitrary = Env <$> arbitrary

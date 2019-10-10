@@ -21,9 +21,9 @@ import           Test.Tasty.QuickCheck
 import qualified Text.Megaparsec.Pos as Par
 
 import           Radicle
-import qualified Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Arbitrary ()
-import           Radicle.Internal.Core (asValue, noStack)
+import qualified Radicle.Lang.Annotation as Ann
+import           Radicle.Lang.Core (asValue, noStack)
+import           Radicle.Lang.Internal.Arbitrary ()
 import           Radicle.Repl.TestCapabilities
 import           Radicle.TH
 

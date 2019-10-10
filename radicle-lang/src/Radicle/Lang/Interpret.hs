@@ -1,18 +1,18 @@
-module Radicle.Internal.Interpret where
+module Radicle.Lang.Interpret where
 
 import           Protolude
 
-import qualified Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Core
-import           Radicle.Internal.Eval
-import           Radicle.Internal.Parse
+import qualified Radicle.Lang.Annotation as Ann
+import           Radicle.Lang.Core
+import           Radicle.Lang.Eval
+import           Radicle.Lang.Parse
 
 -- | Parse and evaluate a Text.
 --
 -- Examples:
 --
 -- >>> import Control.Monad.Identity
--- >>> import Radicle.Internal.PrimFns
+-- >>> import Radicle.Lang.PrimFns
 -- >>> fmap Ann.untag . runIdentity $ interpret "test" "((fn [x] x) #t)" pureEnv
 -- Right (Annotated (Identity (BooleanF True)))
 --
@@ -48,7 +48,7 @@ interpretWithState sourceName expr bnds = do
 --
 -- Examples:
 --
--- >>> import Radicle.Internal.PrimFns
+-- >>> import Radicle.Lang.PrimFns
 -- >>> fmap (fmap Ann.untag . fst) <$> runLang pureEnv $ interpretMany "test" "(def id (fn [x] x))\n(id #t)"
 -- Right (Annotated (Identity (BooleanF True)))
 interpretMany

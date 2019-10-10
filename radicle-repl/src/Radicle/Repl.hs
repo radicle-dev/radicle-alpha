@@ -20,18 +20,18 @@ import           System.Console.Haskeline
                  , simpleCompletion
                  )
 
-import           Radicle.Internal.Core
-import           Radicle.Internal.Crypto
-import           Radicle.Internal.Eval
-import           Radicle.Internal.Identifier (Ident(..), unsafeToIdent)
-import           Radicle.Internal.Interpret
-import           Radicle.Internal.Number (isInt)
-import           Radicle.Internal.Parse
-import           Radicle.Internal.Pretty
-import           Radicle.Internal.PrimFns
-import           Radicle.Internal.Time as Time
-import           Radicle.Internal.Type (Type(..))
-import qualified Radicle.Internal.UUID as UUID
+import           Radicle.Lang.Core
+import           Radicle.Lang.Crypto
+import           Radicle.Lang.Eval
+import           Radicle.Lang.Identifier (Ident(..), unsafeToIdent)
+import           Radicle.Lang.Interpret
+import qualified Radicle.Lang.Internal.Time as Time
+import qualified Radicle.Lang.Internal.UUID as UUID
+import           Radicle.Lang.Number (isInt)
+import           Radicle.Lang.Parse
+import           Radicle.Lang.Pretty
+import           Radicle.Lang.PrimFns
+import           Radicle.Lang.Type (Type(..))
 import           Radicle.Repl.Capabilities
 
 type ReplM m =

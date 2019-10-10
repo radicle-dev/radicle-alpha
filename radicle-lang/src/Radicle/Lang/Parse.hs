@@ -1,4 +1,4 @@
-module Radicle.Internal.Parse where
+module Radicle.Lang.Parse where
 
 import           Protolude hiding (SrcLoc, try)
 
@@ -27,9 +27,9 @@ import           Text.Megaparsec.Char (char, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Text.Megaparsec.Error as Par
 
-import           Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Core
-import           Radicle.Internal.Identifier
+import           Radicle.Lang.Annotation as Ann
+import           Radicle.Lang.Core
+import           Radicle.Lang.Identifier
 
 -- * The parser
 

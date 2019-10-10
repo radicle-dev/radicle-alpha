@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Radicle.Internal.Orphans () where
+module Radicle.Lang.Internal.Orphans () where
 
 import           Codec.Serialise (Serialise(..))
 import           Data.Scientific

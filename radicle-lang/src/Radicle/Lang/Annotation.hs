@@ -1,6 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 
-module Radicle.Internal.Annotation where
+module Radicle.Lang.Annotation where
 
 import           Codec.Serialise (Serialise)
 import           Data.Copointed (Copointed(..))
@@ -9,7 +9,7 @@ import           GHC.Stack
 import           Protolude hiding (SrcLoc)
 import qualified Text.Megaparsec.Pos as Par
 
-import           Radicle.Internal.Orphans ()
+import           Radicle.Lang.Internal.Orphans ()
 
 newtype Annotated t f = Annotated (t (f (Annotated t f)))
     deriving (Generic)

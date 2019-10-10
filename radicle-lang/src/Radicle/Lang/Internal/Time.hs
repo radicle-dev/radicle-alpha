@@ -1,4 +1,4 @@
-module Radicle.Internal.Time where
+module Radicle.Lang.Internal.Time where
 
 import qualified Prelude
 import           Protolude

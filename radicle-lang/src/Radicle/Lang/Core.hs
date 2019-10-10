@@ -2,7 +2,7 @@
 {-# LANGUAGE ViewPatterns    #-}
 
 -- | The core radicle datatypes and functionality.
-module Radicle.Internal.Core where
+module Radicle.Lang.Core where
 
 import qualified Prelude
 import           Protolude hiding (Constructor, Handle, State, TypeError, (<>))
@@ -25,15 +25,15 @@ import qualified GHC.IO.Handle as Handle
 import           System.Process
 import qualified Text.Megaparsec.Error as Par
 
-import           Radicle.Internal.Annotation (Annotated)
-import qualified Radicle.Internal.Annotation as Ann
-import qualified Radicle.Internal.Doc as Doc
-import           Radicle.Internal.Identifier (Ident(..))
-import qualified Radicle.Internal.Identifier as Identifier
-import qualified Radicle.Internal.Number as Num
-import           Radicle.Internal.Orphans ()
-import           Radicle.Internal.Type (Type(..))
-import qualified Radicle.Internal.Type as Type
+import           Radicle.Lang.Annotation (Annotated)
+import qualified Radicle.Lang.Annotation as Ann
+import qualified Radicle.Lang.Doc as Doc
+import           Radicle.Lang.Identifier (Ident(..))
+import qualified Radicle.Lang.Identifier as Identifier
+import           Radicle.Lang.Internal.Orphans ()
+import qualified Radicle.Lang.Number as Num
+import           Radicle.Lang.Type (Type(..))
+import qualified Radicle.Lang.Type as Type
 
 
 -- * Value

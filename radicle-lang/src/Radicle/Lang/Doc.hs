@@ -1,6 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module Radicle.Internal.Doc where
+module Radicle.Lang.Doc where
 
 import           Protolude hiding (Any)
 

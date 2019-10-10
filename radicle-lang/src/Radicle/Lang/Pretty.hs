@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Radicle.Internal.Pretty where
+module Radicle.Lang.Pretty where
 
 import           Protolude hiding (Type, TypeError, (<>))
 
@@ -16,10 +16,10 @@ import           Data.Text.Prettyprint.Doc.Render.Text
 import           Text.Megaparsec.Error (errorBundlePretty)
 import           Text.Megaparsec.Pos (sourcePosPretty)
 
-import qualified Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Core
-import           Radicle.Internal.Identifier (Ident(..))
-import           Radicle.Internal.Type
+import qualified Radicle.Lang.Annotation as Ann
+import           Radicle.Lang.Core
+import           Radicle.Lang.Identifier (Ident(..))
+import           Radicle.Lang.Type
 
 data ANSISupport
     = ANSISupport

@@ -41,11 +41,11 @@ import           Servant.API
 import           Servant.Swagger
 
 import qualified Paths_radicle as Radicle
-import qualified Radicle.Internal.Annotation as Ann
-import           Radicle.Internal.Core
-import           Radicle.Internal.Json
-import           Radicle.Internal.Parse
-import           Radicle.Internal.Pretty
+import qualified Radicle.Lang.Annotation as Ann
+import           Radicle.Lang.Core
+import           Radicle.Lang.Json
+import           Radicle.Lang.Parse
+import           Radicle.Lang.Pretty
 
 -- | Content type for values encoded as Radicle expression.
 data RadicleData

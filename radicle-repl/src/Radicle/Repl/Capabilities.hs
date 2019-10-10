@@ -28,7 +28,7 @@ import           System.IO
 import           System.Process
                  (CreateProcess, ProcessHandle, createProcess, waitForProcess)
 
-import           Radicle.Internal.Core
+import           Radicle.Lang.Core
 
 class (Monad m) => Stdin m where
     getLineS :: m (Maybe Text)  -- gives Nothing on EOF

@@ -1,6 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 
-module Radicle.Internal.UUID where
+module Radicle.Lang.Internal.UUID where
 
 import           Protolude
 

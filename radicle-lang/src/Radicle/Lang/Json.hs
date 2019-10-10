@@ -1,4 +1,4 @@
-module Radicle.Internal.Json where
+module Radicle.Lang.Json where
 
 import           Protolude
 
@@ -11,12 +11,12 @@ import qualified Data.Scientific as Sci
 import qualified Data.Sequence as Seq
 import qualified Data.Vector as JsonVector
 
-import           Radicle.Internal.Core
-import           Radicle.Internal.Identifier
-import           Radicle.Internal.Number
-import           Radicle.Internal.Parse
-import           Radicle.Internal.Pretty
-import qualified Radicle.Internal.Type as Type
+import           Radicle.Lang.Core
+import           Radicle.Lang.Identifier
+import           Radicle.Lang.Number
+import           Radicle.Lang.Parse
+import           Radicle.Lang.Pretty
+import qualified Radicle.Lang.Type as Type
 
 -- | Parses JSON into a Value. It expects the value to be encoded as a radicle
 -- expression in a JSON string. Corresponds to the encoding given by

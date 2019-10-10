@@ -42,7 +42,7 @@ import qualified Radicle.Ipfs as Ipfs
 
 import           Radicle hiding (DaemonError, Env)
 import qualified Radicle.Internal.ConcurrentMap as CMap
-import qualified Radicle.Internal.UUID as UUID
+import qualified Radicle.Lang.Internal.UUID as UUID
 
 
 -- | Repeatedly tries to connect to the Radicle IPFS daemon API until
