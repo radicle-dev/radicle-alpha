@@ -811,33 +811,8 @@ prettyEither :: Either (LangError Value) Value -> T.Text
 prettyEither (Left e)  = "Error: " <> renderPrettyDef e
 prettyEither (Right v) = renderPrettyDef v
 
--- TODO(fintan): this is repeated :(
-data WorldState = WorldState
-    { worldStateStdin        :: [Text]
-    , worldStateStdout       :: [Text]
-    , worldStateFiles        :: Map Text Text
-    , worldStateDRG          :: CryptoRand.ChaChaDRG
-    , worldStateUUID         :: Int
-    , worldStateRemoteChains :: Map Text (Seq Value)
-    , worldStateCurrentTime  :: Time.UTCTime
-    }
-
-defaultWorldState :: WorldState
-defaultWorldState =
-    WorldState
-    { worldStateStdin = []
-    , worldStateStdout = []
-    , worldStateFiles = mempty
-    , worldStateDRG = CryptoRand.drgNewSeed (CryptoRand.seedFromInteger 4) -- chosen by fair dice roll
-    , worldStateUUID = 0
-    , worldStateRemoteChains = mempty
-    , worldStateCurrentTime = Time.UTCTime (Time.ModifiedJulianDay 0) 0
-    }
-
-type TestLang = Lang (StateT WorldState IO)
-
--- | Run radicle code in a pure environment.
+-- | Run radicle code in a pure environment ('Lang Identity Value').
 runPureCode :: Text -> Either (LangError Value) Value
 runPureCode code =
     let prog = interpretMany "[test]" code
-    in evalState (fst <$> runLang pureEnv prog) defaultWorldState
+    in runIdentity (fst <$> runLang pureEnv prog)
