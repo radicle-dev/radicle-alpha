@@ -21,11 +21,11 @@ import qualified Servant.Client as Servant
 import           System.Environment
 
 import           Radicle.Daemon.HttpApi
-import           Radicle.Internal.Core
-import           Radicle.Internal.Identifier
-import qualified Radicle.Internal.PrimFns as PrimFns
-import           Radicle.Internal.Type
 import qualified Radicle.Ipfs as Ipfs
+import           Radicle.Lang.Core
+import           Radicle.Lang.Identifier
+import qualified Radicle.Lang.PrimFns as PrimFns
+import           Radicle.Lang.Type
 
 -- | Constraints for all client functions
 type ClientM m = (MonadIO m, MonadError Servant.ServantError m)

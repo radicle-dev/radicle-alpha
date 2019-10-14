@@ -3,7 +3,7 @@ version: '0.0.4'
 author: Monadic <team@monadic.xyz>
 maintainer: Monadic <team@monadic.xyz>
 license: MIT
-git: oscoin/radicle
+git: radicle-dev/radicle
 category: Language, Network
 synopsis: A language for peer-to-peer programs
 description:
@@ -44,48 +44,35 @@ library:
   source-dirs: src
   dependencies:
   - aeson
-  - ansi-terminal
   - bytestring
   - clock
   - conduit
   - conduit-extra
   - containers
-  - cryptonite
   - directory
   - filepath
-  - generics-eot
-  - haskeline
   - http-client
   - http-conduit
   - http-types
   - http-media
   - ipld-cid
-  - megaparsec
-  - mmorph
   - mtl
   - multibase
   - optparse-applicative
-  - pointed
-  - prettyprinter
-  - prettyprinter-ansi-terminal
-  - process
+  - radicle-lang
+  - radicle-repl
   - resourcet
   - retry
   - safe-exceptions
-  - scientific
-  - serialise
   - servant
   - servant-client
   - servant-swagger
   - swagger2
-  - template-haskell
   - text
   - time
   - unliftio-core
   - unliftio
   - unordered-containers
-  - uuid
-  - vector
 
 tests:
   spec:
@@ -93,24 +80,11 @@ tests:
     source-dirs:
     - test/spec
     dependencies:
-    - radicle
     - async
-    - containers
-    - cryptonite
-    - interpolate
-    - megaparsec
-    - process
-    - QuickCheck
-    - quickcheck-instances
-    - scientific
-    - serialise
+    - radicle
     - stm
-    - string-qq
     - tasty
     - tasty-hunit
-    - tasty-quickcheck
-    - text
-    - time
     build-tools:
     - tasty-discover
     ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
@@ -161,6 +135,7 @@ executables:
     other-modules: []
     dependencies:
     - radicle
+    - radicle-repl
     - bytestring
     - directory
     - optparse-applicative
@@ -174,6 +149,7 @@ executables:
     - containers
     - mtl
     - radicle
+    - radicle-lang
     - safe-exceptions
     - servant-server
     - text
@@ -189,6 +165,7 @@ executables:
     other-modules: []
     dependencies:
     - radicle
+    - radicle-repl
     - optparse-applicative
     ghc-options: ["-main-is", "RadicleRepl"]
 
@@ -198,6 +175,7 @@ executables:
     other-modules: []
     dependencies:
     - radicle
+    - radicle-lang
     - optparse-applicative
     - pandoc
     - text
@@ -209,6 +187,8 @@ executables:
     other-modules: []
     dependencies:
     - radicle
+    - radicle-lang
+    - radicle-repl
     - pandoc
     - data-default
     - containers
@@ -221,11 +201,11 @@ executables:
     source-dirs: exe/
     other-modules: []
     dependencies:
-    - radicle
     - containers
-    - time
     - github < 0.21
     - optparse-applicative
+    - radicle-lang
+    - time
     ghc-options: ["-main-is", "GithubIssues"]
 
   radicle-benchmark:
@@ -233,7 +213,7 @@ executables:
     source-dirs: exe/
     other-modules: []
     dependencies:
-    - radicle
+    - radicle-lang
     - criterion
     ghc-options: ["-main-is", "Benchmarks"]
 

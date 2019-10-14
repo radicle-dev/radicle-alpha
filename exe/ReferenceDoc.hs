@@ -14,9 +14,11 @@ import qualified Data.Text as T
 import           Data.Yaml hiding (Value)
 import           Radicle
 import qualified Radicle.Daemon.HttpApi as Daemon
-import           Radicle.Internal.Core
-import qualified Radicle.Internal.Doc as Doc
-import           Radicle.Internal.Identifier
+import           Radicle.Internal
+import           Radicle.Lang.Core
+import qualified Radicle.Lang.Doc as Doc
+import           Radicle.Lang.Identifier
+import           Radicle.Repl (replBindings)
 import           Radicle.TH
 import           Text.Pandoc
 

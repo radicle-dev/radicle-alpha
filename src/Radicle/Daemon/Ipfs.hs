@@ -34,12 +34,12 @@ import           System.Timeout
 import           UnliftIO.Async
 
 import           Radicle.Daemon.Logging (MonadLog)
-import           Radicle.Internal.Core
-import           Radicle.Internal.Json
-import           Radicle.Internal.Parse
-import           Radicle.Internal.Pretty
-import qualified Radicle.Internal.UUID as UUID
 import qualified Radicle.Ipfs as Ipfs
+import           Radicle.Lang.Core
+import qualified Radicle.Lang.Internal.UUID as UUID
+import           Radicle.Lang.Json
+import           Radicle.Lang.Parse
+import           Radicle.Lang.Pretty
 
 -- * Types
 

@@ -1,0 +1,84 @@
+name: radicle-lang
+version: '0.0.1'
+author: Monadic <team@monadic.xyz>
+maintainer: Monadic <team@monadic.xyz>
+license: MIT
+github: radicle-dev/radicle-lang
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  dependencies:
+    - aeson
+    - bytestring
+    - containers
+    - cryptonite
+    - generics-eot
+    - megaparsec
+    - mmorph
+    - mtl
+    - pointed
+    - prettyprinter
+    - prettyprinter-ansi-terminal
+    - process
+    - protolude
+    - QuickCheck
+    - quickcheck-instances
+    - serialise
+    - scientific
+    - template-haskell
+    - text
+    - time
+    - uuid
+    - unordered-containers
+    - vector
+
+tests:
+  spec:
+    main: Main.hs
+    source-dirs:
+    - test/spec
+    dependencies:
+    - containers
+    - cryptonite
+    - interpolate
+    - megaparsec
+    - process
+    - protolude
+    - QuickCheck
+    - quickcheck-instances
+    - radicle-lang
+    - scientific
+    - serialise
+    - string-qq
+    - tasty
+    - tasty-hunit
+    - tasty-quickcheck
+    - text
+    - time
+    build-tools:
+    - tasty-discover
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+
+default-extensions:
+- ConstraintKinds
+- DefaultSignatures
+- DeriveDataTypeable
+- DeriveGeneric
+- DeriveTraversable
+- FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- GeneralizedNewtypeDeriving
+- LambdaCase
+- MultiParamTypeClasses
+- NoImplicitPrelude
+- OverloadedStrings
+- RankNTypes
+- RecordWildCards
+- ScopedTypeVariables
+- StandaloneDeriving
+- TupleSections
+- TypeFamilies

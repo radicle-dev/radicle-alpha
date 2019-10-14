@@ -7,7 +7,8 @@ import qualified Data.ByteString as BS
 import           Options.Applicative
 import           System.Directory (doesFileExist)
 
-import           Radicle
+import           Radicle.Internal
+import           Radicle.Repl (script)
 
 main :: IO ()
 main = do

@@ -1,0 +1,106 @@
+-- This file has been generated from package.yaml by hpack version 0.28.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: d2ab9b80c726e88c408a7ca5bbf94e901f76a12cf13c294175e6368e4b89793d
+
+name:           radicle-lang
+version:        0.0.1
+homepage:       https://github.com/radicle-dev/radicle-lang#readme
+bug-reports:    https://github.com/radicle-dev/radicle-lang/issues
+author:         Monadic <team@monadic.xyz>
+maintainer:     Monadic <team@monadic.xyz>
+license:        MIT
+build-type:     Simple
+cabal-version:  >= 1.10
+
+source-repository head
+  type: git
+  location: https://github.com/radicle-dev/radicle-lang
+
+library
+  exposed-modules:
+      Radicle
+      Radicle.Lang.Annotation
+      Radicle.Lang.Core
+      Radicle.Lang.Crypto
+      Radicle.Lang.Doc
+      Radicle.Lang.Eval
+      Radicle.Lang.Identifier
+      Radicle.Lang.Internal.Arbitrary
+      Radicle.Lang.Internal.Orphans
+      Radicle.Lang.Internal.Time
+      Radicle.Lang.Internal.UUID
+      Radicle.Lang.Interpret
+      Radicle.Lang.Json
+      Radicle.Lang.Number
+      Radicle.Lang.Parse
+      Radicle.Lang.Pretty
+      Radicle.Lang.PrimFns
+      Radicle.Lang.Type
+      Radicle.TH
+  other-modules:
+      Paths_radicle_lang
+  hs-source-dirs:
+      src
+  default-extensions: ConstraintKinds DefaultSignatures DeriveDataTypeable DeriveGeneric DeriveTraversable FlexibleContexts FlexibleInstances FunctionalDependencies GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NoImplicitPrelude OverloadedStrings RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TupleSections TypeFamilies
+  build-depends:
+      QuickCheck
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , cryptonite
+    , generics-eot
+    , megaparsec
+    , mmorph
+    , mtl
+    , pointed
+    , prettyprinter
+    , prettyprinter-ansi-terminal
+    , process
+    , protolude
+    , quickcheck-instances
+    , scientific
+    , serialise
+    , template-haskell
+    , text
+    , time
+    , unordered-containers
+    , uuid
+    , vector
+  default-language: Haskell2010
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Radicle.Internal.Foo
+      Radicle.Tests
+      Paths_radicle_lang
+  hs-source-dirs:
+      test/spec
+  default-extensions: ConstraintKinds DefaultSignatures DeriveDataTypeable DeriveGeneric DeriveTraversable FlexibleContexts FlexibleInstances FunctionalDependencies GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NoImplicitPrelude OverloadedStrings RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TupleSections TypeFamilies
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      QuickCheck
+    , base >=4.7 && <5
+    , containers
+    , cryptonite
+    , interpolate
+    , megaparsec
+    , process
+    , protolude
+    , quickcheck-instances
+    , radicle-lang
+    , scientific
+    , serialise
+    , string-qq
+    , tasty
+    , tasty-hunit
+    , tasty-quickcheck
+    , text
+    , time
+  build-tools:
+      tasty-discover
+  default-language: Haskell2010
