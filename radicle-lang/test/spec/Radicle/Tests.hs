@@ -12,16 +12,13 @@ module Radicle.Tests
 import           Protolude hiding (toList)
 
 import           Codec.Serialise (Serialise, deserialise, serialise)
-import qualified Crypto.Random as CryptoRand
 import qualified Data.Map.Strict as Map
 import           Data.Scientific (Scientific)
 import           Data.Sequence (Seq(..))
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
 import qualified Data.Text as T
-import qualified Data.Time as Time
 import           GHC.Exts (fromList, toList)
-import           System.IO.Unsafe (unsafePerformIO)
 import           System.Process (CmdSpec(..), StdStream(..))
 import           Test.Tasty
 import           Test.Tasty.HUnit

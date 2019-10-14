@@ -4,28 +4,18 @@ module Radicle.Repl.Tests
 
 import           Protolude hiding (toList)
 
-import           Codec.Serialise (Serialise, deserialise, serialise)
 import qualified Data.Map.Strict as Map
-import           Data.Scientific (Scientific)
-import           Data.Sequence (Seq(..))
 import           Data.String.Interpolate (i)
 import           Data.String.QQ (s)
-import qualified Data.Text as T
-import           GHC.Exts (fromList, toList)
 import           System.IO.Unsafe (unsafePerformIO)
-import           System.Process (CmdSpec(..), StdStream(..))
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
-                 (Arbitrary, counterexample, testProperty, (==>))
-import qualified Text.Megaparsec.Pos as Par
+                 (counterexample, testProperty)
 
 import           Radicle
-import qualified Radicle.Lang.Annotation as Ann
-import           Radicle.Lang.Core (asValue, noStack)
 import           Radicle.Lang.Internal.Arbitrary ()
 import           Radicle.Repl.TestCapabilities
-import           Radicle.TH
 
 test_repl_primops :: [TestTree]
 test_repl_primops =
