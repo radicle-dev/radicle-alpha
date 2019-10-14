@@ -1,4 +1,7 @@
-packages: ./radicle.cabal
+packages:
+  ./radicle.cabal
+  ./radicle-lang/radicle-lang.cabal
+  ./radicle-repl/radicle-repl.cabal
 
 package sandi
   flags: -with-conduit
