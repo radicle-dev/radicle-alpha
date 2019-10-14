@@ -11,8 +11,7 @@ import           Test.QuickCheck.Instances ()
 
 import           Radicle
 import qualified Radicle.Lang.Doc as Doc
-import           Radicle.Lang.Identifier
-                 (isValidIdentFirst, isValidIdentRest)
+import           Radicle.Lang.Identifier (isValidIdentFirst, isValidIdentRest)
 import           Radicle.Lang.PrimFns (purePrimFns)
 
 instance Arbitrary r => Arbitrary (Env r) where

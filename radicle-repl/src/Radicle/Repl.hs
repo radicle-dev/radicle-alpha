@@ -24,9 +24,9 @@ import           Radicle.Lang.Core
 import           Radicle.Lang.Crypto
 import           Radicle.Lang.Eval
 import           Radicle.Lang.Identifier (Ident(..), unsafeToIdent)
-import           Radicle.Lang.Interpret
 import qualified Radicle.Lang.Internal.Time as Time
 import qualified Radicle.Lang.Internal.UUID as UUID
+import           Radicle.Lang.Interpret
 import           Radicle.Lang.Number (isInt)
 import           Radicle.Lang.Parse
 import           Radicle.Lang.Pretty
