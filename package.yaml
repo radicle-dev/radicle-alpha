@@ -3,7 +3,7 @@ version: '0.0.4'
 author: Monadic <team@monadic.xyz>
 maintainer: Monadic <team@monadic.xyz>
 license: MIT
-git: oscoin/radicle
+git: radicle-dev/radicle
 extra-source-files:
 - README.md
 - ChangeLog.md

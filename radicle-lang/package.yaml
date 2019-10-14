@@ -1,19 +1,9 @@
-author:              "Author name here"
-copyright:           "2019 Author name here"
-github:              "githubuser/radicle-lang"
-license:             BSD3
-maintainer:          "example@example.com"
-name:                radicle-lang
-version:             0.0.0.4
-
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
-
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/radicle-lang#readme>
+name: radicle-lang
+version: '0.0.1'
+author: Monadic <team@monadic.xyz>
+maintainer: Monadic <team@monadic.xyz>
+license: MIT
+github: radicle-dev/radicle-lang
 
 dependencies:
 - base >= 4.7 && < 5
