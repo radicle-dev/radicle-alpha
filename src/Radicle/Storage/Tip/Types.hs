@@ -16,6 +16,8 @@ import           Data.Aeson (FromJSON, ToJSON)
 import           Radicle.Storage.Types (ReaderOrWriter)
 
 
+-- | The latest known index @tip@ of a 'Radicle.Storage.Machine' idenitified by
+-- machine-id @mid@.
 data TipInfo mid tip = TipInfo
     { tipMachineId   :: mid
     , tipPointer     :: Maybe tip
