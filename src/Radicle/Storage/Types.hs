@@ -61,6 +61,12 @@ type Nonce   = Text
 data Expressions = Expressions
     { expressions :: [Value]
     , nonce       :: Maybe Nonce
+    -- ^ An optional random value chosen by the submitter of 'Inputs'.
+    --
+    -- If present, 'backendPut' must echo back the exact value in the
+    -- 'PutResponse'. Clients may use this to correlate out-of-order responses
+    -- with their requests. Note, however, that some backends may __/require/__
+    -- a nonce to ensure idempotency or prevent replay.
     }
 
 -- | A storage backend.
