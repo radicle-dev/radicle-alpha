@@ -141,10 +141,10 @@ runMachine settings backend tips mid idx mode = runExceptT $ do
     tryAnyE = withExceptT ExceptionInInitialiserError . ExceptT . tryAny
 
     emptyMachine = Machine
-        { machineId        = mid
-        , machineLastIndex = Nothing
-        , machineState     = emptyBindings
-        , machineMode      = mode
+        { machineId    = mid
+        , machineTip   = Nothing
+        , machineState = emptyBindings
+        , machineMode  = mode
         }
 
 shutdownMachine :: MonadIO m => MEnv e mid idx -> m ()
@@ -171,10 +171,10 @@ loadMachine backend mid idx mode = do
         either throw pure
             =<< backendFoldUpto backend mid idx f emptyBindings
     pure . Just $ Machine
-        { machineId        = mid
-        , machineLastIndex = Just idx
-        , machineState     = bindings
-        , machineMode      = mode
+        { machineId    = mid
+        , machineTip   = Just idx
+        , machineState = bindings
+        , machineMode  = mode
         }
   where
     f _ inputs bindings =
@@ -280,8 +280,8 @@ runTask settings backend tips machineRef task = runExceptT $ do
                                 (machineMode machine)
                     ExceptT $ do
                         atomically . modifyTVar' machineRef $ \m ->
-                            m { machineState     = newState
-                              , machineLastIndex = Just idx
+                            m { machineState = newState
+                              , machineTip   = Just idx
                               }
                         confirm $> Right Expressions
                             { expressions = outs

@@ -10,7 +10,7 @@ module Radicle.Storage
     -- * Re-exports
     , Machine
     , machineId
-    , machineLastIndex
+    , machineTip
     , machineState
     , machineMode
 

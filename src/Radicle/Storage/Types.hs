@@ -9,11 +9,20 @@ import           Data.Aeson (FromJSON, ToJSON)
 import           Radicle
 
 -- | In-memory representation of the current state of a machine.
+--
+-- A radicle (state) machine is identified by a globally unique machine-id
+-- @mid@, whose type is implementation-defined. A machine is a hash-linked list
+-- of expressions ('Value's), which, when evaluated, yield the 'machineState'.
+-- The head of this list is referred to as the 'machineTip', as it is usually
+-- the latest (known) state.  Machines may however be loaded only up to a
+-- particular index @idx@. @idx@ is kept polymorphic, as the choice of hash
+-- function is implementation-dependend.
+--
 data Machine mid idx = Machine
-    { machineId        :: mid
-    , machineLastIndex :: Maybe idx
-    , machineState     :: Bindings (PrimFns Identity)
-    , machineMode      :: ReaderOrWriter
+    { machineId    :: mid
+    , machineTip   :: Maybe idx
+    , machineState :: Bindings (PrimFns Identity)
+    , machineMode  :: ReaderOrWriter
     }
 
 -- | Class of types which can be rendered as a valid file name.
