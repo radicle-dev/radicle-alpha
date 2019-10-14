@@ -62,6 +62,17 @@ tests:
     - tasty-discover
     ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
 
+  doctest:
+    main: Main.hs
+    source-dirs:
+    - test/docs
+    dependencies:
+    - doctest
+    - Glob
+    - hpack
+    - protolude
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+
 default-extensions:
 - ConstraintKinds
 - DefaultSignatures

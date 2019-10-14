@@ -99,8 +99,10 @@ steps:
     - |
       set -euxo pipefail
 
-      stack test :doctest
-      stack test :spec
+      stack test radicle-lang:doctest
+      stack test radicle-lang:spec
+      stack test radicle-repl:spec
+      stack test radicle:spec
       RADPATH="$(pwd)/rad" stack exec -- radicle test/all.rad
 
   - id: "Lint (weeder)"
