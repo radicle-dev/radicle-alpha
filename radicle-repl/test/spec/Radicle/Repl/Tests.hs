@@ -10,8 +10,7 @@ import           Data.String.QQ (s)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck
-                 (counterexample, testProperty)
+import           Test.Tasty.QuickCheck (counterexample, testProperty)
 
 import           Radicle
 import           Radicle.Lang.Internal.Arbitrary ()
