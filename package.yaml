@@ -97,6 +97,7 @@ tests:
     - directory
     - exceptions
     - filepath
+    - git-remote-ipfs
     - safe-exceptions
     - tasty
     - tasty-hunit
