@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0516796b244f09e82d00bb3cfe9fd78f7d103f340aa50ed3c90901dc053ea598
+-- hash: b1e4195c21afab6bbc348874b89cd3a2559d6694be7e675836877ad3a5fcf3cc
 
 name:           radicle-lang
 version:        0.0.1
@@ -103,7 +103,6 @@ test-suite spec
       QuickCheck
     , base >=4.7 && <5
     , containers
-    , cryptonite
     , interpolate
     , megaparsec
     , process
@@ -117,7 +116,6 @@ test-suite spec
     , tasty-hunit
     , tasty-quickcheck
     , text
-    , time
   build-tools:
       tasty-discover
   default-language: Haskell2010

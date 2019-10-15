@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 96661a8ae7732984dede9bb77cd1868de971a6605b17c3ba1b9e4b28d9a83e94
+-- hash: ad1738df0a3c59b1b5001716397023051155fa87b886c2884ca614fa32010328
 
 name:           radicle-repl
 version:        0.0.1
@@ -60,13 +60,9 @@ test-suite spec
     , containers
     , cryptonite
     , interpolate
-    , megaparsec
-    , process
     , protolude
     , radicle-lang
     , radicle-repl
-    , scientific
-    , serialise
     , string-qq
     , tasty
     , tasty-hunit

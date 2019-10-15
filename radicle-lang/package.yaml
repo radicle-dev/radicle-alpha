@@ -42,7 +42,6 @@ tests:
     - test/spec
     dependencies:
     - containers
-    - cryptonite
     - interpolate
     - megaparsec
     - process
@@ -57,7 +56,6 @@ tests:
     - tasty-hunit
     - tasty-quickcheck
     - text
-    - time
     build-tools:
     - tasty-discover
     ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
