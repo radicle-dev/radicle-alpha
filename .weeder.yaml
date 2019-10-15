@@ -1,6 +1,13 @@
 - package:
   - name: radicle
   - section:
+    - name: test:e2e
+    - message:
+      - name: Redundant build-depends entry
+      - depends: git-remote-ipfs
+- package:
+  - name: radicle-lang
+  - section:
     - name: test:spec
     - message:
       # BEGIN export all for ease of debugging
@@ -11,15 +18,9 @@
           - atom
           - int
           - kw
-          - vec
           - parseTest
           - prettyEither
+          - runPureCode
           - stackTraceLines
+          - vec
       # END
-  - section:
-    - name: test:e2e
-    - message:
-      - name: Redundant build-depends entry
-      - depends:
-        # Library is not required, but executable
-        - git-remote-ipfs
