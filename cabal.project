@@ -1,5 +1,6 @@
 packages:
   ./radicle.cabal
+  ./rad-base/rad-base.cabal
   ./radicle-lang/radicle-lang.cabal
   ./radicle-repl/radicle-repl.cabal
 
