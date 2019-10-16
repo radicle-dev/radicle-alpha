@@ -9,13 +9,10 @@ import           Protolude
 import qualified Data.ByteString as BS
 import           Data.Text.Prettyprint.Doc (PageWidth)
 import           Data.Time
-import           Paths_radicle_repl
 import           System.Console.ANSI (hSupportsANSI)
 import           System.Console.Haskeline hiding (catch)
-import           System.Directory (doesFileExist, setCurrentDirectory)
-import           System.Environment (lookupEnv)
+import           System.Directory (setCurrentDirectory)
 import           System.Exit (ExitCode)
-import           System.FilePath (splitSearchPath, (</>))
 import           System.IO
                  ( BufferMode(LineBuffering)
                  , hClose
@@ -29,6 +26,7 @@ import           System.Process
                  (CreateProcess, ProcessHandle, createProcess, waitForProcess)
 
 import           Radicle.Lang.Core
+import           Radicle.Path
 
 class (Monad m) => Stdin m where
     getLineS :: m (Maybe Text)  -- gives Nothing on EOF
@@ -163,24 +161,3 @@ putStrLnS t = putStrS t >> putStrS "\n"
 
 modifyEnvS :: (GetEnv m r, SetEnv m r) => (Env r -> Env r) -> m ()
 modifyEnvS f = getEnvS >>= setEnvS . f
-
--- | Importing works as follows:
---
---    (1) If the RADPATH environment variable exists, search there
---    (2) Otherwise search in data-dir
---    (3) Finally we search in the current directory.
---
--- RADPATH should be a colon-separated list of directories (just like PATH).
-findModule :: FilePath -> IO (Maybe FilePath)
-findModule file = do
-    mrp <- lookupEnv "RADPATH"
-    radPathDirs <- case mrp of
-            Nothing -> (\x -> [x </> "rad"]) <$> getDataDir
-            Just rp -> pure $ splitSearchPath rp
-    let searchPath = radPathDirs ++ ["."]
-    let doFind xs = case xs of
-            [] -> pure Nothing
-            x:xs' -> do
-                exists <- doesFileExist (x </> file)
-                if exists then pure (Just $ x </> file) else doFind xs'
-    doFind searchPath

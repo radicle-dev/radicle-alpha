@@ -37,9 +37,6 @@ ghc-options:
   - -Wincomplete-uni-patterns
   - -Wredundant-constraints
 
-data-files:
-- rad/**/*.rad
-
 library:
   source-dirs: src
   dependencies:

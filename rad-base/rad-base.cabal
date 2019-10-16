@@ -1,0 +1,82 @@
+-- This file has been generated from package.yaml by hpack version 0.28.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 07477c660d947749e9be5cd5231d92da2e1ab8a245cbc6ece7ea63a038b1044e
+
+name:           rad-base
+version:        0.1.0.0
+homepage:       https://github.com/githubuser/rad-base#readme
+bug-reports:    https://github.com/githubuser/rad-base/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2019 Author name here
+license:        BSD3
+build-type:     Simple
+cabal-version:  >= 1.10
+extra-source-files:
+    README.md
+data-files:
+    rad/currency.rad
+    rad/examples/counter.rad
+    rad/monadic/issue-remote.rad
+    rad/monadic/issue.rad
+    rad/monadic/issues-upgrade.rad
+    rad/monadic/items.rad
+    rad/monadic/names-remote.rad
+    rad/monadic/names-upgrade.rad
+    rad/monadic/names.rad
+    rad/monadic/patch-remote.rad
+    rad/monadic/patch.rad
+    rad/monadic/project-remote.rad
+    rad/monadic/project.rad
+    rad/prelude.rad
+    rad/prelude/auth.rad
+    rad/prelude/basic.rad
+    rad/prelude/bool.rad
+    rad/prelude/cmd-parsing.rad
+    rad/prelude/dict.rad
+    rad/prelude/error-messages.rad
+    rad/prelude/exception.rad
+    rad/prelude/http.rad
+    rad/prelude/io-utils.rad
+    rad/prelude/io.rad
+    rad/prelude/key-management.rad
+    rad/prelude/lens.rad
+    rad/prelude/list.rad
+    rad/prelude/machine-remote.rad
+    rad/prelude/machine.rad
+    rad/prelude/maybe.rad
+    rad/prelude/nonces.rad
+    rad/prelude/patterns.rad
+    rad/prelude/ref.rad
+    rad/prelude/seq.rad
+    rad/prelude/set.rad
+    rad/prelude/state-machine.rad
+    rad/prelude/strings.rad
+    rad/prelude/test-eval.rad
+    rad/prelude/test.rad
+    rad/prelude/time.rad
+    rad/prelude/track-newness.rad
+    rad/prelude/util.rad
+    rad/prelude/validation.rad
+    rad/self-amending-store.rad
+    rad/tests/stub-primitives.rad
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/rad-base
+
+library
+  exposed-modules:
+      Lib
+      Radicle.Path
+  other-modules:
+      Paths_rad_base
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , directory
+    , filepath
+  default-language: Haskell2010

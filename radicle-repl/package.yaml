@@ -17,10 +17,10 @@ library:
     - bytestring
     - containers
     - directory
-    - filepath
     - haskeline
     - prettyprinter
     - process
+    - rad-base
     - text
     - time
 
