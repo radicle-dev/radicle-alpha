@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 07477c660d947749e9be5cd5231d92da2e1ab8a245cbc6ece7ea63a038b1044e
+-- hash: 409e6570916f66751c63a8e5aa5acef1f8f42daf71a943fd363be13a1a757d7d
 
 name:           rad-base
 version:        0.1.0.0
@@ -69,7 +69,6 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
       Radicle.Path
   other-modules:
       Paths_rad_base

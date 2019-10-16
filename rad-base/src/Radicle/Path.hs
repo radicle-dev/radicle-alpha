@@ -2,7 +2,7 @@
 module Radicle.Path where
 
 import           Paths_rad_base
-import           System.Directory (doesFileExist, setCurrentDirectory)
+import           System.Directory (doesFileExist)
 import           System.Environment (lookupEnv)
 import           System.FilePath (splitSearchPath, (</>))
 
