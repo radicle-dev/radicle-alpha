@@ -1,6 +1,6 @@
 dist
 cabal-dev
-radicle.cabal
+*.cabal
 *.o
 *.hi
 *.chi
