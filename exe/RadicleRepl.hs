@@ -5,7 +5,9 @@ import           Protolude hiding (TypeError, option, sourceFile)
 
 import           Options.Applicative
 
-import           Radicle
+import           Radicle.Internal
+import           Radicle.Internal.CLI (getHistoryFile)
+import           Radicle.Repl (repl)
 
 main :: IO ()
 main = do

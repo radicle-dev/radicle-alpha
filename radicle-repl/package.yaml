@@ -1,0 +1,60 @@
+name: radicle-repl
+version: '0.0.1'
+author: Monadic <team@monadic.xyz>
+maintainer: Monadic <team@monadic.xyz>
+license: MIT
+github: radicle-dev/radicle-repl
+
+dependencies:
+- base >= 4.7 && < 5
+- protolude
+- radicle-lang
+
+library:
+  source-dirs: src
+  dependencies:
+    - ansi-terminal
+    - bytestring
+    - containers
+    - directory
+    - haskeline
+    - prettyprinter
+    - process
+    - rad-base
+    - text
+    - time
+
+tests:
+  spec:
+    main: Main.hs
+    source-dirs:
+    - test/spec
+    dependencies:
+    - containers
+    - cryptonite
+    - interpolate
+    - protolude
+    - QuickCheck
+    - radicle-lang
+    - radicle-repl
+    - string-qq
+    - tasty
+    - tasty-hunit
+    - tasty-quickcheck
+    - text
+    - time
+    build-tools:
+    - tasty-discover
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+
+default-extensions:
+- ConstraintKinds
+- FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- LambdaCase
+- MultiParamTypeClasses
+- NoImplicitPrelude
+- OverloadedStrings
+- ScopedTypeVariables
+- TypeFamilies

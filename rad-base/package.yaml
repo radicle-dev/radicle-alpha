@@ -1,0 +1,22 @@
+name:                rad-base
+version:             0.1.0.0
+github:              "githubuser/rad-base"
+license:             BSD3
+author:              "Author name here"
+maintainer:          "example@example.com"
+copyright:           "2019 Author name here"
+
+extra-source-files:
+- README.md
+
+dependencies:
+- base >= 4.7 && < 5
+
+data-files:
+- rad/**/*.rad
+
+library:
+  source-dirs: src
+  dependencies:
+    - directory
+    - filepath

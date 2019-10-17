@@ -7,6 +7,7 @@ import           Protolude
 import qualified Data.Text as T
 import           Options.Applicative
 import           Radicle
+import           Radicle.Internal
 import           Text.Pandoc
 
 main :: IO ()

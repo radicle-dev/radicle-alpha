@@ -16,13 +16,13 @@
   - {name: [Data.ByteString.Lazy.Char8], as: L8}
 
 - functions:
-  - {name: unsafePerformIO, within: [Radicle.Tests, Radicle.Internal.TestCapabilities]}
+  - {name: unsafePerformIO, within: [Radicle.Repl.Tests, Radicle.Internal.TestCapabilities]}
 
 - warn: {lhs: foldl, rhs: foldl'}
 - warn: {lhs: return, rhs: pure}
 - warn: {lhs: ap, rhs: (<*>)}
 
-- ignore: {name: Use String, within: [Radicle.Internal.Parse]}
+- ignore: {name: Use String, within: [Radicle.Lang.Parse]}
 
 - ignore: {name: Redundant do}
 - ignore: {name: Use ++}

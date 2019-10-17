@@ -55,7 +55,12 @@ data RadDaemon = RadDaemon1 | RadDaemon2
 runTestM :: TestM a -> IO a
 runTestM testM = do
     projectDir <- getCurrentDirectory
-    setRadPath (projectDir </> "rad")
+
+    -- Get the RADPATH set from the outside or build
+    -- a default one from @$(pwd)/rad-base/rad@
+    radPath <- radPathEnvOrDefault projectDir
+    setRadPath radPath
+
     withSystemTempDirectory "radicle-test1" $ \dir ->
         let env = TestEnv
                 { homeDir = dir
@@ -207,11 +212,12 @@ executeCommand bin args inputLines = do
     searchPath <- liftIO $ getEnv "PATH"
     radDaemon <- liftIO $ fromMaybe "" <$> lookupEnv "RAD_DAEMON_API_URL"
     apiDaemon <- liftIO $ fromMaybe "" <$> lookupEnv "RAD_IPFS_API_URL"
+    radPath <- liftIO $ radPathEnvOrDefault projectDir
     let env = [ ("PATH", searchPath)
               , ("HOME", homeDir)
               , ("RAD_DAEMON_API_URL", radDaemon)
               , ("RAD_IPFS_API_URL", apiDaemon)
-              , ("RADPATH", projectDir </> "rad")
+              , ("RADPATH", radPath)
               ]
     let procSpec = (proc bin argsString) { env = Just env }
     let input = T.unpack $ T.intercalate "\n" inputLines
@@ -220,3 +226,8 @@ executeCommand bin args inputLines = do
 
 trimNewline :: Text -> Text
 trimNewline = T.dropWhileEnd (== '\n')
+
+radPathEnvOrDefault :: FilePath -> IO FilePath
+radPathEnvOrDefault projectDir = do
+  radPath <- lookupEnv "RADPATH"
+  pure $ fromMaybe (projectDir </> "rad-base" </> "rad") radPath

@@ -99,9 +99,11 @@ steps:
     - |
       set -euxo pipefail
 
-      stack test :doctest
-      stack test :spec
-      RADPATH="$(pwd)/rad" stack exec -- radicle test/all.rad
+      stack test radicle-lang:doctest
+      stack test radicle-lang:spec
+      stack test radicle-repl:spec
+      stack test radicle:spec
+      RADPATH="$(pwd)/rad-base/rad" stack exec -- radicle test/all.rad
 
   - id: "Lint (weeder)"
     waitFor: ["Build"]
@@ -152,7 +154,7 @@ steps:
 
       mv docs/source/reference.rst oldref
       mv docs/source/daemon-api.yaml oldswagger
-      RADPATH="$(pwd)/rad" stack exec radicle-ref-doc
+      RADPATH="$(pwd)/rad-base/rad" stack exec radicle-ref-doc
       if ! (diff oldref docs/source/reference.rst); then
         echo "Reference docs are not checked in"
         exit 1
@@ -173,7 +175,7 @@ steps:
     - |
       set -euxo pipefail
 
-      RADPATH="$(pwd)/rad" stack exec radicle-doc docs/source/guide/Basics.lrad
+      RADPATH="$(pwd)/rad-base/rad" stack exec radicle-doc docs/source/guide/Basics.lrad
 
   - id: "Integration tests"
     waitFor:
@@ -203,7 +205,7 @@ steps:
       echo '{"radicle": true}' | docker exec -i test_ipfs-test-network_1 ipfs dag put --pin
 
       export RAD_IPFS_API_URL=http://ipfs-test-network:5001
-      export RADPATH="$(pwd)/rad"
+      export RADPATH="$(pwd)/rad-base/rad"
       export IS_CI_NET="yes"
       stack test :e2e
 
