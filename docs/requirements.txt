@@ -30,5 +30,5 @@ sphinx-autobuild==0.7.1
 sphinxcontrib-websupport==1.1.0
 tornado==5.1.1
 typing==3.6.6
-urllib3==1.23
+urllib3==1.24.2
 watchdog==0.9.0
