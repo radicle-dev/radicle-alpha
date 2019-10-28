@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${STACK_ROOT}"
+: "${RADPATH}"
+: "${LOCAL_BIN}"
+
+set -x
+stack config set system-ghc --global true
+stack config set install-ghc --global false
+set +x
+
+echo "--- Install Linters"
+set -x
+stack --local-bin-path="$LOCAL_BIN" build stylish-haskell hlint weeder
+export PATH="${LOCAL_BIN}:${PATH}"
+set +x
+
+echo "--- Lint: Formatting"
+scripts/check-fmt.sh
+
+echo "--- Lint: HLint"
+set -x
+stack exec -- hlint .
+set +x
+
+echo "--- Build"
+set -x
+stack build --fast --pedantic --test --no-run-tests
+set +x
+
+echo "--- Test"
+set -x
+stack test radicle-lang:doctest
+stack test radicle-lang:spec
+stack test radicle-repl:spec
+stack test radicle:spec
+
+stack exec -- radicle test/all.rad
+set +x
+
+echo "--- Lint: Weeder"
+set -x
+stack exec -- weeder --match
+set +x
+
+echo "--- Reference Doc and Swagger Spec"
+set -x
+mv docs/source/reference.rst oldref
+mv docs/source/daemon-api.yaml oldswagger
+stack run radicle-ref-doc
+
+if ! (diff oldref docs/source/reference.rst); then
+  echo "Reference docs are not checked in"
+  exit 1
+fi
+if ! (diff oldswagger docs/source/daemon-api.yaml); then
+  echo "Daemon swagger spec is not checked in"
+  exit 1
+fi
+set +x
+
+echo "--- Check Tutorial"
+set -x
+stack run radicle-doc docs/source/guide/Basics.lrad
+set +x
