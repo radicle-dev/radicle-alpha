@@ -1,0 +1,18 @@
+env:
+  DOCKER_IMAGE: "gcr.io/opensourcecoin/radicle-build@sha256:874fbb260dd3e2636a08e14f60e80176774c45d4feebea1452da6d20affebccf"
+  DOCKER_FILE: .buildkite/docker/Dockerfile
+  # stack needs excessive amounts of tmp
+  BUILD_TMPDIR: /cache/tmp
+  BUILD_STACK_ROOT: /cache/.stack
+  BUILD_RADPATH: /build/rad-base/rad
+  BUILD_LOCAL_BIN: /cache/.local
+
+steps:
+- label: "Build"
+  commands:
+  - 'mkdir -p /cache/tmp'
+  - '.buildkite/build'
+  - 'rm -rf /cache/tmp'
+  agents:
+    production: "true"
+    platform: "linux"

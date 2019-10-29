@@ -43,15 +43,12 @@ steps:
 
       stack build \
         --no-terminal \
-        stylish-haskell hlint weeder
-
-      stack build \
-        --no-terminal \
         --test \
         --dependencies-only
 
   - id: "Save cache"
-    waitFor: ["Build deps"]
+    waitFor:
+    - "Build deps"
     name: $_BUILD_IMAGE
     entrypoint: 'bash'
     env:
@@ -63,16 +60,6 @@ steps:
 
       source scripts/ci.sh
       save-cache
-
-  - id: "Format"
-    name: $_BUILD_IMAGE
-    env: ['STACK_ROOT=/workspace/.stack']
-    args: ['./scripts/check-fmt.sh']
-
-  - id: "Lint"
-    name: $_BUILD_IMAGE
-    env: ['STACK_ROOT=/workspace/.stack']
-    args: ['stack', 'exec', '--', 'hlint', '.']
 
   - id: "Build"
     name: $_BUILD_IMAGE
@@ -86,34 +73,11 @@ steps:
       stack build \
         --no-terminal \
         --fast \
-        --pedantic \
-        --test \
-        --no-run-tests
-
-  - id: "Test"
-    name: $_BUILD_IMAGE
-    env: ['STACK_ROOT=/workspace/.stack']
-    entrypoint: bash
-    args:
-    - '-c'
-    - |
-      set -euxo pipefail
-
-      stack test radicle-lang:doctest
-      stack test radicle-lang:spec
-      stack test radicle-repl:spec
-      stack test radicle:spec
-      RADPATH="$(pwd)/rad-base/rad" stack exec -- radicle test/all.rad
-
-  - id: "Lint (weeder)"
-    waitFor: ["Build"]
-    name: $_BUILD_IMAGE
-    env: ["STACK_ROOT=/workspace/.stack"]
-    args: ["stack", "exec", "--", "weeder", "--match"]
+        --pedantic
 
   - id: "Build rad-daemon-radicle image"
     waitFor:
-    - "Test"
+    - "Build"
     name: $_BUILD_IMAGE
     entrypoint: bash
     env:
@@ -140,42 +104,6 @@ steps:
         docker push "$image_name"
         docker push "$image_name:$tag"
       fi
-
-  - id: "Build reference document and swagger spec"
-    waitFor:
-    - "Build"
-    name: $_BUILD_IMAGE
-    env: ['STACK_ROOT=/workspace/.stack']
-    entrypoint: bash
-    args:
-    - '-c'
-    - |
-      set -euxo pipefail
-
-      mv docs/source/reference.rst oldref
-      mv docs/source/daemon-api.yaml oldswagger
-      RADPATH="$(pwd)/rad-base/rad" stack exec radicle-ref-doc
-      if ! (diff oldref docs/source/reference.rst); then
-        echo "Reference docs are not checked in"
-        exit 1
-      fi
-      if ! (diff oldswagger docs/source/daemon-api.yaml); then
-        echo "Daemon swagger spec is not checked in"
-        exit 1
-      fi
-
-  - id: "Check tutorial"
-    waitFor:
-    - "Build"
-    name: $_BUILD_IMAGE
-    env: ['STACK_ROOT=/workspace/.stack']
-    entrypoint: bash
-    args:
-    - '-c'
-    - |
-      set -euxo pipefail
-
-      RADPATH="$(pwd)/rad-base/rad" stack exec radicle-doc docs/source/guide/Basics.lrad
 
   - id: "Integration tests"
     waitFor:

@@ -14,6 +14,6 @@ done
 formatted=$(mktemp -d "/tmp/oscoin-formatted.XXXXX")
 cp -R $base/* $formatted
 
+set -x
 stack exec -- stylish-haskell $formatted/**/**.hs --inplace
-
 diff -rq $base $formatted
