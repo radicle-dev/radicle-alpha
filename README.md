@@ -7,7 +7,7 @@ A peer-to-peer stack for code collaboration.
 - **programmable** : Ever wanted to tweak your code collaboration service? With Radicle each unit of functionality –a machine– is its own litte P2P program, written in the Radicle language. You can change them to suit your needs, or create entirely new ones.
 
 
-Radicle has a [webpage](http://www.radicle.xyz/) which contains a lot more information on `Radicle`.
+Radicle has a [webpage](http://radicle.xyz/) which contains a lot more information on `Radicle`.
 
 ## Installation
 
