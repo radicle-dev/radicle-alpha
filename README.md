@@ -1,3 +1,16 @@
+## :rotating_light: THIS PROJECT IS NOT ACTIVELY MAINTAINED :rotating_light:
+
+We are still developing Radicle, the main repositories are:
+
+* https://github.com/radicle-dev/radicle-link
+* https://github.com/radicle-dev/radicle-registry
+* https://github.com/radicle-dev/radicle-upstream
+
+Join us on [discourse](https://radicle.community) for updates, and if you want
+to get involved!
+
+---
+
 # Radicle
 
 A peer-to-peer stack for code collaboration.
@@ -7,7 +20,7 @@ A peer-to-peer stack for code collaboration.
 - **programmable** : Ever wanted to tweak your code collaboration service? With Radicle each unit of functionality –a machine– is its own litte P2P program, written in the Radicle language. You can change them to suit your needs, or create entirely new ones.
 
 
-Radicle has a [webpage](http://www.radicle.xyz/) which contains a lot more information on `Radicle`.
+Radicle has a [webpage](https://radicle.xyz/) which contains a lot more information on `Radicle`.
 
 ## Installation
 
