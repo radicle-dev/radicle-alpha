@@ -55,7 +55,7 @@ inputs received will be pinned.
   response.
 
 - *Send* some inputs:
-  
+
   ``POST /machines/:machine_id/send``
 
   .. code-block:: json
@@ -78,7 +78,7 @@ inputs received will be pinned.
      "nonce": "abc123",
      "expressions": ["(add-number 42)",
                       "(add-number 43)"]}
-  
+
   to the IPFS pubsub topic associated to the machine and wait for a
   message with the same nonce:
 
@@ -89,11 +89,11 @@ inputs received will be pinned.
 
   If no such message is received within a set time frame it will return
   an error response.
-  
+
 - .. _newMachine:
 
   *New* (IPFS) machine:
-  
+
   ``POST /machines/new``
 
   Creates a new empty machines on IPFS and returns the resulting
@@ -123,7 +123,23 @@ inputs received will be pinned.
   updated IPNS record. If this is successful, the daemon posts a
   message of type ``"new_input"`` with the same nonce to the
   machines's pubsub topic.
-  
+
+**Inaccessible computers and relayers**
+
+Many computers will be behind firewalls, or NATs that IPFS/pubsub cannot
+traverse. People who host writer chains on such computers can use
+publicly-accessible daemons ("relayers") to mitigate this problem. By querying
+their own RSMs via such daemons, they will:
+
+- Initiate pinning by a publicly-available computer; and
+- Make the publicly-available computer join their pubsub channel, thus acting
+  as a relay.
+
+This in turn allows both reading and (while the writer computer is online)
+writing into the RSM, even though it be behind a firewall.
+
+
+
 Drawbacks
 ----------
 
@@ -132,6 +148,8 @@ Drawbacks
 - More installation steps for users.
 
 - Depends on the IPFS daemon.
+
+- There are possible attacks on relayers that cause them to keep too much data.
 
 Alternatives
 -------------
